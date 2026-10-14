@@ -1,0 +1,207 @@
+{
+  "title": "Arscity CC0 PBR Texture Manifest",
+  "generatedAt": "2026-10-14T07:42:46.682Z",
+  "resolution": "1K",
+  "format": "JPG",
+  "materials": {
+    "aspal": {
+      "name": "aspal",
+      "label": "Aspal Jalan (Asphalt Road)",
+      "assetId": "Asphalt010",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Asphalt010",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 4,
+      "files": {
+        "color": "/assets/textures/aspal/color.jpg",
+        "normal": "/assets/textures/aspal/normal.jpg",
+        "roughness": "/assets/textures/aspal/roughness.jpg"
+      }
+    },
+    "beton": {
+      "name": "beton",
+      "label": "Beton Struktural (Concrete)",
+      "assetId": "Concrete034",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Concrete034",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 3,
+      "files": {
+        "color": "/assets/textures/beton/color.jpg",
+        "normal": "/assets/textures/beton/normal.jpg",
+        "roughness": "/assets/textures/beton/roughness.jpg"
+      }
+    },
+    "bata_merah": {
+      "name": "bata_merah",
+      "label": "Bata Merah Expose (Red Brick)",
+      "assetId": "Bricks059",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Bricks059",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 2,
+      "files": {
+        "color": "/assets/textures/bata_merah/color.jpg",
+        "normal": "/assets/textures/bata_merah/normal.jpg",
+        "roughness": "/assets/textures/bata_merah/roughness.jpg",
+        "ao": "/assets/textures/bata_merah/ao.jpg"
+      }
+    },
+    "plester": {
+      "name": "plester",
+      "label": "Plester Dinding Halus (Plaster)",
+      "assetId": "Plaster001",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Plaster001",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 3,
+      "files": {
+        "color": "/assets/textures/plester/color.jpg",
+        "normal": "/assets/textures/plester/normal.jpg",
+        "roughness": "/assets/textures/plester/roughness.jpg"
+      }
+    },
+    "genteng": {
+      "name": "genteng",
+      "label": "Genteng Tanah Liat (Clay Roof Tiles)",
+      "assetId": "RoofingTiles001",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=RoofingTiles001",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 2,
+      "files": {
+        "color": "/assets/textures/genteng/color.jpg",
+        "normal": "/assets/textures/genteng/normal.jpg",
+        "roughness": "/assets/textures/genteng/roughness.jpg"
+      }
+    },
+    "kayu": {
+      "name": "kayu",
+      "label": "Kayu Alami / Parket (Natural Wood)",
+      "assetId": "Wood051",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Wood051",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 2.5,
+      "files": {
+        "color": "/assets/textures/kayu/color.jpg",
+        "normal": "/assets/textures/kayu/normal.jpg",
+        "roughness": "/assets/textures/kayu/roughness.jpg"
+      }
+    },
+    "rumput": {
+      "name": "rumput",
+      "label": "Rumput Taman Tropis (Grass)",
+      "assetId": "Grass001",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Grass001",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 4,
+      "files": {
+        "color": "/assets/textures/rumput/color.jpg",
+        "normal": "/assets/textures/rumput/normal.jpg",
+        "roughness": "/assets/textures/rumput/roughness.jpg",
+        "ao": "/assets/textures/rumput/ao.jpg"
+      }
+    },
+    "paving": {
+      "name": "paving",
+      "label": "Paving Block Trotoar (Paving Stones)",
+      "assetId": "PavingStones038",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=PavingStones038",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 2,
+      "files": {
+        "color": "/assets/textures/paving/color.jpg",
+        "normal": "/assets/textures/paving/normal.jpg",
+        "roughness": "/assets/textures/paving/roughness.jpg",
+        "ao": "/assets/textures/paving/ao.jpg"
+      }
+    },
+    "trotoar": {
+      "name": "trotoar",
+      "label": "Plat Trotoar Beton (Sidewalk Slabs)",
+      "assetId": "PavingStones067",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=PavingStones067",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 2,
+      "files": {
+        "color": "/assets/textures/trotoar/color.jpg",
+        "normal": "/assets/textures/trotoar/normal.jpg",
+        "roughness": "/assets/textures/trotoar/roughness.jpg",
+        "ao": "/assets/textures/trotoar/ao.jpg"
+      }
+    },
+    "tanah": {
+      "name": "tanah",
+      "label": "Tanah Subur / Resapan (Soil Ground)",
+      "assetId": "Ground003",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Ground003",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 4,
+      "files": {
+        "color": "/assets/textures/tanah/color.jpg",
+        "normal": "/assets/textures/tanah/normal.jpg",
+        "roughness": "/assets/textures/tanah/roughness.jpg"
+      }
+    },
+    "batu_alam": {
+      "name": "batu_alam",
+      "label": "Batu Alam Plinth (Natural Stone Rock)",
+      "assetId": "Rock026",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Rock026",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 3,
+      "files": {
+        "color": "/assets/textures/batu_alam/color.jpg",
+        "normal": "/assets/textures/batu_alam/normal.jpg",
+        "roughness": "/assets/textures/batu_alam/roughness.jpg",
+        "ao": "/assets/textures/batu_alam/ao.jpg"
+      }
+    },
+    "metal": {
+      "name": "metal",
+      "label": "Metal Lembaran / Seng Gelap (Dark Metal/Zinc)",
+      "assetId": "Metal028",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Metal028",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 2,
+      "files": {
+        "color": "/assets/textures/metal/color.jpg",
+        "normal": "/assets/textures/metal/normal.jpg",
+        "roughness": "/assets/textures/metal/roughness.jpg"
+      }
+    },
+    "air": {
+      "name": "air",
+      "label": "Permukaan Air Genangan / Sungai (Water Normals)",
+      "assetId": "WaterNormals",
+      "source": "threejs-cc0",
+      "license": "MIT / CC0 Equivalent",
+      "sourceUrl": "https://github.com/mrdoob/three.js/tree/dev/examples/textures",
+      "downloadDate": "2026-10-14",
+      "uvScaleM": 4,
+      "files": {
+        "normal": "/assets/textures/air/normal.jpg",
+        "color": "/assets/textures/air/color.jpg"
+      }
+    }
+  }
+}
