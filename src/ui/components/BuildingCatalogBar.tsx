@@ -1,20 +1,97 @@
 import React, { useState } from 'react';
 import { useUIStore } from '../state/useUIStore';
-import { PREFAB_CATALOG } from '../../buildings/PrefabTypes';
-import { RotateCw, Home, Building2, Landmark, LayoutGrid, PenTool, Check, X } from 'lucide-react';
+import { BuildingCatalogRegistry, BuildingCategory, BuildingCatalogItem } from '../../buildings/BuildingCatalogRegistry';
+import { UpdateBuildingParamCommand } from '../../core/commands/CityCommands';
+import {
+  RotateCw,
+  Home,
+  Building2,
+  Landmark,
+  LayoutGrid,
+  PenTool,
+  Check,
+  X,
+  Search,
+  Coffee,
+  Utensils,
+  ShoppingBag,
+  Store,
+  GraduationCap,
+  Library,
+  BookOpen,
+  Compass,
+  Hotel,
+  Bus,
+  Train,
+  Trees,
+  Warehouse,
+  Flame,
+  Cross,
+  Boxes,
+  Film
+} from 'lucide-react';
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  Home,
+  Building2,
+  Landmark,
+  LayoutGrid,
+  Coffee,
+  Utensils,
+  ShoppingBag,
+  Store,
+  GraduationCap,
+  Library,
+  BookOpen,
+  Compass,
+  Hotel,
+  Bus,
+  Train,
+  Trees,
+  Warehouse,
+  Flame,
+  Cross,
+  Boxes,
+  Film
+};
+
+function renderCatalogIcon(iconName: string, size = 14) {
+  const IconComponent = ICON_MAP[iconName] || Building2;
+  return <IconComponent size={size} strokeWidth={1.75} />;
+}
 
 export const BuildingCatalogBar: React.FC = () => {
   const { activeTool, engine, setShowCustomBuildingStudio } = useUIStore();
   const [mode, setMode] = useState<'prefab' | 'custom'>('prefab');
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<'all' | BuildingCategory>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedKey, setSelectedKey] = useState<string>('house_36');
   const [isDrawingFootprint, setIsDrawingFootprint] = useState<boolean>(false);
 
   if (activeTool !== 'build') return null;
 
-  const presets = Object.values(PREFAB_CATALOG).filter(
-    (p) => activeCategory === 'all' || p.category === activeCategory
-  );
+  const allBuildings = BuildingCatalogRegistry.getAllBuildings();
+  const totalCount = allBuildings.length;
+
+  const categories: Array<{ id: 'all' | BuildingCategory; label: string; icon: React.ElementType }> = [
+    { id: 'all', label: `Semua (${totalCount})`, icon: LayoutGrid },
+    { id: 'hunian', label: 'Hunian', icon: Home },
+    { id: 'kuliner_kafe', label: 'Kafe & Kuliner', icon: Coffee },
+    { id: 'mall_ritel', label: 'Mall & Ritel', icon: ShoppingBag },
+    { id: 'kampus_kos', label: 'Kampus & Kos', icon: GraduationCap },
+    { id: 'budaya_hotel', label: 'Budaya & Hotel', icon: Hotel },
+    { id: 'publik_hijau', label: 'Publik & Hijau', icon: Trees },
+  ];
+
+  const filteredBuildings = allBuildings.filter((item) => {
+    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
+    const matchesSearch =
+      searchQuery.trim() === '' ||
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.id.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   const handleSelectPreset = (key: string) => {
     setSelectedKey(key);
@@ -59,8 +136,14 @@ export const BuildingCatalogBar: React.FC = () => {
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
-          maxWidth: '820px',
-          width: '92%'
+          maxWidth: '860px',
+          width: '94%',
+          background: 'rgba(15, 23, 42, 0.86)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.14)',
+          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
+          color: '#F8FAFC'
         }}
       >
         {/* Top Switcher: Prefab vs Desainer Kustom */}
@@ -119,68 +202,244 @@ export const BuildingCatalogBar: React.FC = () => {
         {/* Mode 1: Prefab Catalog */}
         {mode === 'prefab' && (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {[
-                { id: 'all', label: 'Semua', icon: LayoutGrid },
-                { id: 'residential', label: 'Hunian', icon: Home },
-                { id: 'commercial', label: 'Komersial', icon: Building2 },
-                { id: 'public', label: 'Fasilitas Umum', icon: Landmark }
-              ].map((cat) => {
-                const Icon = cat.icon;
-                const isSel = activeCategory === cat.id;
+            {/* Category Filter Pills and Search */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+                flexWrap: 'nowrap'
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  overflowX: 'auto',
+                  paddingBottom: '2px',
+                  scrollbarWidth: 'none',
+                  flex: 1,
+                  minWidth: 0
+                }}
+              >
+                {categories.map((cat) => {
+                  const Icon = cat.icon;
+                  const isSel = activeCategory === cat.id;
 
-                return (
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setActiveCategory(cat.id)}
+                      className={`segmented-item ${isSel ? 'active' : ''}`}
+                      style={{
+                        fontSize: '11px',
+                        padding: '3px 8px',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        flexShrink: 0,
+                        color: isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.85)'
+                      }}
+                    >
+                      <Icon size={12} strokeWidth={1.75} />
+                      <span>{cat.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search Input */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  position: 'relative',
+                  width: '135px',
+                  flexShrink: 0
+                }}
+              >
+                <Search
+                  size={12}
+                  strokeWidth={1.75}
+                  style={{
+                    position: 'absolute',
+                    left: '8px',
+                    color: 'var(--label-secondary)',
+                    pointerEvents: 'none'
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Cari Bangunan..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    padding: '3px 22px 3px 26px',
+                    fontSize: '11px',
+                    borderRadius: '8px',
+                    width: '100%',
+                    background: 'var(--surface)',
+                    border: '0.5px solid var(--separator)',
+                    color: 'var(--label)',
+                    outline: 'none'
+                  }}
+                />
+                {searchQuery && (
                   <button
-                    key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`segmented-item ${isSel ? 'active' : ''}`}
-                    style={{ fontSize: '11px', padding: '3px 8px' }}
+                    onClick={() => setSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '6px',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--label-secondary)',
+                      cursor: 'pointer',
+                      padding: 0,
+                      display: 'flex'
+                    }}
+                    title="Hapus Pencarian"
                   >
-                    <Icon size={13} strokeWidth={1.75} />
-                    <span>{cat.label}</span>
+                    <X size={12} strokeWidth={2} />
                   </button>
-                );
-              })}
+                )}
+              </div>
             </div>
 
+            {/* Horizontal Scrollable Building Cards */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 overflowX: 'auto',
-                paddingBottom: '2px'
+                paddingBottom: '4px',
+                minHeight: '58px'
               }}
             >
-              {presets.map((p) => {
-                const isSel = selectedKey === p.key;
+              {filteredBuildings.length === 0 ? (
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--label-secondary)',
+                    padding: '8px 12px'
+                  }}
+                >
+                  Tidak ada bangunan yang cocok dengan kata kunci &ldquo;{searchQuery}&rdquo;.
+                </div>
+              ) : (
+                filteredBuildings.map((p) => {
+                  const isSel = selectedKey === p.id;
 
-                return (
-                  <button
-                    key={p.key}
-                    onClick={() => handleSelectPreset(p.key)}
-                    style={{
-                      minWidth: '150px',
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      borderRadius: '12px',
-                      border: isSel ? '1.5px solid var(--accent)' : '0.5px solid var(--separator)',
-                      background: isSel ? 'var(--fill-control-active)' : 'var(--surface)',
-                      color: 'var(--label)',
-                      transition: 'all 120ms ease-out',
-                      outline: 'none'
-                    }}
-                  >
-                    <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '2px' }}>
-                      {p.name}
-                    </div>
-                    <div className="tabular-nums" style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                      {p.defaultWidth}×{p.defaultLength}m • {p.defaultFloorCount} Lt
-                    </div>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        handleSelectPreset(p.id);
+                        const selBld = engine?.buildingManager.getSelectedBuilding();
+                        if (selBld && engine) {
+                          engine.buildingManager.revertBuildingPreview(selBld.id);
+                          engine.executeCommand(
+                            new UpdateBuildingParamCommand(
+                              engine,
+                              selBld.id,
+                              {
+                                width: selBld.width,
+                                length: selBld.length,
+                                floorCount: selBld.floorCount,
+                                roofType: selBld.roofType
+                              },
+                              {
+                                width: p.defaultWidth,
+                                length: p.defaultLength ?? p.defaultDepth,
+                                floorCount: p.defaultFloors ?? p.defaultFloorCount ?? 1,
+                                roofType: (p.defaultRoofType || p.roofStyle || selBld.roofType) as any
+                              },
+                              `Terapkan Preset ${p.name}`
+                            )
+                          );
+                        }
+                      }}
+                      onMouseEnter={() => {
+                        const selBld = engine?.buildingManager.getSelectedBuilding();
+                        if (selBld && engine) {
+                          engine.buildingManager.previewBuildingChanges(selBld.id, {
+                            width: p.defaultWidth,
+                            length: p.defaultLength ?? p.defaultDepth,
+                            floorCount: p.defaultFloors ?? p.defaultFloorCount ?? 1,
+                            roofType: (p.defaultRoofType || p.roofStyle || selBld.roofType) as any
+                          });
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        const selBld = engine?.buildingManager.getSelectedBuilding();
+                        if (selBld && engine) {
+                          engine.buildingManager.revertBuildingPreview(selBld.id);
+                        }
+                      }}
+                      title={`${p.name}: ${p.description}`}
+                      style={{
+                        minWidth: '160px',
+                        maxWidth: '200px',
+                        padding: '6px 10px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        borderRadius: '12px',
+                        border: isSel ? '1.5px solid var(--accent)' : '0.5px solid var(--separator)',
+                        background: isSel ? 'var(--fill-control-active)' : 'var(--surface)',
+                        color: 'var(--label)',
+                        transition: 'all 120ms ease-out',
+                        outline: 'none',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '3px',
+                        flexShrink: 0
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: isSel ? 'var(--accent)' : 'var(--label-secondary)',
+                            display: 'inline-flex',
+                            flexShrink: 0
+                          }}
+                        >
+                          {renderCatalogIcon(p.icon, 13)}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {p.name}
+                        </span>
+                      </div>
+                      <div
+                        className="tabular-nums"
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--label-secondary)',
+                          paddingLeft: '19px'
+                        }}
+                      >
+                        {p.defaultWidth}×{p.defaultDepth}m • {p.defaultFloors} Lt
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </>
         )}

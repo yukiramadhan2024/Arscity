@@ -12,6 +12,24 @@ export class ProceduralTextureGen {
    * Helper to create canvas of given size
    */
   private static createCanvas(width: number, height: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
+    if (typeof document === 'undefined') {
+      const mockCanvas: any = { width, height };
+      const mockCtx: any = new Proxy({
+        fillStyle: '',
+        strokeStyle: '',
+        lineWidth: 1,
+        getImageData: () => ({ data: new Uint8ClampedArray(width * height * 4) }),
+        createImageData: () => ({ data: new Uint8ClampedArray(width * height * 4) }),
+        createLinearGradient: () => ({ addColorStop: () => {} }),
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+      }, {
+        get(target, prop) {
+          if (prop in target) return (target as any)[prop];
+          return () => {};
+        }
+      });
+      return { canvas: mockCanvas, ctx: mockCtx };
+    }
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -511,6 +529,408 @@ export class ProceduralTextureGen {
     texture.colorSpace = THREE.SRGBColorSpace;
     this.cache.set(key, texture);
     return texture;
+  }
+
+  /**
+   * Procedural Asphalt Roughness Variation Map
+   */
+  public static getAsphaltRoughnessTexture(size: number = 512): THREE.CanvasTexture {
+    const key = `asphalt_roughness_${size}`;
+    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
+
+    const { canvas, ctx } = this.createCanvas(size, size);
+    ctx.fillStyle = '#b0b0b0';
+    ctx.fillRect(0, 0, size, size);
+
+    const imgData = ctx.getImageData(0, 0, size, size);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const n = (Math.random() - 0.5) * 50;
+      const val = Math.max(140, Math.min(235, 185 + n));
+      data[i] = val;
+      data[i + 1] = val;
+      data[i + 2] = val;
+      data[i + 3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    this.cache.set(key, texture);
+    return texture;
+  }
+
+  /**
+   * Procedural Bright Yellow Tactile Paving Block (Pemandu Disabilitas)
+   */
+  public static getTactilePavingTexture(size: number = 256): THREE.CanvasTexture {
+    const key = `tactile_paving_${size}`;
+    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
+
+    const { canvas, ctx } = this.createCanvas(size, size);
+
+    // Warm vibrant yellow base (#FACC15)
+    ctx.fillStyle = '#eab308';
+    ctx.fillRect(0, 0, size, size);
+
+    // Embossed directional guiding bars
+    const bars = 4;
+    const barWidth = size / (bars * 2);
+    for (let b = 0; b < bars; b++) {
+      const x = b * barWidth * 2 + barWidth * 0.5;
+      const grad = ctx.createLinearGradient(x, 0, x + barWidth, 0);
+      grad.addColorStop(0, '#fef08a'); // Highlight
+      grad.addColorStop(0.5, '#facc15'); // Peak
+      grad.addColorStop(1, '#ca8a04'); // Shadow
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, 0, barWidth, size);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    this.cache.set(key, texture);
+    return texture;
+  }
+
+  /**
+   * Procedural Clean White Stencil Road Text "Malioboro"
+   */
+  public static getMalioboroRoadMarkingTexture(): THREE.CanvasTexture {
+    const key = 'road_text_malioboro';
+    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
+
+    const { canvas, ctx } = this.createCanvas(512, 128);
+    ctx.clearRect(0, 0, 512, 128);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 58px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.letterSpacing = '8px';
+    ctx.fillText('MALIOBORO', 256, 64);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    this.cache.set(key, texture);
+    return texture;
+  }
+
+  private static thumbnailDataUrlCache: Map<string, string> = new Map();
+
+  /**
+   * Procedural 2D Architectural Atmosphere Thumbnail Generator for Dock Visual Cards
+   */
+  public static getPresetCardThumbnail(preset: 'joglo' | 'cafe' | 'noodle' | 'garden'): string {
+    if (this.thumbnailDataUrlCache.has(preset)) {
+      return this.thumbnailDataUrlCache.get(preset)!;
+    }
+
+    const { canvas, ctx } = this.createCanvas(280, 160);
+    const w = 280;
+    const h = 160;
+
+    if (preset === 'joglo') {
+      // Golden Hour Twilight Sky
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+      skyGrad.addColorStop(0, '#1e1b4b');
+      skyGrad.addColorStop(0.4, '#c2410c');
+      skyGrad.addColorStop(0.7, '#f59e0b');
+      skyGrad.addColorStop(1, '#fde68a');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Sun glow
+      const sunGrad = ctx.createRadialGradient(210, 85, 2, 210, 85, 45);
+      sunGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+      sunGrad.addColorStop(0.3, 'rgba(253, 224, 71, 0.6)');
+      sunGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = sunGrad;
+      ctx.beginPath();
+      ctx.arc(210, 85, 45, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Stone Courtyard Ground
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, 125, w, 35);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(40, 120, 200, 6);
+
+      // Joglo Roof Silhouette
+      ctx.fillStyle = '#78350f';
+      ctx.beginPath();
+      // Lower roof tumpang
+      ctx.moveTo(35, 95);
+      ctx.lineTo(85, 75);
+      ctx.lineTo(195, 75);
+      ctx.lineTo(245, 95);
+      ctx.lineTo(240, 100);
+      ctx.lineTo(40, 100);
+      ctx.closePath();
+      ctx.fill();
+
+      // Upper Brunjung roof
+      ctx.fillStyle = '#9a3412';
+      ctx.beginPath();
+      ctx.moveTo(80, 75);
+      ctx.lineTo(125, 38);
+      ctx.lineTo(155, 38);
+      ctx.lineTo(200, 75);
+      ctx.closePath();
+      ctx.fill();
+
+      // Ridge cap
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(123, 36, 34, 3);
+
+      // Pillars & Warm Uplight
+      ctx.fillStyle = '#451a03';
+      const pillars = [65, 105, 175, 215];
+      pillars.forEach((px) => {
+        ctx.fillRect(px - 3, 100, 6, 22);
+
+        // Warm uplight flare
+        const upGrad = ctx.createRadialGradient(px, 122, 1, px, 122, 12);
+        upGrad.addColorStop(0, 'rgba(254, 240, 138, 0.9)');
+        upGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+        ctx.fillStyle = upGrad;
+        ctx.beginPath();
+        ctx.arc(px, 122, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#451a03';
+      });
+    } else if (preset === 'cafe') {
+      // Modern Dusk Twilight
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+      skyGrad.addColorStop(0, '#090d16');
+      skyGrad.addColorStop(0.7, '#1e293b');
+      skyGrad.addColorStop(1, '#334155');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Ground
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 128, w, 32);
+
+      // Warm Interior Glow behind glass
+      const glowGrad = ctx.createRadialGradient(140, 95, 5, 140, 95, 70);
+      glowGrad.addColorStop(0, 'rgba(254, 240, 138, 0.95)');
+      glowGrad.addColorStop(0.5, 'rgba(251, 191, 36, 0.45)');
+      glowGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(45, 60, 190, 68);
+
+      // Modern Cantilever Black Canopy
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(35, 52, 210, 10);
+
+      // Vertical Timber Louvers
+      ctx.fillStyle = 'rgba(180, 83, 9, 0.85)';
+      for (let lx = 50; lx < 95; lx += 6) {
+        ctx.fillRect(lx, 62, 3, 66);
+      }
+
+      // Barista Counter & Pendant Lamps
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(110, 105, 80, 23);
+
+      // Pendant lights
+      [125, 150, 175].forEach((lx) => {
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(lx, 62);
+        ctx.lineTo(lx, 78);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(lx, 80, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Neon Sign "KOPI & RASA"
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.fillText('KOPI & RASA', 115, 48);
+    } else if (preset === 'noodle') {
+      // Industrial Twilight
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+      skyGrad.addColorStop(0, '#09090b');
+      skyGrad.addColorStop(0.6, '#18181b');
+      skyGrad.addColorStop(1, '#27272a');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Ground
+      ctx.fillStyle = '#09090b';
+      ctx.fillRect(0, 132, w, 28);
+
+      // 2-Story Steel Frame Structure
+      ctx.fillStyle = '#09090b';
+      ctx.fillRect(50, 35, 180, 97);
+
+      // 2-Story Warm Dining Light
+      ctx.fillStyle = 'rgba(254, 215, 170, 0.4)';
+      ctx.fillRect(60, 42, 100, 38); // Floor 2
+      ctx.fillRect(60, 88, 160, 42); // Floor 1
+
+      // Black I-beam Columns & Balcony
+      ctx.fillStyle = '#18181b';
+      ctx.fillRect(56, 35, 6, 97);
+      ctx.fillRect(162, 35, 6, 97);
+      ctx.fillRect(224, 35, 6, 97);
+      ctx.fillRect(50, 82, 180, 6); // Mid floor slab
+
+      // External Staircase
+      ctx.strokeStyle = '#71717a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(226, 82);
+      ctx.lineTo(255, 132);
+      ctx.stroke();
+
+      // Balcony Planter Greenery
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(168, 80, 56, 4);
+      for (let bx = 170; bx < 220; bx += 8) {
+        ctx.beginPath();
+        ctx.arc(bx, 78, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Signage "MIE NUSANTARA"
+      ctx.fillStyle = '#f97316';
+      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.fillText('MIE NUSANTARA', 70, 30);
+    } else {
+      // Garden Landscape
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+      skyGrad.addColorStop(0, '#0284c7');
+      skyGrad.addColorStop(0.5, '#38bdf8');
+      skyGrad.addColorStop(1, '#bae6fd');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Green Hills & Lawn
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath();
+      ctx.ellipse(80, 155, 160, 45, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#16a34a';
+      ctx.beginPath();
+      ctx.ellipse(200, 160, 140, 50, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Lush Trembesi Tree Trunk & Branches
+      ctx.fillStyle = '#452e1e';
+      ctx.fillRect(135, 80, 10, 55);
+      ctx.beginPath();
+      ctx.moveTo(140, 95);
+      ctx.lineTo(110, 75);
+      ctx.moveTo(140, 90);
+      ctx.lineTo(170, 70);
+      ctx.strokeStyle = '#452e1e';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Multi-cluster Canopy
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath();
+      ctx.arc(140, 55, 34, 0, Math.PI * 2);
+      ctx.arc(110, 62, 26, 0, Math.PI * 2);
+      ctx.arc(170, 60, 28, 0, Math.PI * 2);
+      ctx.fill();
+
+      // SSS Sunlight Highlight
+      ctx.fillStyle = '#84cc16';
+      ctx.beginPath();
+      ctx.arc(145, 48, 22, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Stepping Stones
+      ctx.fillStyle = '#94a3b8';
+      [70, 105, 145, 185].forEach((sx, i) => {
+        ctx.beginPath();
+        ctx.ellipse(sx, 142 + (i % 2) * 5, 12, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    const dataUrl = canvas.toDataURL('image/png');
+    this.thumbnailDataUrlCache.set(preset, dataUrl);
+    return dataUrl;
+  }
+
+  /**
+   * Procedural Thumbnail for Building Catalog items
+   */
+  public static getBuildingThumbnail(id: string, category: string, _name: string): string {
+    const cacheKey = `bld_thumb_${id}`;
+    if (this.thumbnailDataUrlCache.has(cacheKey)) {
+      return this.thumbnailDataUrlCache.get(cacheKey)!;
+    }
+
+    const { canvas, ctx } = this.createCanvas(160, 100);
+    const w = 160;
+    const h = 100;
+
+    // Sky background gradient according to category
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+    if (category === 'hunian') {
+      skyGrad.addColorStop(0, '#1e293b');
+      skyGrad.addColorStop(0.6, '#334155');
+      skyGrad.addColorStop(1, '#475569');
+    } else if (category === 'kuliner_kafe') {
+      skyGrad.addColorStop(0, '#0f172a');
+      skyGrad.addColorStop(0.6, '#1e1b4b');
+      skyGrad.addColorStop(1, '#312e81');
+    } else if (category === 'mall_ritel') {
+      skyGrad.addColorStop(0, '#0c4a6e');
+      skyGrad.addColorStop(0.7, '#0284c7');
+      skyGrad.addColorStop(1, '#38bdf8');
+    } else if (category === 'budaya_hotel') {
+      skyGrad.addColorStop(0, '#431407');
+      skyGrad.addColorStop(0.6, '#7c2d12');
+      skyGrad.addColorStop(1, '#b45309');
+    } else {
+      skyGrad.addColorStop(0, '#064e3b');
+      skyGrad.addColorStop(0.7, '#047857');
+      skyGrad.addColorStop(1, '#10b981');
+    }
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Ground
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 78, w, 22);
+
+    // Building massing silhouette
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillRect(35, 42, 90, 36);
+
+    // Warm lit windows / facade
+    ctx.fillStyle = '#fde047';
+    for (let x = 45; x <= 105; x += 22) {
+      ctx.fillRect(x, 48, 12, 10);
+      ctx.fillRect(x, 62, 12, 10);
+    }
+
+    // Roof shape
+    ctx.fillStyle = category === 'budaya_hotel' ? '#ea580c' : '#38bdf8';
+    ctx.beginPath();
+    ctx.moveTo(30, 42);
+    ctx.lineTo(80, 24);
+    ctx.lineTo(130, 42);
+    ctx.closePath();
+    ctx.fill();
+
+    const dataUrl = canvas.toDataURL('image/png');
+    this.thumbnailDataUrlCache.set(cacheKey, dataUrl);
+    return dataUrl;
   }
 }
 

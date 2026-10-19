@@ -20,7 +20,7 @@ export const ARCHITECTURAL_STYLES: ArchitecturalStyle[] = [
     id: 'jawa-tradisional',
     name: 'Tradisional Jawa (Joglo & Limasan)',
     originEra: 'Abad ke-14 - Sekarang',
-    badge: '◈ Warisan Nusantara',
+    badge: 'WARISAN NUSANTARA',
     description: 'Arsitektur vernakular adiluhung Jawa yang menyatu sempurna dengan iklim tropis lembap melalui atap bertingkat tajam dan struktur soko guru kayu jati.',
     historicalContext: 'Berevolusi berabad-abad di tanah Jawa untuk merespon gempa bumi melalui konstruksi tumpangsari pasak kayu fleksibel, serta sirkulasi hawa panas alami yang keluar melalui puncak atap brunjung tinggi.',
     signatureFeatures: [
@@ -39,7 +39,7 @@ export const ARCHITECTURAL_STYLES: ArchitecturalStyle[] = [
     id: 'kolonial-indische',
     name: 'Kolonial Indische (Hindia Belanda)',
     originEra: 'Akhir Abad ke-19 - 1940-an',
-    badge: '◇ Akulturasi Klasik',
+    badge: 'AKULTURASI KLASIK',
     description: 'Perkawinan antara estetika neo-klasik Eropa dengan kearifan lokal iklim tropis Hindia Belanda.',
     historicalContext: 'Para arsitek Belanda (seperti Maclaine Pont dan Thomas Karsten) menyadari bangunan gaya Eropa tertutup tidak cocok di Nusantara, sehingga melahirkan gaya Indische dengan langit-langit setinggi 4-5 meter, beranda depan luas, dan jendela krepyak jalusi ganda.',
     signatureFeatures: [
@@ -58,7 +58,7 @@ export const ARCHITECTURAL_STYLES: ArchitecturalStyle[] = [
     id: 'modern-tropis',
     name: 'Modern Tropis Kontemporer',
     originEra: '1980-an - Sekarang',
-    badge: '▲ Desain Berkelanjutan',
+    badge: 'DESAIN BERKELANJUTAN',
     description: 'Gaya arsitektur masa kini yang memadukan garis geometris bersih dengan teknologi fasad pasif penangkal iklim tropis.',
     historicalContext: 'Merespon pemanasan global dan krisis energi, arsitektur modern tropis meminimalisir konsumsi listrik pendingin ruangan melalui secondary skin, void tengah berventilasi, dan integrasi taman hijau dalam ruangan.',
     signatureFeatures: [
@@ -77,7 +77,7 @@ export const ARCHITECTURAL_STYLES: ArchitecturalStyle[] = [
     id: 'minimalis-tropis',
     name: 'Minimalis Tropis Efisien',
     originEra: '2000-an - Sekarang',
-    badge: '■ Fungsional & Padat',
+    badge: 'FUNGSIONAL & PADAT',
     description: 'Pendekatan "less is more" yang disesuaikan untuk lahan perkotaan kompak di Indonesia dengan pemanfaatan ruang yang maksimal.',
     historicalContext: 'Lahir dari kebutuhan perumahan urban modern (seperti Rumah Tipe 36 dan 54) yang memerlukan biaya konstruksi efisien namun tetap sehat dengan sirkulasi cahaya dan udara optimal.',
     signatureFeatures: [
@@ -96,7 +96,7 @@ export const ARCHITECTURAL_STYLES: ArchitecturalStyle[] = [
     id: 'industrial-tropis',
     name: 'Industrial Tropis Urban',
     originEra: '2015-an - Sekarang',
-    badge: '● Ekspos & Karakter',
+    badge: 'EKSPOS & KARAKTER',
     description: 'Estetika material ekspos yang jujur dipadukan dengan penghijauan vertikal melimpah untuk kafe, ruko modern, dan co-working space.',
     historicalContext: 'Populer di kota-kota kreatif Indonesia seperti Yogyakarta, Bandung, dan Jakarta, mereduksi biaya finishing cat dengan menampilkan keindahan tekstur asli bata merah bakar dan beton semen ekspos.',
     signatureFeatures: [

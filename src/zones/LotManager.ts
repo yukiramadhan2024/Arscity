@@ -403,6 +403,37 @@ export class LotManager {
       });
     }
 
+    // 8. GSS (Garis Sempadan Sungai) Check (Permen PUPR No. 28/PRT/M/2015)
+    if (this.landscapeManager && insideBuildingIds.length > 0) {
+      let minRiverDistance = Infinity;
+      for (const item of this.landscapeManager.items.values()) {
+        if (item.type === 'river_segment') {
+          const rW = item.width || 12;
+          const rL = item.length || 24;
+          for (const bldId of insideBuildingIds) {
+            const bld = this.buildingManager.buildings.get(bldId);
+            if (bld) {
+              const dx = Math.max(0, Math.abs(bld.position.x - item.position.x) - (rW / 2 + bld.width / 2));
+              const dz = Math.max(0, Math.abs(bld.position.z - item.position.z) - (rL / 2 + bld.length / 2));
+              const d = Math.hypot(dx, dz);
+              if (d < minRiverDistance) minRiverDistance = d;
+            }
+          }
+        }
+      }
+
+      if (minRiverDistance < 10.0) {
+        violations.push({
+          code: 'GSS',
+          title: 'Pelanggaran Garis Sempadan Sungai (GSS)',
+          actual: `${minRiverDistance.toFixed(1)} m`,
+          allowed: 'min 10.0 m',
+          message: `Jarak bangunan ke tepi alur sungai (${minRiverDistance.toFixed(1)} m) kurang dari batas sempadan 10.0 m (Permen PUPR No. 28/PRT/M/2015).`,
+          advice: 'Mundurkan tapak bangunan minimal 10 meter dari tepi sungai dan pertahankan sabuk hijau sempadan.'
+        });
+      }
+    }
+
     lot.violations = violations;
   }
 
@@ -471,23 +502,27 @@ export class LotManager {
 
     if (envRight > envLeft && envBottom > envTop) {
       const setbackPoints = [
-        new THREE.Vector3(envLeft, 0.02, envTop),
-        new THREE.Vector3(envRight, 0.02, envTop),
-        new THREE.Vector3(envRight, 0.02, envBottom),
-        new THREE.Vector3(envLeft, 0.02, envBottom),
-        new THREE.Vector3(envLeft, 0.02, envTop)
+        new THREE.Vector3(envLeft, 0.045, envTop),
+        new THREE.Vector3(envRight, 0.045, envTop),
+        new THREE.Vector3(envRight, 0.045, envBottom),
+        new THREE.Vector3(envLeft, 0.045, envBottom),
+        new THREE.Vector3(envLeft, 0.045, envTop)
       ];
       const setbackGeom = new THREE.BufferGeometry().setFromPoints(setbackPoints);
+      const isGsbViolated = lot.violations.some(v => v.code.startsWith('GSB'));
+      const gsbColor = isGsbViolated ? 0xff3b30 : 0x00ff66; // Emerald green glow (#00FF66)
+
       const setbackMat = new THREE.LineDashedMaterial({
-        color: 0xff9500, // System warm amber
-        dashSize: 1.0,
-        gapSize: 0.5,
-        linewidth: 1.5,
+        color: gsbColor,
+        dashSize: 1.2,
+        gapSize: 0.6,
+        linewidth: 2.5,
         transparent: true,
-        opacity: 0.85
+        opacity: 0.95
       });
       const setbackLine = new THREE.Line(setbackGeom, setbackMat);
       setbackLine.computeLineDistances();
+      setbackLine.renderOrder = 920;
       group.add(setbackLine);
     }
 
@@ -505,6 +540,37 @@ export class LotManager {
     return this.lots.get(this.selectedLotId) || null;
   }
 
+  public getLotForBuilding(buildingId: string): LotParcel | null {
+    for (const lot of this.lots.values()) {
+      if (lot.containedBuildingIds && lot.containedBuildingIds.includes(buildingId)) {
+        return lot;
+      }
+    }
+    const bld = this.buildingManager.buildings.get(buildingId);
+    if (!bld) return null;
+    for (const lot of this.lots.values()) {
+      if (lot.position.distanceTo(bld.position) <= Math.max(lot.width, lot.length) * 0.6) {
+        return lot;
+      }
+    }
+    return null;
+  }
+
+  public getLotAtPosition(x: number, z: number): LotParcel | null {
+    const pt = { x, y: z };
+    for (const lot of this.lots.values()) {
+      const corners = this.getLotCorners2D(lot);
+      if (PolygonMath.isPointInPolygon(pt, corners)) {
+        return lot;
+      }
+    }
+    return null;
+  }
+
+  public findLotAtPosition(x: number, z: number): LotParcel | null {
+    return this.getLotAtPosition(x, z);
+  }
+
   private disposeGroup(group: THREE.Group): void {
     group.traverse((child) => {
       if ((child as THREE.Mesh).isMesh || (child as THREE.Line).isLine) {
@@ -517,6 +583,25 @@ export class LotManager {
         }
       }
     });
+  }
+
+  public rebuildAll(): void {
+    for (const lot of this.lots.values()) {
+      this.evaluateBuildingCode(lot);
+      this.rebuildLotMesh(lot);
+    }
+  }
+
+  public clearAll(): void {
+    this.selectLot(null);
+    for (const g of this.lotMeshGroups.values()) {
+      this.masterGroup.remove(g);
+      this.disposeGroup(g);
+    }
+    this.lots.clear();
+    this.lotMeshGroups.clear();
+    if (this.onLotsUpdated) this.onLotsUpdated();
+    if (this.onSelectionChanged) this.onSelectionChanged();
   }
 
   public dispose(): void {

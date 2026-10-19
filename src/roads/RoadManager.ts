@@ -140,6 +140,34 @@ export class RoadManager {
     });
   }
 
+  public rebuildAll(): void {
+    for (const edgeId of this.graph.edges.keys()) {
+      this.rebuildEdgeMesh(edgeId);
+    }
+    for (const nodeId of this.graph.nodes.keys()) {
+      this.rebuildNodeIntersections(nodeId);
+    }
+  }
+
+  public clearAll(): void {
+    this.selectEdge(null);
+    for (const group of this.edgeGroups.values()) {
+      this.masterGroup.remove(group);
+      this.disposeGroup(group);
+    }
+    for (const mesh of this.intersectionMeshes.values()) {
+      this.masterGroup.remove(mesh);
+      mesh.geometry?.dispose();
+    }
+    this.edgeGroups.clear();
+    this.intersectionMeshes.clear();
+    this.graph.edges.clear();
+    this.graph.nodes.clear();
+    if (this.onGraphChanged) {
+      this.onGraphChanged(0);
+    }
+  }
+
   public dispose(): void {
     for (const group of this.edgeGroups.values()) {
       this.disposeGroup(group);

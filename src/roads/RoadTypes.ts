@@ -23,9 +23,9 @@ export const ROAD_PROFILES: Record<RoadType, RoadProfile> = {
   alley: {
     type: 'alley',
     name: 'Gang Lingkungan',
-    width: 3.5,
+    width: 4.5,
     laneCount: 1,
-    sidewalkWidth: 0,
+    sidewalkWidth: 0.5,
     curbHeight: 0.1,
     hasMedian: false,
     medianWidth: 0,
@@ -34,14 +34,14 @@ export const ROAD_PROFILES: Record<RoadType, RoadProfile> = {
     hasTrees: false,
     treeSpacing: 0,
     speedLimit: 15,
-    description: 'Jalan sempit akses rumah warga/kavling padat, kecepatan rendah.'
+    description: 'Jalan akses lingkungan permukiman dengan paving kompak.'
   },
   local: {
     type: 'local',
     name: 'Jalan Lokal',
-    width: 6.0,
+    width: 9.0,
     laneCount: 2,
-    sidewalkWidth: 0.8,
+    sidewalkWidth: 1.5,
     curbHeight: 0.15,
     hasMedian: false,
     medianWidth: 0,
@@ -50,14 +50,14 @@ export const ROAD_PROFILES: Record<RoadType, RoadProfile> = {
     hasTrees: false,
     treeSpacing: 0,
     speedLimit: 30,
-    description: 'Jalan penghubung antar-lingkungan perumahan dengan trotoar kompak.'
+    description: 'Jalan penghubung antar-lingkungan perumahan dengan trotoar lega 1.5m.'
   },
   collector: {
     type: 'collector',
     name: 'Jalan Kolektor',
-    width: 9.0,
+    width: 16.0,
     laneCount: 2,
-    sidewalkWidth: 1.5,
+    sidewalkWidth: 2.5,
     curbHeight: 0.2,
     hasMedian: false,
     medianWidth: 0,
@@ -66,30 +66,30 @@ export const ROAD_PROFILES: Record<RoadType, RoadProfile> = {
     hasTrees: true,
     treeSpacing: 18,
     speedLimit: 40,
-    description: 'Jalan pengumpul utama kawasan dengan trotoar lega dan pohon peneduh.'
+    description: 'Jalan pengumpul utama kawasan dengan trotoar pedestrian 2.5m dan deretan pohon peneduh.'
   },
   arterial: {
     type: 'arterial',
-    name: 'Jalan Arteri',
-    width: 14.0,
+    name: 'Jalan Arteri & Boulevard',
+    width: 26.0,
     laneCount: 4,
-    sidewalkWidth: 2.0,
+    sidewalkWidth: 5.5,
     curbHeight: 0.2,
     hasMedian: true,
-    medianWidth: 1.5,
+    medianWidth: 2.5,
     hasStreetLights: true,
     lightSpacing: 25,
     hasTrees: true,
     treeSpacing: 16,
     speedLimit: 60,
-    description: 'Jalan raya utama kota dengan median tengah, trotoar lebar, dan penerangan tinggi.'
+    description: 'Boulevard raya utama kota dengan trotoar pejalan kaki megah 5.5m, jalur pemandu, median tengah, dan penerangan ganda.'
   },
   pedestrian: {
     type: 'pedestrian',
     name: 'Jalur Pejalan Kaki',
-    width: 3.0,
+    width: 6.0,
     laneCount: 0,
-    sidewalkWidth: 1.5,
+    sidewalkWidth: 3.0,
     curbHeight: 0.08,
     hasMedian: false,
     medianWidth: 0,
@@ -98,12 +98,12 @@ export const ROAD_PROFILES: Record<RoadType, RoadProfile> = {
     hasTrees: true,
     treeSpacing: 12,
     speedLimit: 5,
-    description: 'Koridor khusus pejalan kaki berpaving dengan lampu taman dan pohon peneduh.'
+    description: 'Koridor khusus pejalan kaki berpaving dengan lampu taman dan pohon peneduh rindang.'
   },
   cycle: {
     type: 'cycle',
     name: 'Jalur Sepeda',
-    width: 2.2,
+    width: 3.0,
     laneCount: 1,
     sidewalkWidth: 0,
     curbHeight: 0.1,

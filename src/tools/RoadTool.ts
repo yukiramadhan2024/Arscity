@@ -13,7 +13,7 @@ export class RoadTool {
   public drawMode: 'straight' | 'bezier' = 'straight';
 
   public isDrawing: boolean = false;
-  private startPoint: THREE.Vector3 | null = null;
+  public startPoint: THREE.Vector3 | null = null;
   private midControlPoint: THREE.Vector3 | null = null;
 
   // Ghost preview mesh

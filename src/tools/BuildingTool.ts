@@ -5,6 +5,7 @@ import { RaycastManager } from '../core/engine/RaycastManager';
 import { PrefabMeshBuilder } from '../buildings/PrefabMeshBuilder';
 import { proceduralAudio } from '../audio/ProceduralAudio';
 import { AddBuildingCommand } from '../core/commands/CityCommands';
+import { HumanScaleFigure } from '../buildings/HumanScaleFigure';
 import type { Engine } from '../core/engine/Engine';
 
 export class BuildingTool {
@@ -92,6 +93,11 @@ export class BuildingTool {
     const group = PrefabMeshBuilder.buildBuildingGroup(dummyInstance);
     this.updateGhostGroupMaterial(group, true);
 
+    // 1.65m Human Scale Ghost Figure positioned next to entrance
+    const humanFigure = new HumanScaleFigure(1.65);
+    humanFigure.setPosition(preset.defaultWidth / 2 + 1.2, 0, -preset.defaultLength / 2);
+    group.add(humanFigure.getObject());
+
     this.ghostGroup = group;
     this.ghostGroup.name = 'BuildingGhostPreview';
     this.scene.add(this.ghostGroup);
@@ -105,6 +111,9 @@ export class BuildingTool {
     group.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
+        if ((mesh.material as any)?.userData?.isScaleFigure) {
+          return; // Keep 1.65m human silhouette in translucent cyan
+        }
         if (!mesh.material || !(mesh.material as THREE.Material).userData?.isGhostMat) {
           mesh.material = new THREE.MeshBasicMaterial({
             color,

@@ -1,21 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useUIStore } from '../state/useUIStore';
 import {
   Sun,
   Cloud,
   CloudRain,
-  Eye,
+  ShieldCheck,
+  MoreHorizontal,
+  X,
+  Grid,
   RotateCcw,
   Compass,
-  Grid,
-  BookOpen,
-  Landmark,
   Award,
   Sparkles,
-  Building,
-  Route,
-  Activity,
-  Footprints
+  Check
 } from 'lucide-react';
 import { WeatherType } from '../../world/WeatherSystem';
 
@@ -31,19 +28,14 @@ export const TopHeader: React.FC = () => {
     toggleGridVisible,
     isTopDown,
     toggleTopDown,
-    isInspectMode,
-    toggleInspectMode,
-    isWalkMode,
-    toggleWalkMode,
     fps,
     engine,
-    stats,
-    setShowGlossary,
-    setShowStyles,
     setShowMissions,
-    setShowTutorial,
-    setShowLoadTest
+    setShowTutorial
   } = useUIStore();
+
+  const [showUtilityMenu, setShowUtilityMenu] = useState<boolean>(false);
+  const [showWeatherMenu, setShowWeatherMenu] = useState<boolean>(false);
 
   const formatTime = (h: number): string => {
     const hours = Math.floor(h);
@@ -51,258 +43,459 @@ export const TopHeader: React.FC = () => {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} WIB`;
   };
 
-  const sunAlt = engine?.lightingSystem.currentSolarCoords.altitudeDegrees ?? 0;
+  const weatherOptions: Array<{ id: WeatherType; label: string; icon: React.ElementType }> = [
+    { id: 'clear', label: 'Cerah', icon: Sun },
+    { id: 'overcast', label: 'Berawan', icon: Cloud },
+    { id: 'rain', label: 'Hujan', icon: CloudRain }
+  ];
+
+  const currentWeather = weatherOptions.find((w) => w.id === weather) || weatherOptions[0];
+  const WeatherIcon = currentWeather.icon;
+
+  const cycleWeather = () => {
+    const next: Record<WeatherType, WeatherType> = {
+      clear: 'overcast',
+      overcast: 'rain',
+      rain: 'clear',
+      fog: 'clear'
+    };
+    setWeather(next[weather] || 'clear');
+  };
+
+  // Logika Kepatuhan Regulasi Tata Ruang Kota
+  // Menghitung persentase kepatuhan bangunan kota terhadap regulasi teknis (GSB, KDB, KLB, Tinggi, Batas Kavling)
+  const lotsWithBuildings = engine?.lotManager?.lots.size
+    ? Array.from(engine.lotManager.lots.values()).filter((l) => l.containedBuildingIds && l.containedBuildingIds.length > 0)
+    : [];
+
+  const buildingViolatedLots = lotsWithBuildings.filter((l) => {
+    return l.violations && l.violations.some((v) =>
+      v.code === 'GSB_FRONT' ||
+      v.code === 'GSB_SIDE' ||
+      v.code === 'GSB_REAR' ||
+      v.code === 'KDB' ||
+      v.code === 'KLB' ||
+      v.code === 'HEIGHT' ||
+      v.code === 'OUT_OF_BOUNDS' ||
+      v.code === 'CROSS_LOTS'
+    );
+  });
+
+  // Jika belum ada bangunan yang melanggar aturan (atau semua bangunan patuh), tampilkan Regulasi 100%
+  const compliancePercent = lotsWithBuildings.length > 0
+    ? Math.round(((lotsWithBuildings.length - buildingViolatedLots.length) / lotsWithBuildings.length) * 100)
+    : 100;
+
+  const complianceColor =
+    compliancePercent >= 80
+      ? '#34C759'
+      : compliancePercent >= 50
+      ? '#FF9500'
+      : '#FF3B30';
 
   return (
-    <header
-      className="interactive"
-      style={{
-        position: 'absolute',
-        top: '16px',
-        left: '16px',
-        right: '16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        zIndex: 50,
-        pointerEvents: 'none'
-      }}
-    >
-      {/* Top Left: Project Info, Metrics, & Learning Tools */}
-      <div
-        className="glass-surface glass-capsule interactive"
+    <>
+      {/* Kapsul Kaca Gelap Terpusat (Unified Dark Slate Glass) */}
+      <header
+        className="interactive"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '4px 12px',
-          gap: '10px'
+          position: 'absolute',
+          top: '16px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 50,
+          pointerEvents: 'auto'
         }}
       >
-        {/* Project Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              background: 'var(--fill-control-hover)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--accent)'
-            }}
-          >
-            <Building size={16} strokeWidth={1.75} />
-          </div>
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)', letterSpacing: '-0.01em' }}>
-              Arscity
-            </div>
-          </div>
-        </div>
-
-        <div className="divider-v" />
-
-        {/* Live Metrics */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Bangunan Terbangun">
-            <span className="tabular-nums" style={{ fontWeight: 600, color: 'var(--label)' }}>
-              {stats.buildingCount}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '6px 18px',
+            background: 'rgba(15, 23, 42, 0.86)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.14)',
+            borderRadius: '9999px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+            userSelect: 'none'
+          }}
+        >
+          {/* Bagian Kiri: Jam Matahari & Slider Waktu */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sun size={16} strokeWidth={2.2} style={{ color: '#FFB347', flexShrink: 0 }} />
+            <span
+              className="font-mono tabular-nums font-semibold"
+              style={{
+                fontSize: '12px',
+                color: '#F8FAFC',
+                minWidth: '70px',
+                letterSpacing: '-0.01em'
+              }}
+            >
+              {formatTime(timeOfDay)}
             </span>
-            <span style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>gedung</span>
-          </div>
-          <span style={{ color: 'var(--separator)' }}>•</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Panjang Ruas Jalan">
-            <span className="tabular-nums" style={{ fontWeight: 600, color: 'var(--label)' }}>
-              {stats.roadLengthKm.toFixed(1)}
-            </span>
-            <span style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>km jalan</span>
-          </div>
-          <span style={{ color: 'var(--separator)' }}>•</span>
-          <button
-            onClick={() => setShowLoadTest(true)}
-            className="icon-btn"
-            style={{
-              padding: '2px 8px',
-              height: '24px',
-              borderRadius: 'var(--radius-capsule)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '11px',
-              fontWeight: 600,
-              color: fps >= 55 ? 'var(--good, #34c759)' : fps >= 30 ? '#ff9500' : 'var(--bad, #ff3b30)',
-              backgroundColor: 'var(--fill-control)'
-            }}
-            title="Buka Panel Uji Beban 300 Gedung & Telemetri Performa"
-            aria-label="Panel Uji Beban"
-          >
-            <Activity size={12} strokeWidth={2} />
-            <span className="tabular-nums">{fps} FPS</span>
-          </button>
-        </div>
-
-        <div className="divider-v" />
-
-        {/* Learning Hub Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-          <button
-            onClick={() => setShowGlossary(true)}
-            className="icon-btn"
-            title="Glosarium Arsitektur (KDB, KLB, GSB)"
-            aria-label="Glosarium Arsitektur"
-          >
-            <BookOpen size={16} strokeWidth={1.75} />
-          </button>
-          <button
-            onClick={() => setShowStyles(true)}
-            className="icon-btn"
-            title="Pustaka Gaya Arsitektur Nusantara"
-            aria-label="Pustaka Gaya Arsitektur Nusantara"
-          >
-            <Landmark size={16} strokeWidth={1.75} />
-          </button>
-          <button
-            onClick={() => setShowMissions(true)}
-            className="icon-btn"
-            title="Misi & Tantangan Kota"
-            aria-label="Misi dan Tantangan Kota"
-          >
-            <Award size={16} strokeWidth={1.75} />
-          </button>
-          <button
-            onClick={() => setShowTutorial(true)}
-            className="icon-btn"
-            title="Panduan Interaktif Pemula"
-            aria-label="Panduan Interaktif Pemula"
-          >
-            <Sparkles size={16} strokeWidth={1.75} />
-          </button>
-        </div>
-      </div>
-
-      {/* Top Right: Clock, Weather, Grid, & Camera */}
-      <div
-        className="glass-surface glass-capsule interactive"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '4px 12px',
-          gap: '8px'
-        }}
-      >
-        {/* Time of Day Slider & WIB Display */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '170px' }}>
-          <Sun size={15} strokeWidth={1.75} style={{ color: 'var(--warn)', flexShrink: 0 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', lineHeight: '14px' }}>
-              <span className="tabular-nums" style={{ fontWeight: 600, color: 'var(--label)' }}>
-                {formatTime(timeOfDay)}
-              </span>
-              <span className="tabular-nums" style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                {sunAlt > 0 ? `+${sunAlt.toFixed(0)}°` : 'Malam'}
-              </span>
-            </div>
             <input
               type="range"
-              min="0"
-              max="24"
-              step="0.1"
+              min="5.5"
+              max="18.5"
+              step="0.05"
               value={timeOfDay}
-              onChange={(e) => setTimeOfDay(parseFloat(e.target.value))}
-              className="ios-slider"
-              style={{ margin: '2px 0 0 0', height: '4px' }}
-              aria-label="Pengatur Waktu dan Posisi Matahari"
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                setTimeOfDay(val);
+                engine?.sunPathVisualizer?.setVisible(true);
+              }}
+              onPointerDown={() => engine?.sunPathVisualizer?.setVisible(true)}
+              onPointerUp={() => {
+                setTimeout(() => {
+                  engine?.sunPathVisualizer?.setVisible(false);
+                }, 2000);
+              }}
+              aria-label="Pengatur Waktu Matahari"
+              style={{
+                width: '100px',
+                height: '4px',
+                borderRadius: '9999px',
+                accentColor: '#0A84FF',
+                background: 'rgba(10, 132, 255, 0.35)',
+                cursor: 'pointer',
+                margin: 0
+              }}
             />
+          </div>
+
+          {/* Bagian Tengah: Tombol Cuaca Interaktif Langsung (Cerah, Berawan, Hujan) */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => {
+                setShowWeatherMenu(!showWeatherMenu);
+                cycleWeather();
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 12px',
+                background: showWeatherMenu ? 'rgba(10, 132, 255, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+                border: showWeatherMenu ? '1px solid rgba(10, 132, 255, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '9999px',
+                cursor: 'pointer',
+                color: '#F8FAFC',
+                transition: 'all 0.15s ease'
+              }}
+              title="Klik untuk mengganti cuaca (Cerah, Berawan, Hujan)"
+              aria-label={`Cuaca: ${currentWeather.label}`}
+            >
+              <WeatherIcon size={15} strokeWidth={2} style={{ color: '#0A84FF' }} />
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#F8FAFC', whiteSpace: 'nowrap' }}>
+                {currentWeather.label}
+              </span>
+            </button>
+
+            {/* Quick 3-Choice Weather Popover */}
+            {showWeatherMenu && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '36px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'rgba(15, 23, 42, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.14)',
+                  borderRadius: '12px',
+                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)',
+                  padding: '4px',
+                  display: 'flex',
+                  gap: '4px',
+                  zIndex: 100
+                }}
+              >
+                {weatherOptions.map((opt) => {
+                  const OptIcon = opt.icon;
+                  const isSel = weather === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        setWeather(opt.id);
+                        setShowWeatherMenu(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        background: isSel ? '#0A84FF' : 'transparent',
+                        border: 'none',
+                        color: isSel ? '#FFFFFF' : '#CBD5E1',
+                        fontSize: '11px',
+                        fontWeight: isSel ? 600 : 500,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      <OptIcon size={13} />
+                      <span>{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Indikator Kepatuhan Regulasi Tata Ruang Kota */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '0 4px',
+              borderLeft: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRight: '1px solid rgba(255, 255, 255, 0.12)',
+              paddingLeft: '12px',
+              paddingRight: '12px'
+            }}
+            title={`Kepatuhan Regulasi Kota: ${compliancePercent}% (${lotsWithBuildings.length - buildingViolatedLots.length}/${lotsWithBuildings.length || 1} kavling patuh)`}
+          >
+            <ShieldCheck size={14} strokeWidth={2.2} style={{ color: complianceColor }} />
+            <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, letterSpacing: '0.02em' }}>
+              Regulasi
+            </span>
+            <span
+              className="font-mono tabular-nums font-bold"
+              style={{
+                fontSize: '12px',
+                color: complianceColor
+              }}
+            >
+              {compliancePercent}%
+            </span>
+          </div>
+
+          {/* Bagian Kanan: Status FPS & Tombol Menu Kontrol Cepat */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span
+              className="font-mono tabular-nums font-semibold"
+              style={{
+                fontSize: '11px',
+                color: '#34C759',
+                letterSpacing: '0.04em'
+              }}
+            >
+              {fps || 60} FPS | ULTRA RTX
+            </span>
+
+            {/* Menu Popover Trigger Button */}
+            <button
+              onClick={() => setShowUtilityMenu(!showUtilityMenu)}
+              style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: showUtilityMenu ? 'rgba(10, 132, 255, 0.35)' : 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                color: '#F8FAFC',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease'
+              }}
+              title="Kontrol Cepat Viewport & Grid"
+              aria-label="Kontrol Cepat"
+            >
+              <MoreHorizontal size={14} />
+            </button>
           </div>
         </div>
 
-        <div className="divider-v" />
-
-        {/* Weather Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-          {(
-            [
-              { type: 'clear' as WeatherType, icon: Sun, label: 'Cerah' },
-              { type: 'overcast' as WeatherType, icon: Cloud, label: 'Mendung' },
-              { type: 'rain' as WeatherType, icon: CloudRain, label: 'Hujan' }
-            ] as const
-          ).map((item) => (
-            <button
-              key={item.type}
-              onClick={() => setWeather(item.type)}
-              className={`icon-btn ${weather === item.type ? 'active' : ''}`}
-              title={item.label}
-              aria-label={item.label}
-            >
-              <item.icon size={15} strokeWidth={1.75} />
-            </button>
-          ))}
-        </div>
-
-        <div className="divider-v" />
-
-        {/* Grid Snap & Visibility */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-          <button
-            onClick={toggleGridVisible}
-            className={`icon-btn ${gridVisible ? 'active' : ''}`}
-            title={gridVisible ? 'Sembunyikan Grid' : 'Tampilkan Grid'}
-            aria-label="Tombol Grid"
+        {/* Menu Popover "Kontrol Cepat" (Tanpa Duplikasi Tombol Dock Kiri) */}
+        {showUtilityMenu && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '48px',
+              right: '0',
+              width: '260px',
+              background: 'rgba(15, 23, 42, 0.95)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              borderRadius: '16px',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+              padding: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              zIndex: 100
+            }}
           >
-            <Grid size={15} strokeWidth={1.75} />
-          </button>
-          {[1, 5, 10].map((step) => (
-            <button
-              key={step}
-              onClick={() => setGridSnap(step)}
-              className={`segmented-item ${gridSnap === step ? 'active' : ''}`}
-              style={{ padding: '3px 8px', fontSize: '11px' }}
-              title={`Snap Grid ${step}m`}
-            >
-              <span className="tabular-nums">{step}m</span>
-            </button>
-          ))}
-        </div>
+            {/* Header Popover */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Kontrol Cepat
+              </span>
+              <button
+                onClick={() => setShowUtilityMenu(false)}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 0 }}
+                aria-label="Tutup Kontrol Cepat"
+              >
+                <X size={14} />
+              </button>
+            </div>
 
-        <div className="divider-v" />
+            {/* Kontrol Grid Spasial */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Grid size={13} style={{ color: '#0A84FF' }} />
+                  Snap Grid:
+                </span>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[1, 5, 10].map((step) => (
+                    <button
+                      key={step}
+                      onClick={() => setGridSnap(step)}
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: gridSnap === step ? '#0A84FF' : 'rgba(255,255,255,0.06)',
+                        border: 'none',
+                        color: gridSnap === step ? '#FFFFFF' : '#CBD5E1',
+                        fontSize: '11px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {step}m
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-        {/* Camera Views: Reset, Top-down, Inspect */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-          <button
-            onClick={() => engine?.cameraController.resetCamera()}
-            className="icon-btn"
-            title="Reset Kamera"
-            aria-label="Reset Kamera"
-          >
-            <RotateCcw size={15} strokeWidth={1.75} />
-          </button>
-          <button
-            onClick={toggleTopDown}
-            className={`icon-btn ${isTopDown ? 'active' : ''}`}
-            title="Tampak Atas (Denah)"
-            aria-label="Tampak Atas"
-          >
-            <Compass size={15} strokeWidth={1.75} />
-          </button>
-          <button
-            onClick={toggleInspectMode}
-            className={`icon-btn ${isInspectMode ? 'active' : ''}`}
-            title="Mode Inspeksi Orbit Fasad"
-            aria-label="Mode Inspeksi Orbit"
-          >
-            <Eye size={15} strokeWidth={1.75} />
-          </button>
-          <button
-            onClick={toggleWalkMode}
-            className={`icon-btn ${isWalkMode ? 'active' : ''}`}
-            title="Mode Jalan Kaki 1.6m (Walk Mode)"
-            aria-label="Mode Jalan Kaki 1.6m"
-          >
-            <Footprints size={15} strokeWidth={1.75} />
-          </button>
-        </div>
-      </div>
-    </header>
+              {/* Toggle Garis Grid */}
+              <button
+                onClick={toggleGridVisible}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: 'none',
+                  color: '#F8FAFC',
+                  fontSize: '11px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span>Tampilkan Garis Grid</span>
+                <span style={{ color: gridVisible ? '#34C759' : '#94A3B8', fontWeight: 600 }}>
+                  {gridVisible ? 'Aktif' : 'Mati'}
+                </span>
+              </button>
+            </div>
+
+            {/* Kontrol Sudut Pandang Kamera */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  onClick={toggleTopDown}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    padding: '6px',
+                    borderRadius: '8px',
+                    background: isTopDown ? 'rgba(10, 132, 255, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                    border: isTopDown ? '1px solid rgba(10, 132, 255, 0.5)' : 'none',
+                    color: '#F8FAFC',
+                    fontSize: '11px',
+                    cursor: 'pointer'
+                  }}
+                  title="Ganti Sudut Pandang 2D Tegak Lurus / 3D Isometrik"
+                >
+                  <Compass size={13} style={{ color: '#0A84FF' }} />
+                  <span>{isTopDown ? 'Mode 2D' : 'Mode 3D'}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    engine?.cameraController.resetCamera();
+                    setShowUtilityMenu(false);
+                  }}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    padding: '6px',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: 'none',
+                    color: '#F8FAFC',
+                    fontSize: '11px',
+                    cursor: 'pointer'
+                  }}
+                  title="Reset Posisi Kamera ke Pusat Kota"
+                >
+                  <RotateCcw size={13} />
+                  <span>Reset Kamera</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Misi & Tutorial Kota */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                onClick={() => { setShowMissions(true); setShowUtilityMenu(false); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  padding: '6px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: 'none',
+                  color: '#CBD5E1',
+                  fontSize: '11px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Award size={13} style={{ color: '#FF9500' }} />
+                <span>Misi Kota</span>
+              </button>
+              <button
+                onClick={() => { setShowTutorial(true); setShowUtilityMenu(false); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  padding: '6px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: 'none',
+                  color: '#CBD5E1',
+                  fontSize: '11px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Sparkles size={13} style={{ color: '#0A84FF' }} />
+                <span>Tutorial</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </header>
+    </>
   );
 };

@@ -389,6 +389,14 @@ export class CitySerializer {
     };
   }
 
+  public static serializeCity(engine: Engine, cityTitle: string = 'Kota Tropis Mandiri'): CitySaveData {
+    return this.serialize(engine, cityTitle);
+  }
+
+  public static deserializeCity(engine: Engine, rawData: unknown): DeserializationResult {
+    return this.deserialize(engine, rawData);
+  }
+
   /**
    * Atomic Deserialization: Validates and prepares entire new state BEFORE
    * touching or clearing existing scene objects.
@@ -445,12 +453,18 @@ export class CitySerializer {
       });
 
       data.roads.edges.forEach((e) => {
+        let cps = e.controlPoints.map((cp) => new THREE.Vector3(cp[0], cp[1], cp[2]));
+        if (cps.length === 2) {
+          const cp1 = new THREE.Vector3().lerpVectors(cps[0], cps[1], 0.33);
+          const cp2 = new THREE.Vector3().lerpVectors(cps[0], cps[1], 0.67);
+          cps = [cps[0], cp1, cp2, cps[1]];
+        }
         const edge: RoadEdge = {
           id: e.id,
           startNodeId: e.startNodeId,
           endNodeId: e.endNodeId,
           type: e.type,
-          controlPoints: e.controlPoints.map((cp) => new THREE.Vector3(cp[0], cp[1], cp[2])),
+          controlPoints: cps,
           length: e.length,
           customProfile: e.customProfile,
         };

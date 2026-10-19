@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useUIStore } from '../state/useUIStore';
 import { RealWorldExporter } from '../../io/RealWorldExporter';
+import { ScreenshotExporter } from '../../io/ScreenshotExporter';
 import { UnderlaySettings } from '../../world/UnderlayPlanManager';
-import { X, FileCode, Box, Image, Download, Upload, Check, Eye } from 'lucide-react';
+import { X, FileCode, Box, Image, Download, Upload, Check, Eye, Layout } from 'lucide-react';
 
 interface RealWorldExportModalProps {
   isOpen: boolean;
@@ -39,6 +40,10 @@ export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOp
 
   const handleExportOBJ = () => {
     RealWorldExporter.exportToOBJ(engine.scene, 'arscity_kota_3d.obj');
+  };
+
+  const handleExportA3Sheet = () => {
+    ScreenshotExporter.downloadA3PresentationSheet(engine, 'Masterplan Kawasan Studio');
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,6 +145,26 @@ export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOp
               >
                 <Download size={13} strokeWidth={1.75} />
                 <span>Unduh OBJ</span>
+              </button>
+            </div>
+
+            {/* Lembar Presentasi Studio A3 (2400x1697 px) */}
+            <div className="inset-row" style={{ justifyContent: 'space-between', alignItems: 'center', background: 'rgba(56, 189, 248, 0.05)' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent)' }}>
+                  Papan Presentasi Studio Arsitektur (A3 Landscape PNG)
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                  Resolusi 2400x1697 px: render 3D perspektif, data sains kota, dan kop gambar standar studio
+                </div>
+              </div>
+              <button
+                onClick={handleExportA3Sheet}
+                className="ios-btn ios-btn-primary"
+                style={{ fontSize: '12px', padding: '5px 12px', gap: '6px' }}
+              >
+                <Layout size={13} strokeWidth={1.75} />
+                <span>Unduh A3 PNG</span>
               </button>
             </div>
           </div>

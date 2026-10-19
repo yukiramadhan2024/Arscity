@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GridSystem } from '../../world/GridSystem';
+import { SpatialHashGrid, BBox2D } from './SpatialHashGrid';
 
 export class RaycastManager {
   private raycaster: THREE.Raycaster;
@@ -15,6 +16,9 @@ export class RaycastManager {
 
   // Visual cursor marker on the ground
   public cursorMarker: THREE.Mesh;
+
+  // 2D Spatial Hash Grid to accelerate entity raycasting from O(N) to O(1)
+  public spatialGrid: SpatialHashGrid<THREE.Object3D> = new SpatialHashGrid<THREE.Object3D>(20);
 
   constructor(domElement: HTMLElement, camera: THREE.Camera, gridSystem: GridSystem, scene: THREE.Scene) {
     this.domElement = domElement;
@@ -87,14 +91,60 @@ export class RaycastManager {
     }
   }
 
+  public registerSpatialObject(id: string, aabb: BBox2D, obj: THREE.Object3D): void {
+    this.spatialGrid.insert(id, aabb, obj);
+  }
+
+  public unregisterSpatialObject(id: string): void {
+    this.spatialGrid.remove(id);
+  }
+
+  public updateSpatialObject(id: string, aabb: BBox2D, obj: THREE.Object3D): void {
+    this.spatialGrid.update(id, aabb, obj);
+  }
+
+  public clearSpatialGrid(): void {
+    this.spatialGrid.clear();
+  }
+
   public raycastObjects(objects: THREE.Object3D[]): THREE.Intersection[] {
     this.raycaster.setFromCamera(this.mouse, this.camera);
+
+    // If spatial grid has items and we are raycasting top-level groups, filter candidates first
+    if (this.spatialGrid.getItemCount() > 0) {
+      const candidates = this.spatialGrid.queryRay(this.raycaster.ray, this.groundPoint);
+      if (candidates.length > 0) {
+        // Find which candidate objects belong to the requested objects hierarchy
+        const candidateSet = new Set(candidates);
+        const filteredTargets: THREE.Object3D[] = [];
+
+        for (const obj of objects) {
+          // If the object itself is a candidate
+          if (candidateSet.has(obj)) {
+            filteredTargets.push(obj);
+          } else if (obj.children && obj.children.length > 0) {
+            // Check direct children
+            for (const child of obj.children) {
+              if (candidateSet.has(child)) {
+                filteredTargets.push(child);
+              }
+            }
+          }
+        }
+
+        if (filteredTargets.length > 0) {
+          return this.raycaster.intersectObjects(filteredTargets, true);
+        }
+      }
+    }
+
     return this.raycaster.intersectObjects(objects, true);
   }
 
   public dispose(): void {
     this.domElement.removeEventListener('mousemove', this.onMouseMove);
     this.domElement.removeEventListener('mouseleave', this.onMouseLeave);
+    this.spatialGrid.clear();
     this.cursorMarker.geometry.dispose();
     (this.cursorMarker.material as THREE.Material).dispose();
   }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MISSIONS, Mission, MissionProgress } from '../../education/MissionManager';
 import { useUIStore } from '../state/useUIStore';
-import { X, Award, Star, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { X, Award, Star, CheckCircle2, Circle, AlertCircle, Sparkles } from 'lucide-react';
 
 interface MissionModalProps {
   isOpen: boolean;
@@ -9,7 +9,7 @@ interface MissionModalProps {
 }
 
 export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) => {
-  const { engine } = useUIStore();
+  const { engine, setTimeOfDay } = useUIStore();
   const [selectedMissionId, setSelectedMissionId] = useState<string>(
     engine?.missionManager.currentMissionId || MISSIONS[0].id
   );
@@ -175,8 +175,22 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
               </>
             )}
 
-            {/* Footer button */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+            {/* Footer buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+              <button
+                onClick={() => {
+                  if (engine) {
+                    setTimeOfDay(14.5);
+                    engine.sunPathVisualizer?.setVisible(true);
+                    onClose();
+                  }
+                }}
+                className="ios-btn"
+                style={{ padding: '8px 16px', fontSize: '13px', background: 'rgba(0, 122, 255, 0.1)', color: 'var(--accent)', borderColor: 'rgba(0, 122, 255, 0.3)', gap: '6px' }}
+              >
+                <Sparkles size={14} strokeWidth={1.75} />
+                <span>Simulasikan Kondisi Misi</span>
+              </button>
               <button
                 onClick={onClose}
                 className="ios-btn ios-btn-primary"

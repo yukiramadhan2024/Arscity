@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as THREE from 'three';
 import { useUIStore } from '../state/useUIStore';
 import { ROAD_PROFILES, RoadType } from '../../roads/RoadTypes';
 import { RoofType, WallMaterialType } from '../../buildings/PrefabTypes';
@@ -29,15 +30,39 @@ import {
   Layers,
   ShieldAlert,
   Hammer,
-  Scissors
+  Scissors,
+  Sparkles,
+  Droplets,
+  Thermometer,
+  Wind,
+  Wand2,
+  Sun,
+  Zap,
+  Activity
 } from 'lucide-react';
 import { structuralChecker } from '../../simulation/StructuralChecker';
 import { costEstimator } from '../../simulation/CostEstimator';
+import { runoffSimulator } from '../../simulation/RunoffSimulator';
+import { AutoZoningService } from '../../zones/AutoZoningService';
+import { AutoFixService } from '../../zones/AutoFixService';
 import { roomStandardsRegistry } from '../../buildings/RoomStandards';
 import { advancedBuildingCodeRegistry } from '../../zones/AdvancedBuildingCode';
 
-const WhyCard: React.FC<{ principle: WhyPrinciple }> = ({ principle }) => {
+const WhyCard: React.FC<{ principle: WhyPrinciple; targetPos?: THREE.Vector3 }> = ({ principle, targetPos }) => {
   const [open, setOpen] = useState<boolean>(false);
+  const { engine, setTimeOfDay } = useUIStore();
+
+  const handleSimulateInViewport = () => {
+    if (!engine) return;
+    // Set time to 15:00 WIB (afternoon sun on west facade)
+    setTimeOfDay(15.0);
+    engine.sunPathVisualizer?.setVisible(true);
+
+    if (targetPos) {
+      engine.cameraController.focusAt(targetPos, 28);
+    }
+  };
+
   return (
     <div className="inset-group" style={{ marginBottom: '12px' }}>
       <button
@@ -57,9 +82,25 @@ const WhyCard: React.FC<{ principle: WhyPrinciple }> = ({ principle }) => {
         <div style={{ padding: '10px 14px 14px 14px', fontSize: '12px', color: 'var(--label)', lineHeight: 1.5, background: 'var(--surface)' }}>
           <div style={{ fontWeight: 600, marginBottom: '4px' }}>{principle.question}</div>
           <div style={{ color: 'var(--label-secondary)', marginBottom: '8px' }}>{principle.explanation}</div>
-          <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 500 }}>
+          <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 500, marginBottom: '10px' }}>
             {principle.architecturalRule}
           </div>
+          <button
+            onClick={handleSimulateInViewport}
+            className="ios-btn"
+            style={{
+              width: '100%',
+              padding: '6px 12px',
+              fontSize: '12px',
+              gap: '6px',
+              background: 'rgba(0, 122, 255, 0.1)',
+              color: 'var(--accent)',
+              borderColor: 'rgba(0, 122, 255, 0.3)'
+            }}
+          >
+            <Sparkles size={13} strokeWidth={1.75} />
+            <span>Simulasikan di Viewport (15:00 WIB)</span>
+          </button>
         </div>
       )}
     </div>
@@ -68,14 +109,196 @@ const WhyCard: React.FC<{ principle: WhyPrinciple }> = ({ principle }) => {
 
 export const InspectorPanel: React.FC = () => {
   const { engine, inspectorVisible, setInspectorVisible } = useUIStore();
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   const selectedEdgeId = engine?.roadManager?.selectedEdgeId;
   const selectedBuilding = engine?.buildingManager?.getSelectedBuilding();
   const selectedLot = engine?.lotManager?.getSelectedLot();
+  const hasSelection = Boolean(selectedEdgeId || selectedBuilding || selectedLot);
 
-  if (!engine || !inspectorVisible || (!selectedEdgeId && !selectedBuilding && !selectedLot)) {
+  // SimCity & Tahap 3: Only display when an object is selected on 3D canvas
+  if (!hasSelection) {
     return null;
   }
+
+  const targetLot = selectedLot || (selectedBuilding && engine?.lotManager ? engine.lotManager.getLotForBuilding(selectedBuilding.id) : null);
+  const hasViolations = Boolean(targetLot && targetLot.violations.length > 0);
+
+  const handleAutoFix = () => {
+    if (!engine || !targetLot) return;
+    const bld = targetLot.containedBuildingIds.length > 0
+      ? engine.buildingManager.buildings.get(targetLot.containedBuildingIds[0])
+      : selectedBuilding;
+    if (bld) {
+      AutoFixService.applyAutoFix(engine, targetLot, bld);
+    }
+  };
+
+  // Compute metrics for the 4-block capsule
+  let kdbDisplay = 54;
+  let gsbDisplay = 'VALID';
+  let isGsbValid = true;
+  let kdhDisplay = 32;
+  let tempDisplay = '28.5';
+
+  if (selectedLot) {
+    kdbDisplay = Math.round(selectedLot.metrics.kdbPercent || 54);
+    kdhDisplay = Math.round(selectedLot.metrics.kdhPercent || 32);
+    isGsbValid = !selectedLot.violations.some(v => v.code.startsWith('GSB'));
+    gsbDisplay = isGsbValid ? 'VALID' : 'VIOLATION';
+  } else if (selectedBuilding && engine?.lotManager) {
+    const parentLot = engine.lotManager.getLotForBuilding(selectedBuilding.id);
+    if (parentLot) {
+      kdbDisplay = Math.round(parentLot.metrics.kdbPercent || 54);
+      kdhDisplay = Math.round(parentLot.metrics.kdhPercent || 32);
+      isGsbValid = !parentLot.violations.some(v => v.code.startsWith('GSB'));
+      gsbDisplay = isGsbValid ? 'VALID' : 'VIOLATION';
+    }
+  }
+
+  // If not expanded, always display the 1:1 Slim Vertical Capsule (~170px width, 24px radius)
+  if (!isExpanded) {
+    return (
+      <aside
+        className="interactive"
+        style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          width: '168px',
+          background: 'rgba(15, 23, 42, 0.78)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          borderRadius: '24px',
+          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.45)',
+          padding: '14px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          zIndex: 45,
+          userSelect: 'none'
+        }}
+      >
+        {/* Blok 1: KDB */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em' }}>KDB</span>
+            <span className="font-mono tabular-nums font-bold" style={{ fontSize: '18px', color: '#ffffff' }}>
+              {kdbDisplay}%
+            </span>
+          </div>
+          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.12)', borderRadius: '9999px', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(100, Math.max(5, kdbDisplay))}%`, height: '100%', background: '#34c759', borderRadius: '9999px' }} />
+          </div>
+        </div>
+
+        <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.10)' }} />
+
+        {/* Blok 2: GSB */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em' }}>GSB</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            {isGsbValid ? (
+              <CheckCircle2 size={15} strokeWidth={2.2} style={{ color: '#34c759' }} />
+            ) : (
+              <AlertCircle size={15} strokeWidth={2.2} style={{ color: '#ef4444' }} />
+            )}
+            <span
+              className="font-mono font-bold"
+              style={{ fontSize: '12px', color: isGsbValid ? '#34c759' : '#ef4444', letterSpacing: '0.05em' }}
+            >
+              {gsbDisplay}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.10)' }} />
+
+        {/* Blok 3: KDH */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em' }}>KDH</span>
+            <span className="font-mono tabular-nums font-bold" style={{ fontSize: '18px', color: '#ffffff' }}>
+              {kdhDisplay}%
+            </span>
+          </div>
+          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.12)', borderRadius: '9999px', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(100, Math.max(5, kdhDisplay))}%`, height: '100%', background: '#34c759', borderRadius: '9999px' }} />
+          </div>
+        </div>
+
+        <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.10)' }} />
+
+        {/* Blok 4: Termometer */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Thermometer size={16} strokeWidth={2.2} style={{ color: '#38bdf8' }} />
+          </div>
+          <span className="font-mono tabular-nums font-bold" style={{ fontSize: '15px', color: '#ffffff' }}>
+            {tempDisplay}°C
+          </span>
+        </div>
+
+        {/* SimCity 1-Click Action: Auto-Fix when violations exist */}
+        {hasViolations && (
+          <button
+            onClick={handleAutoFix}
+            style={{
+              marginTop: '2px',
+              padding: '6px 8px',
+              background: 'rgba(52, 199, 89, 0.16)',
+              border: '1px solid rgba(52, 199, 89, 0.45)',
+              borderRadius: '12px',
+              color: '#34c759',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '5px',
+              transition: 'all 0.2s ease',
+              width: '100%'
+            }}
+            title="Koreksi Otomatis Pelanggaran Regulasi"
+            aria-label="Koreksi Otomatis"
+          >
+            <Wand2 size={13} strokeWidth={2} />
+            <span>Koreksi Otomatis</span>
+          </button>
+        )}
+
+        <button
+          onClick={() => setIsExpanded(true)}
+          style={{
+            marginTop: hasViolations ? '0px' : '2px',
+            padding: '5px 8px',
+            background: 'rgba(56, 189, 248, 0.12)',
+            border: '1px solid rgba(56, 189, 248, 0.28)',
+            borderRadius: '12px',
+            color: '#38bdf8',
+            fontSize: '11px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            transition: 'all 0.2s ease',
+            width: '100%'
+          }}
+          title="Buka Inspeksi Objek Terpilih"
+          aria-label="Detail Objek"
+        >
+          <span>Detail Objek</span>
+        </button>
+      </aside>
+    );
+  }
+
+  // Expanded View: Full Inspector Details
+  if (!engine) return null;
 
   // 1. Lot / Parcel Inspector
   if (selectedLot) {
@@ -94,7 +317,7 @@ export const InspectorPanel: React.FC = () => {
     };
 
     const handleClose = () => {
-      engine.lotManager.selectLot(null);
+      setIsExpanded(false);
     };
 
     return (
@@ -136,23 +359,32 @@ export const InspectorPanel: React.FC = () => {
           </div>
 
           {/* Building Code Metrics: Inset Group with Gauges */}
-          <div className="inset-header">PARAMETER TATA RUANG</div>
+          <div className="inset-header text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">PARAMETER TATA RUANG</div>
           <div className="inset-group">
             {/* KDB */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--label-secondary)' }}>KDB (Kepadatan Dasar)</span>
-                <span className="tabular-nums" style={{ fontWeight: 600, color: m.kdbPercent > rule.maxKDB ? 'var(--bad)' : 'var(--good)' }}>
-                  {m.kdbPercent}% / maks {rule.maxKDB}%
+            <div
+              className="inset-row inset-row-clickable"
+              style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px', cursor: 'pointer' }}
+              onMouseEnter={() => {
+                const bld = lot.containedBuildingIds.length > 0 ? engine.buildingManager.buildings.get(lot.containedBuildingIds[0]) : null;
+                if (bld) engine.spatialHighlighter.highlightFootprint(bld);
+              }}
+              onMouseLeave={() => engine.spatialHighlighter.clearHighlight()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">KDB (Kepadatan Dasar)</span>
+                <span className="text-sm font-mono tabular-nums font-medium" style={{ color: m.kdbPercent > rule.maxKDB ? 'var(--bad)' : 'var(--good)' }}>
+                  {m.kdbPercent.toFixed(1)}% / maks {rule.maxKDB}%
                 </span>
               </div>
-              <div style={{ width: '100%', height: '5px', background: 'var(--fill-control)', borderRadius: '9999px' }}>
+              <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
                 <div
                   style={{
                     width: `${Math.min(100, m.kdbPercent)}%`,
                     height: '100%',
                     background: m.kdbPercent > rule.maxKDB ? 'var(--bad)' : 'var(--good)',
-                    borderRadius: '9999px'
+                    borderRadius: '9999px',
+                    transition: 'width 250ms ease-out'
                   }}
                 />
               </div>
@@ -160,82 +392,104 @@ export const InspectorPanel: React.FC = () => {
 
             {/* KLB */}
             <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--label-secondary)' }}>KLB (Lantai Total)</span>
-                <span className="tabular-nums" style={{ fontWeight: 600, color: m.klbRatio > rule.maxKLB ? 'var(--bad)' : 'var(--label)' }}>
-                  {m.klbRatio} / maks {rule.maxKLB}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">KLB (Lantai Total)</span>
+                <span className="text-sm font-mono tabular-nums font-medium" style={{ color: m.klbRatio > rule.maxKLB ? 'var(--bad)' : 'var(--label)' }}>
+                  {m.klbRatio.toFixed(1)} / maks {rule.maxKLB}
                 </span>
               </div>
-              <div style={{ width: '100%', height: '5px', background: 'var(--fill-control)', borderRadius: '9999px' }}>
+              <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
                 <div
                   style={{
-                    width: `${Math.min(100, (m.klbRatio / rule.maxKLB) * 100)}%`,
+                    width: `${Math.min(100, (m.klbRatio / Math.max(0.1, rule.maxKLB)) * 100)}%`,
                     height: '100%',
                     background: m.klbRatio > rule.maxKLB ? 'var(--bad)' : 'var(--accent)',
-                    borderRadius: '9999px'
+                    borderRadius: '9999px',
+                    transition: 'width 250ms ease-out'
                   }}
                 />
               </div>
             </div>
 
             {/* KDH */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--label-secondary)' }}>KDH (Ruang Hijau Resapan)</span>
-                <span className="tabular-nums" style={{ fontWeight: 600, color: m.kdhPercent < rule.minKDH ? 'var(--bad)' : 'var(--good)' }}>
-                  {m.kdhPercent}% / min {rule.minKDH}%
+            <div
+              className="inset-row inset-row-clickable"
+              style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px', cursor: 'pointer' }}
+              onMouseEnter={() => engine.spatialHighlighter.highlightGreenArea(lot)}
+              onMouseLeave={() => engine.spatialHighlighter.clearHighlight()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">KDH (Ruang Hijau Resapan)</span>
+                <span className="text-sm font-mono tabular-nums font-medium" style={{ color: m.kdhPercent < rule.minKDH ? 'var(--bad)' : 'var(--good)' }}>
+                  {m.kdhPercent.toFixed(1)}% / min {rule.minKDH}%
                 </span>
               </div>
-              <div style={{ width: '100%', height: '5px', background: 'var(--fill-control)', borderRadius: '9999px' }}>
+              <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
                 <div
                   style={{
                     width: `${Math.min(100, m.kdhPercent)}%`,
                     height: '100%',
                     background: m.kdhPercent < rule.minKDH ? 'var(--bad)' : 'var(--good)',
-                    borderRadius: '9999px'
+                    borderRadius: '9999px',
+                    transition: 'width 250ms ease-out'
                   }}
                 />
               </div>
             </div>
 
             {/* GSB Depan */}
-            <div className="inset-row">
-              <span style={{ fontSize: '12px', color: 'var(--label-secondary)' }}>GSB Depan (ke Jalan)</span>
-              <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: m.gsbFrontActualM < rule.minGSBFront ? 'var(--bad)' : 'var(--good)' }}>
-                {m.gsbFrontActualM} m / min {rule.minGSBFront} m
+            <div
+              className="inset-row inset-row-clickable"
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={() => engine.spatialHighlighter.highlightSetback(lot, 'front')}
+              onMouseLeave={() => engine.spatialHighlighter.clearHighlight()}
+            >
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">GSB Depan (ke Jalan)</span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: m.gsbFrontActualM < rule.minGSBFront ? 'var(--bad)' : 'var(--good)' }}>
+                {m.gsbFrontActualM.toFixed(1)} m / min {rule.minGSBFront.toFixed(1)} m
               </span>
             </div>
 
             {/* GSB Samping */}
-            <div className="inset-row">
-              <span style={{ fontSize: '12px', color: 'var(--label-secondary)' }}>GSB Samping (Bebas Api)</span>
-              <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: m.gsbSideActualM < rule.minGSBSide ? 'var(--bad)' : 'var(--label)' }}>
-                {m.gsbSideActualM} m / min {rule.minGSBSide} m
+            <div
+              className="inset-row inset-row-clickable"
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={() => engine.spatialHighlighter.highlightSetback(lot, 'side')}
+              onMouseLeave={() => engine.spatialHighlighter.clearHighlight()}
+            >
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">GSB Samping (Bebas Api)</span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: m.gsbSideActualM < rule.minGSBSide ? 'var(--bad)' : 'var(--label)' }}>
+                {m.gsbSideActualM.toFixed(1)} m / min {rule.minGSBSide.toFixed(1)} m
               </span>
             </div>
 
             {/* GSB Belakang */}
-            <div className="inset-row">
-              <span style={{ fontSize: '12px', color: 'var(--label-secondary)' }}>GSB Belakang</span>
-              <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: m.gsbRearActualM < rule.minGSBRear ? 'var(--bad)' : 'var(--label)' }}>
-                {m.gsbRearActualM} m / min {rule.minGSBRear} m
+            <div
+              className="inset-row inset-row-clickable"
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={() => engine.spatialHighlighter.highlightSetback(lot, 'rear')}
+              onMouseLeave={() => engine.spatialHighlighter.clearHighlight()}
+            >
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">GSB Belakang</span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: m.gsbRearActualM < rule.minGSBRear ? 'var(--bad)' : 'var(--label)' }}>
+                {m.gsbRearActualM.toFixed(1)} m / min {rule.minGSBRear.toFixed(1)} m
               </span>
             </div>
           </div>
 
           {/* Area Metrics */}
-          <div className="inset-header">LUAS & DIMENSI</div>
+          <div className="inset-header text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">LUAS & DIMENSI</div>
           <div className="inset-group">
             <div className="inset-row">
-              <span style={{ fontSize: '13px', color: 'var(--label-secondary)' }}>Luas Kavling</span>
-              <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
-                {lot.areaM2} m²
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Luas Kavling</span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: 'var(--label)' }}>
+                {lot.areaM2.toFixed(1)} m²
               </span>
             </div>
             <div className="inset-row">
-              <span style={{ fontSize: '13px', color: 'var(--label-secondary)' }}>Tapak Terbangun</span>
-              <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
-                {m.groundFootprintM2} m²
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Tapak Terbangun</span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: 'var(--label)' }}>
+                {m.groundFootprintM2.toFixed(1)} m²
               </span>
             </div>
           </div>
@@ -245,7 +499,17 @@ export const InspectorPanel: React.FC = () => {
             <>
               <div className="inset-header" style={{ color: 'var(--bad)' }}>REKOMENDASI PERBAIKAN</div>
               {lot.violations.map((v, i) => (
-                <div key={i} className="inset-group" style={{ borderColor: 'rgba(255,59,48,0.3)' }}>
+                <div
+                  key={i}
+                  className="inset-group"
+                  style={{ borderColor: 'rgba(255,59,48,0.3)', cursor: 'pointer' }}
+                  onClick={() => {
+                    const center = new THREE.Vector3(lot.position.x, 0, lot.position.z);
+                    const size = new THREE.Vector3(lot.width, 4, lot.length);
+                    engine.highlightViolation(center, size, 2000);
+                  }}
+                  title="Klik untuk menyorot lokasi kavling yang melanggar"
+                >
                   <div className="inset-row" style={{ background: 'rgba(255,59,48,0.06)' }}>
                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--bad)' }}>{v.title}</span>
                   </div>
@@ -275,11 +539,80 @@ export const InspectorPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Lot Hydrology & Neighbor Runoff Spillover */}
+          {(() => {
+            const flood = runoffSimulator.evaluateLotFlooding(lot, engine.landscapeManager, 60.0, engine.lotManager);
+            return (
+              <>
+                <div className="inset-header">HIDROLOGI KAWASAN & RESAPAN AIR</div>
+                <div className="inset-group">
+                  <div className="inset-row" style={{ justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Droplets size={15} strokeWidth={1.75} style={{ color: flood.riskLevel === 'safe' ? 'var(--good)' : flood.riskLevel === 'warning' ? 'var(--warn)' : 'var(--bad)' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>Genangan Air Hujan Ekstrem</span>
+                    </div>
+                    <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 700, color: flood.riskLevel === 'safe' ? 'var(--good)' : flood.riskLevel === 'warning' ? 'var(--warn)' : 'var(--bad)' }}>
+                      {flood.floodDepthCm.toFixed(1)} cm ({flood.riskLevel === 'safe' ? 'Aman' : flood.riskLevel === 'warning' ? 'Waspada' : 'Banjir'})
+                    </span>
+                  </div>
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>Infrastruktur Resapan</span>
+                    <span className="tabular-nums">{flood.wellCount} Sumur • {flood.bioporeCount} Biopori</span>
+                  </div>
+                  {flood.neighborRunoffSurplusM3Hr > 0 && (
+                    <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--bad)' }}>
+                      <span>Beban Limpasan Air Tetangga</span>
+                      <span className="tabular-nums">+{flood.neighborRunoffSurplusM3Hr.toFixed(1)} m³/jam</span>
+                    </div>
+                  )}
+                  {flood.neighborAbsorptionAidM3Hr > 0 && (
+                    <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--good)' }}>
+                      <span>Bantuan Serapan Air Tetangga</span>
+                      <span className="tabular-nums">-{flood.neighborAbsorptionAidM3Hr.toFixed(1)} m³/jam</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+
           {/* Why Principle Card */}
-          <WhyCard principle={getWhyPrincipleForContext({ hasLotViolations: hasViolations })} />
+          <WhyCard principle={getWhyPrincipleForContext({ hasLotViolations: hasViolations })} targetPos={lot.position} />
 
           {/* Actions */}
           <div style={{ marginTop: '12px' }}>
+            {/* Smart Auto-Fix Button */}
+            {lot.containedBuildingIds && lot.containedBuildingIds.length > 0 && (() => {
+              const bld = engine.buildingManager.buildings.get(lot.containedBuildingIds[0]);
+              const canFix = bld && (hasViolations || AutoFixService.canAutoFix(lot, bld));
+              if (!canFix) return null;
+              return (
+                <button
+                  onClick={() => {
+                    AutoFixService.applyAutoFix(engine, lot, bld);
+                  }}
+                  className="ios-btn ios-btn-primary"
+                  style={{ width: '100%', height: '36px', marginBottom: '8px' }}
+                >
+                  <Wand2 size={15} strokeWidth={1.75} />
+                  <span>Sesuaikan Otomatis ke Standar Regulasi</span>
+                </button>
+              );
+            })()}
+
+            {(!lot.containedBuildingIds || lot.containedBuildingIds.length === 0) && (
+              <button
+                onClick={() => {
+                  const cmd = AutoZoningService.createAutoDevelopLotCommand(engine, lot.id);
+                  if (cmd) engine.executeCommand(cmd);
+                }}
+                className="ios-btn ios-btn-primary"
+                style={{ width: '100%', height: '36px', marginBottom: '8px' }}
+              >
+                <Sparkles size={15} strokeWidth={1.75} />
+                <span>Kembangkan Kavling Otomatis</span>
+              </button>
+            )}
             <button
               onClick={handleDeleteLot}
               className="ios-btn ios-btn-destructive"
@@ -323,6 +656,19 @@ export const InspectorPanel: React.FC = () => {
       engine.executeCommand(new UpdateBuildingParamCommand(engine, bld.id, { wallMaterial: bld.wallMaterial }, { wallMaterial: mat }, 'Ubah Material Dinding'));
     };
 
+    const handleToggleSolarPv = () => {
+      const nextVal = !bld.hasRooftopSolar;
+      engine.executeCommand(
+        new UpdateBuildingParamCommand(
+          engine,
+          bld.id,
+          { hasRooftopSolar: bld.hasRooftopSolar },
+          { hasRooftopSolar: nextVal },
+          'Pasang Panel Surya Atap (Solar PV)'
+        )
+      );
+    };
+
     const handleInspectFacade = () => {
       engine.cameraController.focusAt(bld.position, 30);
       engine.cameraController.isInspectMode = true;
@@ -364,35 +710,40 @@ export const InspectorPanel: React.FC = () => {
         {/* Solid Inset Grouped Body */}
         <div className="inspector-body">
           {/* Quick Metrics */}
-          <div className="inset-header">METRIK BANGUNAN</div>
+          <div className="inset-header text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">METRIK BANGUNAN</div>
           <div className="inset-group">
-            <div className="inset-row">
-              <span style={{ fontSize: '13px', color: 'var(--label-secondary)' }}>Luas Tapak</span>
-              <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
-                {footprintArea} m²
+            <div
+              className="inset-row inset-row-clickable"
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={() => engine.spatialHighlighter.highlightFootprint(bld)}
+              onMouseLeave={() => engine.spatialHighlighter.clearHighlight()}
+            >
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Luas Tapak</span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: 'var(--label)' }}>
+                {footprintArea.toFixed(1)} m²
               </span>
             </div>
             <div className="inset-row">
-              <span style={{ fontSize: '13px', color: 'var(--label-secondary)' }}>Luas Total Lantai</span>
-              <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
-                {totalFloorArea} m²
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Luas Total Lantai</span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: 'var(--label)' }}>
+                {totalFloorArea.toFixed(1)} m²
               </span>
             </div>
             <div className="inset-row">
-              <span style={{ fontSize: '13px', color: 'var(--label-secondary)' }}>Tinggi Total</span>
-              <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Tinggi Total</span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: 'var(--label)' }}>
                 {totalHeight.toFixed(1)} m
               </span>
             </div>
           </div>
 
           {/* Sliders */}
-          <div className="inset-header">DIMENSI & LANTAI</div>
+          <div className="inset-header text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">DIMENSI & LANTAI</div>
           <div className="inset-group">
             <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--label-secondary)' }}>Lebar</span>
-                <span className="tabular-nums" style={{ fontWeight: 600 }}>{bld.width} m</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Lebar</span>
+                <span className="text-sm font-mono tabular-nums font-medium">{bld.width.toFixed(1)} m</span>
               </div>
               <input
                 type="range"
@@ -407,9 +758,9 @@ export const InspectorPanel: React.FC = () => {
             </div>
 
             <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--label-secondary)' }}>Panjang</span>
-                <span className="tabular-nums" style={{ fontWeight: 600 }}>{bld.length} m</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Panjang</span>
+                <span className="text-sm font-mono tabular-nums font-medium">{bld.length.toFixed(1)} m</span>
               </div>
               <input
                 type="range"
@@ -424,9 +775,9 @@ export const InspectorPanel: React.FC = () => {
             </div>
 
             <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--label-secondary)' }}>Jumlah Lantai</span>
-                <span className="tabular-nums" style={{ fontWeight: 600 }}>{bld.floorCount} Lantai</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Jumlah Lantai</span>
+                <span className="text-sm font-mono tabular-nums font-medium">{bld.floorCount} Lantai</span>
               </div>
               <input
                 type="range"
@@ -442,7 +793,7 @@ export const InspectorPanel: React.FC = () => {
           </div>
 
           {/* Materials & Roof */}
-          <div className="inset-header">ARSITEKTUR & MATERIAL</div>
+          <div className="inset-header text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">ARSITEKTUR & MATERIAL</div>
           <div className="inset-group">
             <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px', padding: '10px 14px' }}>
               <span style={{ fontSize: '12px', color: 'var(--label-secondary)' }}>Tipe Atap</span>
@@ -501,11 +852,28 @@ export const InspectorPanel: React.FC = () => {
                   </button>
                 </div>
                 {bld.interiorLayouts[0].rooms.map((room, idx) => (
-                  <div key={idx} className="inset-row" style={{ justifyContent: 'space-between', padding: '6px 14px' }}>
+                  <div
+                    key={idx}
+                    className="inset-row inset-row-clickable"
+                    style={{ justifyContent: 'space-between', padding: '6px 14px', cursor: 'pointer' }}
+                    onMouseEnter={() => engine.spatialHighlighter.highlightRoom(bld, room.name)}
+                    onMouseLeave={() => engine.spatialHighlighter.clearHighlight()}
+                    onClick={() => {
+                      const cos = Math.cos(bld.rotationY);
+                      const sin = Math.sin(bld.rotationY);
+                      const rx = bld.position.x + (room.labelPosition.x * cos - room.labelPosition.y * sin);
+                      const rz = bld.position.z + (room.labelPosition.x * sin + room.labelPosition.y * cos);
+                      const roomCenter = new THREE.Vector3(rx, 1.2, rz);
+                      const roomSide = Math.max(2, Math.sqrt(room.areaM2));
+                      const roomSize = new THREE.Vector3(roomSide, room.ceilingHeight || 3.0, roomSide);
+                      engine.highlightViolation(roomCenter, roomSize, 2000);
+                    }}
+                    title="Klik untuk menyorot tata letak ruang ini"
+                  >
                     <div>
                       <div style={{ fontSize: '12px', fontWeight: 500 }}>{room.name}</div>
                       <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                        Plafon: {room.ceilingHeight || 3.2} m • {room.isCompliant ? '✓ Standar SNI' : '⚠ Di bawah SNI'}
+                        Plafon: <span className="tabular-nums">{room.ceilingHeight || 3.2}</span> m • {room.isCompliant ? '[SNI Lolos]' : '[SNI Di Bawah Standar]'}
                       </div>
                     </div>
                     <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: room.isCompliant ? 'var(--good)' : 'var(--warn)' }}>
@@ -556,13 +924,49 @@ export const InspectorPanel: React.FC = () => {
                   </div>
 
                   {s.hasSoftStory && (
-                    <div className="inset-row" style={{ background: 'rgba(255, 59, 48, 0.08)' }}>
+                    <div
+                      className="inset-row inset-row-clickable"
+                      style={{ background: 'rgba(255, 59, 48, 0.08)', cursor: 'pointer' }}
+                      onClick={() => {
+                        engine.highlightViolation(bld.position, new THREE.Vector3(bld.width + 1, 3.5, bld.length + 1), 2000);
+                      }}
+                      title="Klik untuk menyorot tingkat lunak (Soft Story)"
+                    >
                       <AlertCircle size={15} strokeWidth={1.75} style={{ color: 'var(--bad)' }} />
                       <span style={{ fontSize: '11px', color: 'var(--bad)', fontWeight: 500 }}>
-                        Peringatan: Tingkat lunak (Soft Story) terdeteksi. Berikan bresing atau dinding geser.
+                        Peringatan: Tingkat lunak (Soft Story) terdeteksi. Klik untuk menyorot lantai.
                       </span>
                     </div>
                   )}
+
+                  <div className="inset-row" style={{ marginTop: '6px' }}>
+                    <button
+                      onClick={() => {
+                        if (structuralChecker.isShaking()) {
+                          structuralChecker.stopEarthquakeShakeTest();
+                        } else {
+                          structuralChecker.triggerEarthquakeShakeTest(engine);
+                        }
+                      }}
+                      className="action-button-secondary"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        background: structuralChecker.isShaking() ? 'rgba(255, 59, 48, 0.2)' : 'var(--fill-control)',
+                        borderColor: structuralChecker.isShaking() ? 'var(--bad)' : 'var(--separator-opaque)',
+                        color: structuralChecker.isShaking() ? 'var(--bad)' : 'var(--label)'
+                      }}
+                    >
+                      <Activity size={14} strokeWidth={2} />
+                      <span>{structuralChecker.isShaking() ? 'Hentikan Simulasi Gempa' : 'Simulasikan Gempa bumi Mw 6.3'}</span>
+                    </button>
+                  </div>
 
                   <div className="inset-footer">
                     Edukasi Gempa Yogyakarta 2006: Keruntuhan rumah terbanyak diakibatkan hilangnya ikatan ring balok dan kegagalan sambungan kolom-balok.
@@ -636,17 +1040,200 @@ export const InspectorPanel: React.FC = () => {
             );
           })()}
 
-          {/* ESTIMASI BIAYA BANGUNAN (RAB) */}
+          {/* IKLIM MIKRO & DIFUSI TERMAL TROPIS */}
           {(() => {
-            const cost = costEstimator.estimateBuildingCost(bld);
+            const tReport = engine.ventilationAnalyzer.analyzeBuilding(bld.id);
+            if (!tReport) return null;
             return (
               <>
-                <div className="inset-header">ESTIMASI BIAYA BANGUNAN (RAB)</div>
+                <div className="inset-header">IKLIM MIKRO & DIFUSI TERMAL TROPIS</div>
+                <div className="inset-group">
+                  <div className="inset-row" style={{ justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Thermometer size={15} strokeWidth={1.75} style={{ color: tReport.comfortRating === 'Nyaman Alami' ? 'var(--good)' : tReport.comfortRating === 'Hangat' ? 'var(--warn)' : 'var(--bad)' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>Suhu Dalam Ruang</span>
+                    </div>
+                    <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 700, color: tReport.comfortRating === 'Nyaman Alami' ? 'var(--good)' : 'var(--warn)' }}>
+                      {tReport.indoorEstimatedTempC.toFixed(1)}°C (Luar: {tReport.outdoorTempC.toFixed(1)}°C)
+                    </span>
+                  </div>
+
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>Ventilasi Silang (Cross-Vent)</span>
+                    <span style={{ color: tReport.hasCrossVentilation ? 'var(--good)' : 'var(--warn)', fontWeight: 600 }}>
+                      {tReport.hasCrossVentilation ? 'Tersedia (Optimal)' : 'Tidak Ada (Perlu Jendela)'}
+                    </span>
+                  </div>
+
+                  {tReport.neighborhoodCoolingC > 0 && (
+                    <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--good)' }}>
+                      <span>Efek Peneduh Kawasan Sekitar</span>
+                      <span className="tabular-nums">-{tReport.neighborhoodCoolingC.toFixed(1)}°C</span>
+                    </div>
+                  )}
+
+                  {tReport.neighborhoodHeatIslandC > 0 && (
+                    <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--bad)' }}>
+                      <span>Beban Panas Urban Heat Island Tetangga</span>
+                      <span className="tabular-nums">+{tReport.neighborhoodHeatIslandC.toFixed(1)}°C</span>
+                    </div>
+                  )}
+
+                  {tReport.neighborhoodRunoffSurplusM3Hr > 0 && (
+                    <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--warn)' }}>
+                      <span>Beban Limpasan Air Tetangga</span>
+                      <span className="tabular-nums">+{tReport.neighborhoodRunoffSurplusM3Hr.toFixed(1)} m³/jam</span>
+                    </div>
+                  )}
+
+                  {tReport.neighborhoodWaterAbsorptionAidM3Hr > 0 && (
+                    <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--good)' }}>
+                      <span>Bantuan Resapan Air Tetangga</span>
+                      <span className="tabular-nums">-{tReport.neighborhoodWaterAbsorptionAidM3Hr.toFixed(1)} m³/jam</span>
+                    </div>
+                  )}
+
+                  {tReport.riverCoolingBonusC !== undefined && tReport.riverCoolingBonusC > 0 && (
+                    <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--accent)' }}>
+                      <span>Bonus Sempadan Sungai (GSS Hijau)</span>
+                      <span className="tabular-nums">-{tReport.riverCoolingBonusC.toFixed(1)}°C</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+
+          {/* PENCAHAYAAN ALAMI SIANG HARI (SNI 03-2396-2001) */}
+          {(() => {
+            const dl = engine.solarAnalyzer.evaluateDaylightAutonomy(bld);
+            const statusColor = dl.status === 'optimal' ? 'var(--good)' : dl.status === 'adequate' ? 'var(--accent)' : 'var(--warn)';
+
+            return (
+              <>
+                <div className="inset-header">PENCAHAYAAN ALAMI SIANG HARI (SNI 03-2396)</div>
+                <div className="inset-group">
+                  <div className="inset-row" style={{ justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Sun size={15} strokeWidth={1.75} style={{ color: statusColor }} />
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 600 }}>Daylight Autonomy</div>
+                        <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>Kecukupan Cahaya Alami</div>
+                      </div>
+                    </div>
+                    <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 700, color: statusColor }}>
+                      {dl.daylightAutonomyScore}% ({dl.statusLabel})
+                    </span>
+                  </div>
+
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>Rasio Tebal / Tinggi Plafon</span>
+                    <span className="tabular-nums">{dl.depthToHeightRatio}:1</span>
+                  </div>
+
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>Taman Dalam (Inner Courtyard)</span>
+                    <span style={{ color: dl.hasCourtyard ? 'var(--good)' : 'var(--label)', fontWeight: 500 }}>
+                      {dl.hasCourtyard ? 'Tersedia' : 'Tidak Ada'}
+                    </span>
+                  </div>
+
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>Bukaan Atap (Sawtooth / Skylight)</span>
+                    <span style={{ color: dl.hasSkylightOrSawtooth ? 'var(--good)' : 'var(--label)', fontWeight: 500 }}>
+                      {dl.hasSkylightOrSawtooth ? 'Tersedia' : 'Tidak Ada'}
+                    </span>
+                  </div>
+
+                  {dl.recommendations.length > 0 && (
+                    <div style={{ padding: '8px 14px', fontSize: '11px', color: 'var(--label-secondary)', lineHeight: 1.4, borderTop: '1px solid var(--separator)' }}>
+                      {dl.recommendations[0]}
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+
+          {/* PANEL SURYA ATAP (ROOFTOP SOLAR PV) */}
+          {(() => {
+            const solar = engine.solarAnalyzer.estimateRooftopSolar(bld);
+            const isInstalled = Boolean(bld.hasRooftopSolar);
+
+            return (
+              <>
+                <div className="inset-header">ENERGI MANDIRI: PANEL SURYA ATAP (SOLAR PV)</div>
+                <div className="inset-group">
+                  <div className="inset-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Zap size={15} strokeWidth={1.75} style={{ color: isInstalled ? 'var(--accent)' : 'var(--label-secondary)' }} />
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 600 }}>Pasang Solar PV Atap</div>
+                        <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
+                          Iradiasi Yogya: ~4.8 kWh/m²/hari
+                        </div>
+                      </div>
+                    </div>
+                    <label className="ios-switch">
+                      <input
+                        type="checkbox"
+                        checked={isInstalled}
+                        onChange={handleToggleSolarPv}
+                        aria-label="Pasang Panel Surya Atap"
+                      />
+                      <span className="ios-switch-slider" />
+                    </label>
+                  </div>
+
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>Kapasitas Daya Puncak</span>
+                    <span className="tabular-nums" style={{ fontWeight: 600, color: isInstalled ? 'var(--accent)' : 'var(--label)' }}>
+                      {solar.installedCapacityKwp} kWp
+                    </span>
+                  </div>
+
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>Estimasi Produksi Energi</span>
+                    <span className="tabular-nums" style={{ fontWeight: 600, color: isInstalled ? 'var(--good)' : 'var(--label)' }}>
+                      {solar.annualGenerationKwh.toLocaleString('id-ID')} kWh/tahun
+                    </span>
+                  </div>
+
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>Potensi Hemat Tagihan Listrik 10 Thn</span>
+                    <span className="tabular-nums" style={{ fontWeight: 600, color: 'var(--good)' }}>
+                      {costEstimator.formatRupiah(solar.tenYearSavingsIdr)}
+                    </span>
+                  </div>
+
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>Reduksi Emisi Karbon Bersih</span>
+                    <span className="tabular-nums">{solar.co2ReductionTonsPerYear} ton CO₂/tahun</span>
+                  </div>
+
+                  <div className="inset-footer">
+                    {isInstalled
+                      ? 'Panel surya aktif memangkas pengeluaran operasional listrik (OPEX) gedung selama 10 tahun.'
+                      : 'Aktifkan switch di atas untuk memotong biaya listrik AC dari anggaran OPEX gedung.'}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+
+          {/* ESTIMASI BIAYA BANGUNAN & SIKLUS HIDUP 10 TAHUN (CAPEX vs OPEX) */}
+          {(() => {
+            const cost = costEstimator.estimateBuildingCost(bld);
+            const gradeColor = cost.tropicalEfficiencyGrade === 'A' ? 'var(--good)' : cost.tropicalEfficiencyGrade === 'B' ? 'var(--accent)' : cost.tropicalEfficiencyGrade === 'C' ? 'var(--warn)' : 'var(--bad)';
+
+            return (
+              <>
+                <div className="inset-header">BIAYA SIKLUS HIDUP (CAPEX vs OPEX 10 TAHUN)</div>
                 <div className="inset-group">
                   <div className="inset-row" style={{ justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Coins size={15} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
-                      <span style={{ fontSize: '12px', fontWeight: 600 }}>Total Anggaran (RAB)</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>Biaya Bangun Awal (CAPEX)</span>
                     </div>
                     <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>
                       {cost.formattedTotal}
@@ -669,9 +1256,35 @@ export const InspectorPanel: React.FC = () => {
                     <span>• Finishing Lantai & Plafon</span>
                     <span className="tabular-nums">{costEstimator.formatRupiah(cost.finishingCost)}</span>
                   </div>
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>• Listrik AC Bulanan</span>
+                    <span className="tabular-nums">{cost.formattedMonthlyAcCost}</span>
+                  </div>
+                  {cost.hasSolarPv && (
+                    <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--good)' }}>
+                      <span>• Penghematan Solar PV (10 Tahun)</span>
+                      <span className="tabular-nums">-{costEstimator.formatRupiah(cost.solarTenYearSavingsIdr)}</span>
+                    </div>
+                  )}
+                  <div className="inset-row" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <span>• Estimasi OPEX 10 Tahun (Energi & Rawat)</span>
+                    <span className="tabular-nums">{cost.formattedTenYearOpex}</span>
+                  </div>
 
-                  <div className="inset-footer">
-                    Label: Angka di atas adalah ilustrasi edukatif, bukan acuan harga pasar riil.
+                  <div className="inset-row" style={{ justifyContent: 'space-between', borderTop: '1px solid var(--separator)' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600 }}>Peringkat Efisiensi Tropis</span>
+                    <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 700, color: gradeColor }}>
+                      Grade {cost.tropicalEfficiencyGrade}
+                    </span>
+                  </div>
+
+                  <div style={{ padding: '8px 14px', fontSize: '11px', color: 'var(--label-secondary)', lineHeight: 1.4 }}>
+                    {cost.efficiencyExplanation}
+                    {cost.tenYearSavingsVsBaselineIdr > 0 && (
+                      <div style={{ marginTop: '4px', color: 'var(--good)', fontWeight: 600 }}>
+                        Hemat {costEstimator.formatRupiah(cost.tenYearSavingsVsBaselineIdr)} dalam 10 tahun dibanding desain tanpa ventilasi.
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
@@ -679,7 +1292,26 @@ export const InspectorPanel: React.FC = () => {
           })()}
 
           {/* Why Principle Card */}
-          <WhyCard principle={getWhyPrincipleForContext({ isBuildingSelected: true, roofType: bld.roofType })} />
+          <WhyCard principle={getWhyPrincipleForContext({ isBuildingSelected: true, roofType: bld.roofType })} targetPos={bld.position} />
+
+          {/* Smart Auto-Fix Button for Building */}
+          {(() => {
+            const lot = engine.lotManager?.getLotForBuilding(bld.id);
+            const canFix = lot && (lot.violations.length > 0 || AutoFixService.canAutoFix(lot, bld));
+            if (!canFix) return null;
+            return (
+              <button
+                onClick={() => {
+                  AutoFixService.applyAutoFix(engine, lot, bld);
+                }}
+                className="ios-btn ios-btn-primary"
+                style={{ width: '100%', height: '36px', marginTop: '12px' }}
+              >
+                <Wand2 size={15} strokeWidth={1.75} />
+                <span>Sesuaikan Otomatis ke Standar Regulasi</span>
+              </button>
+            );
+          })()}
 
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>

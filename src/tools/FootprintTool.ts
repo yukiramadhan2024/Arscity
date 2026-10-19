@@ -4,6 +4,7 @@ import { RaycastManager } from '../core/engine/RaycastManager';
 import { BuildingInstance } from '../buildings/PrefabTypes';
 import { FloorDefinition } from '../buildings/CustomBuildingModel';
 import { AddBuildingCommand } from '../core/commands/CityCommands';
+import { HumanScaleFigure } from '../buildings/HumanScaleFigure';
 import type { Engine } from '../core/engine/Engine';
 
 export class FootprintTool {
@@ -15,6 +16,7 @@ export class FootprintTool {
   public isDrawing: boolean = false;
   public vertices: THREE.Vector2[] = [];
   private previewLine: THREE.Line | null = null;
+  private humanFigure: HumanScaleFigure | null = null;
   private nextCustomId: number = 1;
 
   constructor(
@@ -37,6 +39,12 @@ export class FootprintTool {
     this.cancelDrawing();
     this.isDrawing = true;
     this.vertices = [];
+
+    if (!this.humanFigure) {
+      this.humanFigure = new HumanScaleFigure(1.65);
+      this.scene.add(this.humanFigure.getObject());
+    }
+    this.humanFigure.setVisible(true);
   }
 
   public handleClick(snappedPos: THREE.Vector3): void {
@@ -201,6 +209,16 @@ export class FootprintTool {
   public update(): void {
     if (!this.isDrawing) return;
     this.updatePreviewLine();
+
+    if (this.humanFigure) {
+      if (this.vertices.length > 0) {
+        const v0 = this.vertices[0];
+        this.humanFigure.setPosition(v0.x - 1.2, 0, v0.y - 1.2);
+      } else if (this.raycastManager.isHoveringGround) {
+        const pt = this.raycastManager.snappedPoint;
+        this.humanFigure.setPosition(pt.x + 1.2, 0, pt.z);
+      }
+    }
   }
 
   private updatePreviewLine(): void {
@@ -233,6 +251,11 @@ export class FootprintTool {
       this.previewLine.geometry.dispose();
       (this.previewLine.material as THREE.Material).dispose();
       this.previewLine = null;
+    }
+    if (this.humanFigure) {
+      this.scene.remove(this.humanFigure.getObject());
+      this.humanFigure.dispose();
+      this.humanFigure = null;
     }
   }
 

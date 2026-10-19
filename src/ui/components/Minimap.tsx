@@ -21,7 +21,7 @@ export const Minimap: React.FC = () => {
       if (!ctx) return;
 
       const dpr = window.devicePixelRatio || 1;
-      const displaySize = 140;
+      const displaySize = 160;
       if (canvas.width !== displaySize * dpr || canvas.height !== displaySize * dpr) {
         canvas.width = displaySize * dpr;
         canvas.height = displaySize * dpr;
@@ -32,68 +32,71 @@ export const Minimap: React.FC = () => {
 
       const w = displaySize;
       const h = displaySize;
-      const worldSize = 512;
-      const scale = w / worldSize;
+      const worldSize = engine?.terrain?.size || 1600;
+      const scale = w / (worldSize * 0.45); // Centered close-up zoom around city core
 
       const isDark = resolvedTheme === 'dark';
 
-      // Blueprint surface background
-      ctx.fillStyle = isDark ? '#141416' : '#f8fafc';
+      // Circular clip path for round radar
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, w / 2 - 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      // Deep dark radar background
+      ctx.fillStyle = '#0a0f1d';
       ctx.fillRect(0, 0, w, h);
 
-      // Subtle architectural grid (64m grid lines in world)
-      ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)';
-      ctx.lineWidth = 0.5;
-      const step = 64 * scale;
-      for (let x = 0; x <= w; x += step) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= h; y += step) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
-      }
-
-      // Origin axes
-      ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.10)';
+      // Subtle range rings
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(w / 2, 0);
-      ctx.lineTo(w / 2, h);
-      ctx.moveTo(0, h / 2);
-      ctx.lineTo(w, h / 2);
+      ctx.arc(w / 2, h / 2, 35, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, 65, 0, Math.PI * 2);
       ctx.stroke();
 
-      const toScreenX = (worldX: number) => (worldX + worldSize / 2) * scale;
-      const toScreenY = (worldZ: number) => (worldZ + worldSize / 2) * scale;
+      // Compass crosshairs
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.lineWidth = 0.75;
+      ctx.beginPath();
+      ctx.moveTo(w / 2, 4);
+      ctx.lineTo(w / 2, h - 4);
+      ctx.moveTo(4, h / 2);
+      ctx.lineTo(w - 4, h / 2);
+      ctx.stroke();
 
-      // 1. Render Zoned Lots
+      const cam = engine.cameraController;
+      const camTargetX = cam.target.x;
+      const camTargetZ = cam.target.z;
+
+      // Coordinate converter centered on active camera target
+      const toScreenX = (worldX: number) => w / 2 + (worldX - camTargetX) * scale;
+      const toScreenY = (worldZ: number) => h / 2 + (worldZ - camTargetZ) * scale;
+
+      // 1. Render Zoned Lots (Muted Slate / Blue Tint)
       if (engine.lotManager) {
         for (const lot of engine.lotManager.lots.values()) {
           const rule = ZONE_RULES[lot.zone];
-          const color = rule ? rule.color : '#10b981';
-          ctx.fillStyle = isDark ? `${color}33` : `${color}40`; // Translucent tint
-          ctx.strokeStyle = color;
+          const color = rule ? rule.color : '#38bdf8';
+          ctx.fillStyle = `${color}25`;
+          ctx.strokeStyle = `${color}55`;
           ctx.lineWidth = 0.8;
 
           const lx = toScreenX(lot.position.x);
           const ly = toScreenY(lot.position.z);
-          const lw = Math.max(4, lot.width * scale);
-          const ll = Math.max(4, lot.length * scale);
+          const lw = Math.max(3, lot.width * scale);
+          const ll = Math.max(3, lot.length * scale);
 
           ctx.fillRect(lx - lw / 2, ly - ll / 2, lw, ll);
           ctx.strokeRect(lx - lw / 2, ly - ll / 2, lw, ll);
         }
       }
 
-      // 2. Render Roads
+      // 2. Render Roads (Muted Blue-Gray)
       if (engine.roadManager) {
-        ctx.strokeStyle = isDark ? '#383a42' : '#94a3b8';
-        ctx.lineWidth = Math.max(2, 8 * scale);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = Math.max(2.5, 7 * scale);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -122,7 +125,7 @@ export const Minimap: React.FC = () => {
         }
       }
 
-      // 3. Render Buildings
+      // 3. Render Buildings (Muted Blue-White Outlines)
       if (engine.buildingManager) {
         for (const bld of engine.buildingManager.buildings.values()) {
           const bx = toScreenX(bld.position.x);
@@ -134,43 +137,38 @@ export const Minimap: React.FC = () => {
           ctx.translate(bx, by);
           ctx.rotate(-bld.rotationY);
 
-          // Building footprint fill & border
-          ctx.fillStyle = isDark ? '#ffffff' : '#0f172a';
+          ctx.fillStyle = '#64748b';
           ctx.fillRect(-bw / 2, -bl / 2, bw, bl);
 
-          // Roof highlight line
-          ctx.fillStyle = '#007aff';
-          ctx.fillRect(-bw / 2, -bl / 2, Math.max(1, bw * 0.25), bl);
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(-bw / 2, -bl / 2, bw, bl);
 
           ctx.restore();
         }
       }
 
-      // 4. Subtle Animated Radar Sweep
-      sweepAngle += 0.02;
-      const cam = engine.cameraController;
-      const targetX = toScreenX(cam.target.x);
-      const targetY = toScreenY(cam.target.z);
-
-      const sweepGradient = ctx.createRadialGradient(targetX, targetY, 2, targetX, targetY, 40);
-      sweepGradient.addColorStop(0, isDark ? 'rgba(0, 122, 255, 0.25)' : 'rgba(0, 122, 255, 0.15)');
-      sweepGradient.addColorStop(1, 'rgba(0, 122, 255, 0)');
+      // 4. Subtle Radar Sweep Glow
+      sweepAngle += 0.025;
+      const sweepGradient = ctx.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, 70);
+      sweepGradient.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
+      sweepGradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
 
       ctx.fillStyle = sweepGradient;
       ctx.beginPath();
-      ctx.arc(targetX, targetY, 40, sweepAngle, sweepAngle + Math.PI * 0.5);
-      ctx.lineTo(targetX, targetY);
+      ctx.arc(w / 2, h / 2, 70, sweepAngle, sweepAngle + Math.PI * 0.45);
+      ctx.lineTo(w / 2, h / 2);
       ctx.fill();
 
-      // 5. Camera View Frustum Cone
+      // 5. Camera View Frustum Cone (Cyan Translucent)
       const eyeX = toScreenX(cam.camera.position.x);
       const eyeY = toScreenY(cam.camera.position.z);
 
-      const fovRad = (40 * Math.PI) / 180;
-      const angle = Math.atan2(targetY - eyeY, targetX - eyeX);
-      const coneDist = 36;
+      const fovRad = (45 * Math.PI) / 180;
+      const angle = Math.atan2(h / 2 - eyeY, w / 2 - eyeX);
+      const coneDist = 42;
 
-      ctx.fillStyle = isDark ? 'rgba(0, 122, 255, 0.20)' : 'rgba(0, 122, 255, 0.14)';
+      ctx.fillStyle = 'rgba(0, 229, 255, 0.22)';
       ctx.beginPath();
       ctx.moveTo(eyeX, eyeY);
       ctx.lineTo(eyeX + Math.cos(angle - fovRad / 2) * coneDist, eyeY + Math.sin(angle - fovRad / 2) * coneDist);
@@ -178,32 +176,20 @@ export const Minimap: React.FC = () => {
       ctx.closePath();
       ctx.fill();
 
-      // View sightline
-      ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.3)';
+      // Sightline
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
       ctx.lineWidth = 1;
       ctx.setLineDash([2, 2]);
       ctx.beginPath();
       ctx.moveTo(eyeX, eyeY);
-      ctx.lineTo(targetX, targetY);
+      ctx.lineTo(w / 2, h / 2);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Camera Eye Point
-      ctx.fillStyle = isDark ? '#ffffff' : '#000000';
+      // White Arrow at Center
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(eyeX, eyeY, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Camera Target Focal Point (Active Reticle)
-      ctx.strokeStyle = '#007aff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(targetX, targetY, 4, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.fillStyle = '#007aff';
-      ctx.beginPath();
-      ctx.arc(targetX, targetY, 1.8, 0, Math.PI * 2);
+      ctx.arc(w / 2, h / 2, 3, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
@@ -220,45 +206,148 @@ export const Minimap: React.FC = () => {
     const clickY = e.clientY - rect.top;
 
     const w = rect.width;
-    const worldSize = 512;
-    // Map click from canvas [0, w] to world [-worldSize/2, worldSize/2]
-    const worldX = (clickX / w) * worldSize - worldSize / 2;
-    const worldZ = (clickY / w) * worldSize - worldSize / 2;
+    const h = rect.height;
+    const worldSize = engine?.terrain?.size || 1600;
+    const scale = w / (worldSize * 0.45);
 
-    // Focus camera directly at world coordinate (Fixes the pan bug!)
-    engine.cameraController.focusAt(new THREE.Vector3(worldX, 0, worldZ));
+    const cam = engine.cameraController;
+    const deltaX = (clickX - w / 2) / scale;
+    const deltaZ = (clickY - h / 2) / scale;
+
+    engine.cameraController.focusAt(new THREE.Vector3(cam.target.x + deltaX, 0, cam.target.z + deltaZ));
   };
 
-  const targetX = engine ? Math.round(engine.cameraController.target.x) : 0;
-  const targetZ = engine ? Math.round(engine.cameraController.target.z) : 0;
+  const handleResetNorth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!engine) return;
+    engine.cameraController.resetNorth();
+  };
+
+  const handleRotateOrbit = (e: React.MouseEvent, deltaAngle: number) => {
+    e.stopPropagation();
+    if (!engine) return;
+    engine.cameraController.rotateOrbit(deltaAngle);
+  };
 
   return (
-    <div className="interactive minimap-wrapper">
-      <div className="glass-surface minimap-card" style={{ padding: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px 6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Navigation size={11} strokeWidth={2.5} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--label)', letterSpacing: '0.04em' }}>
-              RADAR KOTA
-            </span>
-          </div>
-          <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--label-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-            X:{targetX > 0 ? `+${targetX}` : targetX} Z:{targetZ > 0 ? `+${targetZ}` : targetZ}
-          </span>
-        </div>
-        <canvas
-          ref={canvasRef}
-          onClick={handleMinimapClick}
-          style={{
-            width: '140px',
-            height: '140px',
-            borderRadius: '12px',
-            cursor: 'crosshair',
-            display: 'block',
-            border: '0.5px solid var(--separator)'
-          }}
-        />
-      </div>
+    <div
+      className="interactive"
+      style={{
+        position: 'absolute',
+        bottom: '24px',
+        left: '24px',
+        width: '160px',
+        height: '160px',
+        borderRadius: '50%',
+        background: 'rgba(15, 23, 42, 0.78)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        border: '1.5px solid rgba(255, 255, 255, 0.18)',
+        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
+        zIndex: 40,
+        overflow: 'hidden',
+        userSelect: 'none'
+      }}
+    >
+      {/* Interactive True North Reset Button */}
+      <button
+        onClick={handleResetNorth}
+        style={{
+          position: 'absolute',
+          top: '5px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(15, 23, 42, 0.6)',
+          border: '1px solid rgba(255, 255, 255, 0.25)',
+          borderRadius: '9999px',
+          padding: '1px 7px',
+          color: '#ffffff',
+          fontSize: '11px',
+          fontWeight: 800,
+          fontFamily: 'var(--font-mono)',
+          textShadow: '0 2px 6px rgba(0,0,0,0.9)',
+          zIndex: 15,
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          lineHeight: '14px'
+        }}
+        title="Orientasikan Kamera ke Utara Sejati (True North)"
+        aria-label="Utara Sejati"
+      >
+        N
+      </button>
+
+      {/* SimCity Camera Orbit Controls (Left & Right 45-degree rotation) */}
+      <button
+        onClick={(e) => handleRotateOrbit(e, -Math.PI / 4)}
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '4px',
+          transform: 'translateY(-50%)',
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          background: 'rgba(15, 23, 42, 0.65)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          color: '#94a3b8',
+          fontSize: '10px',
+          fontWeight: 700,
+          fontFamily: 'var(--font-mono)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 15,
+          padding: 0
+        }}
+        title="Putar Kamera 45° Berlawanan Jarum Jam (Q)"
+        aria-label="Putar Kiri"
+      >
+        &lt;
+      </button>
+
+      <button
+        onClick={(e) => handleRotateOrbit(e, Math.PI / 4)}
+        style={{
+          position: 'absolute',
+          top: '50%',
+          right: '4px',
+          transform: 'translateY(-50%)',
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          background: 'rgba(15, 23, 42, 0.65)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          color: '#94a3b8',
+          fontSize: '10px',
+          fontWeight: 700,
+          fontFamily: 'var(--font-mono)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 15,
+          padding: 0
+        }}
+        title="Putar Kamera 45° Searah Jarum Jam (E)"
+        aria-label="Putar Kanan"
+      >
+        &gt;
+      </button>
+
+      <canvas
+        ref={canvasRef}
+        onClick={handleMinimapClick}
+        style={{
+          width: '160px',
+          height: '160px',
+          borderRadius: '50%',
+          cursor: 'crosshair',
+          display: 'block'
+        }}
+      />
     </div>
   );
 };
+

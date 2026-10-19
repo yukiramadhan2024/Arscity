@@ -13,6 +13,13 @@ export class CommandManager {
 
   public onStateChanged?: (canUndo: boolean, canRedo: boolean) => void;
 
+  public setMaxHistory(limit: number): void {
+    this.maxHistory = Math.max(10, limit);
+    while (this.undoStack.length > this.maxHistory) {
+      this.undoStack.shift();
+    }
+  }
+
   public beginGroup(description: string): void {
     this.activeGroup = { description, commands: [] };
   }

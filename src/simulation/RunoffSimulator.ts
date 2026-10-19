@@ -4,6 +4,7 @@ import { RoadManager } from '../roads/RoadManager';
 import { BuildingManager } from '../buildings/BuildingManager';
 import { LandscapeManager } from '../world/LandscapeManager';
 import { LotManager } from '../zones/LotManager';
+import { LotParcel } from '../zones/ZoneTypes';
 
 export interface RunoffCoefficients {
   roof: number;        // Roof surfaces (SNI 03-2453-2002)
@@ -33,6 +34,23 @@ export interface CityRunoffReport {
   inundationPoints: InundationPoint[];
   wellCount: number;
   bioporeCount: number;
+  retentionPondCount: number;
+  bioswaleCount: number;
+}
+
+export interface LotFloodingReport {
+  lotId: string;
+  floodDepthCm: number;
+  riskLevel: 'safe' | 'warning' | 'flooded';
+  unabsorbedVolumeM3: number;
+  mitigationKdhMet: boolean;
+  wellCount: number;
+  bioporeCount: number;
+  neighborRunoffSurplusM3Hr: number;
+  neighborAbsorptionAidM3Hr: number;
+  netNeighborRunoffImpactM3Hr: number;
+  retentionPondsNearby: number;
+  bioswalesNearby: number;
 }
 
 export class RunoffSimulator {
@@ -46,6 +64,13 @@ export class RunoffSimulator {
     openSoil: 0.15,
     rainfallIntensityMmHr: 60.0 // Standard design rain storm
   };
+
+  public isExtremeStorm: boolean = false;
+
+  public setExtremeStorm(active: boolean): void {
+    this.isExtremeStorm = active;
+    this.coefficients.rainfallIntensityMmHr = active ? 120.0 : 60.0;
+  }
 
   public coefficientSources = {
     roof: 'SNI 03-2453-2002 / Permen PUPR 12/2014',
@@ -90,6 +115,8 @@ export class RunoffSimulator {
     let grassArea = 0;
     let wellCount = 0;
     let bioporeCount = 0;
+    let retentionPondCount = 0;
+    let bioswaleCount = 0;
 
     for (const item of landscapeManager.items.values()) {
       if (item.type === 'paving_block') {
@@ -103,6 +130,10 @@ export class RunoffSimulator {
         wellCount++;
       } else if (item.type === 'biopore') {
         bioporeCount++;
+      } else if (item.type === 'retention_pond') {
+        retentionPondCount++;
+      } else if (item.type === 'bioswale_channel') {
+        bioswaleCount++;
       }
     }
 
@@ -127,10 +158,18 @@ export class RunoffSimulator {
     const areaKm2 = totalDomainAreaM2 / 1_000_000;
     const rawPeakDischargeM3PerSec = 0.278 * weightedC * this.coefficients.rainfallIntensityMmHr * areaKm2;
 
-    // Mitigation capacity from Absorption Wells (2.5 m³/hr per SNI well) & Biopores (0.2 m³/hr)
+    // Mitigation capacity:
+    // Wells (2.5 m³/hr per SNI well), Biopores (0.2 m³/hr)
+    // Retention Pond (25.0 m³/hr), Bioswale Channel (4.0 m³/hr)
     const wellAbsorptionRateM3Hr = wellCount * 2.5;
     const bioporeAbsorptionRateM3Hr = bioporeCount * 0.2;
-    const totalMitigationM3Hr = wellAbsorptionRateM3Hr + bioporeAbsorptionRateM3Hr;
+    const retentionAbsorptionRateM3Hr = retentionPondCount * 25.0;
+    const bioswaleAbsorptionRateM3Hr = bioswaleCount * 4.0;
+    const totalMitigationM3Hr =
+      wellAbsorptionRateM3Hr +
+      bioporeAbsorptionRateM3Hr +
+      retentionAbsorptionRateM3Hr +
+      bioswaleAbsorptionRateM3Hr;
     const mitigationM3PerSec = totalMitigationM3Hr / 3600;
 
     const netDischargeM3PerSec = Math.max(0, rawPeakDischargeM3PerSec - mitigationM3PerSec);
@@ -155,7 +194,9 @@ export class RunoffSimulator {
       inundationRiskScore,
       inundationPoints,
       wellCount,
-      bioporeCount
+      bioporeCount,
+      retentionPondCount,
+      bioswaleCount
     };
   }
 
@@ -193,6 +234,120 @@ export class RunoffSimulator {
     }
 
     return points;
+  }
+
+  /**
+   * Evaluates micro-watershed lot flooding based on KDH, ground permeability,
+   * absorption wells, biopores, and cellular automata neighbor runoff spillover.
+   */
+  public evaluateLotFlooding(
+    lot: LotParcel,
+    landscapeManager: LandscapeManager,
+    rainfallIntensityMmHr?: number,
+    lotManager?: LotManager
+  ): LotFloodingReport {
+    const intensity = rainfallIntensityMmHr !== undefined ? rainfallIntensityMmHr : this.coefficients.rainfallIntensityMmHr;
+    const lotArea = lot.areaM2 || (lot.width * lot.length);
+    const greenArea = lot.metrics?.greenAreaM2 || 0;
+    const groundBuiltArea = lot.metrics?.groundFootprintM2 || 0;
+    const kdhPercent = lot.metrics?.kdhPercent || 0;
+
+    let wellCount = 0;
+    let bioporeCount = 0;
+    for (const item of landscapeManager.items.values()) {
+      if (item.lotId === lot.id) {
+        if (item.type === 'well') wellCount++;
+        if (item.type === 'biopore') bioporeCount++;
+      } else {
+        const dist = item.position.distanceTo(lot.position);
+        if (dist <= Math.max(lot.width, lot.length) * 0.6) {
+          if (item.type === 'well') wellCount++;
+          if (item.type === 'biopore') bioporeCount++;
+        }
+      }
+    }
+
+    // Cellular Automata: Neighborhood Lot Hydrological Diffusion within 25m
+    let neighborRunoffSurplusM3Hr = 0;
+    let neighborAbsorptionAidM3Hr = 0;
+    if (lotManager) {
+      for (const otherLot of lotManager.lots.values()) {
+        if (otherLot.id === lot.id) continue;
+        const dist = otherLot.position.distanceTo(lot.position);
+        if (dist <= 25.0) {
+          const oKdb = otherLot.metrics?.kdbPercent ?? ((otherLot as any).kdbMax !== undefined ? (otherLot as any).kdbMax * 100 : 0);
+          const oKdh = otherLot.metrics?.kdhPercent ?? ((otherLot as any).kdhMin !== undefined ? (otherLot as any).kdhMin * 100 : 0);
+          if (oKdb > 75 && oKdh < 15) {
+            neighborRunoffSurplusM3Hr += 0.4;
+          }
+          if (oKdh >= 30) {
+            neighborAbsorptionAidM3Hr += 0.3;
+          }
+        }
+      }
+    }
+
+    const netNeighborRunoffImpactM3Hr = Math.round((neighborRunoffSurplusM3Hr - neighborAbsorptionAidM3Hr) * 10) / 10;
+
+    const pavedArea = Math.max(0, lotArea - greenArea - groundBuiltArea);
+    const weightedC = (
+      groundBuiltArea * this.coefficients.roof +
+      pavedArea * this.coefficients.paving +
+      greenArea * this.coefficients.grass
+    ) / (lotArea || 1);
+
+    const baseRainVolM3 = lotArea * weightedC * (intensity / 1000);
+    // Factor neighbor runoff spillover into effective storm volume
+    const effectiveRainVolM3 = Math.max(0, baseRainVolM3 + (netNeighborRunoffImpactM3Hr * 0.2));
+
+    // Downstream Blue-Green Infrastructure: Retention Ponds (25 m³/hr) & Bioswales (4 m³/hr) within 100m
+    let retentionPondsNearby = 0;
+    let bioswalesNearby = 0;
+    for (const item of landscapeManager.items.values()) {
+      const dist = item.position.distanceTo(lot.position);
+      if (dist <= 100.0) {
+        if (item.type === 'retention_pond') retentionPondsNearby++;
+        if (item.type === 'bioswale_channel') bioswalesNearby++;
+      }
+    }
+
+    const downstreamAbsorptionAidM3 = (retentionPondsNearby * 5.0) + (bioswalesNearby * 1.5);
+    const absVolM3 = (wellCount * 2.5) + (bioporeCount * 0.2) + (greenArea * 0.08) + downstreamAbsorptionAidM3;
+    const unabsorbedVolumeM3 = Math.max(0, effectiveRainVolM3 - absVolM3);
+
+    const openArea = Math.max(10, lotArea - groundBuiltArea);
+    let floodDepthCm = Math.round((unabsorbedVolumeM3 / openArea) * 100 * 10) / 10;
+
+    if (kdhPercent >= 25 && (wellCount >= 1 || bioporeCount >= 2)) {
+      floodDepthCm = Math.min(1.5, floodDepthCm * 0.15);
+    }
+    if (retentionPondsNearby > 0) {
+      floodDepthCm = Math.min(floodDepthCm, floodDepthCm * 0.35);
+    } else if (bioswalesNearby > 0) {
+      floodDepthCm = Math.min(floodDepthCm, floodDepthCm * 0.65);
+    }
+
+    let riskLevel: 'safe' | 'warning' | 'flooded' = 'safe';
+    if (floodDepthCm >= 15) {
+      riskLevel = 'flooded';
+    } else if (floodDepthCm >= 5) {
+      riskLevel = 'warning';
+    }
+
+    return {
+      lotId: lot.id,
+      floodDepthCm,
+      riskLevel,
+      unabsorbedVolumeM3: Math.round(unabsorbedVolumeM3 * 100) / 100,
+      mitigationKdhMet: kdhPercent >= 25,
+      wellCount,
+      bioporeCount,
+      neighborRunoffSurplusM3Hr: Math.round(neighborRunoffSurplusM3Hr * 10) / 10,
+      neighborAbsorptionAidM3Hr: Math.round(neighborAbsorptionAidM3Hr * 10) / 10,
+      netNeighborRunoffImpactM3Hr,
+      retentionPondsNearby,
+      bioswalesNearby
+    };
   }
 }
 

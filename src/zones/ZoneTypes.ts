@@ -170,7 +170,7 @@ export const ZONE_RULES: Record<ZoneType, ZoneRule> = {
 };
 
 export interface BuildingCodeViolation {
-  code: 'KDB' | 'KLB' | 'KDH' | 'GSB' | 'GSB_FRONT' | 'GSB_SIDE' | 'GSB_REAR' | 'HEIGHT' | 'OUT_OF_BOUNDS' | 'CROSS_LOTS' | 'COLLISION';
+  code: 'KDB' | 'KLB' | 'KDH' | 'GSB' | 'GSB_FRONT' | 'GSB_SIDE' | 'GSB_REAR' | 'GSS' | 'HEIGHT' | 'OUT_OF_BOUNDS' | 'CROSS_LOTS' | 'COLLISION';
   title: string;
   actual: number | string;
   allowed: number | string;

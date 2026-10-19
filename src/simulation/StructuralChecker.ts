@@ -1,4 +1,6 @@
+import * as THREE from 'three';
 import { BuildingInstance } from '../buildings/PrefabTypes';
+import { proceduralAudio } from '../audio/ProceduralAudio';
 
 export interface StructuralIssue {
   type: 'excessive_span' | 'irregular_plan' | 'soft_story' | 'extreme_slenderness' | 'excessive_cantilever';
@@ -67,14 +69,15 @@ export class StructuralChecker {
     const maxDim = Math.max(w, l);
     const totalHeight = bld.floorCount * (bld.floorHeight || 3.2) + 2.5;
 
-    // 1. Beam Span Check
-    const maxSpan = Math.max(w, l);
-    if (maxSpan > this.config.maxAllowableSpanM) {
-      const penalty = Math.min(30, Math.round((maxSpan - this.config.maxAllowableSpanM) * 5));
+    // 1. Beam Span Check (Traditional Saka Guru in Joglo & Modular frames subdivide span across 3x3 column grids)
+    const isTimberModular = bld.presetKey === 'joglo' || bld.presetKey === 'rumah_modular' || (bld as any).type === 'joglo';
+    const effectiveSpan = isTimberModular ? maxDim / 3.0 : maxDim;
+    if (effectiveSpan > this.config.maxAllowableSpanM) {
+      const penalty = Math.min(30, Math.round((effectiveSpan - this.config.maxAllowableSpanM) * 5));
       score -= penalty;
       issues.push({
         type: 'excessive_span',
-        title: `Bentang Balok Melebihi Batas (${maxSpan.toFixed(1)} m > ${this.config.maxAllowableSpanM} m)`,
+        title: `Bentang Balok Melebihi Batas (${effectiveSpan.toFixed(1)} m > ${this.config.maxAllowableSpanM} m)`,
         description: 'Bentang balok bebas kolom yang terlalu panjang memicu defleksi lentur berlebih dan konsentrasi retak geser saat terjadi guncangan gempa.',
         penalty,
         remedy: 'Tambahkan grid kolom antara atau perbesar dimensi balok induk beton bertulang.',
@@ -160,12 +163,179 @@ export class StructuralChecker {
       issues,
       whyExplanation,
       hasSoftStory: isSoftStoryPreset,
-      maxSpanM: maxSpan,
+      maxSpanM: maxDim,
       aspectRatio: Math.round(aspectRatio * 10) / 10,
       slendernessRatio: Math.round(slendernessRatio * 10) / 10,
       cantileverOverhangM: overhang
     };
   }
+
+  private isSimulatingShake: boolean = false;
+
+  public isShaking(): boolean {
+    return this.isSimulatingShake;
+  }
+
+  public stopEarthquakeShakeTest(): void {
+    this.isSimulatingShake = false;
+    proceduralAudio.stopEarthquakeRumble();
+  }
+
+  /**
+   * 15-Second Earthquake Mw 6.3 Shake Test Simulation.
+   * Simulates seismic tremor dynamics (P-wave onset, S-wave strong motion peak, coda attenuation),
+   * applying camera jitter, procedural sub-bass ground rumble, and dynamic horizontal shear oscillation to buildings,
+   * with pulsating alert red crack highlights on structurally vulnerable entities while Joglo & Modular homes remain stable.
+   */
+  public triggerEarthquakeShakeTest(
+    engine: any,
+    onComplete?: (reportSummary: { totalVulnerableCount: number }) => void
+  ): void {
+    if (this.isSimulatingShake || !engine) return;
+    this.isSimulatingShake = true;
+
+    // Start procedural low-frequency earthquake rumble sound
+    proceduralAudio.playEarthquakeRumble(15);
+
+    const buildingManager = engine.buildingManager;
+    const camera = engine.cameraController?.activeCamera || engine.cameraController?.camera;
+
+    // Track vulnerable buildings and store original transforms
+    const initialBuildingTransforms = new Map<
+      string,
+      { posX: number; rotZ: number; group: THREE.Group; isVulnerable: boolean }
+    >();
+    const alertHighlights: THREE.BoxHelper[] = [];
+
+    let vulnerableCount = 0;
+    let bldIndex = 0;
+
+    for (const [id, bld] of buildingManager.buildings.entries()) {
+      const grp = buildingManager.buildingGroups?.get(id);
+      if (!grp) continue;
+
+      const report = this.evaluateBuilding(bld);
+      // Joglo (traditional interlocking timber) and Rumah Modular remain structurally resilient & stable
+      const isJogloOrModular = bld.presetKey === 'joglo' || bld.presetKey === 'rumah_modular' || (bld as any).type === 'joglo' || (bld as any).type === 'rumah_modular';
+      const isVulnerable = !isJogloOrModular && (report.score < 75 || report.hasSoftStory || report.aspectRatio > 2.8);
+
+      if (isVulnerable) {
+        vulnerableCount++;
+        // Add red crack/stress alert highlight box helper
+        const helper = new THREE.BoxHelper(grp, 0xff3b30);
+        (helper.material as THREE.Material).transparent = true;
+        (helper.material as THREE.Material).opacity = 0.9;
+        engine.scene.add(helper);
+        alertHighlights.push(helper);
+      }
+
+      initialBuildingTransforms.set(id, {
+        posX: grp.position.x,
+        rotZ: grp.rotation.z,
+        group: grp,
+        isVulnerable
+      });
+      bldIndex++;
+    }
+
+    const startTime = performance.now();
+    const durationMs = 15000; // 15 seconds real-time Mw 6.3 seismic simulation
+    const origCamPos = camera ? camera.position.clone() : new THREE.Vector3();
+
+    const animateShake = (now: number) => {
+      const elapsedMs = now - startTime;
+      const elapsedSec = elapsedMs / 1000;
+
+      if (elapsedMs >= durationMs || !this.isSimulatingShake) {
+        // Stop audio rumble
+        proceduralAudio.stopEarthquakeRumble();
+
+        // Reset and restore all positions
+        for (const record of initialBuildingTransforms.values()) {
+          record.group.position.x = record.posX;
+          record.group.rotation.z = record.rotZ;
+        }
+
+        // Dispose temporary alert highlights
+        for (const h of alertHighlights) {
+          engine.scene.remove(h);
+          h.geometry.dispose();
+          (h.material as THREE.Material).dispose();
+        }
+        alertHighlights.length = 0;
+
+        if (camera) {
+          camera.position.copy(origCamPos);
+        }
+
+        this.isSimulatingShake = false;
+        if (onComplete) {
+          onComplete({ totalVulnerableCount: vulnerableCount });
+        }
+        return;
+      }
+
+      // Seismic envelope E(t):
+      // P-wave buildup (0 -> 2.5s)
+      // S-wave peak & strong motion (2.5s -> 10.5s)
+      // Coda attenuation (10.5s -> 15.0s)
+      let envelope = 1.0;
+      if (elapsedSec < 2.5) {
+        envelope = elapsedSec / 2.5;
+      } else if (elapsedSec > 10.5) {
+        envelope = Math.max(0, (15.0 - elapsedSec) / 4.5);
+      }
+
+      // 1. Camera seismic ground micro-vibrations
+      if (camera) {
+        const jitterX = Math.sin(elapsedSec * 32) * 0.25 * envelope;
+        const jitterY = Math.cos(elapsedSec * 26) * 0.15 * envelope;
+        camera.position.set(
+          origCamPos.x + jitterX,
+          origCamPos.y + jitterY,
+          origCamPos.z + (jitterX * 0.5)
+        );
+      }
+
+      // 2. Building shear oscillations & dynamic deformation
+      let idx = 0;
+      for (const record of initialBuildingTransforms.values()) {
+        if (record.isVulnerable) {
+          // Sharp swaying for soft-story or torsion-prone buildings
+          const shearRot = Math.sin(elapsedSec * 16 + idx) * 0.05 * envelope;
+          const shearShift = Math.sin(elapsedSec * 14 + idx) * 0.28 * envelope;
+          record.group.rotation.z = record.rotZ + shearRot;
+          record.group.position.x = record.posX + shearShift;
+        } else {
+          // Stable buildings (Joglo, Modular, symmetric low-rise) have minimal, elastic response
+          const rigidShift = Math.sin(elapsedSec * 10 + idx) * 0.02 * envelope;
+          record.group.position.x = record.posX + rigidShift;
+          record.group.rotation.z = record.rotZ;
+        }
+        idx++;
+      }
+
+      // 3. Pulse alert highlights
+      const pulseOpacity = 0.4 + 0.5 * Math.abs(Math.sin(elapsedSec * 8));
+      for (const h of alertHighlights) {
+        (h.material as THREE.Material).opacity = pulseOpacity;
+        h.update();
+      }
+
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(animateShake);
+      } else {
+        setTimeout(() => animateShake(performance.now()), 16);
+      }
+    };
+
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(animateShake);
+    } else {
+      setTimeout(() => animateShake(performance.now()), 16);
+    }
+  }
 }
 
 export const structuralChecker = StructuralChecker.getInstance();
+

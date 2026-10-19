@@ -7,13 +7,13 @@ export class GridSystem {
   private scene: THREE.Scene;
   private size: number;
 
-  constructor(scene: THREE.Scene, size: number = 512, defaultStep: number = 1) {
+  constructor(scene: THREE.Scene, size: number = 1600, defaultStep: number = 1) {
     this.scene = scene;
     this.size = size;
     this.snapStep = defaultStep;
 
     // iOS system blue primary, subtle secondary
-    this.gridHelper = new THREE.GridHelper(size, size, 0x007aff, 0x3a3a3c);
+    this.gridHelper = new THREE.GridHelper(size, Math.min(size, 800), 0x007aff, 0x3a3a3c);
     this.gridHelper.position.y = 0.04; // Elevate slightly above grass
     (this.gridHelper.material as THREE.Material).transparent = true;
     (this.gridHelper.material as THREE.Material).opacity = 0.4;

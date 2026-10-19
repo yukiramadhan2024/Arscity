@@ -383,3 +383,6 @@ export class RemoveLandscapeCommand implements ICommand {
     this.execute();
   }
 }
+
+export const AddLandscapeItemCommand = AddLandscapeCommand;
+

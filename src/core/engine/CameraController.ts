@@ -12,6 +12,7 @@ export class CameraController {
   public camera: THREE.PerspectiveCamera;
   public orthoCamera: THREE.OrthographicCamera;
   public isOrthographic: boolean = false;
+  public enabled: boolean = true;
 
   private domElement: HTMLElement;
 
@@ -23,7 +24,7 @@ export class CameraController {
   public distance: number = 75;
   private distanceGoal: number = 75;
   public minDistance: number = 8;
-  public maxDistance: number = 400;
+  public maxDistance: number = 1200;
 
   // Azimuth (yaw, horizontal rotation around Y axis)
   public azimuth: number = Math.PI * 0.25; // 45 deg angle
@@ -60,9 +61,9 @@ export class CameraController {
   public isInspectMode: boolean = false;
   private inspectSpeed: number = 0.3;
 
-  // Walk Mode (1.6m eye level)
+  // Walk Mode (1.65m eye level)
   public isWalkMode: boolean = false;
-  public walkPosition: THREE.Vector3 = new THREE.Vector3(0, 1.6, 0);
+  public walkPosition: THREE.Vector3 = new THREE.Vector3(0, 1.65, 0);
   public walkYaw: number = 0;
   public walkPitch: number = 0;
   private savedDistance: number = 75;
@@ -70,11 +71,23 @@ export class CameraController {
   private savedTarget: THREE.Vector3 = new THREE.Vector3();
   public onWalkModeChanged?: (isWalk: boolean) => void;
 
+  // True 6-DOF Free-Fly Drone Mode
+  public isDroneMode: boolean = false;
+  public dronePosition: THREE.Vector3 = new THREE.Vector3(0, 15, 0);
+  public droneVelocity: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+  public droneYaw: number = 0;
+  public dronePitch: number = 0;
+  public droneSpeed: number = 12.0;
+  public droneMinSpeed: number = 1.0;
+  public droneMaxSpeed: number = 35.0;
+  public minDroneY: number = 0.8;
+  public onDroneModeChanged?: (isDrone: boolean) => void;
+
   constructor(domElement: HTMLElement, options: CameraOptions = {}) {
     this.domElement = domElement;
 
     const aspect = domElement.clientWidth / domElement.clientHeight || 1;
-    this.camera = new THREE.PerspectiveCamera(options.fov || 45, aspect, 0.5, 1200);
+    this.camera = new THREE.PerspectiveCamera(options.fov || 45, aspect, 0.06, 4000);
 
     const orthoFrustum = 60;
     this.orthoCamera = new THREE.OrthographicCamera(
@@ -83,7 +96,7 @@ export class CameraController {
       orthoFrustum / 2,
       -orthoFrustum / 2,
       1,
-      1200
+      4000
     );
 
     if (options.minDistance) this.minDistance = options.minDistance;
@@ -98,28 +111,36 @@ export class CameraController {
   }
 
   private bindEvents(): void {
-    window.addEventListener('keydown', this.onKeyDown);
-    window.addEventListener('keyup', this.onKeyUp);
-    this.domElement.addEventListener('mousedown', this.onMouseDown);
-    window.addEventListener('mousemove', this.onMouseMove);
-    window.addEventListener('mouseup', this.onMouseUp);
-    this.domElement.addEventListener('wheel', this.onWheel, { passive: false });
-    this.domElement.addEventListener('touchstart', this.onTouchStart, { passive: false });
-    window.addEventListener('touchmove', this.onTouchMove, { passive: false });
-    window.addEventListener('touchend', this.onTouchEnd);
-    this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', this.onKeyDown);
+      window.addEventListener('keyup', this.onKeyUp);
+      window.addEventListener('mousemove', this.onMouseMove);
+      window.addEventListener('mouseup', this.onMouseUp);
+      window.addEventListener('touchmove', this.onTouchMove, { passive: false });
+      window.addEventListener('touchend', this.onTouchEnd);
+    }
+    if (this.domElement && this.domElement.addEventListener) {
+      this.domElement.addEventListener('mousedown', this.onMouseDown);
+      this.domElement.addEventListener('wheel', this.onWheel, { passive: false });
+      this.domElement.addEventListener('touchstart', this.onTouchStart, { passive: false });
+      this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
   }
 
   public dispose(): void {
-    window.removeEventListener('keydown', this.onKeyDown);
-    window.removeEventListener('keyup', this.onKeyUp);
-    this.domElement.removeEventListener('mousedown', this.onMouseDown);
-    window.removeEventListener('mousemove', this.onMouseMove);
-    window.removeEventListener('mouseup', this.onMouseUp);
-    this.domElement.removeEventListener('wheel', this.onWheel);
-    this.domElement.removeEventListener('touchstart', this.onTouchStart);
-    window.removeEventListener('touchmove', this.onTouchMove);
-    window.removeEventListener('touchend', this.onTouchEnd);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this.onKeyDown);
+      window.removeEventListener('keyup', this.onKeyUp);
+      window.removeEventListener('mousemove', this.onMouseMove);
+      window.removeEventListener('mouseup', this.onMouseUp);
+      window.removeEventListener('touchmove', this.onTouchMove);
+      window.removeEventListener('touchend', this.onTouchEnd);
+    }
+    if (this.domElement && this.domElement.removeEventListener) {
+      this.domElement.removeEventListener('mousedown', this.onMouseDown);
+      this.domElement.removeEventListener('wheel', this.onWheel);
+      this.domElement.removeEventListener('touchstart', this.onTouchStart);
+    }
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
@@ -165,6 +186,14 @@ export class CameraController {
     const deltaX = e.clientX - this.previousMousePosition.x;
     const deltaY = e.clientY - this.previousMousePosition.y;
     this.previousMousePosition = { x: e.clientX, y: e.clientY };
+
+    if (this.isDroneMode && (this.isRightDragging || this.isAltOrbitDragging || e.buttons === 1 || e.buttons === 2)) {
+      this.droneYaw -= deltaX * 0.003 * this.mousepadSensitivity;
+      this.dronePitch -= deltaY * 0.003 * this.mousepadSensitivity;
+      const maxPitch = (85 * Math.PI) / 180;
+      this.dronePitch = Math.max(-maxPitch, Math.min(maxPitch, this.dronePitch));
+      return;
+    }
 
     if (this.isWalkMode && (this.isRightDragging || this.isAltOrbitDragging || e.buttons === 1)) {
       this.walkYaw += deltaX * 0.004 * this.mousepadSensitivity;
@@ -222,6 +251,16 @@ export class CameraController {
 
   private onWheel = (e: WheelEvent): void => {
     e.preventDefault();
+
+    // 0. Drone speed adjustment when in Drone Mode
+    if (this.isDroneMode) {
+      this.droneSpeed = THREE.MathUtils.clamp(
+        this.droneSpeed - e.deltaY * 0.03,
+        this.droneMinSpeed,
+        this.droneMaxSpeed
+      );
+      return;
+    }
 
     // 1. Two-finger swipe or Shift/Alt held on mousepad/trackpad:
     // Enables continuous 360-degree horizontal rotation!
@@ -309,9 +348,9 @@ export class CameraController {
     this.targetGoal.addScaledVector(right, -screenDeltaX);
     this.targetGoal.addScaledVector(forward, screenDeltaY);
 
-    // Keep target within world bounds (512 x 512 m terrain => [-240, 240])
-    this.targetGoal.x = Math.max(-250, Math.min(250, this.targetGoal.x));
-    this.targetGoal.z = Math.max(-250, Math.min(250, this.targetGoal.z));
+    // Keep target within world bounds (1600 x 1600 m terrain => [-750, 750])
+    this.targetGoal.x = Math.max(-750, Math.min(750, this.targetGoal.x));
+    this.targetGoal.z = Math.max(-750, Math.min(750, this.targetGoal.z));
   }
 
   public focusAt(position: THREE.Vector3, distance?: number): void {
@@ -327,12 +366,26 @@ export class CameraController {
   }
 
   public resetCamera(): void {
+    if (this.isDroneMode) {
+      this.setDroneMode(false);
+    }
+    if (this.isWalkMode) {
+      this.setWalkMode(false);
+    }
     this.targetGoal.set(0, 0, 0);
     this.distanceGoal = 75;
     this.azimuthGoal = Math.PI * 0.25;
     this.polarGoal = (40 * Math.PI) / 180;
     this.isOrthographic = false;
     this.isInspectMode = false;
+  }
+
+  public rotateOrbit(deltaRad: number): void {
+    this.azimuthGoal += deltaRad;
+  }
+
+  public resetNorth(): void {
+    this.azimuthGoal = 0;
   }
 
   public toggleTopDown(): void {
@@ -344,6 +397,87 @@ export class CameraController {
     }
   }
 
+  /**
+   * Synchronizes yaw and pitch directly from camera quaternion in 'YXZ' Euler order
+   * Guarantees zero jumping, snapping, or direction flipping when switching modes.
+   */
+  public syncAnglesFromCameraQuaternion(): { yaw: number; pitch: number } {
+    const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
+    const maxPitch = (85 * Math.PI) / 180;
+    const pitch = THREE.MathUtils.clamp(euler.x, -maxPitch, maxPitch);
+    const yaw = euler.y;
+    return { yaw, pitch };
+  }
+
+  public toggleDroneMode(): boolean {
+    return this.setDroneMode(!this.isDroneMode);
+  }
+
+  public setDroneMode(enabled: boolean): boolean {
+    if (this.isDroneMode === enabled) return this.isDroneMode;
+
+    if (enabled) {
+      if (this.isWalkMode) {
+        this.isWalkMode = false;
+        if (this.onWalkModeChanged) this.onWalkModeChanged(false);
+      }
+
+      this.savedDistance = this.distanceGoal;
+      this.savedPolar = this.polarGoal;
+      this.savedTarget.copy(this.targetGoal);
+
+      this.isDroneMode = true;
+      this.isOrthographic = false;
+
+      // Extract current camera position and orientation seamlessly via quaternion
+      this.dronePosition.copy(this.camera.position);
+      if (this.dronePosition.y < 2.5) {
+        this.dronePosition.y = 3.2; // cruising height for enterability
+      }
+      this.dronePosition.y = Math.max(this.minDroneY, this.dronePosition.y);
+
+      const angles = this.syncAnglesFromCameraQuaternion();
+      this.droneYaw = angles.yaw;
+      this.dronePitch = angles.pitch;
+      this.droneVelocity.set(0, 0, 0);
+    } else {
+      this.isDroneMode = false;
+
+      // Smoothly compute ground look-at point ahead of drone so camera doesn't jump
+      const forwardDir = new THREE.Vector3(
+        -Math.sin(this.droneYaw) * Math.cos(this.dronePitch),
+        Math.sin(this.dronePitch),
+        -Math.cos(this.droneYaw) * Math.cos(this.dronePitch)
+      ).normalize();
+
+      const newTarget = this.dronePosition.clone().addScaledVector(forwardDir, Math.max(15, this.savedDistance * 0.7));
+      newTarget.y = 0;
+      newTarget.x = THREE.MathUtils.clamp(newTarget.x, -750, 750);
+      newTarget.z = THREE.MathUtils.clamp(newTarget.z, -750, 750);
+
+      this.targetGoal.copy(newTarget);
+      this.target.copy(newTarget);
+
+      const delta = new THREE.Vector3().subVectors(this.camera.position, newTarget);
+      const dist = delta.length();
+      this.distanceGoal = THREE.MathUtils.clamp(dist, this.minDistance, this.maxDistance);
+      this.distance = this.distanceGoal;
+
+      if (dist > 0.001) {
+        this.polarGoal = Math.acos(THREE.MathUtils.clamp(delta.y / dist, 0.05, 0.98));
+        this.azimuthGoal = Math.atan2(delta.x, delta.z);
+      } else {
+        this.polarGoal = this.savedPolar;
+        this.azimuthGoal = this.azimuth;
+      }
+      this.polar = this.polarGoal;
+      this.azimuth = this.azimuthGoal;
+    }
+
+    if (this.onDroneModeChanged) this.onDroneModeChanged(this.isDroneMode);
+    return this.isDroneMode;
+  }
+
   public toggleWalkMode(): boolean {
     return this.setWalkMode(!this.isWalkMode);
   }
@@ -352,14 +486,22 @@ export class CameraController {
     if (this.isWalkMode === enabled) return this.isWalkMode;
 
     if (enabled) {
+      if (this.isDroneMode) {
+        this.isDroneMode = false;
+        if (this.onDroneModeChanged) this.onDroneModeChanged(false);
+      }
+
       this.savedDistance = this.distanceGoal;
       this.savedPolar = this.polarGoal;
       this.savedTarget.copy(this.targetGoal);
 
       this.isWalkMode = true;
       this.isOrthographic = false;
-      this.walkPosition.set(this.target.x, 1.6, this.target.z);
-      this.walkYaw = this.azimuth + Math.PI;
+
+      // Seamless quaternion angle extraction
+      const angles = this.syncAnglesFromCameraQuaternion();
+      this.walkPosition.set(this.camera.position.x, 1.65, this.camera.position.z);
+      this.walkYaw = angles.yaw;
       this.walkPitch = 0;
     } else {
       this.isWalkMode = false;
@@ -373,6 +515,86 @@ export class CameraController {
   }
 
   public update(deltaTime: number): void {
+    // 1. True 6-DOF Free-Fly Drone Mode
+    if (this.isDroneMode) {
+      this.dronePitch = THREE.MathUtils.clamp(this.dronePitch, -1.48, 1.48);
+      const cosPitch = Math.cos(this.dronePitch);
+      const sinPitch = Math.sin(this.dronePitch);
+      const sinYaw = Math.sin(this.droneYaw);
+      const cosYaw = Math.cos(this.droneYaw);
+
+      // Local 3D forward vector
+      const forwardDir = new THREE.Vector3(
+        -sinYaw * cosPitch,
+        sinPitch,
+        -cosYaw * cosPitch
+      ).normalize();
+
+      // Horizontal strafe right vector
+      const rightDir = new THREE.Vector3(
+        cosYaw,
+        0,
+        -sinYaw
+      ).normalize();
+
+      // World vertical vector
+      const upDir = new THREE.Vector3(0, 1, 0);
+
+      const targetVel = new THREE.Vector3(0, 0, 0);
+
+      // W / S / Up / Down: Fly forward / backward along look vector
+      if (this.keysDown.has('KeyW') || this.keysDown.has('ArrowUp')) targetVel.add(forwardDir);
+      if (this.keysDown.has('KeyS') || this.keysDown.has('ArrowDown')) targetVel.sub(forwardDir);
+
+      // A / D / Left / Right: Strafe laterally
+      if (this.keysDown.has('KeyD') || this.keysDown.has('ArrowRight')) targetVel.add(rightDir);
+      if (this.keysDown.has('KeyA') || this.keysDown.has('ArrowLeft')) targetVel.sub(rightDir);
+
+      // E / Space: Ascend (+Y)
+      if (this.keysDown.has('KeyE') || this.keysDown.has('Space')) targetVel.add(upDir);
+
+      // Q / Shift / C: Descend (-Y)
+      if (
+        this.keysDown.has('KeyQ') ||
+        this.keysDown.has('ShiftLeft') ||
+        this.keysDown.has('ShiftRight') ||
+        this.keysDown.has('KeyC')
+      ) {
+        targetVel.sub(upDir);
+      }
+
+      if (targetVel.lengthSq() > 0) {
+        targetVel.normalize().multiplyScalar(this.droneSpeed);
+      }
+
+      // Smooth exponential velocity damping
+      const decay = 1 - Math.exp(-12 * Math.max(0.001, deltaTime));
+      this.droneVelocity.lerp(targetVel, decay);
+
+      this.dronePosition.addScaledVector(this.droneVelocity, deltaTime);
+
+      // Ground safety clamping (never falls below minDroneY = 0.8m)
+      if (this.dronePosition.y < this.minDroneY) {
+        this.dronePosition.y = this.minDroneY;
+        if (this.droneVelocity.y < 0) this.droneVelocity.y = 0;
+      }
+
+      // World boundary clamping (-780m to 780m)
+      this.dronePosition.x = THREE.MathUtils.clamp(this.dronePosition.x, -780, 780);
+      this.dronePosition.z = THREE.MathUtils.clamp(this.dronePosition.z, -780, 780);
+
+      // Apply transform to camera
+      this.camera.position.copy(this.dronePosition);
+      const euler = new THREE.Euler(this.dronePitch, this.droneYaw, 0, 'YXZ');
+      this.camera.quaternion.setFromEuler(euler);
+
+      // Keep target synchronized ahead of drone for sun lighting & audio
+      this.target.copy(this.dronePosition).addScaledVector(forwardDir, 25);
+      this.target.y = 0;
+      return;
+    }
+
+    // 2. Walk Mode (Human Eye Level 1.65m)
     if (this.isWalkMode) {
       const walkSpeed = 5.0 * deltaTime;
       const sinY = Math.sin(this.walkYaw);
@@ -391,17 +613,22 @@ export class CameraController {
         this.walkPosition.z += (cosY * forward - sinY * strafe) * walkSpeed;
       }
 
-      this.camera.position.set(this.walkPosition.x, 1.6, this.walkPosition.z);
+      this.walkPosition.x = THREE.MathUtils.clamp(this.walkPosition.x, -780, 780);
+      this.walkPosition.z = THREE.MathUtils.clamp(this.walkPosition.z, -780, 780);
+
+      this.camera.position.set(this.walkPosition.x, 1.65, this.walkPosition.z);
       const lookTarget = new THREE.Vector3(
         this.walkPosition.x + Math.sin(this.walkYaw) * Math.cos(this.walkPitch),
-        1.6 + Math.sin(this.walkPitch),
+        1.65 + Math.sin(this.walkPitch),
         this.walkPosition.z + Math.cos(this.walkYaw) * Math.cos(this.walkPitch)
       );
       this.camera.lookAt(lookTarget);
+
+      this.target.set(this.walkPosition.x, 0, this.walkPosition.z);
       return;
     }
 
-    // Process keyboard continuous WASD panning
+    // 3. Orbit God-Eye Mode (Process keyboard continuous WASD panning)
     const moveSpeed = (this.distance / 35) * 40 * deltaTime;
     let keyPanX = 0;
     let keyPanY = 0;

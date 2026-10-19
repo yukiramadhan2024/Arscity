@@ -4,6 +4,7 @@ import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js';
 import { BuildingManager } from '../buildings/BuildingManager';
 import { LotManager } from '../zones/LotManager';
 import { RoadManager } from '../roads/RoadManager';
+import { CitySaveData, CitySerializer } from './CitySerializer';
 
 export class RealWorldExporter {
   /**
@@ -174,6 +175,67 @@ export class RealWorldExporter {
   public static downloadDXF(dxfContent: string, filename: string = 'arscity_denah.dxf'): void {
     const blob = new Blob([dxfContent], { type: 'application/dxf' });
     this.triggerDownload(blob, filename);
+  }
+
+  /**
+   * Exports entire city state into compressed binary .arscity format using CompressionStream('gzip').
+   * Fully offline and standards-compliant.
+   */
+  public static async exportToArscity(data: CitySaveData): Promise<Blob> {
+    const jsonString = JSON.stringify(data);
+    const textBlob = new Blob([jsonString], { type: 'application/json' });
+
+    if (typeof CompressionStream !== 'undefined' && typeof Response !== 'undefined') {
+      try {
+        const stream = textBlob.stream();
+        const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+        const response = new Response(compressedStream);
+        return await response.blob();
+      } catch (err) {
+        console.warn('[RealWorldExporter] CompressionStream error, returning plain blob:', err);
+        return textBlob;
+      }
+    }
+
+    return textBlob;
+  }
+
+  /**
+   * Imports and decompresses .arscity file using DecompressionStream('gzip').
+   */
+  public static async importFromArscity(fileOrBlob: Blob): Promise<CitySaveData> {
+    if (typeof DecompressionStream !== 'undefined' && typeof Response !== 'undefined') {
+      try {
+        const stream = fileOrBlob.stream();
+        const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
+        const response = new Response(decompressedStream);
+        const jsonText = await response.text();
+        const rawData = JSON.parse(jsonText);
+        return CitySerializer.migrateCityData(rawData);
+      } catch (decompError) {
+        try {
+          const text = await fileOrBlob.text();
+          const rawData = JSON.parse(text);
+          return CitySerializer.migrateCityData(rawData);
+        } catch {
+          throw new Error('Gagal membaca berkas .arscity: Format kompresi atau JSON tidak sah.');
+        }
+      }
+    }
+
+    const text = await fileOrBlob.text();
+    const rawData = JSON.parse(text);
+    return CitySerializer.migrateCityData(rawData);
+  }
+
+  /**
+   * Direct browser trigger for downloading compressed .arscity file
+   */
+  public static async downloadArscityFile(data: CitySaveData, filename?: string): Promise<void> {
+    const blob = await this.exportToArscity(data);
+    const safeTitle = (data.cityTitle || 'kota_arscity').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    const targetFilename = filename || `${safeTitle}.arscity`;
+    this.triggerDownload(blob, targetFilename);
   }
 
   public static triggerDownload(blob: Blob, filename: string): void {

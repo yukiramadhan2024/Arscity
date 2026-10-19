@@ -96,18 +96,66 @@ export class SubQuadWallBuilder {
         wallSubGroup.add(mesh);
       }
 
-      // 4. Opening Insert (Window frame + Glass or Door)
+      // 4. Opening Insert (Crisp architectural casing frame + Glass or Door)
       const opH = op.y1 - op.y0;
-      const frameGeom = new THREE.BoxGeometry(opW, opH, thickness * 0.5);
-      frameGeom.translate(op.x0 + opW * 0.5, baseY + op.y0 + opH * 0.5, 0);
-      const frameMesh = new THREE.Mesh(frameGeom, frameMaterial);
-      wallSubGroup.add(frameMesh);
+      const frameCasingThickness = 0.05;
+      const frameCasingDepth = thickness + 0.03;
+
+      // Architectural Architrave / Casing Frame (Bingkai Kusen Tipis)
+      // Top Head Casing
+      const headGeom = new THREE.BoxGeometry(opW + frameCasingThickness * 2, frameCasingThickness, frameCasingDepth);
+      headGeom.translate(op.x0 + opW * 0.5, baseY + op.y1 - frameCasingThickness * 0.5, 0);
+      const headMesh = new THREE.Mesh(headGeom, frameMaterial);
+      headMesh.castShadow = true;
+      wallSubGroup.add(headMesh);
+
+      // Left Jamb Casing
+      const jambLeftGeom = new THREE.BoxGeometry(frameCasingThickness, opH, frameCasingDepth);
+      jambLeftGeom.translate(op.x0 + frameCasingThickness * 0.5, baseY + op.y0 + opH * 0.5, 0);
+      const jambLeftMesh = new THREE.Mesh(jambLeftGeom, frameMaterial);
+      jambLeftMesh.castShadow = true;
+      wallSubGroup.add(jambLeftMesh);
+
+      // Right Jamb Casing
+      const jambRightGeom = new THREE.BoxGeometry(frameCasingThickness, opH, frameCasingDepth);
+      jambRightGeom.translate(op.x1 - frameCasingThickness * 0.5, baseY + op.y0 + opH * 0.5, 0);
+      const jambRightMesh = new THREE.Mesh(jambRightGeom, frameMaterial);
+      jambRightMesh.castShadow = true;
+      wallSubGroup.add(jambRightMesh);
 
       if (op.type.startsWith('window')) {
-        const glassGeom = new THREE.BoxGeometry(opW - 0.1, opH - 0.1, thickness * 0.2);
+        // Protruding Window Sill Casing (Ambang Bawah)
+        const sillGeom = new THREE.BoxGeometry(opW + frameCasingThickness * 2 + 0.08, frameCasingThickness, frameCasingDepth + 0.04);
+        sillGeom.translate(op.x0 + opW * 0.5, baseY + op.y0 + frameCasingThickness * 0.5, 0);
+        const sillMesh = new THREE.Mesh(sillGeom, frameMaterial);
+        sillMesh.castShadow = true;
+        wallSubGroup.add(sillMesh);
+
+        // Glass pane
+        const glassGeom = new THREE.BoxGeometry(Math.max(0.1, opW - frameCasingThickness * 2), Math.max(0.1, opH - frameCasingThickness * 2), thickness * 0.2);
         glassGeom.translate(op.x0 + opW * 0.5, baseY + op.y0 + opH * 0.5, 0);
         const glassMesh = new THREE.Mesh(glassGeom, glassMaterial);
         wallSubGroup.add(glassMesh);
+      } else {
+        // Open walk-through portal: Door leaves are positioned open to the sides (swung 90 degrees)
+        // leaving the central portal passage 100% open for camera (Walk Mode & Drone View) access!
+        const leafW = (opW - frameCasingThickness * 2) * 0.45;
+        const leafH = Math.max(0.1, opH - frameCasingThickness);
+        const leafThick = 0.05;
+
+        // Left open glass/frame leaf (resting perpendicular along door jamb)
+        const leftDoorGeom = new THREE.BoxGeometry(leafThick, leafH, leafW);
+        leftDoorGeom.translate(op.x0 + frameCasingThickness + leafThick * 0.5, baseY + op.y0 + leafH * 0.5, leafW * 0.5);
+        const leftDoorMesh = new THREE.Mesh(leftDoorGeom, frameMaterial);
+        leftDoorMesh.castShadow = true;
+        wallSubGroup.add(leftDoorMesh);
+
+        // Right open glass/frame leaf (resting perpendicular along door jamb)
+        const rightDoorGeom = new THREE.BoxGeometry(leafThick, leafH, leafW);
+        rightDoorGeom.translate(op.x1 - frameCasingThickness - leafThick * 0.5, baseY + op.y0 + leafH * 0.5, leafW * 0.5);
+        const rightDoorMesh = new THREE.Mesh(rightDoorGeom, frameMaterial);
+        rightDoorMesh.castShadow = true;
+        wallSubGroup.add(rightDoorMesh);
       }
 
       prevX = op.x1;

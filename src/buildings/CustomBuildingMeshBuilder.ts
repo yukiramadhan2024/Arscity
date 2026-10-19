@@ -66,7 +66,7 @@ export class CustomBuildingMeshBuilder {
           p2,
           flBaseY,
           flH,
-          0.2,
+          0.25,
           openings,
           wallMat,
           frameMat,

@@ -144,25 +144,25 @@ export class FloorPlanAnnotationOverlay {
     ctx.fill();
     ctx.stroke();
 
-    // Text: Room Name
+    // Text: Room Name (Display Sans)
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 26px sans-serif';
+    ctx.font = 'bold 26px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(room.name, 190, 52);
 
-    // Text: Area m²
+    // Text: Area m² & Ceiling Height (Technical Metrics Mono)
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '600 24px sans-serif';
+    ctx.font = '600 22px "JetBrains Mono", "SF Mono", Consolas, monospace';
     ctx.fillText(`${room.areaM2.toFixed(1)} m²  •  Plafon ${room.ceilingHeight.toFixed(1)}m`, 190, 92);
 
-    // Compliance Badge
-    ctx.font = 'bold 18px sans-serif';
+    // Compliance Badge (Technical Telemetry Mono)
+    ctx.font = '600 17px "JetBrains Mono", "SF Mono", Consolas, monospace';
     if (room.isCompliant) {
       ctx.fillStyle = '#34C759';
-      ctx.fillText('✓ Memenuhi SNI 03-1733', 190, 126);
+      ctx.fillText('[SNI 03-1733: STANDAR TERPENUHI]', 190, 126);
     } else {
       ctx.fillStyle = '#FF3B30';
-      ctx.fillText('⚠ Di Bawah Standar Minimum', 190, 126);
+      ctx.fillText('[SNI 03-1733: DI BAWAH STANDAR]', 190, 126);
     }
 
     const texture = new THREE.CanvasTexture(canvas);

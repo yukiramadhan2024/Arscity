@@ -11,14 +11,24 @@ export interface StorageSlotInfo {
   version: string;
 }
 
+export interface SavedMapMeta {
+  id: string;
+  name: string;
+  updatedAt: number;
+  buildingCount: number;
+  roadCount: number;
+  lotCount?: number;
+  isPresetFork?: boolean;
+}
+
 /**
  * IndexedDBStorage - Robust persistent storage manager for Arscity.
  *
- * Implements Milestone T1.4:
- * - Uses IndexedDB as primary storage with localStorage fallback
- * - Handles QuotaExceededError with actionable Indonesian messages
- * - Provides debounced autosave capability
- * - Supports slot listing, saving, loading, and deletion
+ * Implements Milestone T1.4 & Phase 4:
+ * - Uses Web Worker (`storage.worker.ts`) for off-thread serialization, JSON schema validation, and IndexedDB operations.
+ * - Robust fallback to main-thread IndexedDB and localStorage if Worker is unavailable.
+ * - Handles QuotaExceededError with actionable Indonesian messages.
+ * - Provides debounced non-blocking autosave capability (1500ms).
  */
 export class IndexedDBStorage {
   private static readonly DB_NAME = 'ArscityDB';
@@ -28,6 +38,115 @@ export class IndexedDBStorage {
 
   private static dbPromise: Promise<IDBDatabase | null> | null = null;
   private static autosaveTimeout: any = null;
+
+  private static worker: Worker | null = null;
+  private static workerFailed: boolean = false;
+  private static nextRequestId: number = 1;
+  private static pendingRequests = new Map<string, { resolve: (val: any) => void; reject: (err: any) => void }>();
+  private static memoryFallback = new Map<string, string>();
+
+  private static setFallbackItem(key: string, value: string): void {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(key, value);
+        return;
+      } catch {}
+    }
+    this.memoryFallback.set(key, value);
+  }
+
+  private static getFallbackItem(key: string): string | null {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const val = localStorage.getItem(key);
+        if (val !== null) return val;
+      } catch {}
+    }
+    return this.memoryFallback.get(key) || null;
+  }
+
+  private static removeFallbackItem(key: string): void {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(key);
+      } catch {}
+    }
+    this.memoryFallback.delete(key);
+  }
+
+  /**
+   * Lazily instantiate and maintain reference to dedicated storage Web Worker
+   */
+  private static getWorker(): Worker | null {
+    if (this.workerFailed) return null;
+    if (typeof window === 'undefined' || typeof Worker === 'undefined') {
+      return null;
+    }
+
+    if (!this.worker) {
+      try {
+        this.worker = new Worker(new URL('./storage.worker.ts', import.meta.url), { type: 'module' });
+        this.worker.onmessage = (event: MessageEvent<any>) => {
+          const { id, success, data, error, meta } = event.data;
+          const pending = this.pendingRequests.get(id);
+          if (pending) {
+            this.pendingRequests.delete(id);
+            if (success) {
+              pending.resolve({ success, data, meta });
+            } else {
+              pending.reject(new Error(error || 'Worker storage operation failed'));
+            }
+          }
+        };
+        this.worker.onerror = (err) => {
+          console.warn('[IndexedDBStorage] Web Worker encountered error, falling back to main-thread storage:', err);
+          this.workerFailed = true;
+          this.worker?.terminate();
+          this.worker = null;
+          for (const req of this.pendingRequests.values()) {
+            req.reject(new Error('Worker terminated'));
+          }
+          this.pendingRequests.clear();
+        };
+      } catch (err) {
+        console.warn('[IndexedDBStorage] Web Worker initialization failed, using main-thread storage:', err);
+        this.workerFailed = true;
+        return null;
+      }
+    }
+    return this.worker;
+  }
+
+  /**
+   * Send a command message to the storage worker with timeout
+   */
+  private static async postToWorker(action: string, payload: any, timeoutMs: number = 4000): Promise<any> {
+    const worker = this.getWorker();
+    if (!worker) return null;
+
+    const id = `req_${this.nextRequestId++}_${Date.now()}`;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        if (this.pendingRequests.has(id)) {
+          this.pendingRequests.delete(id);
+          reject(new Error('Storage worker operation timed out'));
+        }
+      }, timeoutMs);
+
+      this.pendingRequests.set(id, {
+        resolve: (val) => {
+          clearTimeout(timer);
+          resolve(val);
+        },
+        reject: (err) => {
+          clearTimeout(timer);
+          reject(err);
+        }
+      });
+
+      worker.postMessage({ id, action, payload });
+    });
+  }
 
   private static async getDB(): Promise<IDBDatabase | null> {
     if (typeof window === 'undefined' || !window.indexedDB) {
@@ -65,9 +184,29 @@ export class IndexedDBStorage {
   }
 
   /**
-   * Save a city data object to an IndexedDB or localStorage slot
+   * Save a city data object via Worker (or main thread fallback)
    */
   public static async saveSlot(slotId: string, data: CitySaveData): Promise<{ success: boolean; error?: string }> {
+    // Attempt non-blocking worker execution first
+    const worker = this.getWorker();
+    if (worker) {
+      try {
+        const res = await this.postToWorker('SAVE_SLOT', { slotId, data });
+        if (res && res.success) {
+          try {
+            const metaKey = `${this.STORAGE_PREFIX}${slotId}_meta`;
+            if (res.meta) {
+              this.setFallbackItem(metaKey, JSON.stringify(res.meta));
+            }
+          } catch {}
+          return { success: true };
+        }
+      } catch (workerErr: any) {
+        console.warn('[IndexedDBStorage] Worker save failed, executing main-thread fallback:', workerErr);
+      }
+    }
+
+    // Main thread fallback
     try {
       const record = {
         slotId,
@@ -90,7 +229,7 @@ export class IndexedDBStorage {
             reject(e);
           }
         });
-        // Also keep a lightweight mirror in localStorage for slot metadata listing
+
         try {
           const metaKey = `${this.STORAGE_PREFIX}${slotId}_meta`;
           const meta: StorageSlotInfo = {
@@ -103,15 +242,15 @@ export class IndexedDBStorage {
             isEmpty: false,
             version: data.version || '2.0.0',
           };
-          localStorage.setItem(metaKey, JSON.stringify(meta));
+          this.setFallbackItem(metaKey, JSON.stringify(meta));
         } catch {}
 
         return { success: true };
       }
 
-      // Fallback: localStorage
+      // Final fallback: fallback storage
       const json = JSON.stringify(data);
-      localStorage.setItem(`${this.STORAGE_PREFIX}${slotId}`, json);
+      this.setFallbackItem(`${this.STORAGE_PREFIX}${slotId}`, json);
       return { success: true };
     } catch (err: any) {
       if (err?.name === 'QuotaExceededError' || err?.code === 22 || err?.message?.includes('quota')) {
@@ -128,9 +267,21 @@ export class IndexedDBStorage {
   }
 
   /**
-   * Load city data from slot
+   * Load city data from slot (Worker or main thread)
    */
   public static async loadSlot(slotId: string): Promise<CitySaveData | null> {
+    const worker = this.getWorker();
+    if (worker) {
+      try {
+        const res = await this.postToWorker('LOAD_SLOT', { slotId });
+        if (res && res.success && res.data) {
+          return res.data as CitySaveData;
+        }
+      } catch (workerErr) {
+        console.warn('[IndexedDBStorage] Worker load failed, executing main-thread fallback:', workerErr);
+      }
+    }
+
     try {
       const db = await this.getDB();
       if (db) {
@@ -152,15 +303,14 @@ export class IndexedDBStorage {
         }
       }
 
-      // Fallback: localStorage
-      const raw = localStorage.getItem(`${this.STORAGE_PREFIX}${slotId}`);
+      // Fallback: storage item
+      const raw = this.getFallbackItem(`${this.STORAGE_PREFIX}${slotId}`);
       if (!raw) return null;
       return JSON.parse(raw) as CitySaveData;
     } catch (err) {
       console.error('[IndexedDBStorage] Failed to load slot:', err);
-      // Try raw localStorage fallback
       try {
-        const raw = localStorage.getItem(`${this.STORAGE_PREFIX}${slotId}`);
+        const raw = this.getFallbackItem(`${this.STORAGE_PREFIX}${slotId}`);
         if (raw) return JSON.parse(raw);
       } catch {}
       return null;
@@ -171,6 +321,13 @@ export class IndexedDBStorage {
    * Delete slot
    */
   public static async deleteSlot(slotId: string): Promise<void> {
+    const worker = this.getWorker();
+    if (worker) {
+      try {
+        await this.postToWorker('DELETE_SLOT', { slotId });
+      } catch {}
+    }
+
     try {
       const db = await this.getDB();
       if (db) {
@@ -189,8 +346,8 @@ export class IndexedDBStorage {
     } catch {}
 
     try {
-      localStorage.removeItem(`${this.STORAGE_PREFIX}${slotId}`);
-      localStorage.removeItem(`${this.STORAGE_PREFIX}${slotId}_meta`);
+      this.removeFallbackItem(`${this.STORAGE_PREFIX}${slotId}`);
+      this.removeFallbackItem(`${this.STORAGE_PREFIX}${slotId}_meta`);
     } catch {}
   }
 
@@ -199,8 +356,20 @@ export class IndexedDBStorage {
    */
   public static async listSlots(): Promise<StorageSlotInfo[]> {
     const slotIds = ['autosave', 'slot_1', 'slot_2', 'slot_3'];
-    const results: StorageSlotInfo[] = [];
 
+    const worker = this.getWorker();
+    if (worker) {
+      try {
+        const res = await this.postToWorker('LIST_SLOTS', { slotIds });
+        if (res && res.success && Array.isArray(res.data)) {
+          return res.data;
+        }
+      } catch (workerErr) {
+        console.warn('[IndexedDBStorage] Worker list failed, fallback to main thread:', workerErr);
+      }
+    }
+
+    const results: StorageSlotInfo[] = [];
     for (const slotId of slotIds) {
       let data: CitySaveData | null = null;
       try {
@@ -235,8 +404,34 @@ export class IndexedDBStorage {
     return results;
   }
 
+  private static readonly MAPS_INDEX_KEY = 'arscity_map_ids_index';
+
+  private static getKnownMapIds(): string[] {
+    const raw = this.getFallbackItem(this.MAPS_INDEX_KEY);
+    if (!raw) return [];
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private static addKnownMapId(id: string): void {
+    const list = this.getKnownMapIds();
+    if (!list.includes(id)) {
+      list.push(id);
+      this.setFallbackItem(this.MAPS_INDEX_KEY, JSON.stringify(list));
+    }
+  }
+
+  private static removeKnownMapId(id: string): void {
+    const list = this.getKnownMapIds().filter((item) => item !== id);
+    this.setFallbackItem(this.MAPS_INDEX_KEY, JSON.stringify(list));
+  }
+
   /**
-   * Schedule debounced autosave (default 1500ms delay)
+   * Schedule debounced non-blocking autosave (default 1500ms delay)
    */
   public static scheduleDebouncedAutosave(
     saveFn: () => CitySaveData,
@@ -258,5 +453,131 @@ export class IndexedDBStorage {
         }
       }
     }, delayMs);
+  }
+
+  /**
+   * List all saved maps with metadata across IndexedDB and fallback storage
+   */
+  public static async listSavedMaps(): Promise<SavedMapMeta[]> {
+    const worker = this.getWorker();
+    if (worker) {
+      try {
+        const res = await this.postToWorker('LIST_ALL_MAPS', {});
+        if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          return (res.data as SavedMapMeta[]).sort((a, b) => b.updatedAt - a.updatedAt);
+        }
+      } catch (workerErr) {
+        console.warn('[IndexedDBStorage] Worker list maps failed, fallback to main thread:', workerErr);
+      }
+    }
+
+    const mapsMap = new Map<string, SavedMapMeta>();
+
+    // 1. Check main thread IndexedDB
+    try {
+      const db = await this.getDB();
+      if (db) {
+        const records = await new Promise<any[]>((resolve) => {
+          try {
+            const tx = db.transaction([this.STORE_NAME], 'readonly');
+            const store = tx.objectStore(this.STORE_NAME);
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve([]);
+          } catch {
+            resolve([]);
+          }
+        });
+
+        for (const r of records) {
+          if (r && r.data) {
+            const d = r.data;
+            mapsMap.set(r.slotId, {
+              id: r.slotId,
+              name: d.cityTitle || r.slotId,
+              updatedAt: r.updatedAt || d.timestamp || Date.now(),
+              buildingCount: (d.buildings?.length || 0) + (d.customBuildings?.length || 0),
+              roadCount: d.roads?.edges?.length || 0,
+              lotCount: d.lots?.length || 0,
+              isPresetFork: Boolean(d.isPresetFork || (typeof r.slotId === 'string' && r.slotId.includes('malioboro'))),
+            });
+          }
+        }
+      }
+    } catch {}
+
+    // 2. Check fallback storage items
+    const fallbackIds = Array.from(new Set([
+      ...this.getKnownMapIds(),
+      'autosave',
+      'slot_1',
+      'slot_2',
+      'slot_3',
+    ]));
+
+    for (const id of fallbackIds) {
+      if (mapsMap.has(id)) continue;
+      const raw = this.getFallbackItem(`${this.STORAGE_PREFIX}${id}`);
+      if (raw) {
+        try {
+          const d = JSON.parse(raw);
+          if (d && (d.roads || d.buildings)) {
+            mapsMap.set(id, {
+              id,
+              name: d.cityTitle || id,
+              updatedAt: d.timestamp || Date.now(),
+              buildingCount: (d.buildings?.length || 0) + (d.customBuildings?.length || 0),
+              roadCount: d.roads?.edges?.length || 0,
+              lotCount: d.lots?.length || 0,
+              isPresetFork: Boolean(d.isPresetFork || id.includes('malioboro')),
+            });
+          }
+        } catch {}
+      }
+    }
+
+    return Array.from(mapsMap.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  public static async loadMapById(id: string): Promise<CitySaveData | null> {
+    return this.loadSlot(id);
+  }
+
+  public static async saveMapById(
+    id: string,
+    name: string,
+    state: CitySaveData
+  ): Promise<{ success: boolean; error?: string }> {
+    state.cityTitle = name;
+    state.timestamp = Date.now();
+    this.addKnownMapId(id);
+    return this.saveSlot(id, state);
+  }
+
+  public static async deleteMapById(id: string): Promise<void> {
+    this.removeKnownMapId(id);
+    return this.deleteSlot(id);
+  }
+
+  public static async createNewEmptyMap(name: string = 'Kota Baru'): Promise<{ id: string; state: CitySaveData }> {
+    const id = `map_${Date.now()}`;
+    const state: CitySaveData = {
+      version: '2.0.0',
+      cityTitle: name,
+      timestamp: Date.now(),
+      environment: {
+        timeOfDay: 9.0,
+        dayOfYear: 172,
+        weather: 'clear',
+      },
+      roads: { nodes: [], edges: [] },
+      buildings: [],
+      customBuildings: [],
+      lots: [],
+      landscape: [],
+      displaySettings: {},
+    };
+    await this.saveMapById(id, name, state);
+    return { id, state };
   }
 }

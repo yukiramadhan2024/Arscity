@@ -77,6 +77,89 @@ export class CityScoreOverlay {
       this.overlayGroup.add(ringMesh);
     }
 
+    // 2. Render 400m Walkable Road Network Glowing Ribbons (#34C759)
+    if (score.reachableEdgeIds && score.reachableEdgeIds.length > 0) {
+      const greenRibbonMat = new THREE.MeshBasicMaterial({
+        color: 0x34c759,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      this.createdMaterials.push(greenRibbonMat);
+
+      for (const eId of score.reachableEdgeIds) {
+        const edge = roadManager.graph.edges.get(eId);
+        if (!edge || !edge.controlPoints || edge.controlPoints.length < 4) continue;
+
+        const samples = 16;
+        const pts: THREE.Vector3[] = [];
+        for (let i = 0; i <= samples; i++) {
+          const pt = roadManager.graph.sampleBezier(edge.controlPoints, i / samples);
+          pts.push(new THREE.Vector3(pt.x, pt.y + 0.16, pt.z));
+        }
+
+        const halfW = 2.0;
+        const vertices: number[] = [];
+        const indices: number[] = [];
+
+        for (let i = 0; i < pts.length; i++) {
+          let dir = new THREE.Vector3();
+          if (i < pts.length - 1) {
+            dir.subVectors(pts[i + 1], pts[i]).normalize();
+          } else {
+            dir.subVectors(pts[i], pts[i - 1]).normalize();
+          }
+          const normal = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
+
+          const pLeft = pts[i].clone().addScaledVector(normal, halfW);
+          const pRight = pts[i].clone().addScaledVector(normal, -halfW);
+
+          vertices.push(pLeft.x, pLeft.y, pLeft.z);
+          vertices.push(pRight.x, pRight.y, pRight.z);
+
+          if (i < pts.length - 1) {
+            const base = i * 2;
+            indices.push(base, base + 1, base + 2);
+            indices.push(base + 1, base + 3, base + 2);
+          }
+        }
+
+        const ribbonGeo = new THREE.BufferGeometry();
+        ribbonGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        ribbonGeo.setIndex(indices);
+        this.createdGeometries.push(ribbonGeo);
+
+        const ribbonMesh = new THREE.Mesh(ribbonGeo, greenRibbonMat);
+        this.overlayGroup.add(ribbonMesh);
+      }
+    }
+
+    // 3. Mark isolated buildings that lack road network connection
+    if (score.isolatedBuildingIds && score.isolatedBuildingIds.length > 0) {
+      const warnMat = new THREE.MeshBasicMaterial({
+        color: 0xff3b30,
+        transparent: true,
+        opacity: 0.4,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      this.createdMaterials.push(warnMat);
+
+      for (const bId of score.isolatedBuildingIds) {
+        const bld = buildingManager.buildings.get(bId);
+        if (!bld) continue;
+
+        const warnCircleGeo = new THREE.RingGeometry(Math.max(bld.width, bld.length) * 0.7, Math.max(bld.width, bld.length) * 0.85, 32);
+        warnCircleGeo.rotateX(-Math.PI / 2);
+        this.createdGeometries.push(warnCircleGeo);
+
+        const warnMesh = new THREE.Mesh(warnCircleGeo, warnMat);
+        warnMesh.position.set(bld.position.x, 0.12, bld.position.z);
+        this.overlayGroup.add(warnMesh);
+      }
+    }
+
     return score;
   }
 

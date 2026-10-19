@@ -1,87 +1,148 @@
 import React from 'react';
 import { useUIStore } from '../state/useUIStore';
-import { HardDrive, Camera, Settings, HelpCircle, Share2, Award } from 'lucide-react';
+import { HardDrive, Camera, Settings, HelpCircle, Share2, Award, FolderOpen, LogOut } from 'lucide-react';
+import { CitySerializer } from '../../io/CitySerializer';
+import { IndexedDBStorage } from '../../io/IndexedDBStorage';
 
 interface SideUtilityDockProps {
   onOpenHelp?: () => void;
 }
 
 export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) => {
-  const { setShowSaveLoad, setShowSettings, setIsPhotoMode, setShowRealWorldExport, setShowQuiz } = useUIStore();
+  const {
+    engine,
+    activeMapName,
+    openMapHub,
+    logout,
+    setShowSaveLoad,
+    setShowSettings,
+    setIsPhotoMode,
+    setShowRealWorldExport,
+    setShowQuiz
+  } = useUIStore();
+
+  const handleSwitchMap = () => {
+    if (engine) {
+      try {
+        const data = CitySerializer.serialize(engine, activeMapName || 'Kota Saat Ini');
+        IndexedDBStorage.saveSlot('autosave', data);
+      } catch (err) {
+        console.warn('Autosave before map switch failed:', err);
+      }
+    }
+    openMapHub();
+  };
 
   return (
     <aside className="side-dock-wrapper" aria-label="Utilitas Sistem Kota">
-      <div className="glass-surface side-dock-container interactive">
-        {/* Simpan & Muat Kota */}
+      <div
+        className="side-dock-container interactive"
+        style={{
+          background: 'rgba(15, 23, 42, 0.86)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.14)',
+          borderRadius: '9999px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+          padding: '8px 6px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '6px'
+        }}
+      >
+        {/* Peta Kota */}
+        <button
+          onClick={handleSwitchMap}
+          className="side-dock-btn"
+          title="Peta Kota"
+          aria-label="Peta Kota"
+        >
+          <FolderOpen size={18} strokeWidth={1.75} />
+          <span className="side-dock-tooltip">Peta Kota</span>
+        </button>
+
+        {/* Simpan & Muat */}
         <button
           onClick={() => setShowSaveLoad(true)}
           className="side-dock-btn"
-          title="Simpan & Muat Kota"
-          aria-label="Simpan dan Muat Kota"
+          title="Simpan & Muat"
+          aria-label="Simpan & Muat"
         >
           <HardDrive size={18} strokeWidth={1.75} />
-          <span className="side-dock-tooltip">Simpan & Muat Kota</span>
+          <span className="side-dock-tooltip">Simpan & Muat</span>
         </button>
 
-        {/* Mode Foto Arsitektur */}
+        {/* Mode Kamera & Foto */}
         <button
           onClick={() => setIsPhotoMode(true)}
           className="side-dock-btn"
-          title="Mode Foto Arsitektur"
-          aria-label="Mode Foto Arsitektur"
+          title="Mode Kamera & Foto"
+          aria-label="Mode Kamera & Foto"
         >
           <Camera size={18} strokeWidth={1.75} />
-          <span className="side-dock-tooltip">Mode Foto Arsitektur</span>
+          <span className="side-dock-tooltip">Mode Kamera & Foto</span>
         </button>
 
-        {/* Pengaturan Sistem & Tampilan (Ikon Gerigi Standar) */}
+        {/* Pengaturan */}
         <button
           onClick={() => setShowSettings(true)}
           className="side-dock-btn"
-          title="Pengaturan Sistem & Grafis"
+          title="Pengaturan"
           aria-label="Pengaturan"
         >
           <Settings size={18} strokeWidth={1.75} />
           <span className="side-dock-tooltip">Pengaturan</span>
         </button>
 
-        {/* Ekspor CAD 2D, 3D glTF & Impor Denah */}
+        {/* Ekspor CAD/3D */}
         <button
           onClick={() => setShowRealWorldExport(true)}
           className="side-dock-btn"
-          title="Ekspor CAD 2D (.DXF), 3D (.glTF), & Impor Denah"
-          aria-label="Ekspor dan Impor Denah"
+          title="Ekspor CAD/3D"
+          aria-label="Ekspor CAD/3D"
         >
           <Share2 size={18} strokeWidth={1.75} />
-          <span className="side-dock-tooltip">Ekspor CAD & 3D</span>
+          <span className="side-dock-tooltip">Ekspor CAD/3D</span>
         </button>
 
-        {/* Kuis Edukasi Arsitektur (Pre/Post Test) */}
+        {/* Misi & Edukasi */}
         <button
           onClick={() => setShowQuiz(true)}
           className="side-dock-btn"
-          title="Kuis Evaluasi Arsitektur (Pre & Post Test)"
-          aria-label="Kuis Evaluasi Arsitektur"
+          title="Misi & Edukasi"
+          aria-label="Misi & Edukasi"
         >
           <Award size={18} strokeWidth={1.75} />
-          <span className="side-dock-tooltip">Kuis Arsitektur</span>
+          <span className="side-dock-tooltip">Misi & Edukasi</span>
         </button>
 
         {/* Pemisah Sub-Grup */}
-        <div className="divider-h" style={{ width: '22px', margin: '2px 0' }} />
+        <div style={{ width: '22px', height: '1px', background: 'rgba(255, 255, 255, 0.14)', margin: '2px 0' }} />
 
-        {/* Bantuan Pintasan Keyboard */}
+        {/* Bantuan */}
         {onOpenHelp && (
           <button
             onClick={onOpenHelp}
             className="side-dock-btn"
-            title="Pintasan Keyboard (?)"
-            aria-label="Pintasan Keyboard"
+            title="Bantuan"
+            aria-label="Bantuan"
           >
             <HelpCircle size={18} strokeWidth={1.75} />
-            <span className="side-dock-tooltip">Pintasan Keyboard (?)</span>
+            <span className="side-dock-tooltip">Bantuan</span>
           </button>
         )}
+
+        {/* Keluar */}
+        <button
+          onClick={logout}
+          className="side-dock-btn"
+          title="Keluar"
+          aria-label="Keluar"
+        >
+          <LogOut size={18} strokeWidth={1.75} />
+          <span className="side-dock-tooltip">Keluar</span>
+        </button>
       </div>
     </aside>
   );

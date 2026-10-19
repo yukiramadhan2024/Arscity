@@ -1,15 +1,7 @@
-import React from 'react';
-import { useUIStore, ThemeMode, GlassStyle, GraphicsQuality } from '../state/useUIStore';
+import React, { useState } from 'react';
+import { useUIStore, GraphicsQuality } from '../state/useUIStore';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
-import { MaterialLibrary } from '../../materials/MaterialLibrary';
-import { ZONE_RULES, ZoneType, BUILDING_CODE_DISCLAIMER } from '../../zones/ZoneTypes';
-import { X, Settings, Sun, Moon, Sparkles, Check, Eye, RotateCcw, Activity } from 'lucide-react';
-import { roomStandardsRegistry } from '../../buildings/RoomStandards';
-import { runoffSimulator } from '../../simulation/RunoffSimulator';
-import { structuralChecker } from '../../simulation/StructuralChecker';
-import { costEstimator } from '../../simulation/CostEstimator';
-import { advancedBuildingCodeRegistry } from '../../zones/AdvancedBuildingCode';
-import { cityScoreAnalyzer } from '../../analysis/CityScoreAnalyzer';
+import { X, Settings, Activity } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -18,12 +10,6 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const {
-    themeMode,
-    setThemeMode,
-    glassStyle,
-    setGlassStyle,
-    glassOpacity,
-    setGlassOpacity,
     textScale,
     setTextScale,
     reduceMotion,
@@ -40,16 +26,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     engine
   } = useUIStore();
 
-  const [selectedZoneTab, setSelectedZoneTab] = React.useState<ZoneType>('residential');
-  const [, setRuleVersion] = React.useState<number>(0);
-  const [, setSimVersion] = React.useState<number>(0);
-  const triggerSimUpdate = () => setSimVersion((v) => v + 1);
+  const [softShadows, setSoftShadows] = useState<boolean>(true);
+  const [bloomSSAO, setBloomSSAO] = useState<boolean>(graphicsQuality === 'ultra');
+  const [ambientSound, setAmbientSound] = useState<boolean>(true);
 
   if (!isOpen) return null;
 
   const handleQualityChange = (q: GraphicsQuality) => {
     setGraphicsQuality(q);
+    if (q === 'low') {
+      setSoftShadows(false);
+      setBloomSSAO(false);
+    } else if (q === 'ultra') {
+      setSoftShadows(true);
+      setBloomSSAO(true);
+    }
     proceduralAudio.playClick();
+  };
+
+  const handleToggleShadows = (enabled: boolean) => {
+    setSoftShadows(enabled);
+    if (engine?.renderer) {
+      engine.renderer.shadowMap.enabled = enabled;
+      engine.renderer.shadowMap.needsUpdate = true;
+    }
+  };
+
+  const handleToggleBloomSSAO = (enabled: boolean) => {
+    setBloomSSAO(enabled);
+    if (engine?.postProcessingManager) {
+      engine.postProcessingManager.setEnabled(enabled);
+    }
   };
 
   const handleSoundToggle = () => {
@@ -60,174 +67,296 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
+  const gpuInfo = engine?.getGpuInfo();
+  const gpuName = gpuInfo?.renderer || 'Akselerator Grafis WebGL';
+
   return (
     <div className="modal-overlay interactive" role="dialog" aria-modal="true">
       <div
         className="modal-sheet"
         style={{
-          width: '580px',
+          width: '560px',
           maxWidth: '92vw',
-          maxHeight: '88vh'
+          maxHeight: '88vh',
+          background: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          border: '1px solid rgba(255, 255, 255, 0.14)',
+          borderRadius: '24px',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.75)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
         {/* Modal Header */}
-        <div className="modal-sheet-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Settings size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+        <div
+          className="modal-sheet-header"
+          style={{
+            padding: '16px 20px',
+            background: 'rgba(15, 23, 42, 0.86)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Settings size={20} strokeWidth={1.8} style={{ color: '#0A84FF' }} />
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
-                Pengaturan Tampilan & Sistem
+              <div style={{ fontSize: '16px', fontWeight: 600, color: '#F8FAFC' }}>
+                Pengaturan Kota
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                Bahasa Desain iOS 27 Liquid Glass Refined
+              <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                Konfigurasi grafis, kontrol kamera, suara, dan tampilan antarmuka
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="icon-btn" aria-label="Tutup Pengaturan">
-            <X size={16} strokeWidth={1.75} />
+          <button
+            onClick={onClose}
+            className="icon-btn"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: 'none',
+              color: '#F8FAFC',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            aria-label="Tutup Pengaturan"
+          >
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
 
-        {/* Inset Grouped Settings Body */}
-        <div className="modal-sheet-body">
-          {/* SECTION 1: TAMPILAN LIQUID GLASS */}
-          <div className="inset-header">TAMPILAN & MATERIAL KACA</div>
-          <div className="inset-group">
-            {/* Tema */}
-            <div className="inset-row">
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>Tema Antarmuka</span>
-              <div className="segmented-control">
+        {/* Modal Body */}
+        <div className="modal-sheet-body" style={{ padding: '16px 20px', overflowY: 'auto' }}>
+          {/* BAGIAN 1: KUALITAS GRAFIS & PERFORMA */}
+          <div className="inset-header" style={{ color: '#94A3B8', fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>
+            KUALITAS GRAFIS & PERFORMA
+          </div>
+          <div className="inset-group" style={{ background: 'rgba(30, 41, 59, 0.65)', border: '1px solid rgba(255, 255, 255, 0.10)', borderRadius: '16px', overflow: 'hidden', marginBottom: '16px' }}>
+            {/* 4 Preset Buttons */}
+            <div className="inset-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '10px', padding: '12px 14px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#F8FAFC' }}>
+                Preset Grafis
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                 {[
-                  { id: 'auto' as ThemeMode, label: 'Otomatis' },
-                  { id: 'light' as ThemeMode, label: 'Terang' },
-                  { id: 'dark' as ThemeMode, label: 'Gelap' }
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setThemeMode(t.id)}
-                    className={`segmented-item ${themeMode === t.id ? 'active' : ''}`}
-                  >
-                    <span>{t.label}</span>
-                  </button>
-                ))}
+                  { id: 'low' as GraphicsQuality, label: 'Rendah' },
+                  { id: 'medium' as GraphicsQuality, label: 'Sedang' },
+                  { id: 'high' as GraphicsQuality, label: 'Tinggi' },
+                  { id: 'ultra' as GraphicsQuality, label: 'Ultra RTX' }
+                ].map((preset) => {
+                  const isActive = graphicsQuality === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => handleQualityChange(preset.id)}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '10px',
+                        border: isActive ? '1px solid rgba(10, 132, 255, 0.8)' : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: isActive ? 'rgba(10, 132, 255, 0.28)' : 'rgba(255, 255, 255, 0.05)',
+                        color: isActive ? '#FFFFFF' : '#CBD5E1',
+                        fontSize: '12px',
+                        fontWeight: isActive ? 600 : 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        textAlign: 'center'
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Gaya Kaca */}
-            <div className="inset-row">
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>Gaya Material Kaca</span>
-              <div className="segmented-control">
-                {[
-                  { id: 'clear' as GlassStyle, label: 'Bening (Clear)' },
-                  { id: 'tinted' as GlassStyle, label: 'Berwarna (Tinted)' }
-                ].map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setGlassStyle(s.id)}
-                    className={`segmented-item ${glassStyle === s.id ? 'active' : ''}`}
-                  >
-                    <span>{s.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Slider Transparansi Kaca */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 500 }}>Transparansi Kaca</div>
-                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                    Rentang opasitas 35% sampai 95% (standar 60%)
-                  </div>
+            {/* Soft Shadows Toggle */}
+            <div className="inset-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#F8FAFC' }}>
+                  Bayangan Matahari Halus (Soft Shadows)
                 </div>
-                <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent)' }}>
-                  {Math.round(glassOpacity * 100)}%
-                </span>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  Pencahayaan realistis dengan bayangan dinamis sesuai posisi matahari
+                </div>
               </div>
+              <label className="ios-switch">
+                <input
+                  type="checkbox"
+                  checked={softShadows}
+                  onChange={(e) => handleToggleShadows(e.target.checked)}
+                />
+                <span className="ios-switch-slider" />
+              </label>
+            </div>
 
-              <input
-                type="range"
-                min="0.35"
-                max="0.95"
-                step="0.01"
-                value={glassOpacity}
-                onChange={(e) => setGlassOpacity(parseFloat(e.target.value))}
-                className="ios-slider"
-                aria-label="Slider Transparansi Kaca"
-              />
+            {/* Bloom & SSAO Toggle */}
+            <div className="inset-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#F8FAFC' }}>
+                  Efek Cahaya & Atmosfer (Bloom & SSAO)
+                </div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  Pendaran cahaya lembut dan oklusi ambien pada sudut arsitektur
+                </div>
+              </div>
+              <label className="ios-switch">
+                <input
+                  type="checkbox"
+                  checked={bloomSSAO}
+                  onChange={(e) => handleToggleBloomSSAO(e.target.checked)}
+                />
+                <span className="ios-switch-slider" />
+              </label>
+            </div>
 
-              {/* Live Preview Card */}
-              <div
+            {/* GPU Status & Load Test Button */}
+            <div className="inset-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ maxWidth: '65%' }}>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                  Kartu Grafis Aktif
+                </div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {gpuName}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowLoadTest(true);
+                  onClose();
+                }}
                 style={{
-                  position: 'relative',
-                  height: '76px',
-                  borderRadius: '14px',
-                  overflow: 'hidden',
-                  background: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #0f172a 100%)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '10px'
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '9999px',
+                  background: 'rgba(10, 132, 255, 0.16)',
+                  border: '1px solid rgba(10, 132, 255, 0.4)',
+                  color: '#38BDF8',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
                 }}
               >
-                {/* Background geometric mockup representing 3D scene underneath */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    backgroundImage: 'radial-gradient(circle at 20% 30%, rgba(0,122,255,0.4) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(52,199,89,0.3) 0%, transparent 40%)'
-                  }}
-                />
-                <div
-                  className="glass-surface"
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    zIndex: 2,
-                    maxWidth: '90%'
-                  }}
-                >
-                  <Eye size={16} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
-                  <div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)' }}>
-                      Pratinjau Keterbacaan Teks
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                      Teks kontras tinggi di atas Liquid Glass
-                    </div>
-                  </div>
-                </div>
-              </div>
+                <Activity size={13} />
+                <span>Uji Beban 300 Gedung</span>
+              </button>
             </div>
           </div>
 
-          {/* SECTION 2: AKSESIBILITAS & TIPOGRAFI */}
-          <div className="inset-header">AKSESIBILITAS & TEKS</div>
-          <div className="inset-group">
-            {/* Ukuran Teks */}
-            <div className="inset-row">
+          {/* BAGIAN 2: SUARA & KAMERA */}
+          <div className="inset-header" style={{ color: '#94A3B8', fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>
+            SUARA & KAMERA
+          </div>
+          <div className="inset-group" style={{ background: 'rgba(30, 41, 59, 0.65)', border: '1px solid rgba(255, 255, 255, 0.10)', borderRadius: '16px', overflow: 'hidden', marginBottom: '16px' }}>
+            {/* Toggle Efek Suara Interaksi */}
+            <div className="inset-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px' }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 500 }}>Ukuran Teks</div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                  Skala font antarmuka
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#F8FAFC' }}>
+                  Efek Suara Interaksi
+                </div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  Suara tombol antarmuka, penempatan jalan, dan konstruksi bangunan
                 </div>
               </div>
-              <div className="segmented-control">
+              <label className="ios-switch">
+                <input
+                  type="checkbox"
+                  checked={soundEnabled}
+                  onChange={handleSoundToggle}
+                />
+                <span className="ios-switch-slider" />
+              </label>
+            </div>
+
+            {/* Toggle Suara Suasana Kota */}
+            <div className="inset-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#F8FAFC' }}>
+                  Suara Suasana Kota
+                </div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  Efek angin tropis, tetesan hujan, dan hembusan udara lingkungan
+                </div>
+              </div>
+              <label className="ios-switch">
+                <input
+                  type="checkbox"
+                  checked={ambientSound}
+                  onChange={(e) => setAmbientSound(e.target.checked)}
+                />
+                <span className="ios-switch-slider" />
+              </label>
+            </div>
+
+            {/* Slider Kecepatan Geser & Putar Kamera (Sensitivitas) */}
+            <div className="inset-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '8px', padding: '12px 14px', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 500, color: '#F8FAFC' }}>
+                    Kecepatan Geser & Putar Kamera (Sensitivitas Mousepad & Kamera)
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                    Responsivitas pergerakan kamera saat digeser atau diputar
+                  </div>
+                </div>
+                <span className="font-mono tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: '#38BDF8' }}>
+                  {mousepadSensitivity.toFixed(1)}x
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.2"
+                max="3.0"
+                step="0.1"
+                value={mousepadSensitivity}
+                onChange={(e) => setMousepadSensitivity(parseFloat(e.target.value))}
+                className="ios-slider"
+                aria-label="Sensitivitas Kamera"
+              />
+            </div>
+          </div>
+
+          {/* BAGIAN 3: TAMPILAN TEKS & AKSESIBILITAS */}
+          <div className="inset-header" style={{ color: '#94A3B8', fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>
+            TAMPILAN TEKS & AKSESIBILITAS
+          </div>
+          <div className="inset-group" style={{ background: 'rgba(30, 41, 59, 0.65)', border: '1px solid rgba(255, 255, 255, 0.10)', borderRadius: '16px', overflow: 'hidden', marginBottom: '16px' }}>
+            {/* Pilihan Ukuran Teks UI: Kecil, Normal, Besar */}
+            <div className="inset-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#F8FAFC' }}>
+                  Ukuran Teks UI
+                </div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  Skala keterbacaan huruf pada seluruh antarmuka
+                </div>
+              </div>
+              <div className="segmented-control" style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                 {[
-                  { val: 0.9, label: '90%' },
-                  { val: 1.0, label: '100%' },
-                  { val: 1.15, label: '115%' },
-                  { val: 1.3, label: '130%' }
+                  { val: 0.9, label: 'Kecil' },
+                  { val: 1.0, label: 'Normal' },
+                  { val: 1.2, label: 'Besar' }
                 ].map((s) => (
                   <button
-                    key={s.val}
+                    key={s.label}
                     onClick={() => setTextScale(s.val)}
                     className={`segmented-item ${Math.abs(textScale - s.val) < 0.05 ? 'active' : ''}`}
-                    style={{ padding: '3px 8px', fontSize: '11px' }}
+                    style={{
+                      padding: '4px 12px',
+                      fontSize: '11px',
+                      color: Math.abs(textScale - s.val) < 0.05 ? '#FFFFFF' : '#CBD5E1',
+                      background: Math.abs(textScale - s.val) < 0.05 ? '#0A84FF' : 'transparent',
+                      borderRadius: '9999px'
+                    }}
                   >
                     <span>{s.label}</span>
                   </button>
@@ -235,12 +364,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
             </div>
 
-            {/* Kurangi Gerakan */}
-            <div className="inset-row">
+            {/* Toggle Kurangi Animasi Antarmuka */}
+            <div className="inset-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)' }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 500 }}>Kurangi Gerakan (Reduce Motion)</div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                  Ganti animasi spring dengan transisi fade 120ms
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#F8FAFC' }}>
+                  Kurangi Animasi Antarmuka
+                </div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  Menonaktifkan efek transisi gerak demi kenyamanan mata
                 </div>
               </div>
               <label className="ios-switch">
@@ -253,12 +384,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </label>
             </div>
 
-            {/* Kontras Tinggi */}
-            <div className="inset-row">
+            {/* Toggle Kontras Tinggi */}
+            <div className="inset-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)' }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 500 }}>Kontras Tinggi (Increase Contrast)</div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                  Pertegas garis pemisah dan kepekatan teks
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#F8FAFC' }}>
+                  Kontras Tinggi
+                </div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  Mempertegas garis tepi panel dan keterbacaan teks
                 </div>
               </div>
               <label className="ios-switch">
@@ -272,931 +405,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             </div>
           </div>
 
-          {/* SECTION 3: GRAFIS 3D PRESETS */}
-          <div className="inset-header">PERFORMA & KUALITAS GRAFIS</div>
-          <div className="inset-group">
-            {[
-              { id: 'low' as GraphicsQuality, title: 'Low (Ringan)', desc: 'Tanpa blur kaca (solid A 0.94), tanpa bayangan 3D, hemat daya' },
-              { id: 'medium' as GraphicsQuality, title: 'Medium (Standar)', desc: 'Blur kaca 16px, soft shadow 1024, resolusi seimbang' },
-              { id: 'high' as GraphicsQuality, title: 'High (Optimal)', desc: 'Blur kaca 24px, PCF shadow 2048, kejernihan penuh' }
-            ].map((preset) => {
-              const isActive = graphicsQuality === preset.id;
-              return (
-                <div
-                  key={preset.id}
-                  onClick={() => handleQualityChange(preset.id)}
-                  className="inset-row inset-row-clickable"
-                >
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: isActive ? 'var(--accent)' : 'var(--label)' }}>
-                      {preset.title}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                      {preset.desc}
-                    </div>
-                  </div>
-                  {isActive && <Check size={16} strokeWidth={2} style={{ color: 'var(--accent)' }} />}
-                </div>
-              );
-            })}
-
-            {/* Status Tekstur PBR (T1.1) */}
-            <div className="inset-row">
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 500 }}>Status Material PBR</div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                  {MaterialLibrary.getInstance().isUsingFallback()
-                    ? 'Memakai generator kanvas in-engine karena berkas gagal dimuat'
-                    : '13 paket tekstur foto CC0 1K (AmbientCG & Three.js) aktif'}
-                </div>
-              </div>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  padding: '3px 8px',
-                  borderRadius: 'var(--radius-capsule)',
-                  backgroundColor: MaterialLibrary.getInstance().isUsingFallback() ? 'rgba(255, 149, 0, 0.15)' : 'rgba(52, 199, 89, 0.15)',
-                  color: MaterialLibrary.getInstance().isUsingFallback() ? 'var(--warn)' : 'var(--good)'
-                }}
-              >
-                {MaterialLibrary.getInstance().isUsingFallback() ? 'Tekstur Sementara' : 'Tekstur CC0 Nyata (1K)'}
-              </span>
-            </div>
-
-            {/* Uji Beban Dev Tool (Milestone T3) */}
-            <div
-              className="inset-row inset-row-clickable"
-              onClick={() => {
-                setShowLoadTest(true);
-                onClose();
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent)' }}>
-                  Alat Uji Beban & Telemetri (300 Gedung + 3 km Jalan)
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                  Uji 60 FPS dan pantau draw calls, segitiga, serta memori buffer WebGL
-                </div>
-              </div>
-              <Activity size={16} style={{ color: 'var(--accent)' }} />
-            </div>
-          </div>
-
-          {/* SECTION 4: AUDIO SINTESIS */}
-          <div className="inset-header">AUDIO PROSEDURAL</div>
-          <div className="inset-group">
-            <div className="inset-row">
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 500 }}>Efek Suara Sintetis (Web Audio)</div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                  Suara interaksi klik, jalan, dan konstruksi berbasis osilator murni
-                </div>
-              </div>
-              <label className="ios-switch">
-                <input
-                  type="checkbox"
-                  checked={soundEnabled}
-                  onChange={handleSoundToggle}
-                />
-                <span className="ios-switch-slider" />
-              </label>
-            </div>
-          </div>
-
-          {/* SECTION 5: PENGATURAN ATURAN ZONASI & SEMPADAN (PBG / RDTR) */}
-          <div className="inset-header">PENGATURAN ATURAN ZONASI & SEMPADAN (PBG / RDTR)</div>
-          <div className="inset-group">
-            {/* Zone Selector */}
-            <div className="inset-row" style={{ overflowX: 'auto', gap: '4px', padding: '8px' }}>
-              {(Object.keys(ZONE_RULES) as ZoneType[]).map((zt) => {
-                const zr = ZONE_RULES[zt];
-                const isSel = selectedZoneTab === zt;
-                return (
-                  <button
-                    key={zt}
-                    onClick={() => setSelectedZoneTab(zt)}
-                    className={`segmented-item ${isSel ? 'active' : ''}`}
-                    style={{ fontSize: '11px', padding: '4px 10px', whiteSpace: 'nowrap' }}
-                  >
-                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: zr.color, marginRight: '5px' }} />
-                    {zr.name.split(' (')[0]}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Editable Fields for Active Zone */}
-            {(() => {
-              const rule = ZONE_RULES[selectedZoneTab];
-              const triggerUpdate = () => {
-                setRuleVersion((v) => v + 1);
-                engine?.lotManager.evaluateAllLots();
-              };
-
-              return (
-                <>
-                  {/* Max KDB */}
-                  <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600 }}>KDB Maksimum (Kepadatan Dasar)</div>
-                        <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                          Sumber: {rule.sources.kdb}
-                        </div>
-                      </div>
-                      <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>
-                        {rule.maxKDB}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="10"
-                      max="100"
-                      step="5"
-                      value={rule.maxKDB}
-                      onChange={(e) => {
-                        rule.maxKDB = parseInt(e.target.value);
-                        triggerUpdate();
-                      }}
-                      className="ios-slider"
-                      aria-label="KDB Maksimum"
-                    />
-                  </div>
-
-                  {/* Max KLB */}
-                  <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600 }}>KLB Maksimum (Lantai Bangunan)</div>
-                        <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                          Sumber: {rule.sources.klb}
-                        </div>
-                      </div>
-                      <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>
-                        {rule.maxKLB}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.2"
-                      max="8.0"
-                      step="0.1"
-                      value={rule.maxKLB}
-                      onChange={(e) => {
-                        rule.maxKLB = parseFloat(e.target.value);
-                        triggerUpdate();
-                      }}
-                      className="ios-slider"
-                      aria-label="KLB Maksimum"
-                    />
-                  </div>
-
-                  {/* Min KDH */}
-                  <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600 }}>KDH Minimum (Ruang Hijau Resapan)</div>
-                        <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                          Sumber: {rule.sources.kdh}
-                        </div>
-                      </div>
-                      <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--good)' }}>
-                        {rule.minKDH}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="5"
-                      max="90"
-                      step="5"
-                      value={rule.minKDH}
-                      onChange={(e) => {
-                        rule.minKDH = parseInt(e.target.value);
-                        triggerUpdate();
-                      }}
-                      className="ios-slider"
-                      aria-label="KDH Minimum"
-                    />
-                  </div>
-
-                  {/* Min GSB Depan */}
-                  <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600 }}>GSB Depan Minimum (ke Jalan)</div>
-                        <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                          Sumber: {rule.sources.gsb}
-                        </div>
-                      </div>
-                      <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--warn)' }}>
-                        {rule.minGSBFront} m
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1.0"
-                      max="10.0"
-                      step="0.5"
-                      value={rule.minGSBFront}
-                      onChange={(e) => {
-                        rule.minGSBFront = parseFloat(e.target.value);
-                        rule.minGSB = rule.minGSBFront;
-                        triggerUpdate();
-                      }}
-                      className="ios-slider"
-                      aria-label="GSB Depan Minimum"
-                    />
-                  </div>
-
-                  {/* Min GSB Samping */}
-                  <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600 }}>GSB Samping Minimum</div>
-                        <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                          Sumber: Permen PUPR 29/2006 (Ilustrasi)
-                        </div>
-                      </div>
-                      <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                        {rule.minGSBSide} m
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1.0"
-                      max="5.0"
-                      step="0.5"
-                      value={rule.minGSBSide}
-                      onChange={(e) => {
-                        rule.minGSBSide = parseFloat(e.target.value);
-                        triggerUpdate();
-                      }}
-                      className="ios-slider"
-                      aria-label="GSB Samping Minimum"
-                    />
-                  </div>
-
-                  {/* Min GSB Belakang */}
-                  <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600 }}>GSB Belakang Minimum</div>
-                        <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                          Sumber: Permen PUPR 29/2006 (Ilustrasi)
-                        </div>
-                      </div>
-                      <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                        {rule.minGSBRear} m
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1.0"
-                      max="6.0"
-                      step="0.5"
-                      value={rule.minGSBRear}
-                      onChange={(e) => {
-                        rule.minGSBRear = parseFloat(e.target.value);
-                        triggerUpdate();
-                      }}
-                      className="ios-slider"
-                      aria-label="GSB Belakang Minimum"
-                    />
-                  </div>
-
-                  {/* Max Floors */}
-                  <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600 }}>Batas Maksimum Lantai</div>
-                        <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                          Sumber: {rule.sources.height}
-                        </div>
-                      </div>
-                      <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                        {rule.maxFloors} Lantai
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1"
-                      max="12"
-                      step="1"
-                      value={rule.maxFloors}
-                      onChange={(e) => {
-                        rule.maxFloors = parseInt(e.target.value);
-                        triggerUpdate();
-                      }}
-                      className="ios-slider"
-                      aria-label="Batas Maksimum Lantai"
-                    />
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-
-          {/* SECTION: STANDAR RUANG & PLAFON INTERIOR */}
-          <div className="inset-header">STANDAR RUANG & PLAFON (SNI & PERMEN PUPR)</div>
-          <div className="inset-group">
-            {/* Kamar Tidur Utama */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Luas Minimum Kamar Tidur Utama</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: SNI 03-1733-2004 / Kepmenkes 829/1999
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>
-                  {roomStandardsRegistry.getStandard('bedroom').minAreaM2} m²
-                </span>
-              </div>
-              <input
-                type="range"
-                min="6"
-                max="16"
-                step="0.5"
-                value={roomStandardsRegistry.getStandard('bedroom').minAreaM2}
-                onChange={(e) => {
-                  roomStandardsRegistry.updateStandard('bedroom', { minAreaM2: parseFloat(e.target.value) });
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Luas Minimum Kamar Tidur"
-              />
-            </div>
-
-            {/* Tinggi Plafon Kamar Tidur */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Tinggi Minimum Plafon Kamar Tidur</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: Permen PUPR 29/2006
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {roomStandardsRegistry.getStandard('bedroom').minCeilingHeightM} m
-                </span>
-              </div>
-              <input
-                type="range"
-                min="2.2"
-                max="4.0"
-                step="0.1"
-                value={roomStandardsRegistry.getStandard('bedroom').minCeilingHeightM}
-                onChange={(e) => {
-                  roomStandardsRegistry.updateStandard('bedroom', { minCeilingHeightM: parseFloat(e.target.value) });
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Tinggi Plafon Kamar Tidur"
-              />
-            </div>
-
-            {/* Ruang Keluarga */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Luas Minimum Ruang Keluarga / Tamu</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: SNI 03-1733-2004
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>
-                  {roomStandardsRegistry.getStandard('living_room').minAreaM2} m²
-                </span>
-              </div>
-              <input
-                type="range"
-                min="8"
-                max="24"
-                step="1"
-                value={roomStandardsRegistry.getStandard('living_room').minAreaM2}
-                onChange={(e) => {
-                  roomStandardsRegistry.updateStandard('living_room', { minAreaM2: parseFloat(e.target.value) });
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Luas Minimum Ruang Keluarga"
-              />
-            </div>
-
-            {/* Kamar Mandi */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Luas Minimum Kamar Mandi / WC</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: Permen PUPR 29/2006
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>
-                  {roomStandardsRegistry.getStandard('bathroom').minAreaM2} m²
-                </span>
-              </div>
-              <input
-                type="range"
-                min="1.5"
-                max="5.0"
-                step="0.25"
-                value={roomStandardsRegistry.getStandard('bathroom').minAreaM2}
-                onChange={(e) => {
-                  roomStandardsRegistry.updateStandard('bathroom', { minAreaM2: parseFloat(e.target.value) });
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Luas Minimum Kamar Mandi"
-              />
-            </div>
-
-            {/* Tebal Dinding Interior */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Ketebalan Dinding Sekat Interior</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Standar pasangan bata setengah batu + plesteran acian
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {(roomStandardsRegistry.defaultWallThicknessM * 100).toFixed(0)} cm
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.10"
-                max="0.25"
-                step="0.01"
-                value={roomStandardsRegistry.defaultWallThicknessM}
-                onChange={(e) => {
-                  roomStandardsRegistry.defaultWallThicknessM = parseFloat(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Ketebalan Dinding Interior"
-              />
-            </div>
-          </div>
-
-          {/* SECTION: SIMULASI HUJAN & KOEFISIEN LIMPASAN */}
-          <div className="inset-header">SIMULASI HUJAN & LIMPASAN AIR (SNI 03-2453)</div>
-          <div className="inset-group">
-            {/* Koefisien Atap */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Koefisien Limpasan Atap Bangunan (C Atap)</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: {runoffSimulator.coefficientSources.roof}
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>
-                  {runoffSimulator.coefficients.roof.toFixed(2)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.70"
-                max="0.95"
-                step="0.05"
-                value={runoffSimulator.coefficients.roof}
-                onChange={(e) => {
-                  runoffSimulator.coefficients.roof = parseFloat(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Koefisien Limpasan Atap"
-              />
-            </div>
-
-            {/* Koefisien Paving */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Koefisien Limpasan Paving Block (C Paving)</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: {runoffSimulator.coefficientSources.paving}
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {runoffSimulator.coefficients.paving.toFixed(2)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.40"
-                max="0.80"
-                step="0.05"
-                value={runoffSimulator.coefficients.paving}
-                onChange={(e) => {
-                  runoffSimulator.coefficients.paving = parseFloat(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Koefisien Limpasan Paving"
-              />
-            </div>
-
-            {/* Koefisien Rumput */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Koefisien Limpasan Taman Rumput (C Rumput)</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: {runoffSimulator.coefficientSources.grass}
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--good)' }}>
-                  {runoffSimulator.coefficients.grass.toFixed(2)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.10"
-                max="0.35"
-                step="0.05"
-                value={runoffSimulator.coefficients.grass}
-                onChange={(e) => {
-                  runoffSimulator.coefficients.grass = parseFloat(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Koefisien Limpasan Rumput"
-              />
-            </div>
-
-            {/* Intensitas Hujan */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Intensitas Hujan Rencana (I)</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: {runoffSimulator.coefficientSources.rainfallIntensity}
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {runoffSimulator.coefficients.rainfallIntensityMmHr} mm/jam
-                </span>
-              </div>
-              <input
-                type="range"
-                min="20"
-                max="120"
-                step="10"
-                value={runoffSimulator.coefficients.rainfallIntensityMmHr}
-                onChange={(e) => {
-                  runoffSimulator.coefficients.rainfallIntensityMmHr = parseFloat(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Intensitas Hujan Rencana"
-              />
-            </div>
-          </div>
-
-          {/* SECTION: STRUKTUR & KETAHANAN GEMPA */}
-          <div className="inset-header">STRUKTUR & KETAHANAN SEISMIK (SNI 1726 & SNI 2847)</div>
-          <div className="inset-group">
-            {/* Batas Bentang Balok */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Batas Bentang Bebas Tanpa Kolom Antara</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: {structuralChecker.standardsSources.span}
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>
-                  {structuralChecker.config.maxAllowableSpanM} m
-                </span>
-              </div>
-              <input
-                type="range"
-                min="4.0"
-                max="10.0"
-                step="0.5"
-                value={structuralChecker.config.maxAllowableSpanM}
-                onChange={(e) => {
-                  structuralChecker.config.maxAllowableSpanM = parseFloat(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Batas Bentang Balok"
-              />
-            </div>
-
-            {/* Batas Rasio Denah Pipih */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Batas Rasio Denah Pipih (Torsi Seismik)</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: {structuralChecker.standardsSources.planRegularity}
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {structuralChecker.config.maxPlanAspectRatio}:1
-                </span>
-              </div>
-              <input
-                type="range"
-                min="2.0"
-                max="5.0"
-                step="0.5"
-                value={structuralChecker.config.maxPlanAspectRatio}
-                onChange={(e) => {
-                  structuralChecker.config.maxPlanAspectRatio = parseFloat(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Batas Rasio Denah"
-              />
-            </div>
-
-            {/* Batas Overhang Kantilever */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Batas Overhang Teritisan Tanpa Penopang</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: {structuralChecker.standardsSources.cantilever}
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {structuralChecker.config.maxCantileverOverhangM} m
-                </span>
-              </div>
-              <input
-                type="range"
-                min="1.0"
-                max="3.0"
-                step="0.25"
-                value={structuralChecker.config.maxCantileverOverhangM}
-                onChange={(e) => {
-                  structuralChecker.config.maxCantileverOverhangM = parseFloat(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Batas Overhang Kantilever"
-              />
-            </div>
-          </div>
-
-          {/* SECTION: HARGA SATUAN KONSTRUKSI (RAB) */}
-          <div className="inset-header">HARGA SATUAN KONSTRUKSI (RAB)</div>
-          <div className="inset-group">
-            {/* Struktur per m2 */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Biaya Struktur Beton per m²</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Label: Ilustrasi edukatif, bukan acuan harga pasar riil
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>
-                  {costEstimator.formatRupiah(costEstimator.unitRates.structurePerM2)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="1000000"
-                max="3500000"
-                step="100000"
-                value={costEstimator.unitRates.structurePerM2}
-                onChange={(e) => {
-                  costEstimator.unitRates.structurePerM2 = parseInt(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Biaya Struktur per m²"
-              />
-            </div>
-
-            {/* Dinding per m2 */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Biaya Dinding & Plesteran per m²</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Label: Ilustrasi edukatif, bukan acuan harga pasar riil
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {costEstimator.formatRupiah(costEstimator.unitRates.wallsPerM2)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="400000"
-                max="1200000"
-                step="50000"
-                value={costEstimator.unitRates.wallsPerM2}
-                onChange={(e) => {
-                  costEstimator.unitRates.wallsPerM2 = parseInt(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Biaya Dinding per m²"
-              />
-            </div>
-
-            {/* Atap per m2 */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Biaya Rangka & Penutup Atap per m²</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Label: Ilustrasi edukatif, bukan acuan harga pasar riil
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {costEstimator.formatRupiah(costEstimator.unitRates.roofPerM2)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="350000"
-                max="1000000"
-                step="50000"
-                value={costEstimator.unitRates.roofPerM2}
-                onChange={(e) => {
-                  costEstimator.unitRates.roofPerM2 = parseInt(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Biaya Atap per m²"
-              />
-            </div>
-          </div>
-
-          {/* SECTION 6: ATURAN LANJUTAN & SKALA KOTA (T6) */}
-          <div className="inset-header">ATURAN LANJUTAN & SKALA KOTA (T6)</div>
-          <div className="inset-group">
-            {/* Radius Pejalan Kaki */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Radius Akses Pejalan Kaki Fasilitas Publik</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: Permen PU No. 03/PRT/M/2014 (Standar 5 menit jalan kaki)
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {cityScoreAnalyzer.settings.walkabilityRadiusM} m
-                </span>
-              </div>
-              <input
-                type="range"
-                min="200"
-                max="1000"
-                step="50"
-                value={cityScoreAnalyzer.settings.walkabilityRadiusM}
-                onChange={(e) => {
-                  cityScoreAnalyzer.settings.walkabilityRadiusM = parseInt(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Radius Pejalan Kaki"
-              />
-            </div>
-
-            {/* Target RTH Kota */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Target Rasio Ruang Terbuka Hijau (RTH) Kota</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: UU No. 26/2007 tentang Penataan Ruang (Minimal 30%)
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {cityScoreAnalyzer.settings.targetGreenSpacePercent}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="10"
-                max="50"
-                step="5"
-                value={cityScoreAnalyzer.settings.targetGreenSpacePercent}
-                onChange={(e) => {
-                  cityScoreAnalyzer.settings.targetGreenSpacePercent = parseInt(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Target RTH Kota"
-              />
-            </div>
-
-            {/* Rasio Tinggi terhadap Lebar Jalan */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Rasio Maksimum Tinggi Bangunan / Lebar Jalan</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: Permen PUPR No. 29/PRT/M/2006 (Pencegahan Urban Canyon)
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  {advancedBuildingCodeRegistry.config.heightToRoadWidthRatio.toFixed(1)}x
-                </span>
-              </div>
-              <input
-                type="range"
-                min="1.0"
-                max="3.0"
-                step="0.1"
-                value={advancedBuildingCodeRegistry.config.heightToRoadWidthRatio}
-                onChange={(e) => {
-                  advancedBuildingCodeRegistry.config.heightToRoadWidthRatio = parseFloat(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Rasio Tinggi Bangunan terhadap Lebar Jalan"
-              />
-            </div>
-
-            {/* Ambang Tangga Darurat Kebakaran */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600 }}>Ambang Wajib Tangga Darurat Kebakaran</div>
-                  <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                    Sumber: Permen PU No. 26/PRT/M/2008 (Sistem Proteksi Kebakaran)
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  ≥ {advancedBuildingCodeRegistry.config.emergencyStairsFloorThreshold} Lantai
-                </span>
-              </div>
-              <input
-                type="range"
-                min="3"
-                max="8"
-                step="1"
-                value={advancedBuildingCodeRegistry.config.emergencyStairsFloorThreshold}
-                onChange={(e) => {
-                  advancedBuildingCodeRegistry.config.emergencyStairsFloorThreshold = parseInt(e.target.value);
-                  triggerSimUpdate();
-                }}
-                className="ios-slider"
-                aria-label="Ambang Tangga Darurat"
-              />
-            </div>
-          </div>
-
-          {/* SECTION 7: KONTROL MOUSEPAD & TRACKPAD */}
-          <div className="inset-header">KONTROL MOUSEPAD & TRACKPAD</div>
-          <div className="inset-group">
-            {/* Slider Sensitivitas Mousepad */}
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 500 }}>Sensitivitas Mousepad / Trackpad</div>
-                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                    Kecepatan putar kamera 360° dan gestur zoom trackpad
-                  </div>
-                </div>
-                <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>
-                  {mousepadSensitivity.toFixed(2)}x
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.2"
-                max="3.0"
-                step="0.1"
-                value={mousepadSensitivity}
-                onChange={(e) => setMousepadSensitivity(parseFloat(e.target.value))}
-                className="ios-slider"
-                aria-label="Sensitivitas Mousepad"
-              />
-            </div>
-
-            {/* Panduan Putar 360 Derajat */}
-            <div className="inset-row">
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 500 }}>Putar Kamera 360°</div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)', lineHeight: '1.4' }}>
-                  • Geser 2 jari horizontal di trackpad untuk muter 360°<br />
-                  • Tahan Alt + Klik Kiri atau Tahan Shift + Dua Jari<br />
-                  • Tombol keyboard Q / E untuk putar cepat
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Modal Footer Button */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+          {/* Modal Footer Done Button */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '14px' }}>
             <button
               onClick={onClose}
-              className="ios-btn ios-btn-primary"
-              style={{ padding: '8px 22px', fontSize: '13px' }}
+              style={{
+                padding: '8px 24px',
+                borderRadius: '9999px',
+                background: '#0A84FF',
+                border: 'none',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background 0.15s ease'
+              }}
             >
               Selesai
             </button>

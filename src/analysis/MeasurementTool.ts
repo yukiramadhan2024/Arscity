@@ -109,7 +109,7 @@ export class MeasurementTool {
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = '600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.font = "600 15px 'JetBrains Mono', 'SF Mono', Consolas, monospace";
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`${dim.distanceM.toFixed(1)} m`, 64, 24);

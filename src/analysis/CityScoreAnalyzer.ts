@@ -4,6 +4,7 @@ import { RoadManager } from '../roads/RoadManager';
 import { BuildingManager } from '../buildings/BuildingManager';
 import { LandscapeManager } from '../world/LandscapeManager';
 import { LotManager } from '../zones/LotManager';
+import { BuildingCatalogRegistry } from '../buildings/BuildingCatalogRegistry';
 
 export interface PublicFacilityCoverage {
   buildingId: string;
@@ -14,17 +15,20 @@ export interface PublicFacilityCoverage {
 }
 
 export interface CityUrbanScore {
-  walkabilityPercent: number;        // Percentage of residences within 400m of essential facilities
+  walkabilityPercent: number;        // Percentage of residences within 400m of essential facilities via road network
   greenSpaceRatioPercent: number;    // RTH Kota % (Target 30% per UU No. 26/2007)
   isGreenSpaceTargetMet: boolean;
   surfaceHeatIslandIndex: number;    // Surface heat index (°C relative delta)
   roadConnectivityRatio: number;     // Ratio of connected junctions vs cul-de-sacs
   overallSustainabilityScore: number; // 0 to 100
   facilities: PublicFacilityCoverage[];
+  isolatedBuildingIds: string[];    // Buildings with no road access within 50m
+  isolatedLotIds: string[];         // Lots with no road access within 50m
+  reachableEdgeIds: string[];        // Edges within 400m walk network of public facilities
 }
 
 export interface CityScoreSettings {
-  walkabilityRadiusM: number;       // default 400 m
+  walkabilityRadiusM: number;       // default 400 m (Permen PU 03/2014)
   targetGreenSpacePercent: number;  // default 30 % (UU 26/2007)
 }
 
@@ -44,44 +48,98 @@ export class CityScoreAnalyzer {
   }
 
   /**
-   * Evaluates overall city metrics: 400m walkability, RTH (green space ratio), UHI heat index, and connectivity.
+   * Evaluates overall city metrics: 400m walkability via road network, RTH (green space ratio),
+   * UHI heat index, and connectivity.
    */
   public evaluateCity(
     buildingManager: BuildingManager,
     roadManager: RoadManager,
     landscapeManager: LandscapeManager,
-    _lotManager: LotManager
+    lotManager?: LotManager
   ): CityUrbanScore {
     // 1. Identify public facilities
     const facilities: PublicFacilityCoverage[] = [];
-    const residentialPositions: THREE.Vector3[] = [];
+    const residentialBuildings: { id: string; position: THREE.Vector3 }[] = [];
+    const isolatedBuildingIds: string[] = [];
+    const isolatedLotIds: string[] = [];
+    const reachableEdgeSet = new Set<string>();
 
     for (const bld of buildingManager.buildings.values()) {
       if (bld.presetKey === 'school') {
         facilities.push({ buildingId: bld.id, name: bld.name, position: bld.position, type: 'school', coverageRadiusM: this.settings.walkabilityRadiusM });
       } else if (bld.presetKey === 'mosque') {
         facilities.push({ buildingId: bld.id, name: bld.name, position: bld.position, type: 'mosque', coverageRadiusM: this.settings.walkabilityRadiusM });
-      } else if (bld.presetKey === 'puskesmas') {
+      } else if (bld.presetKey === 'puskesmas' || bld.presetKey === 'apotek_klinik_24jam') {
         facilities.push({ buildingId: bld.id, name: bld.name, position: bld.position, type: 'puskesmas', coverageRadiusM: this.settings.walkabilityRadiusM });
-      } else if (bld.presetKey === 'minimarket' || bld.presetKey === 'ruko_3fl') {
+      } else if (
+        bld.presetKey === 'minimarket' ||
+        bld.presetKey === 'ruko_3fl' ||
+        bld.presetKey === 'community_hall' ||
+        (bld.presetKey && BuildingCatalogRegistry.isPublicAmenity(bld.presetKey))
+      ) {
         facilities.push({ buildingId: bld.id, name: bld.name, position: bld.position, type: 'retail', coverageRadiusM: this.settings.walkabilityRadiusM });
       } else {
-        residentialPositions.push(bld.position);
+        residentialBuildings.push({ id: bld.id, position: bld.position });
       }
     }
 
-    // Calculate Walkability %
-    let coveredResidences = 0;
-    for (const resPos of residentialPositions) {
-      const isNearFacility = facilities.some(f => {
-        const dist = new THREE.Vector2(resPos.x - f.position.x, resPos.z - f.position.z).length();
-        return dist <= this.settings.walkabilityRadiusM;
-      });
-      if (isNearFacility) coveredResidences++;
+    // Collect road edges reachable within 400m from each facility along network
+    if (typeof roadManager.graph?.getReachableEdges === 'function') {
+      for (const fac of facilities) {
+        const edges = roadManager.graph.getReachableEdges(fac.position, this.settings.walkabilityRadiusM);
+        for (const eId of edges) reachableEdgeSet.add(eId);
+      }
     }
 
-    const walkabilityPercent = residentialPositions.length > 0
-      ? Math.round((coveredResidences / residentialPositions.length) * 100)
+    // Check road connectivity and walkability for residential buildings
+    let coveredResidences = 0;
+    for (const res of residentialBuildings) {
+      if (typeof roadManager.graph?.findNearestNode === 'function') {
+        const nearestNode = roadManager.graph.findNearestNode(res.position, 50.0);
+        if (!nearestNode) {
+          isolatedBuildingIds.push(res.id);
+          continue;
+        }
+      }
+
+      // Check walkability to any facility along connected road network
+      let isCovered = false;
+      for (const fac of facilities) {
+        if (typeof roadManager.graph?.getNetworkWalkDistance === 'function') {
+          const walkDist = roadManager.graph.getNetworkWalkDistance(fac.position, res.position, this.settings.walkabilityRadiusM);
+          if (walkDist !== null && walkDist <= this.settings.walkabilityRadiusM) {
+            isCovered = true;
+            break;
+          }
+        } else {
+          // Fallback to Euclidean distance if graph pathfinding methods are not mocked
+          const dist = new THREE.Vector2(res.position.x - fac.position.x, res.position.z - fac.position.z).length();
+          if (dist <= this.settings.walkabilityRadiusM) {
+            isCovered = true;
+            break;
+          }
+        }
+      }
+
+      if (isCovered) {
+        coveredResidences++;
+      }
+    }
+
+    // Check isolated lots
+    if (lotManager) {
+      for (const lot of lotManager.lots.values()) {
+        if (typeof roadManager.graph?.findNearestNode === 'function') {
+          const nearest = roadManager.graph.findNearestNode(lot.position, 50.0);
+          if (!nearest) {
+            isolatedLotIds.push(lot.id);
+          }
+        }
+      }
+    }
+
+    const walkabilityPercent = residentialBuildings.length > 0
+      ? Math.round((coveredResidences / residentialBuildings.length) * 100)
       : (facilities.length > 0 ? 100 : 0);
 
     // 2. Calculate Green Space Ratio (RTH Kota)
@@ -142,7 +200,10 @@ export class CityScoreAnalyzer {
       surfaceHeatIslandIndex,
       roadConnectivityRatio,
       overallSustainabilityScore: score,
-      facilities
+      facilities,
+      isolatedBuildingIds,
+      isolatedLotIds,
+      reachableEdgeIds: Array.from(reachableEdgeSet)
     };
   }
 }

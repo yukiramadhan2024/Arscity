@@ -39,10 +39,23 @@ export class LandscapeTool {
 
   public setType(type: LandscapeType): void {
     this.activeType = type;
-    if (type === 'shade_tree') this.itemRadius = 2.5;
-    else if (type === 'well') this.itemRadius = 0.8;
-    else if (type === 'biopore') this.itemRadius = 0.25;
-    else {
+    if (type === 'shade_tree') {
+      this.itemRadius = 2.5;
+    } else if (type === 'well') {
+      this.itemRadius = 0.8;
+    } else if (type === 'biopore') {
+      this.itemRadius = 0.25;
+    } else if (type === 'river_segment') {
+      this.itemWidth = 12;
+      this.itemLength = 24;
+    } else if (type === 'retention_pond') {
+      this.itemWidth = 16;
+      this.itemLength = 16;
+      this.itemRadius = 8;
+    } else if (type === 'bioswale_channel') {
+      this.itemWidth = 3;
+      this.itemLength = 12;
+    } else {
       this.itemWidth = 4;
       this.itemLength = 4;
     }
@@ -123,6 +136,30 @@ export class LandscapeTool {
         group.add(bioMesh);
         break;
       }
+      case 'river_segment': {
+        const geom = new THREE.PlaneGeometry(this.itemWidth, this.itemLength);
+        geom.rotateX(-Math.PI / 2);
+        const mesh = new THREE.Mesh(geom, ghostMat);
+        mesh.position.y = 0.05;
+        group.add(mesh);
+        break;
+      }
+      case 'retention_pond': {
+        const geom = new THREE.PlaneGeometry(this.itemWidth, this.itemLength);
+        geom.rotateX(-Math.PI / 2);
+        const mesh = new THREE.Mesh(geom, ghostMat);
+        mesh.position.y = 0.05;
+        group.add(mesh);
+        break;
+      }
+      case 'bioswale_channel': {
+        const geom = new THREE.PlaneGeometry(this.itemWidth, this.itemLength);
+        geom.rotateX(-Math.PI / 2);
+        const mesh = new THREE.Mesh(geom, ghostMat);
+        mesh.position.y = 0.05;
+        group.add(mesh);
+        break;
+      }
     }
 
     group.visible = this.isVisible;
@@ -132,12 +169,19 @@ export class LandscapeTool {
 
   public handleClick(snappedPos: THREE.Vector3): void {
     const nextId = `land_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const isRect =
+      this.activeType === 'grass_garden' ||
+      this.activeType === 'paving_block' ||
+      this.activeType === 'river_segment' ||
+      this.activeType === 'retention_pond' ||
+      this.activeType === 'bioswale_channel';
+
     const item: LandscapeItem = {
       id: nextId,
       type: this.activeType,
       position: snappedPos.clone(),
-      width: this.activeType === 'grass_garden' || this.activeType === 'paving_block' ? this.itemWidth : undefined,
-      length: this.activeType === 'grass_garden' || this.activeType === 'paving_block' ? this.itemLength : undefined,
+      width: isRect ? this.itemWidth : undefined,
+      length: isRect ? this.itemLength : undefined,
       radius: this.itemRadius
     };
 

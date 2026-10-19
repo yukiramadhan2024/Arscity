@@ -3,11 +3,15 @@ import { RoadEdge, ROAD_PROFILES } from './RoadTypes';
 import { RoadGraph } from './RoadGraph';
 import { MaterialLibrary } from '../materials/MaterialLibrary';
 import { RoadPropPlacer } from './RoadPropPlacer';
+import { ProceduralTextureGen } from '../materials/ProceduralTextureGen';
 
 export class RoadGeometryBuilder {
   private static asphaltMaterial: THREE.MeshStandardMaterial | null = null;
   private static sidewalkMaterial: THREE.MeshStandardMaterial | null = null;
+  private static curbMaterial: THREE.MeshStandardMaterial | null = null;
+  private static tactileMaterial: THREE.MeshStandardMaterial | null = null;
   private static markingMaterial: THREE.MeshBasicMaterial | null = null;
+  private static roadTextMaterial: THREE.MeshStandardMaterial | null = null;
 
   private static initMaterials(): void {
     if (this.asphaltMaterial) return;
@@ -24,10 +28,31 @@ export class RoadGeometryBuilder {
       color: 0xffffff
     });
 
+    this.curbMaterial = MaterialLibrary.getInstance().getMaterial('concrete', {
+      roughness: 0.85,
+      metalness: 0.05,
+      color: 0x94a3b8
+    });
+
+    this.tactileMaterial = MaterialLibrary.getInstance().getMaterial('tactile_paving', {
+      roughness: 0.7,
+      metalness: 0.1
+    });
+
     this.markingMaterial = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.85
+      opacity: 0.88
+    });
+
+    const roadTextTex = ProceduralTextureGen.getMalioboroRoadMarkingTexture();
+    this.roadTextMaterial = new THREE.MeshStandardMaterial({
+      map: roadTextTex,
+      transparent: true,
+      opacity: 0.92,
+      roughness: 0.85,
+      metalness: 0.05,
+      depthWrite: false
     });
   }
 
@@ -120,7 +145,7 @@ export class RoadGeometryBuilder {
     roadMesh.userData = { edgeId: edge.id };
     group.add(roadMesh);
 
-    // 2. Road Markings (Putih Tengah)
+    // 2. Road Markings (Putih Tengah & Garis Tepi Putus-putus)
     if (profile.laneCount >= 2) {
       const markingGeom = new THREE.BufferGeometry();
       const markPositions = new Float32Array(posCount * 3);
@@ -148,9 +173,62 @@ export class RoadGeometryBuilder {
 
       const markingMesh = new THREE.Mesh(markingGeom, this.markingMaterial!);
       group.add(markingMesh);
+
+      // Garis tepi putih putus-putus (White dashed edge markings)
+      const edgeMarkDist = halfWidth - 0.35;
+      [-1, 1].forEach((side) => {
+        const edgeMarkGeom = new THREE.BufferGeometry();
+        const edgePositions = new Float32Array(posCount * 3);
+        const w = 0.08;
+
+        for (let i = 0; i <= segments; i++) {
+          const pt = points[i];
+          const norm = normals[i];
+          const center = pt.clone().addScaledVector(norm, side * edgeMarkDist);
+          const eL = center.clone().addScaledVector(norm, -w);
+          const eR = center.clone().addScaledVector(norm, w);
+
+          const baseIdx = i * 2;
+          edgePositions[baseIdx * 3] = eL.x;
+          edgePositions[baseIdx * 3 + 1] = 0.055;
+          edgePositions[baseIdx * 3 + 2] = eL.z;
+
+          edgePositions[(baseIdx + 1) * 3] = eR.x;
+          edgePositions[(baseIdx + 1) * 3 + 1] = 0.055;
+          edgePositions[(baseIdx + 1) * 3 + 2] = eR.z;
+        }
+
+        edgeMarkGeom.setAttribute('position', new THREE.BufferAttribute(edgePositions, 3));
+        edgeMarkGeom.setIndex(indices);
+        edgeMarkGeom.computeVertexNormals();
+
+        const edgeMarkMesh = new THREE.Mesh(edgeMarkGeom, this.markingMaterial!);
+        group.add(edgeMarkMesh);
+      });
     }
 
-    // 3. Sidewalks (Trotoar kiri dan kanan)
+    // 2b. Clean White Stencil Road Text "MALIOBORO" on asphalt surface
+    if (edge.length >= 24 && this.roadTextMaterial) {
+      const step = Math.min(45, edge.length * 0.5);
+      let d = step;
+      while (d < edge.length) {
+        const t = d / edge.length;
+        const pt = graph.sampleBezier(edge.controlPoints, t);
+        const segIdx = Math.min(segments, Math.floor(t * segments));
+        const tan = tangents[segIdx];
+
+        const textPlane = new THREE.Mesh(new THREE.PlaneGeometry(6.5, 1.6), this.roadTextMaterial);
+        textPlane.rotateX(-Math.PI / 2);
+        const roadAngle = Math.atan2(tan.x, tan.z);
+        textPlane.rotateZ(-roadAngle + Math.PI / 2);
+        textPlane.position.set(pt.x, 0.052, pt.z);
+        group.add(textPlane);
+
+        d += step * 2;
+      }
+    }
+
+    // 3. Sidewalks, Beveled Curbs & Yellow Tactile Paving
     if (profile.sidewalkWidth > 0) {
       const swWidth = profile.sidewalkWidth;
       const swHeight = profile.curbHeight || 0.15;
@@ -196,12 +274,86 @@ export class RoadGeometryBuilder {
         return swMesh;
       };
 
-      // Left sidewalk & Right sidewalk
-      group.add(createSidewalkMesh(-1));
-      group.add(createSidewalkMesh(1));
+      // Concrete Curb Bevel (Batu Pembatas Trotoar 3D)
+      const createCurbBevelMesh = (sideMultiplier: number): THREE.Mesh => {
+        const curbGeom = new THREE.BufferGeometry();
+        const curbPositions = new Float32Array(posCount * 3);
+
+        for (let i = 0; i <= segments; i++) {
+          const pt = points[i];
+          const norm = normals[i];
+          const roadEdgePt = pt.clone().addScaledVector(norm, sideMultiplier * halfWidth);
+
+          const baseIdx = i * 2;
+          // Bottom at asphalt level
+          curbPositions[baseIdx * 3] = roadEdgePt.x;
+          curbPositions[baseIdx * 3 + 1] = 0.04;
+          curbPositions[baseIdx * 3 + 2] = roadEdgePt.z;
+
+          // Top at sidewalk level
+          curbPositions[(baseIdx + 1) * 3] = roadEdgePt.x;
+          curbPositions[(baseIdx + 1) * 3 + 1] = swHeight;
+          curbPositions[(baseIdx + 1) * 3 + 2] = roadEdgePt.z;
+        }
+
+        curbGeom.setAttribute('position', new THREE.BufferAttribute(curbPositions, 3));
+        curbGeom.setIndex(indices);
+        curbGeom.computeVertexNormals();
+
+        const curbMesh = new THREE.Mesh(curbGeom, RoadGeometryBuilder.curbMaterial!);
+        curbMesh.castShadow = true;
+        curbMesh.receiveShadow = true;
+        return curbMesh;
+      };
+
+      // Yellow Tactile Paving Blocks (Jalur Ubin Pemandu Disabilitas Kuning)
+      const createTactileStripMesh = (sideMultiplier: number): THREE.Mesh => {
+        const tacGeom = new THREE.BufferGeometry();
+        const tacPositions = new Float32Array(posCount * 3);
+        const tacUvs = new Float32Array(posCount * 2);
+        const tacWidth = 0.45;
+        const tacOffset = sideMultiplier * (halfWidth + swWidth * 0.42);
+
+        for (let i = 0; i <= segments; i++) {
+          const pt = points[i];
+          const norm = normals[i];
+          const centerPt = pt.clone().addScaledVector(norm, tacOffset);
+          const leftPt = centerPt.clone().addScaledVector(norm, -tacWidth * 0.5);
+          const rightPt = centerPt.clone().addScaledVector(norm, tacWidth * 0.5);
+
+          const baseIdx = i * 2;
+          tacPositions[baseIdx * 3] = leftPt.x;
+          tacPositions[baseIdx * 3 + 1] = swHeight + 0.004;
+          tacPositions[baseIdx * 3 + 2] = leftPt.z;
+          tacUvs[baseIdx * 2] = 0;
+          tacUvs[baseIdx * 2 + 1] = i * 0.8;
+
+          tacPositions[(baseIdx + 1) * 3] = rightPt.x;
+          tacPositions[(baseIdx + 1) * 3 + 1] = swHeight + 0.004;
+          tacPositions[(baseIdx + 1) * 3 + 2] = rightPt.z;
+          tacUvs[(baseIdx + 1) * 2] = 1;
+          tacUvs[(baseIdx + 1) * 2 + 1] = i * 0.8;
+        }
+
+        tacGeom.setAttribute('position', new THREE.BufferAttribute(tacPositions, 3));
+        tacGeom.setAttribute('uv', new THREE.BufferAttribute(tacUvs, 2));
+        tacGeom.setIndex(indices);
+        tacGeom.computeVertexNormals();
+
+        const tacMesh = new THREE.Mesh(tacGeom, RoadGeometryBuilder.tactileMaterial!);
+        tacMesh.receiveShadow = true;
+        return tacMesh;
+      };
+
+      // Add sidewalks, curb bevels, and tactile strips on both sides
+      [-1, 1].forEach((side) => {
+        group.add(createSidewalkMesh(side));
+        group.add(createCurbBevelMesh(side));
+        group.add(createTactileStripMesh(side));
+      });
     }
 
-    // 4. Props: Street Lights & Trees via InstancedMesh
+    // 4. Props: Street Lights, Trees, Planter Pits, Benches, and Bollards
     const lightTransforms: THREE.Matrix4[] = [];
     if (profile.hasStreetLights && profile.lightSpacing > 0) {
       let d = profile.lightSpacing * 0.5;
@@ -218,6 +370,23 @@ export class RoadGeometryBuilder {
         m.setPosition(lightPos);
         lightTransforms.push(m);
 
+        // Add companion bollard light nearby
+        if (profile.sidewalkWidth > 0 && d + 6 < edge.length) {
+          const bollardPos = lightPos.clone().addScaledVector(norm, -0.6);
+          group.add(RoadPropPlacer.createBollardLight(bollardPos));
+        }
+
+        // Add park bench between light intervals
+        if (profile.sidewalkWidth >= 2.5 && d + profile.lightSpacing * 0.4 < edge.length) {
+          const benchT = (d + profile.lightSpacing * 0.4) / edge.length;
+          const benchBase = graph.sampleBezier(edge.controlPoints, benchT);
+          const benchNorm = normals[Math.min(segments, Math.floor(benchT * segments))];
+          const benchPos = benchBase.clone().addScaledVector(benchNorm, halfWidth + profile.sidewalkWidth * 0.75);
+          benchPos.y = profile.curbHeight || 0;
+          const rotY = Math.atan2(benchNorm.x, benchNorm.z) + Math.PI;
+          group.add(RoadPropPlacer.createParkBench(benchPos, rotY));
+        }
+
         d += profile.lightSpacing;
       }
     }
@@ -233,11 +402,14 @@ export class RoadGeometryBuilder {
         const treePos = pt.clone().addScaledVector(norm, swOffset);
         treePos.y = profile.curbHeight || 0;
 
-        const scale = 0.9 + ((Math.floor(d) * 31) % 5) * 0.06;
+        const scale = 0.95 + ((Math.floor(d) * 31) % 5) * 0.05;
         const m = new THREE.Matrix4();
         m.makeScale(scale, scale, scale);
         m.setPosition(treePos);
         treeTransforms.push(m);
+
+        // Tree Planter Pit around every tree
+        group.add(RoadPropPlacer.createTreePlanterPit(treePos));
 
         d += profile.treeSpacing;
       }

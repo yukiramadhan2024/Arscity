@@ -1,12 +1,17 @@
 import { create } from 'zustand';
 import { Engine } from '../../core/engine/Engine';
 import { WeatherType } from '../../world/WeatherSystem';
+import type { SavedMapMeta } from '../../io/IndexedDBStorage';
+import type { DslrLensType } from '../../core/engine/CinematicDroneController';
 
 export type MainToolType = 'select' | 'road' | 'zone' | 'build' | 'nature' | 'analyze' | 'view';
 export type ThemeMode = 'auto' | 'light' | 'dark';
 export type GlassStyle = 'clear' | 'tinted';
-export type GraphicsQuality = 'low' | 'medium' | 'high';
+export type { GraphicsQuality } from '../../core/engine/GraphicsPresets';
+import type { GraphicsQuality } from '../../core/engine/GraphicsPresets';
 export type ViewMode = 'perspective' | 'topdown' | 'inspect';
+export type AppScreen = 'auth' | 'login' | 'hub' | 'game';
+export type CameraMode = 'orbit' | 'first_person' | 'cinematic_drone';
 
 interface UIState {
   engine: Engine | null;
@@ -36,8 +41,24 @@ interface UIState {
   isInspectMode: boolean;
   toggleInspectMode: () => void;
 
+  // Camera Modes: Orbit (God-View), First-Person Walkthrough, Cinematic Drone Tour
+  cameraMode: CameraMode;
+  setCameraMode: (mode: CameraMode) => void;
+  isDroneTour: boolean;
+  toggleDroneTour: () => void;
+
+  // Video Recording & DSLR Photo Mode
+  isRecordingVideo: boolean;
+  recordingSeconds: number;
+  startVideoRecording: () => void;
+  stopVideoRecording: () => void;
+  dslrLens: DslrLensType;
+  setDslrLens: (lens: DslrLensType) => void;
+  captureDslrPhoto: () => void;
+
   fps: number;
   setFps: (fps: number) => void;
+  adaptiveGlass: 'normal' | 'low';
 
   canUndo: boolean;
   canRedo: boolean;
@@ -123,10 +144,52 @@ interface UIState {
   // Milestone T7: Architectural Pre/Post Quiz
   showQuiz: boolean;
   setShowQuiz: (val: boolean) => void;
+
+  // Authentication & Screen Navigation
+  isLoggedIn: boolean;
+  userEmail: string | null;
+  currentScreen: AppScreen;
+  login: (email: string) => void;
+  loginAsGuest: () => void;
+  logout: () => void;
+
+  // World Hub & Map Loading Pipeline
+  isMapHubOpen: boolean;
+  isLoadingMap: boolean;
+  loadingMapMessage: string;
+  activeMapId: string;
+  activeMapName: string;
+  savedMapsList: SavedMapMeta[];
+  openMapHub: () => void;
+  closeMapHub: () => void;
+  startGame: () => void;
+  setLoadingMap: (loading: boolean, message?: string) => void;
+  setActiveMap: (id: string, name: string) => void;
+  setSavedMapsList: (list: SavedMapMeta[]) => void;
+  refreshSavedMaps: () => Promise<void>;
+  loadMap: (mapType: 'empty' | 'malioboro' | 'saved', mapId?: string, mapName?: string) => Promise<boolean>;
 }
 
 const STORAGE_KEY_SETTINGS = 'arscity_ios27_settings';
 const STORAGE_KEY_ONBOARDING = 'arscity_ios27_onboarded';
+const STORAGE_KEY_AUTH = 'arscity_auth_session';
+
+const loadSavedAuth = () => {
+  try {
+    // Purge legacy persisted auth from localStorage so browser refresh won't bypass login
+    localStorage.removeItem(STORAGE_KEY_AUTH);
+    const raw = sessionStorage.getItem(STORAGE_KEY_AUTH);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data && data.isLoggedIn) {
+        return { isLoggedIn: true, userEmail: data.userEmail || 'Pengguna Arscity' };
+      }
+    }
+  } catch {}
+  return { isLoggedIn: false, userEmail: null };
+};
+
+const savedAuth = typeof window !== 'undefined' ? loadSavedAuth() : { isLoggedIn: false, userEmail: null };
 
 const loadSavedSettings = () => {
   try {
@@ -146,6 +209,7 @@ const initialTextScale: number = typeof savedSettings.textScale === 'number' ? s
 const initialReduceMotion: boolean = !!savedSettings.reduceMotion;
 const initialHighContrast: boolean = !!savedSettings.highContrast;
 const initialMousepadSensitivity: number = typeof savedSettings.mousepadSensitivity === 'number' ? savedSettings.mousepadSensitivity : 1.0;
+const initialGraphicsQuality: GraphicsQuality = savedSettings.graphicsQuality || 'ultra';
 const hasOnboarded = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_ONBOARDING) === 'true' : true;
 
 const applyThemeTokensToDOM = (
@@ -168,6 +232,8 @@ const applyThemeTokensToDOM = (
   root.style.setProperty('--font-scale', textScale.toFixed(2));
 };
 
+let lowFpsStartTime: number | null = null;
+
 export const useUIStore = create<UIState>((set, get) => {
   const calculateResolvedTheme = (mode: ThemeMode, hour: number): 'light' | 'dark' => {
     if (mode === 'light') return 'light';
@@ -176,7 +242,7 @@ export const useUIStore = create<UIState>((set, get) => {
     return hour >= 6.0 && hour < 18.0 ? 'light' : 'dark';
   };
 
-  const initialHour = 10.0;
+  const initialHour = 16.25; // 16:15 WIB Golden Hour Default
   const initialResolved = calculateResolvedTheme(initialThemeMode, initialHour);
 
   // Apply initial settings immediately to document
@@ -184,7 +250,7 @@ export const useUIStore = create<UIState>((set, get) => {
     initialResolved,
     initialGlassStyle,
     initialGlassOpacity,
-    'medium',
+    initialGraphicsQuality,
     initialTextScale,
     initialReduceMotion,
     initialHighContrast
@@ -201,7 +267,9 @@ export const useUIStore = create<UIState>((set, get) => {
           glassOpacity: state.glassOpacity,
           textScale: state.textScale,
           reduceMotion: state.reduceMotion,
-          highContrast: state.highContrast
+          highContrast: state.highContrast,
+          graphicsQuality: state.graphicsQuality,
+          mousepadSensitivity: state.mousepadSensitivity
         })
       );
     } catch (e) {
@@ -211,7 +279,22 @@ export const useUIStore = create<UIState>((set, get) => {
 
   return {
     engine: null,
-    setEngine: (engine) => set({ engine }),
+    setEngine: (engine) => {
+      set({ engine });
+      if (engine) {
+        engine.setGraphicsQuality(get().graphicsQuality);
+        engine.onCameraModeChanged = (mode) => {
+          set({
+            cameraMode: mode,
+            isWalkMode: mode === 'first_person',
+            isDroneTour: mode === 'cinematic_drone'
+          });
+        };
+        engine.cinematicDroneController.onRecordingStateChanged = (isRecording, seconds) => {
+          set({ isRecordingVideo: isRecording, recordingSeconds: seconds });
+        };
+      }
+    },
 
     activeTool: 'select',
     setActiveTool: (activeTool) => {
@@ -282,8 +365,99 @@ export const useUIStore = create<UIState>((set, get) => {
       }
     },
 
+    cameraMode: 'orbit',
+    setCameraMode: (mode) => {
+      const engine = get().engine;
+      if (engine) {
+        engine.setCameraMode(mode);
+      }
+      set({
+        cameraMode: mode,
+        isWalkMode: mode === 'first_person',
+        isDroneTour: mode === 'cinematic_drone'
+      });
+    },
+
+    isWalkMode: false,
+    toggleWalkMode: () => {
+      const current = get().cameraMode;
+      const nextMode = current === 'first_person' ? 'orbit' : 'first_person';
+      get().setCameraMode(nextMode);
+    },
+
+    isDroneTour: false,
+    toggleDroneTour: () => {
+      const current = get().cameraMode;
+      const nextMode = current === 'cinematic_drone' ? 'orbit' : 'cinematic_drone';
+      get().setCameraMode(nextMode);
+    },
+
+    isRecordingVideo: false,
+    recordingSeconds: 0,
+    startVideoRecording: () => {
+      const engine = get().engine;
+      if (engine) {
+        const ok = engine.cinematicDroneController.startVideoRecording();
+        if (ok) {
+          set({ isRecordingVideo: true, recordingSeconds: 0 });
+        }
+      }
+    },
+    stopVideoRecording: () => {
+      const engine = get().engine;
+      if (engine) {
+        engine.cinematicDroneController.stopVideoRecording();
+      }
+      set({ isRecordingVideo: false });
+    },
+
+    isPhotoMode: false,
+    setIsPhotoMode: (isPhotoMode) => set({ isPhotoMode }),
+
+    dslrLens: '50mm',
+    setDslrLens: (dslrLens) => {
+      set({ dslrLens });
+      const engine = get().engine;
+      if (engine) {
+        engine.cinematicDroneController.setDslrLens(dslrLens);
+      }
+    },
+
+    captureDslrPhoto: () => {
+      const engine = get().engine;
+      if (engine) {
+        engine.cinematicDroneController.capturePhoto(get().activeMapName || 'Arscity');
+      }
+    },
+
     fps: 60,
-    setFps: (fps) => set({ fps }),
+    adaptiveGlass: 'normal',
+    setFps: (fps) => {
+      const state = get();
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      let nextAdaptive = state.adaptiveGlass;
+
+      if (fps < 48) {
+        if (!lowFpsStartTime || now < lowFpsStartTime) {
+          lowFpsStartTime = now;
+        } else if (now - lowFpsStartTime >= 3000 && state.adaptiveGlass !== 'low') {
+          nextAdaptive = 'low';
+          if (typeof document !== 'undefined') {
+            document.documentElement.setAttribute('data-adaptive-glass', 'low');
+          }
+        }
+      } else if (fps >= 54) {
+        lowFpsStartTime = null;
+        if (state.adaptiveGlass !== 'normal') {
+          nextAdaptive = 'normal';
+          if (typeof document !== 'undefined') {
+            document.documentElement.setAttribute('data-adaptive-glass', 'normal');
+          }
+        }
+      }
+
+      set({ fps, adaptiveGlass: nextAdaptive });
+    },
 
     canUndo: false,
     canRedo: false,
@@ -408,33 +582,133 @@ export const useUIStore = create<UIState>((set, get) => {
     inspectorVisible: true,
     setInspectorVisible: (inspectorVisible) => set({ inspectorVisible }),
 
-    // Education modals
+    // Education modals with single-modal exclusivity
     showGlossary: false,
-    setShowGlossary: (showGlossary) => set({ showGlossary }),
+    setShowGlossary: (showGlossary) => {
+      if (showGlossary) {
+        set({
+          showGlossary: true,
+          showStyles: false,
+          showMissions: false,
+          showTutorial: false,
+          showSaveLoad: false,
+          showSettings: false,
+          showCustomBuildingStudio: false,
+          showLoadTest: false,
+          showRealWorldExport: false,
+          showQuiz: false
+        });
+      } else {
+        set({ showGlossary: false });
+      }
+    },
 
     showStyles: false,
-    setShowStyles: (showStyles) => set({ showStyles }),
+    setShowStyles: (showStyles) => {
+      if (showStyles) {
+        set({
+          showStyles: true,
+          showGlossary: false,
+          showMissions: false,
+          showTutorial: false,
+          showSaveLoad: false,
+          showSettings: false,
+          showCustomBuildingStudio: false,
+          showLoadTest: false,
+          showRealWorldExport: false,
+          showQuiz: false
+        });
+      } else {
+        set({ showStyles: false });
+      }
+    },
 
     showMissions: false,
-    setShowMissions: (showMissions) => set({ showMissions }),
+    setShowMissions: (showMissions) => {
+      if (showMissions) {
+        set({
+          showMissions: true,
+          showGlossary: false,
+          showStyles: false,
+          showTutorial: false,
+          showSaveLoad: false,
+          showSettings: false,
+          showCustomBuildingStudio: false,
+          showLoadTest: false,
+          showRealWorldExport: false,
+          showQuiz: false
+        });
+      } else {
+        set({ showMissions: false });
+      }
+    },
 
     showTutorial: false,
-    setShowTutorial: (showTutorial) => set({ showTutorial }),
+    setShowTutorial: (showTutorial) => {
+      if (showTutorial) {
+        set({
+          showTutorial: true,
+          showGlossary: false,
+          showStyles: false,
+          showMissions: false,
+          showSaveLoad: false,
+          showSettings: false,
+          showCustomBuildingStudio: false,
+          showLoadTest: false,
+          showRealWorldExport: false,
+          showQuiz: false
+        });
+      } else {
+        set({ showTutorial: false });
+      }
+    },
 
     // Polish modals & modes
     showSaveLoad: false,
-    setShowSaveLoad: (showSaveLoad) => set({ showSaveLoad }),
+    setShowSaveLoad: (showSaveLoad) => {
+      if (showSaveLoad) {
+        set({
+          showSaveLoad: true,
+          showGlossary: false,
+          showStyles: false,
+          showMissions: false,
+          showTutorial: false,
+          showSettings: false,
+          showCustomBuildingStudio: false,
+          showLoadTest: false,
+          showRealWorldExport: false,
+          showQuiz: false
+        });
+      } else {
+        set({ showSaveLoad: false });
+      }
+    },
 
     showSettings: false,
-    setShowSettings: (showSettings) => set({ showSettings }),
+    setShowSettings: (showSettings) => {
+      if (showSettings) {
+        set({
+          showSettings: true,
+          showGlossary: false,
+          showStyles: false,
+          showMissions: false,
+          showTutorial: false,
+          showSaveLoad: false,
+          showCustomBuildingStudio: false,
+          showLoadTest: false,
+          showRealWorldExport: false,
+          showQuiz: false
+        });
+      } else {
+        set({ showSettings: false });
+      }
+    },
 
-    isPhotoMode: false,
-    setIsPhotoMode: (isPhotoMode) => set({ isPhotoMode }),
-
-    graphicsQuality: 'medium',
+    graphicsQuality: initialGraphicsQuality,
     setGraphicsQuality: (graphicsQuality) => {
       set({ graphicsQuality });
       get().engine?.setGraphicsQuality(graphicsQuality);
+      saveSettings();
       applyThemeTokensToDOM(
         get().resolvedTheme,
         get().glassStyle,
@@ -462,24 +736,195 @@ export const useUIStore = create<UIState>((set, get) => {
     },
 
     showCustomBuildingStudio: false,
-    setShowCustomBuildingStudio: (showCustomBuildingStudio) => set({ showCustomBuildingStudio }),
+    setShowCustomBuildingStudio: (showCustomBuildingStudio) => {
+      if (showCustomBuildingStudio) {
+        set({
+          showCustomBuildingStudio: true,
+          showGlossary: false,
+          showStyles: false,
+          showMissions: false,
+          showTutorial: false,
+          showSaveLoad: false,
+          showSettings: false,
+          showLoadTest: false,
+          showRealWorldExport: false,
+          showQuiz: false
+        });
+      } else {
+        set({ showCustomBuildingStudio: false });
+      }
+    },
 
     showLoadTest: false,
-    setShowLoadTest: (showLoadTest) => set({ showLoadTest }),
+    setShowLoadTest: (showLoadTest) => {
+      if (showLoadTest) {
+        set({
+          showLoadTest: true,
+          showGlossary: false,
+          showStyles: false,
+          showMissions: false,
+          showTutorial: false,
+          showSaveLoad: false,
+          showSettings: false,
+          showCustomBuildingStudio: false,
+          showRealWorldExport: false,
+          showQuiz: false
+        });
+      } else {
+        set({ showLoadTest: false });
+      }
+    },
 
     showRealWorldExport: false,
-    setShowRealWorldExport: (showRealWorldExport) => set({ showRealWorldExport }),
-
-    isWalkMode: false,
-    toggleWalkMode: () => {
-      const engine = get().engine;
-      if (engine) {
-        const isWalk = engine.cameraController.toggleWalkMode();
-        set({ isWalkMode: isWalk });
+    setShowRealWorldExport: (showRealWorldExport) => {
+      if (showRealWorldExport) {
+        set({
+          showRealWorldExport: true,
+          showGlossary: false,
+          showStyles: false,
+          showMissions: false,
+          showTutorial: false,
+          showSaveLoad: false,
+          showSettings: false,
+          showCustomBuildingStudio: false,
+          showLoadTest: false,
+          showQuiz: false
+        });
+      } else {
+        set({ showRealWorldExport: false });
       }
     },
 
     showQuiz: false,
-    setShowQuiz: (showQuiz) => set({ showQuiz })
+    setShowQuiz: (showQuiz) => {
+      if (showQuiz) {
+        set({
+          showQuiz: true,
+          showGlossary: false,
+          showStyles: false,
+          showMissions: false,
+          showTutorial: false,
+          showSaveLoad: false,
+          showSettings: false,
+          showCustomBuildingStudio: false,
+          showLoadTest: false,
+          showRealWorldExport: false
+        });
+      } else {
+        set({ showQuiz: false });
+      }
+    },
+
+    // Authentication & Screen Navigation
+    isLoggedIn: savedAuth.isLoggedIn,
+    userEmail: savedAuth.userEmail,
+    currentScreen: savedAuth.isLoggedIn ? 'hub' : 'auth',
+    login: (email: string) => {
+      try {
+        localStorage.removeItem(STORAGE_KEY_AUTH);
+        sessionStorage.setItem(STORAGE_KEY_AUTH, JSON.stringify({ isLoggedIn: true, userEmail: email }));
+      } catch {}
+      set({ isLoggedIn: true, userEmail: email, currentScreen: 'hub', isMapHubOpen: true });
+      get().refreshSavedMaps();
+    },
+    loginAsGuest: () => {
+      const guestEmail = 'Tamu Demo Arscity';
+      try {
+        localStorage.removeItem(STORAGE_KEY_AUTH);
+        sessionStorage.setItem(STORAGE_KEY_AUTH, JSON.stringify({ isLoggedIn: true, userEmail: guestEmail }));
+      } catch {}
+      set({ isLoggedIn: true, userEmail: guestEmail, currentScreen: 'hub', isMapHubOpen: true });
+      get().refreshSavedMaps();
+    },
+    logout: () => {
+      try {
+        localStorage.removeItem(STORAGE_KEY_AUTH);
+        sessionStorage.removeItem(STORAGE_KEY_AUTH);
+      } catch {}
+      set({ isLoggedIn: false, userEmail: null, currentScreen: 'auth', isMapHubOpen: false });
+    },
+
+    // World Hub & Map Loading Pipeline
+    isMapHubOpen: true,
+    isLoadingMap: false,
+    loadingMapMessage: 'Menyiapkan geometri jalan & bangunan...',
+    activeMapId: 'empty_map',
+    activeMapName: 'Map Kosong Baru',
+    savedMapsList: [],
+    openMapHub: () => {
+      set({ currentScreen: 'hub', isMapHubOpen: true });
+      get().refreshSavedMaps();
+    },
+    closeMapHub: () => {
+      set({ currentScreen: 'game', isMapHubOpen: false });
+    },
+    startGame: () => {
+      set({ currentScreen: 'game', isMapHubOpen: false });
+    },
+    setLoadingMap: (isLoadingMap: boolean, loadingMapMessage: string = 'Menyiapkan geometri jalan & bangunan...') => {
+      set({ isLoadingMap, loadingMapMessage });
+    },
+    setActiveMap: (activeMapId: string, activeMapName: string) => {
+      set({ activeMapId, activeMapName });
+    },
+    setSavedMapsList: (savedMapsList: SavedMapMeta[]) => {
+      set({ savedMapsList });
+    },
+    refreshSavedMaps: async () => {
+      try {
+        const { IndexedDBStorage } = await import('../../io/IndexedDBStorage');
+        const list = await IndexedDBStorage.listSavedMaps();
+        set({ savedMapsList: list });
+      } catch (err) {
+        console.warn('[useUIStore] Failed to refresh saved maps list:', err);
+      }
+    },
+    loadMap: async (mapType: 'empty' | 'malioboro' | 'saved', mapId?: string, mapName?: string): Promise<boolean> => {
+      const store = get();
+      store.setLoadingMap(
+        true,
+        mapType === 'malioboro'
+          ? 'Menyiapkan koridor Malioboro & arsitektur Joglo...'
+          : mapType === 'empty'
+          ? 'Mengosongkan lahan & menyiapkan grid 3D...'
+          : 'Memuat data peta tersimpan...'
+      );
+      try {
+        let success = false;
+        if (store.engine) {
+          success = await store.engine.loadMap(mapType, mapId);
+        }
+        const resolvedName =
+          mapName ||
+          (mapType === 'malioboro'
+            ? 'Koridor Malioboro Yogyakarta'
+            : mapType === 'empty'
+            ? 'Map Kosong Baru'
+            : 'Peta Tersimpan');
+        const resolvedId =
+          mapId ||
+          (mapType === 'malioboro'
+            ? 'malioboro_preset'
+            : mapType === 'empty'
+            ? 'empty_map'
+            : 'saved_map');
+
+        set({
+          activeMapId: resolvedId,
+          activeMapName: resolvedName,
+          currentScreen: 'game',
+          isMapHubOpen: false,
+        });
+
+        // Delay 400ms for smooth glass transition animation
+        await new Promise((r) => setTimeout(r, 400));
+        set({ isLoadingMap: false });
+        return success;
+      } catch (err) {
+        console.error('[useUIStore] loadMap failed:', err);
+        set({ isLoadingMap: false });
+        return false;
+      }
+    }
   };
 });

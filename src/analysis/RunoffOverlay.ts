@@ -10,6 +10,7 @@ export class RunoffOverlay {
   private scene: THREE.Scene;
   private overlayGroup: THREE.Group;
   public isActive: boolean = false;
+  public isExtremeStorm: boolean = false;
 
   private createdGeometries: THREE.BufferGeometry[] = [];
   private createdMaterials: THREE.Material[] = [];
@@ -19,6 +20,10 @@ export class RunoffOverlay {
     this.overlayGroup = new THREE.Group();
     this.overlayGroup.name = 'RunoffOverlayGroup';
     this.scene.add(this.overlayGroup);
+  }
+
+  public setExtremeStorm(active: boolean): void {
+    this.isExtremeStorm = active;
   }
 
   public setVisible(
@@ -37,6 +42,7 @@ export class RunoffOverlay {
     }
 
     const sim = RunoffSimulator.getInstance();
+    sim.setExtremeStorm(this.isExtremeStorm);
     const report = sim.evaluateCityRunoff(terrain, roadManager, buildingManager, landscapeManager, lotManager);
 
     // 1. Render Inundation Pools (water disks at accumulation points)
@@ -109,6 +115,42 @@ export class RunoffOverlay {
           );
           this.overlayGroup.add(arrow);
         }
+      }
+    }
+
+    // 3. Render 3D Semi-Transparent Flood Water Surface on Lots with Low KDH (<25%) / High Runoff
+    for (const lot of lotManager.lots.values()) {
+      const floodInfo = sim.evaluateLotFlooding(lot, landscapeManager, undefined, lotManager);
+      const kdh = lot.metrics?.kdhPercent ?? 0;
+      const isLowKdh = kdh < 25;
+      const shouldShowFlood = floodInfo.floodDepthCm > 2.0 || (this.isExtremeStorm && isLowKdh && floodInfo.floodDepthCm > 0.5);
+
+      if (shouldShowFlood) {
+        const waterGeo = new THREE.PlaneGeometry(lot.width - 0.4, lot.length - 0.4);
+        waterGeo.rotateX(-Math.PI / 2);
+        this.createdGeometries.push(waterGeo);
+
+        const waterColor = this.isExtremeStorm ? 0x0ea5e9 : floodInfo.riskLevel === 'flooded' ? 0x007aff : 0x38bdf8;
+        const waterMat = new THREE.MeshStandardMaterial({
+          color: waterColor,
+          roughness: 0.1,
+          metalness: 0.3,
+          transparent: true,
+          opacity: 0.55, // 3D semi-transparan FloodSurfaceMesh
+          depthWrite: false
+        });
+        this.createdMaterials.push(waterMat);
+
+        const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+        waterMesh.name = `FloodSurfaceMesh_${lot.id}`;
+
+        // Rise dynamically during extreme storm and recede when eco-drainage (sumur, biopori, kolam) absorbs runoff
+        const baseRise = this.isExtremeStorm ? 0.30 : 0.08;
+        const depthRise = (floodInfo.floodDepthCm / 100) * (this.isExtremeStorm ? 1.2 : 0.7);
+        const heightM = Math.min(1.4, Math.max(0.12, baseRise + depthRise));
+
+        waterMesh.position.set(lot.position.x, lot.position.y + heightM, lot.position.z);
+        this.overlayGroup.add(waterMesh);
       }
     }
 

@@ -244,6 +244,7 @@ export const LoadTestModal: React.FC<LoadTestModalProps> = ({ isOpen, onClose })
           <div className="inset-header">UJI DENGAN PRESET KUALITAS GRAFIS</div>
           <div className="inset-group">
             {[
+              { id: 'ultra' as GraphicsQuality, name: 'Ultra (RTX / High-VRAM)', desc: 'Shadow Map 4096x4096, Frustum 150m, SSAO + Bloom, 25K Hujan' },
               { id: 'high' as GraphicsQuality, name: 'High (Optimal)', desc: 'Shadow Map 2048x2048, Frustum 65m fokus tajam, PCF Soft' },
               { id: 'medium' as GraphicsQuality, name: 'Medium (Standar)', desc: 'Shadow Map 1024x1024, Frustum 85m seimbang' },
               { id: 'low' as GraphicsQuality, name: 'Low (Hemat Daya)', desc: 'Bayangan 3D non-aktif, render shading ringan' }
