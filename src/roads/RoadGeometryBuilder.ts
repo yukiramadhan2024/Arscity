@@ -145,41 +145,74 @@ export class RoadGeometryBuilder {
     roadMesh.userData = { edgeId: edge.id };
     group.add(roadMesh);
 
-    // 2. Road Markings (Putih Tengah & Garis Tepi Putus-putus)
+    // 2. Road Markings (Garis Tepi Putih Tegas & Garis Marka Putus-putus Tengah)
     if (profile.laneCount >= 2) {
-      const markingGeom = new THREE.BufferGeometry();
-      const markPositions = new Float32Array(posCount * 3);
-      const markHalfW = 0.12;
+      // 2a. Garis Marka Putus-putus Putih/Kuning di Tengah Jalan (Dashed Centerline)
+      const dashLen = 2.4;
+      const gapLen = 1.8;
+      const cycleLen = dashLen + gapLen;
+      const markHalfW = 0.09;
+      const centerDashIndices: number[] = [];
+      const centerDashPositions: number[] = [];
+      let cVertIdx = 0;
 
-      for (let i = 0; i <= segments; i++) {
-        const pt = points[i];
-        const norm = normals[i];
-        const mLeft = pt.clone().addScaledVector(norm, -markHalfW);
-        const mRight = pt.clone().addScaledVector(norm, markHalfW);
+      const totalLen = edge.length;
+      let d = 0;
+      while (d < totalLen) {
+        const dEnd = Math.min(d + dashLen, totalLen);
+        if (dEnd - d >= 0.4) {
+          const segsInDash = Math.max(1, Math.round((dEnd - d) * 3));
+          const baseV = cVertIdx;
+          for (let s = 0; s <= segsInDash; s++) {
+            const curD = d + (s / segsInDash) * (dEnd - d);
+            const t = curD / totalLen;
+            const pt = graph.sampleBezier(edge.controlPoints, t);
+            const segIdx = Math.min(segments, Math.floor(t * segments));
+            const norm = normals[segIdx];
 
-        const baseIdx = i * 2;
-        markPositions[baseIdx * 3] = mLeft.x;
-        markPositions[baseIdx * 3 + 1] = 0.055;
-        markPositions[baseIdx * 3 + 2] = mLeft.z;
+            const mL = pt.clone().addScaledVector(norm, -markHalfW);
+            const mR = pt.clone().addScaledVector(norm, markHalfW);
 
-        markPositions[(baseIdx + 1) * 3] = mRight.x;
-        markPositions[(baseIdx + 1) * 3 + 1] = 0.055;
-        markPositions[(baseIdx + 1) * 3 + 2] = mRight.z;
+            centerDashPositions.push(mL.x, 0.055, mL.z);
+            centerDashPositions.push(mR.x, 0.055, mR.z);
+            cVertIdx += 2;
+
+            if (s < segsInDash) {
+              const v0 = baseV + s * 2;
+              const v1 = v0 + 1;
+              const v2 = v0 + 2;
+              const v3 = v0 + 3;
+              centerDashIndices.push(v0, v2, v1);
+              centerDashIndices.push(v1, v2, v3);
+            }
+          }
+        }
+        d += cycleLen;
       }
 
-      markingGeom.setAttribute('position', new THREE.BufferAttribute(markPositions, 3));
-      markingGeom.setIndex(indices);
-      markingGeom.computeVertexNormals();
+      if (centerDashPositions.length > 0) {
+        const centerGeom = new THREE.BufferGeometry();
+        centerGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(centerDashPositions), 3));
+        centerGeom.setIndex(centerDashIndices);
+        centerGeom.computeVertexNormals();
 
-      const markingMesh = new THREE.Mesh(markingGeom, this.markingMaterial!);
-      group.add(markingMesh);
+        // Marka kuning lembut untuk jalan kolektor, putih untuk jalan lokal
+        const isYellow = edge.type === 'collector';
+        const dashMat = new THREE.MeshBasicMaterial({
+          color: isYellow ? 0xf59e0b : 0xffffff,
+          transparent: true,
+          opacity: 0.95
+        });
+        const centerMesh = new THREE.Mesh(centerGeom, dashMat);
+        group.add(centerMesh);
+      }
 
-      // Garis tepi putih putus-putus (White dashed edge markings)
-      const edgeMarkDist = halfWidth - 0.35;
+      // 2b. Garis Tepi Putih Tegas (Solid Crisp White Edge Markings)
+      const edgeMarkDist = halfWidth - 0.28;
       [-1, 1].forEach((side) => {
         const edgeMarkGeom = new THREE.BufferGeometry();
         const edgePositions = new Float32Array(posCount * 3);
-        const w = 0.08;
+        const w = 0.09;
 
         for (let i = 0; i <= segments; i++) {
           const pt = points[i];
@@ -190,11 +223,11 @@ export class RoadGeometryBuilder {
 
           const baseIdx = i * 2;
           edgePositions[baseIdx * 3] = eL.x;
-          edgePositions[baseIdx * 3 + 1] = 0.055;
+          edgePositions[baseIdx * 3 + 1] = 0.054;
           edgePositions[baseIdx * 3 + 2] = eL.z;
 
           edgePositions[(baseIdx + 1) * 3] = eR.x;
-          edgePositions[(baseIdx + 1) * 3 + 1] = 0.055;
+          edgePositions[(baseIdx + 1) * 3 + 1] = 0.054;
           edgePositions[(baseIdx + 1) * 3 + 2] = eR.z;
         }
 
@@ -350,6 +383,39 @@ export class RoadGeometryBuilder {
         group.add(createSidewalkMesh(side));
         group.add(createCurbBevelMesh(side));
         group.add(createTactileStripMesh(side));
+      });
+    } else {
+      // 3b. Bahu Pembatas Beton (#94A3B8) untuk jalan tanpa trotoar lebar
+      const curbW = 0.22;
+      const curbH = 0.12;
+      [-1, 1].forEach((side) => {
+        const curbGeom = new THREE.BufferGeometry();
+        const curbPositions = new Float32Array(posCount * 3);
+
+        for (let i = 0; i <= segments; i++) {
+          const pt = points[i];
+          const norm = normals[i];
+          const innerPt = pt.clone().addScaledVector(norm, side * halfWidth);
+          const outerPt = pt.clone().addScaledVector(norm, side * (halfWidth + curbW));
+
+          const baseIdx = i * 2;
+          curbPositions[baseIdx * 3] = innerPt.x;
+          curbPositions[baseIdx * 3 + 1] = curbH;
+          curbPositions[baseIdx * 3 + 2] = innerPt.z;
+
+          curbPositions[(baseIdx + 1) * 3] = outerPt.x;
+          curbPositions[(baseIdx + 1) * 3 + 1] = curbH;
+          curbPositions[(baseIdx + 1) * 3 + 2] = outerPt.z;
+        }
+
+        curbGeom.setAttribute('position', new THREE.BufferAttribute(curbPositions, 3));
+        curbGeom.setIndex(indices);
+        curbGeom.computeVertexNormals();
+
+        const curbMesh = new THREE.Mesh(curbGeom, RoadGeometryBuilder.curbMaterial!);
+        curbMesh.castShadow = true;
+        curbMesh.receiveShadow = true;
+        group.add(curbMesh);
       });
     }
 

@@ -3,6 +3,7 @@ import { ArrowRight, Mail, Lock, Eye, EyeOff, ArrowLeft, X, AlertCircle, CheckCi
 import { AnimatePresence, motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import { useUIStore } from '../state/useUIStore';
+import { ArscityLogo } from './ArscityLogo';
 
 // --- CONFETTI HELPER & CONTEXT ---
 export type ConfettiRef = { fire: () => void } | null;
@@ -54,6 +55,148 @@ export const GitHubIcon = ({ className = "w-5 h-5", style }: { className?: strin
     />
   </svg>
 );
+
+// --- ARCHITECTURAL CITY ISOMETRIC SVG BACKGROUND ---
+export const ArchitecturalCityBackground: React.FC = () => {
+  return (
+    <svg
+      className="auth-architectural-bg"
+      viewBox="0 0 1600 1000"
+      preserveAspectRatio="xMidYMid slice"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 1
+      }}
+      aria-hidden="true"
+    >
+      <defs>
+        {/* Isometric Pattern Grid */}
+        <pattern id="archIsoGrid" width="60" height="104" patternUnits="userSpaceOnUse">
+          <path d="M 0 52 L 60 104 M 0 52 L 60 0 M 60 52 L 0 104 M 60 52 L 0 0" stroke="rgba(10, 132, 255, 0.04)" strokeWidth="0.8" />
+          <line x1="0" y1="52" x2="60" y2="52" stroke="rgba(15, 23, 42, 0.03)" strokeWidth="0.6" />
+        </pattern>
+        <linearGradient id="bgSolarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#0A84FF" stopOpacity="0.12" />
+          <stop offset="50%" stopColor="#FF9500" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#FFCC00" stopOpacity="0.08" />
+        </linearGradient>
+      </defs>
+
+      {/* 1. Blueprint Isometric Grid */}
+      <rect width="100%" height="100%" fill="url(#archIsoGrid)" />
+
+      {/* 2. Topographic Elevation Contour Lines */}
+      <g stroke="rgba(15, 23, 42, 0.06)" strokeWidth="1" strokeLinecap="round">
+        <path d="M -50 220 C 200 210, 420 280, 700 240 C 950 200, 1200 270, 1650 220" />
+        <path d="M -50 340 C 220 310, 480 390, 780 330 C 1040 280, 1300 370, 1650 320" stroke="rgba(10, 132, 255, 0.08)" />
+        <path d="M -50 460 C 240 430, 520 510, 840 440 C 1120 380, 1380 480, 1650 430" />
+        <path d="M -50 580 C 260 540, 560 620, 900 550 C 1180 490, 1420 600, 1650 540" stroke="rgba(10, 132, 255, 0.08)" />
+        <path d="M -50 720 C 300 680, 620 760, 960 670 C 1240 610, 1480 730, 1650 660" />
+        <path d="M -50 850 C 340 810, 680 890, 1040 800 C 1300 730, 1520 860, 1650 790" stroke="rgba(10, 132, 255, 0.07)" />
+
+        {/* Contour elevation markers */}
+        <text x="90" y="215" fill="rgba(15, 23, 42, 0.25)" fontSize="9" fontFamily="var(--font-mono)">+112.50m</text>
+        <text x="1350" y="325" fill="rgba(15, 23, 42, 0.25)" fontSize="9" fontFamily="var(--font-mono)">+115.00m</text>
+        <text x="120" y="575" fill="rgba(15, 23, 42, 0.25)" fontSize="9" fontFamily="var(--font-mono)">+120.00m</text>
+      </g>
+
+      {/* 3. Solar Trajectory & Compass Arc */}
+      <g>
+        <path
+          d="M 120 880 C 350 420, 1150 280, 1520 780"
+          stroke="url(#bgSolarGrad)"
+          strokeWidth="2.5"
+          strokeDasharray="6 6"
+        />
+        {/* Sun Altitude Degree Rings */}
+        <circle cx="1280" cy="220" r="140" stroke="rgba(10, 132, 255, 0.08)" strokeWidth="1" strokeDasharray="3 3" />
+        <circle cx="1280" cy="220" r="80" stroke="rgba(255, 149, 0, 0.12)" strokeWidth="1" />
+        <line x1="1280" y1="60" x2="1280" y2="380" stroke="rgba(15, 23, 42, 0.06)" strokeWidth="0.8" />
+        <line x1="1120" y1="220" x2="1440" y2="220" stroke="rgba(15, 23, 42, 0.06)" strokeWidth="0.8" />
+        <text x="1285" y="76" fill="rgba(10, 132, 255, 0.4)" fontSize="11" fontWeight="700" fontFamily="var(--font-mono)">N 000°</text>
+        <text x="1445" y="224" fill="rgba(15, 23, 42, 0.3)" fontSize="10" fontFamily="var(--font-mono)">E 090°</text>
+        <text x="1285" y="375" fill="rgba(15, 23, 42, 0.3)" fontSize="10" fontFamily="var(--font-mono)">S 180°</text>
+        <text x="1080" y="224" fill="rgba(15, 23, 42, 0.3)" fontSize="10" fontFamily="var(--font-mono)">W 270°</text>
+      </g>
+
+      {/* 4. Isometric Road Corridors */}
+      <g stroke="rgba(15, 23, 42, 0.07)" strokeWidth="1.2">
+        {/* Main Boulevard 1 (SW to NE) */}
+        <line x1="-100" y1="750" x2="680" y2="300" strokeWidth="20" stroke="rgba(15, 23, 42, 0.02)" />
+        <line x1="-100" y1="740" x2="680" y2="290" stroke="rgba(10, 132, 255, 0.1)" strokeWidth="1.5" />
+        <line x1="-100" y1="760" x2="680" y2="310" stroke="rgba(10, 132, 255, 0.1)" strokeWidth="1.5" />
+        <line x1="-100" y1="750" x2="680" y2="300" stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="8 8" strokeWidth="1" />
+
+        {/* Boulevard 2 (NW to SE Crossing) */}
+        <line x1="420" y1="120" x2="1350" y2="660" strokeWidth="20" stroke="rgba(15, 23, 42, 0.02)" />
+        <line x1="420" y1="110" x2="1350" y2="650" stroke="rgba(10, 132, 255, 0.1)" strokeWidth="1.5" />
+        <line x1="420" y1="130" x2="1350" y2="670" stroke="rgba(10, 132, 255, 0.1)" strokeWidth="1.5" />
+        <line x1="420" y1="120" x2="1350" y2="660" stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="8 8" strokeWidth="1" />
+
+        {/* Ring Road Arc connecting sectors */}
+        <path d="M 680 300 Q 1020 380 1350 660" stroke="rgba(10, 132, 255, 0.08)" strokeWidth="1.5" fill="none" />
+        <path d="M 670 305 Q 1010 385 1340 665" stroke="rgba(10, 132, 255, 0.08)" strokeWidth="1.5" fill="none" />
+      </g>
+
+      {/* 5. Isometric Tropical Joglo & Modern Buildings (Left Cluster) */}
+      <g stroke="rgba(15, 23, 42, 0.07)" fill="rgba(255, 255, 255, 0.35)">
+        {/* Joglo Pavilion 1 (Left lower) */}
+        <polygon points="180,620 230,590 280,620 230,650" stroke="rgba(10, 132, 255, 0.12)" strokeWidth="1.2" />
+        <polygon points="205,605 230,575 255,605 230,620" fill="rgba(10, 132, 255, 0.04)" stroke="rgba(10, 132, 255, 0.15)" strokeWidth="1.4" />
+        <line x1="230" y1="565" x2="230" y2="575" stroke="#FF9500" strokeWidth="1.5" />
+        {/* Saka Guru Columns */}
+        <line x1="205" y1="620" x2="205" y2="640" />
+        <line x1="255" y1="620" x2="255" y2="640" />
+
+        {/* Modern Tower 1 (Left upper) */}
+        <polygon points="120,380 160,355 200,380 160,405" />
+        <line x1="120" y1="380" x2="120" y2="480" />
+        <line x1="160" y1="405" x2="160" y2="505" />
+        <line x1="200" y1="380" x2="200" y2="480" />
+        {/* Grid floor lines */}
+        <line x1="120" y1="405" x2="160" y2="430" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="160" y1="430" x2="200" y2="405" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="120" y1="430" x2="160" y2="455" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="160" y1="455" x2="200" y2="430" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="120" y1="455" x2="160" y2="480" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="160" y1="480" x2="200" y2="455" stroke="rgba(10, 132, 255, 0.08)" />
+
+        {/* Joglo Pavilion 2 (Near road) */}
+        <polygon points="340,490 390,460 440,490 390,520" stroke="rgba(10, 132, 255, 0.12)" strokeWidth="1.2" />
+        <polygon points="365,475 390,445 415,475 390,490" fill="rgba(10, 132, 255, 0.04)" stroke="rgba(10, 132, 255, 0.15)" strokeWidth="1.4" />
+      </g>
+
+      {/* 6. Isometric Tropical Joglo & Modern Buildings (Right Cluster) */}
+      <g stroke="rgba(15, 23, 42, 0.07)" fill="rgba(255, 255, 255, 0.35)">
+        {/* Modern High-Rise Tower 2 (Right skyline) */}
+        <polygon points="1320,440 1370,410 1420,440 1370,470" />
+        <line x1="1320" y1="440" x2="1320" y2="600" />
+        <line x1="1370" y1="470" x2="1370" y2="630" />
+        <line x1="1420" y1="440" x2="1420" y2="600" />
+        {/* Vertical curtain mullions */}
+        <line x1="1345" y1="455" x2="1345" y2="615" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="1395" y1="455" x2="1395" y2="615" stroke="rgba(10, 132, 255, 0.08)" />
+        {/* Floors */}
+        <line x1="1320" y1="480" x2="1370" y2="510" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="1370" y1="510" x2="1420" y2="480" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="1320" y1="520" x2="1370" y2="550" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="1370" y1="550" x2="1420" y2="520" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="1320" y1="560" x2="1370" y2="590" stroke="rgba(10, 132, 255, 0.08)" />
+        <line x1="1370" y1="590" x2="1420" y2="560" stroke="rgba(10, 132, 255, 0.08)" />
+
+        {/* Joglo Pavilion 3 (Right lower) */}
+        <polygon points="1200,680 1250,650 1300,680 1250,710" stroke="rgba(10, 132, 255, 0.12)" strokeWidth="1.2" />
+        <polygon points="1225,665 1250,635 1275,665 1250,680" fill="rgba(10, 132, 255, 0.04)" stroke="rgba(10, 132, 255, 0.15)" strokeWidth="1.4" />
+      </g>
+    </svg>
+  );
+};
 
 // --- MODAL PROGRESSION STEPS ---
 const modalSteps = [
@@ -195,8 +338,8 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
         .auth-root-container {
           position: fixed;
           inset: 0;
-          z-index: 200;
-          background-color: #090D16;
+          z-index: var(--z-auth, 70);
+          background: radial-gradient(circle at 50% 45%, #FFF8F0 0%, #F1F5F9 52%, #E8EEF5 100%);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -208,14 +351,17 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
         }
         .auth-card-frame {
           position: relative;
+          z-index: 10;
           width: 100%;
-          max-width: 720px;
-          border-radius: 32px;
+          max-width: 680px;
+          border-radius: 28px;
           overflow: hidden;
-          padding: 52px 48px;
-          background-color: #FFFFFF;
-          border: 1px solid rgba(255, 255, 255, 0.4);
-          box-shadow: 0 25px 70px -15px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.04);
+          padding: 48px 44px;
+          background: rgba(235, 242, 250, 0.72);
+          backdrop-filter: blur(28px) saturate(180%);
+          -webkit-backdrop-filter: blur(28px) saturate(180%);
+          border: 1.5px solid rgba(255, 255, 255, 0.85);
+          box-shadow: 0 20px 50px rgba(15, 23, 42, 0.14);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -269,8 +415,15 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
+          gap: 12px;
           margin-bottom: 24px;
+          padding: 8px 20px 8px 10px;
+          background: rgba(255, 255, 255, 0.75);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          border-radius: 9999px;
+          box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
         }
         .auth-logo-icon {
           width: 32px;
@@ -286,27 +439,27 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
         .auth-logo-text {
           font-size: 16px;
           font-weight: 600;
-          color: #111827;
+          color: var(--label);
           letter-spacing: -0.01em;
         }
         .auth-headline {
           font-family: var(--font-sans);
-          font-size: 44px;
+          font-size: 40px;
           font-weight: 700;
-          color: #111827;
+          color: var(--label);
           letter-spacing: -0.03em;
           margin-bottom: 10px;
           line-height: 1.15;
         }
         @media (max-width: 640px) {
           .auth-headline {
-            font-size: 32px;
+            font-size: 30px;
           }
         }
         .auth-subhead {
           font-size: 14px;
           font-weight: 500;
-          color: #6B7280;
+          color: var(--label-secondary);
           margin-bottom: 24px;
         }
         .auth-social-row {
@@ -325,19 +478,19 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
           padding: 10px 24px;
           border-radius: 9999px;
           background-color: #FFFFFF;
-          border: 1px solid #E5E7EB;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+          border: 1.5px solid rgba(15, 23, 42, 0.12);
+          box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
           font-size: 14px;
-          font-weight: 500;
-          color: #1F2937;
+          font-weight: 600;
+          color: #0F172A;
           cursor: pointer;
           transition: all 150ms ease-out;
           outline: none;
         }
         .auth-pill-btn:hover {
-          background-color: #F9FAFB;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-          border-color: #D1D5DB;
+          background-color: #F8FAFC;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+          border-color: rgba(15, 23, 42, 0.22);
           transform: translateY(-1px);
         }
         .auth-pill-btn:active {
@@ -354,13 +507,13 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
         }
         .auth-divider-line {
           height: 1px;
-          background-color: #E5E7EB;
+          background-color: rgba(15, 23, 42, 0.12);
           flex: 1;
         }
         .auth-divider-text {
           font-size: 11px;
-          font-weight: 600;
-          color: #9CA3AF;
+          font-weight: 700;
+          color: #64748B;
           letter-spacing: 0.12em;
           text-transform: uppercase;
         }
@@ -373,19 +526,17 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
           height: 48px;
           padding: 0 16px;
           border-radius: 9999px;
-          background: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          border: 1px solid #D1D5DB;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+          background: #FFFFFF;
+          border: 1.5px solid rgba(15, 23, 42, 0.14);
+          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
           box-sizing: border-box;
           margin: 0 auto;
           transition: all 180ms ease-out;
         }
         .auth-input-pill:focus-within {
           background-color: #FFFFFF;
-          border-color: #9CA3AF;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15), 0 1px 3px rgba(0, 0, 0, 0.08);
+          border-color: #007AFF;
+          box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2), 0 1px 3px rgba(0, 0, 0, 0.08);
         }
         .auth-input-field {
           flex: 1;
@@ -393,18 +544,19 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
           border: none;
           background: transparent;
           font-size: 14px;
-          color: #111827;
+          font-weight: 500;
+          color: #0F172A;
           outline: none;
           box-sizing: border-box;
         }
         .auth-input-field::placeholder {
-          color: #9CA3AF;
+          color: #94A3B8;
         }
         .auth-submit-arrow {
           width: 30px;
           height: 30px;
           border-radius: 50%;
-          background-color: #111827;
+          background-color: var(--accent);
           color: #FFFFFF;
           display: flex;
           align-items: center;
@@ -417,7 +569,7 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
         .auth-submit-arrow:hover {
-          background-color: #1F2937;
+          filter: brightness(1.1);
           transform: scale(1.06);
         }
         .auth-sandbox-btn {
@@ -425,19 +577,20 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
           align-items: center;
           gap: 8px;
           margin-top: 18px;
-          padding: 6px 14px;
+          padding: 8px 18px;
           border-radius: 9999px;
-          font-size: 12px;
-          font-weight: 500;
-          color: #6B7280;
-          background: transparent;
-          border: none;
+          font-size: 13px;
+          font-weight: 600;
+          color: #007AFF;
+          background: rgba(10, 132, 255, 0.08);
+          border: 1px solid rgba(10, 132, 255, 0.22);
           cursor: pointer;
           transition: all 150ms ease-out;
         }
         .auth-sandbox-btn:hover {
-          color: #111827;
-          background-color: rgba(0, 0, 0, 0.04);
+          color: #0056B3;
+          background-color: rgba(10, 132, 255, 0.16);
+          transform: translateY(-1px);
         }
         .auth-back-btn {
           display: inline-flex;
@@ -446,14 +599,14 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
           margin-top: 16px;
           font-size: 13px;
           font-weight: 500;
-          color: #6B7280;
+          color: var(--label-secondary);
           background: transparent;
           border: none;
           cursor: pointer;
           transition: color 150ms ease-out;
         }
         .auth-back-btn:hover {
-          color: #111827;
+          color: var(--label);
         }
       `}</style>
 
@@ -483,7 +636,7 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
               exit={{ scale: 0.92, opacity: 0 }}
               style={{
                 position: 'relative',
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'var(--surface)',
                 borderRadius: '24px',
                 padding: '32px',
                 width: '100%',
@@ -493,20 +646,20 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
                 alignItems: 'center',
                 gap: '16px',
                 textAlign: 'center',
-                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.35)',
-                border: '1px solid #E5E7EB'
+                boxShadow: 'var(--shadow-modal)',
+                border: '1px solid var(--hairline)'
               }}
             >
               {modalStatus === "error" && (
                 <>
                   <button
                     onClick={closeModal}
-                    style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#9CA3AF' }}
+                    style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--label-tertiary)' }}
                   >
                     <X style={{ width: '20px', height: '20px' }} />
                   </button>
-                  <AlertCircle style={{ width: '48px', height: '48px', color: '#EF4444' }} strokeWidth={1.75} />
-                  <p style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: 0, lineHeight: 1.5 }}>
+                  <AlertCircle style={{ width: '48px', height: '48px', color: 'var(--bad, #EF4444)' }} strokeWidth={1.75} />
+                  <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--label)', margin: 0, lineHeight: 1.5 }}>
                     {modalErrorMessage}
                   </p>
                   <button
@@ -515,7 +668,7 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
                       marginTop: '8px',
                       padding: '10px 24px',
                       borderRadius: '9999px',
-                      backgroundColor: '#111827',
+                      backgroundColor: 'var(--accent)',
                       color: '#FFFFFF',
                       fontSize: '12px',
                       fontWeight: 600,
@@ -531,7 +684,7 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
               {modalStatus === "loading" && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '8px 0' }}>
                   {modalSteps[modalStepIndex].icon}
-                  <p style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', margin: 0 }}>
+                  <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--label)', margin: 0 }}>
                     {modalSteps[modalStepIndex].message}
                   </p>
                 </div>
@@ -539,8 +692,8 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
 
               {modalStatus === "success" && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '8px 0' }}>
-                  <CheckCircle2 style={{ width: '48px', height: '48px', color: '#10B981' }} strokeWidth={2} />
-                  <p style={{ fontSize: '16px', fontWeight: 600, color: '#111827', margin: 0 }}>
+                  <CheckCircle2 style={{ width: '48px', height: '48px', color: 'var(--good, #10B981)' }} strokeWidth={2} />
+                  <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--label)', margin: 0 }}>
                     Sesi Kerja Siap
                   </p>
                 </div>
@@ -550,24 +703,25 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Main Glassmorphic Card */}
+      {/* Fullscreen Architectural City Isometric Background */}
+      <ArchitecturalCityBackground />
+
+      {/* Main Glassmorphic Card (Standard Laboratorium Analisis) */}
       <div className="auth-card-frame">
         {/* Multi-Color Gradient Mesh Background Inside Card */}
         <div className="auth-mesh-bg">
-          <div style={{ position: 'absolute', inset: 0, backgroundColor: '#FFFFFF' }} />
-          <div className="auth-mesh-peach" />
-          <div className="auth-mesh-slate" />
-          <div className="auth-mesh-amber-top" />
+          <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255, 255, 255, 0.45)' }} />
+          <div className="auth-mesh-peach" style={{ opacity: 0.28 }} />
+          <div className="auth-mesh-slate" style={{ opacity: 0.20 }} />
+          <div className="auth-mesh-amber-top" style={{ opacity: 0.20 }} />
         </div>
 
         {/* Card Content Layer */}
         <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
           {/* Top Logo Badge */}
           <div className="auth-logo-badge">
-            <div className="auth-logo-icon">
-              <Compass style={{ width: '18px', height: '18px' }} strokeWidth={2} />
-            </div>
-            <span className="auth-logo-text">
+            <ArscityLogo size={36} />
+            <span className="auth-logo-text" style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
               {brandName || "Arscity"}
             </span>
           </div>
@@ -583,11 +737,11 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
                 transition={{ duration: 0.22 }}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}
               >
-                <h1 className="auth-headline">
-                  Get started with Us
+                <h1 className="auth-headline" style={{ color: '#0F172A' }}>
+                  Selamat Datang di Arscity
                 </h1>
-                <p className="auth-subhead">
-                  Continue with
+                <p className="auth-subhead" style={{ color: '#475569' }}>
+                  Lanjutkan Masuk dengan
                 </p>
 
                 {/* Social Login Buttons */}
@@ -614,7 +768,7 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
                 {/* Divider Line */}
                 <div className="auth-divider-wrap">
                   <div className="auth-divider-line" />
-                  <span className="auth-divider-text">OR</span>
+                  <span className="auth-divider-text">ATAU</span>
                   <div className="auth-divider-line" />
                 </div>
               </motion.div>
@@ -629,10 +783,10 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
                 transition={{ duration: 0.22 }}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '24px' }}
               >
-                <h1 className="auth-headline">
-                  Create your password
+                <h1 className="auth-headline" style={{ color: '#0F172A' }}>
+                  Buat Kata Sandi
                 </h1>
-                <p className="auth-subhead" style={{ marginBottom: 0 }}>
+                <p className="auth-subhead" style={{ color: '#475569', marginBottom: 0 }}>
                   Gunakan minimal 6 karakter untuk otentikasi sesi studio.
                 </p>
               </motion.div>
@@ -647,10 +801,10 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
                 transition={{ duration: 0.22 }}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '24px' }}
               >
-                <h1 className="auth-headline">
-                  Confirm your password
+                <h1 className="auth-headline" style={{ color: '#0F172A' }}>
+                  Konfirmasi Kata Sandi
                 </h1>
-                <p className="auth-subhead" style={{ marginBottom: 0 }}>
+                <p className="auth-subhead" style={{ color: '#475569', marginBottom: 0 }}>
                   Ketik ulang kata sandi Anda untuk verifikasi masukan.
                 </p>
               </motion.div>
@@ -664,18 +818,19 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
           >
             {authStep === "email" && (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div className="auth-input-pill">
-                  <Mail style={{ width: '18px', height: '18px', color: '#9CA3AF', marginRight: '10px', flexShrink: 0 }} />
+                <div className="auth-input-pill" style={{ background: 'rgba(255, 255, 255, 0.85)', border: '1px solid rgba(15, 23, 42, 0.12)' }}>
+                  <Mail style={{ width: '18px', height: '18px', color: '#64748B', marginRight: '10px', flexShrink: 0 }} />
                   <input
                     ref={emailInputRef}
                     type="email"
-                    placeholder="Email"
+                    placeholder="nama@arsitek.id"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     onKeyDown={handleKeyDown}
                     className="auth-input-field"
                     autoComplete="email"
                     aria-label="Alamat Email"
+                    style={{ color: '#0F172A' }}
                   />
                   {isEmailValid && (
                     <button
@@ -694,8 +849,9 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
                   type="button"
                   onClick={() => handleQuickProviderAuth("guest")}
                   className="auth-sandbox-btn"
+                  style={{ color: '#475569' }}
                 >
-                  <Compass style={{ width: '15px', height: '15px', color: '#2563EB' }} />
+                  <ArscityLogo size={16} />
                   <span>Masuk Tanpa Akun (Mode Sandbox)</span>
                 </button>
               </div>
@@ -814,7 +970,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 200,
+        zIndex: 'var(--z-auth, 70)' as any,
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',

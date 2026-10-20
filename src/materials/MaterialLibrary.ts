@@ -181,12 +181,12 @@ export class MaterialLibrary {
 
   private buildMaterial(type: string, options: MaterialOptions): THREE.MeshStandardMaterial {
     switch (type) {
-      // 1. Aspal Jalan
+      // 1. Aspal Hotmix Jalan Realistis
       case 'asphalt':
       case 'road_asphalt': {
-        const colorTex = this.loadTexture('/assets/textures/aspal/color.jpg', true, () => ProceduralTextureGen.getAsphaltTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/aspal/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/aspal/roughness.jpg', false, () => ProceduralTextureGen.getAsphaltRoughnessTexture(512));
+        const colorTex = this.loadTexture('/assets/textures/aspal/color.jpg', true, () => ProceduralTextureGen.getAsphaltTexture(1024));
+        const normalTex = this.loadTexture('/assets/textures/aspal/normal.jpg', false, () => ProceduralTextureGen.getAsphaltNormalTexture(1024));
+        const roughTex = this.loadTexture('/assets/textures/aspal/roughness.jpg', false, () => ProceduralTextureGen.getAsphaltRoughnessTexture(1024));
         colorTex.repeat.set(4, 4);
         normalTex.repeat.set(4, 4);
         roughTex.repeat.set(4, 4);
@@ -195,7 +195,8 @@ export class MaterialLibrary {
           map: colorTex,
           normalMap: normalTex,
           roughnessMap: roughTex,
-          roughness: options.roughness ?? 0.82,
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
+          roughness: options.roughness ?? 0.88,
           metalness: options.metalness ?? 0.05,
         });
       }

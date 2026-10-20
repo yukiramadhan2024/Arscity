@@ -9,8 +9,10 @@ export {
   Confetti,
   fireConfetti,
   GoogleIcon,
-  GitHubIcon
+  GitHubIcon,
+  ArchitecturalCityBackground
 } from '../../ui/components/LoginPage';
+export { ArscityLogo } from '../../ui/components/ArscityLogo';
 
 export type {
   AuthComponentProps,

@@ -34,60 +34,73 @@ function testTextures(): void {
   let hasFailures = false;
 
   const publicDir = path.join(ROOT_DIR, 'public');
-  const texturesDir = path.join(publicDir, 'textures');
+  const texturesDir = fs.existsSync(path.join(publicDir, 'assets', 'textures'))
+    ? path.join(publicDir, 'assets', 'textures')
+    : path.join(publicDir, 'textures');
   const proceduralFile = path.join(ROOT_DIR, 'src', 'materials', 'ProceduralTextureGen.ts');
+  const materialLibFile = path.join(ROOT_DIR, 'src', 'materials', 'MaterialLibrary.ts');
   const designFile = path.join(ROOT_DIR, 'DESIGN.md');
   const creditsFile = path.join(ROOT_DIR, 'CREDITS.md');
 
-  // Check 1: Does public/textures exist?
+  // Check 1: Does public/assets/textures exist?
   const publicExists = fs.existsSync(publicDir);
   const texturesExists = fs.existsSync(texturesDir);
   details.push(`Folder 'public/' ada: ${publicExists ? 'YA' : 'TIDAK (Hilang)'}`);
-  details.push(`Folder 'public/textures/' ada: ${texturesExists ? 'YA' : 'TIDAK (Hilang)'}`);
+  details.push(`Folder aset tekstur 'public/assets/textures/' ada: ${texturesExists ? 'YA' : 'TIDAK (Hilang)'}`);
 
   if (!texturesExists) {
     hasFailures = true;
     details.push('-> Tidak ditemukan folder aset tekstur CC0 di repository.');
   }
 
-  // Check 2: Check ambientCG / PolyHaven files
-  const cc0FilesExpected = [
-    'asphalt_albedo.jpg',
-    'concrete_albedo.jpg',
-    'brick_albedo.jpg',
-    'roof_tile_albedo.jpg',
-    'wood_albedo.jpg',
-    'grass_albedo.jpg'
+  // Check 2: Check ambientCG / PolyHaven materials
+  const cc0MatsExpected = [
+    'aspal',
+    'beton',
+    'bata_merah',
+    'genteng',
+    'kayu',
+    'rumput'
   ];
 
   let downloadedCount = 0;
   if (texturesExists) {
     const existing = fs.readdirSync(texturesDir);
-    cc0FilesExpected.forEach((f) => {
-      if (existing.includes(f)) downloadedCount++;
+    cc0MatsExpected.forEach((f) => {
+      if (existing.includes(f) || existing.includes(`${f}_albedo.jpg`)) downloadedCount++;
     });
   }
-  details.push(`File CC0 terunduh: ${downloadedCount}/${cc0FilesExpected.length}`);
+  details.push(`Material PBR CC0 terunduh: ${downloadedCount}/${cc0MatsExpected.length}`);
 
-  // Check 3: Check ProceduralTextureGen.ts code
+  // Check 3: Check MaterialLibrary.ts and ProceduralTextureGen.ts code
+  let hasExternalLoader = false;
+  if (fs.existsSync(materialLibFile)) {
+    const code = fs.readFileSync(materialLibFile, 'utf8');
+    hasExternalLoader = code.includes('TextureLoader') || code.includes('ambientCG') || code.includes('fetch');
+  } else if (fs.existsSync(proceduralFile)) {
+    const code = fs.readFileSync(proceduralFile, 'utf8');
+    hasExternalLoader = code.includes('TextureLoader') || code.includes('ambientCG') || code.includes('fetch');
+  }
+
+  let hasProceduralCanvas = false;
   if (fs.existsSync(proceduralFile)) {
     const code = fs.readFileSync(proceduralFile, 'utf8');
-    const hasProceduralCanvas = code.includes('createCanvas') && code.includes('CanvasTexture');
-    const hasExternalLoader = code.includes('TextureLoader') || code.includes('ambientCG') || code.includes('fetch');
-    
-    details.push(`Procedural Canvas generator aktif: ${hasProceduralCanvas ? 'YA' : 'TIDAK'}`);
-    details.push(`Loader eksternal CC0 ambientCG di kode: ${hasExternalLoader ? 'ADA' : 'TIDAK ADA'}`);
+    hasProceduralCanvas = code.includes('createCanvas') && code.includes('CanvasTexture');
+  }
 
-    if (!hasExternalLoader) {
-      details.push('-> ProceduralTextureGen murni menggunakan Canvas2D sintetis tanpa mekanisme muat CC0.');
-    }
+  details.push(`Procedural Canvas generator fallback aktif: ${hasProceduralCanvas ? 'YA' : 'TIDAK'}`);
+  details.push(`Loader eksternal CC0 (TextureLoader) di MaterialLibrary: ${hasExternalLoader ? 'ADA' : 'TIDAK ADA'}`);
+
+  if (!hasExternalLoader) {
+    hasFailures = true;
+    details.push('-> Belum ditemukan loader tekstur THREE.TextureLoader di MaterialLibrary.');
   }
 
   // Check 4: Check DESIGN.md & CREDITS.md claims
   if (fs.existsSync(designFile)) {
     const designText = fs.readFileSync(designFile, 'utf8');
     const mentionsProceduralDefault = designText.includes('Procedural By Default') || designText.includes('prosedural');
-    details.push(`DESIGN.md menetapkan procedural sebagai default: ${mentionsProceduralDefault ? 'YA' : 'TIDAK'}`);
+    details.push(`DESIGN.md menetapkan procedural sebagai fallback/default: ${mentionsProceduralDefault ? 'YA' : 'TIDAK'}`);
   }
 
   results.push({
@@ -95,9 +108,11 @@ function testTextures(): void {
     name: 'Audit Pipeline Tekstur Real (CC0 ambientCG vs Prosedural Canvas)',
     category: 'Aset & Rendering',
     status: hasFailures ? 'CONFLICT' : 'PASS',
-    summary: 'Bentrok antara permintaan tekstur real CC0 dengan implementasi procedural Canvas default.',
+    summary: hasFailures
+      ? 'Bentrok antara permintaan tekstur real CC0 dengan implementasi procedural Canvas default.'
+      : 'Pipeline tekstur CC0 PBR aktif dengan fallback procedural Canvas otomatis jika offline.',
     details,
-    recommendation: 'Jika tekstur real CC0 diinginkan sebagai default: sediakan script download aset ambientCG ke public/textures/ dan tambahkan loader THREE.TextureLoader dengan fallback prosedural otomatis jika offline.'
+    recommendation: 'Pipeline tekstur CC0 PBR di MaterialLibrary telah sinkron dengan aset di public/assets/textures dan fallback procedural.'
   });
 }
 

@@ -33,7 +33,13 @@ import {
   CheckCircle2,
   Scissors,
   Ruler,
-  LucideIcon
+  LucideIcon,
+  ShieldCheck,
+  HeartPulse,
+  Factory,
+  Bus,
+  Zap,
+  Church
 } from 'lucide-react';
 import { ProceduralTextureGen } from '../../materials/ProceduralTextureGen';
 import { BuildingCatalogRegistry, BuildingCategory, BuildingCatalogItem } from '../../buildings/BuildingCatalogRegistry';
@@ -58,52 +64,7 @@ const TOOLS: ToolItem[] = [
   { id: 'analyze', label: 'Analysis', icon: SlidersHorizontal, hotkey: 'A' },
 ];
 
-interface PresetCardItem {
-  id: string;
-  presetKey: 'joglo' | 'cafe' | 'noodle' | 'garden';
-  buildingPreset?: string;
-  tool: MainToolType;
-  title: string;
-  subtitle: string;
-  focusBuildingId?: string;
-}
 
-const PRESET_CARDS: PresetCardItem[] = [
-  {
-    id: 'card_joglo',
-    presetKey: 'joglo',
-    buildingPreset: 'joglo',
-    tool: 'build',
-    title: 'Joglo Pavilion',
-    subtitle: 'Traditional Modern',
-    focusBuildingId: 'bld_joglo_yogyakarta'
-  },
-  {
-    id: 'card_cafe',
-    presetKey: 'cafe',
-    buildingPreset: 'cafe_minimalis_kaca',
-    tool: 'build',
-    title: 'Tropical Cafe',
-    subtitle: 'Commercial',
-    focusBuildingId: 'bld_cafe_kopi_rasa'
-  },
-  {
-    id: 'card_noodle',
-    presetKey: 'noodle',
-    buildingPreset: 'resto_mie_gacoan',
-    tool: 'build',
-    title: 'Noodle Restaurant',
-    subtitle: 'Industrial',
-    focusBuildingId: 'bld_mie_nusantara'
-  },
-  {
-    id: 'card_garden',
-    presetKey: 'garden',
-    tool: 'nature',
-    title: 'Garden Landscape',
-    subtitle: 'Green Infrastructure',
-  }
-];
 
 const LANDSCAPE_ITEMS: Array<{ type: LandscapeType; label: string; icon: LucideIcon }> = [
   { type: 'grass_garden', label: 'Taman Rumput', icon: Flower2 },
@@ -125,8 +86,6 @@ export const BottomToolbar: React.FC = () => {
     canRedo,
     setShowCustomBuildingStudio
   } = useUIStore();
-
-  const [activeCardId, setActiveCardId] = useState<string>('card_joglo');
 
   // Building Catalog Sub-tier state
   const [activeCategory, setActiveCategory] = useState<'all' | BuildingCategory>('all');
@@ -155,40 +114,26 @@ export const BottomToolbar: React.FC = () => {
   const categories: Array<{ id: 'all' | BuildingCategory; label: string; icon: React.ElementType }> = [
     { id: 'all', label: `Semua (${totalCount})`, icon: LayoutGrid },
     { id: 'hunian', label: 'Hunian', icon: Home },
-    { id: 'kuliner_kafe', label: 'Kuliner & Kafe', icon: Coffee },
-    { id: 'mall_ritel', label: 'Mall & Ritel', icon: ShoppingBag },
-    { id: 'kampus_kos', label: 'Kampus & Kos', icon: GraduationCap },
-    { id: 'budaya_hotel', label: 'Budaya & Hotel', icon: Hotel },
-    { id: 'publik_hijau', label: 'Publik & Hijau', icon: Trees },
+    { id: 'pemerintahan_keamanan', label: 'Pemerintahan', icon: ShieldCheck },
+    { id: 'pendidikan', label: 'Pendidikan', icon: GraduationCap },
+    { id: 'kesehatan', label: 'Kesehatan', icon: HeartPulse },
+    { id: 'perdagangan_jasa', label: 'Perdagangan & Jasa', icon: ShoppingBag },
+    { id: 'industri_logistik', label: 'Industri & Logistik', icon: Factory },
+    { id: 'transportasi', label: 'Transportasi', icon: Bus },
+    { id: 'utilitas', label: 'Utilitas', icon: Zap },
+    { id: 'ibadah_budaya', label: 'Ibadah & Budaya', icon: Church },
+    { id: 'rekreasi_terbuka', label: 'Rekreasi & Terbuka', icon: Trees },
   ];
 
-  const filteredBuildings = allBuildings.filter((item) => {
-    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
+  const categoryBuildings = BuildingCatalogRegistry.getBuildingsByCategory(activeCategory);
+  const filteredBuildings = categoryBuildings.filter((item) => {
     const matchesSearch =
       searchQuery.trim() === '' ||
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.id.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return matchesSearch;
   });
 
-  const handleCardClick = (card: PresetCardItem) => {
-    setActiveCardId(card.id);
-    setActiveTool(card.tool);
-
-    if (engine) {
-      if (card.buildingPreset) {
-        engine.buildingTool.setPreset(card.buildingPreset);
-        setSelectedBuildingKey(card.buildingPreset);
-      }
-
-      if (card.focusBuildingId) {
-        const bld = engine.buildingManager.buildings.get(card.focusBuildingId);
-        if (bld) {
-          engine.cameraController.focusAt(bld.position.clone().add(new THREE.Vector3(0, 2.5, 0)), 32);
-        }
-      }
-    }
-  };
 
   const handleSelectBuildingItem = (item: BuildingCatalogItem) => {
     setSelectedBuildingKey(item.id);
@@ -239,7 +184,7 @@ export const BottomToolbar: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center',
         gap: '10px',
-        zIndex: 45,
+        zIndex: 'var(--z-hud)' as any,
         userSelect: 'none',
         maxWidth: 'min(920px, calc(100vw - 380px))'
       }}
@@ -251,13 +196,13 @@ export const BottomToolbar: React.FC = () => {
           alignItems: 'center',
           gap: '6px',
           padding: '6px 14px',
-          background: 'rgba(15, 23, 42, 0.86)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.14)',
-          borderRadius: '9999px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
-          zIndex: 46
+          background: 'var(--surface)',
+          backdropFilter: 'blur(var(--glass-blur))',
+          WebkitBackdropFilter: 'blur(var(--glass-blur))',
+          border: '1px solid var(--hairline)',
+          borderRadius: 'var(--radius-capsule)',
+          boxShadow: 'var(--shadow-glass)',
+          zIndex: 'var(--z-hud)' as any
         }}
       >
         {TOOLS.map((tool) => {
@@ -283,15 +228,15 @@ export const BottomToolbar: React.FC = () => {
                 padding: '6px 16px',
                 borderRadius: '9999px',
                 border: isActive
-                  ? '1px solid rgba(56, 189, 248, 0.65)'
+                  ? '1px solid var(--accent)'
                   : '1px solid transparent',
                 background: isActive
-                  ? 'rgba(56, 189, 248, 0.25)'
+                  ? 'var(--accent-subtle)'
                   : 'transparent',
                 boxShadow: isActive
-                  ? '0 0 16px rgba(56, 189, 248, 0.35)'
+                  ? '0 0 16px rgba(var(--accent-rgb, 10, 132, 255), 0.35)'
                   : 'none',
-                color: isActive ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                color: isActive ? 'var(--accent)' : 'var(--label)',
                 cursor: 'pointer',
                 transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                 minWidth: '58px'
@@ -299,13 +244,14 @@ export const BottomToolbar: React.FC = () => {
               title={`${tool.label} (${tool.hotkey})`}
               aria-label={tool.label}
             >
-              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? '#38bdf8' : 'rgba(226, 232, 240, 0.85)' }} />
+              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? 'var(--accent)' : 'var(--label)' }} />
               <span
                 style={{
                   fontSize: '11px',
                   fontWeight: isActive ? 600 : 500,
                   whiteSpace: 'nowrap',
-                  letterSpacing: '-0.01em'
+                  letterSpacing: '-0.01em',
+                  color: isActive ? 'var(--accent)' : 'var(--label)'
                 }}
               >
                 {tool.label}
@@ -314,7 +260,7 @@ export const BottomToolbar: React.FC = () => {
           );
         })}
 
-        <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.15)', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '24px', background: 'var(--separator)', margin: '0 4px' }} />
 
         {/* Undo / Redo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -327,7 +273,7 @@ export const BottomToolbar: React.FC = () => {
               borderRadius: '50%',
               background: 'transparent',
               border: 'none',
-              color: '#ffffff',
+              color: 'var(--label)',
               opacity: canUndo ? 0.9 : 0.3,
               cursor: canUndo ? 'pointer' : 'not-allowed',
               display: 'flex',
@@ -348,7 +294,7 @@ export const BottomToolbar: React.FC = () => {
               borderRadius: '50%',
               background: 'transparent',
               border: 'none',
-              color: '#ffffff',
+              color: 'var(--label)',
               opacity: canRedo ? 0.9 : 0.3,
               cursor: canRedo ? 'pointer' : 'not-allowed',
               display: 'flex',
@@ -363,78 +309,7 @@ export const BottomToolbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Tier 2: Directly Below Main Dock (Zero Overlap & Zero Minimap Clash) */}
-      {/* 2A. Default Idle or 'select' Mode: 4 Visual Preset Cards */}
-      {activeTool === 'select' && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '10px 14px',
-            background: 'rgba(15, 23, 42, 0.86)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
-            borderRadius: '24px',
-            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-            zIndex: 45
-          }}
-        >
-          {PRESET_CARDS.map((card) => {
-            const isSelected = activeCardId === card.id;
-            const thumbnail = ProceduralTextureGen.getPresetCardThumbnail(card.presetKey);
 
-            return (
-              <div
-                key={card.id}
-                onClick={() => handleCardClick(card)}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  width: '136px',
-                  padding: '6px',
-                  borderRadius: '16px',
-                  background: isSelected
-                    ? 'rgba(56, 189, 248, 0.14)'
-                    : 'rgba(255, 255, 255, 0.04)',
-                  border: isSelected
-                    ? '1px solid rgba(56, 189, 248, 0.55)'
-                    : '1px solid rgba(255, 255, 255, 0.08)',
-                  boxShadow: isSelected
-                    ? '0 0 14px rgba(56, 189, 248, 0.28)'
-                    : 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
-              >
-                <div
-                  style={{
-                    width: '100%',
-                    height: '66px',
-                    borderRadius: '10px',
-                    overflow: 'hidden',
-                    marginBottom: '6px',
-                    background: '#0a0f1d'
-                  }}
-                >
-                  <img
-                    src={thumbnail}
-                    alt={card.title}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                </div>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {card.title}
-                </div>
-                <div style={{ fontSize: '9px', fontWeight: 500, color: '#38bdf8', letterSpacing: '0.01em' }}>
-                  {card.subtitle}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {/* 2B. 'build' Mode: Full Building Catalog with Category Tabs & Search */}
       {activeTool === 'build' && (
@@ -444,13 +319,13 @@ export const BottomToolbar: React.FC = () => {
             flexDirection: 'column',
             gap: '8px',
             padding: '10px 14px',
-            background: 'rgba(15, 23, 42, 0.86)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
-            borderRadius: '24px',
-            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-            zIndex: 45,
+            background: 'var(--surface)',
+            backdropFilter: 'blur(var(--glass-blur))',
+            WebkitBackdropFilter: 'blur(var(--glass-blur))',
+            border: '1px solid var(--hairline)',
+            borderRadius: 'var(--radius-panel)',
+            boxShadow: 'var(--shadow-glass)',
+            zIndex: 'var(--z-hud)' as any,
             width: '100%'
           }}
         >
@@ -472,16 +347,16 @@ export const BottomToolbar: React.FC = () => {
                       gap: '5px',
                       padding: '4px 10px',
                       borderRadius: '9999px',
-                      border: isCatActive ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
-                      background: isCatActive ? 'rgba(56, 189, 248, 0.22)' : 'rgba(255, 255, 255, 0.04)',
-                      color: isCatActive ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                      border: isCatActive ? '1px solid var(--accent)' : '1px solid var(--hairline)',
+                      background: isCatActive ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                      color: isCatActive ? 'var(--accent)' : 'var(--label)',
                       fontSize: '11px',
                       fontWeight: isCatActive ? 600 : 500,
                       cursor: 'pointer',
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    <Icon size={12} strokeWidth={1.8} style={{ color: isCatActive ? '#38bdf8' : 'rgba(226, 232, 240, 0.85)' }} />
+                    <Icon size={12} strokeWidth={1.8} style={{ color: isCatActive ? 'var(--accent)' : 'var(--label-secondary)' }} />
                     <span>{cat.label}</span>
                   </button>
                 );
@@ -495,13 +370,13 @@ export const BottomToolbar: React.FC = () => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'var(--fill-control)',
+                  border: '1px solid var(--hairline)',
                   borderRadius: '9999px',
                   padding: '3px 10px'
                 }}
               >
-                <Search size={13} style={{ color: '#94a3b8' }} />
+                <Search size={13} style={{ color: 'var(--label-secondary)' }} />
                 <input
                   type="text"
                   placeholder="Cari gedung..."
@@ -511,7 +386,7 @@ export const BottomToolbar: React.FC = () => {
                     background: 'transparent',
                     border: 'none',
                     outline: 'none',
-                    color: '#ffffff',
+                    color: 'var(--label)',
                     fontSize: '11px',
                     width: '100px'
                   }}
@@ -519,7 +394,7 @@ export const BottomToolbar: React.FC = () => {
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0 }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--label-secondary)', cursor: 'pointer', padding: 0 }}
                   >
                     <X size={11} />
                   </button>
@@ -534,9 +409,9 @@ export const BottomToolbar: React.FC = () => {
                   gap: '4px',
                   padding: '4px 10px',
                   borderRadius: '9999px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.14)',
-                  color: '#ffffff',
+                  background: 'var(--fill-control)',
+                  border: '1px solid var(--hairline)',
+                  color: 'var(--label)',
                   fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer'
@@ -555,9 +430,9 @@ export const BottomToolbar: React.FC = () => {
                   gap: '4px',
                   padding: '4px 10px',
                   borderRadius: '9999px',
-                  background: 'rgba(56, 189, 248, 0.18)',
-                  border: '1px solid rgba(56, 189, 248, 0.4)',
-                  color: '#38bdf8',
+                  background: 'var(--accent-subtle)',
+                  border: '1px solid var(--accent)',
+                  color: 'var(--accent)',
                   fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer'
@@ -574,9 +449,9 @@ export const BottomToolbar: React.FC = () => {
                   width: '24px',
                   height: '24px',
                   borderRadius: '50%',
-                  background: 'rgba(255, 255, 255, 0.08)',
+                  background: 'var(--fill-control)',
                   border: 'none',
-                  color: '#94a3b8',
+                  color: 'var(--label-secondary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -617,12 +492,12 @@ export const BottomToolbar: React.FC = () => {
                     padding: '6px',
                     borderRadius: '14px',
                     background: isSelected
-                      ? 'rgba(56, 189, 248, 0.16)'
-                      : 'rgba(255, 255, 255, 0.04)',
+                      ? 'var(--accent-subtle)'
+                      : 'var(--fill-control)',
                     border: isSelected
-                      ? '1px solid rgba(56, 189, 248, 0.65)'
-                      : '1px solid rgba(255, 255, 255, 0.08)',
-                    boxShadow: isSelected ? '0 0 12px rgba(56, 189, 248, 0.3)' : 'none',
+                      ? '1px solid var(--accent)'
+                      : '1px solid var(--hairline)',
+                    boxShadow: isSelected ? '0 0 12px rgba(var(--accent-rgb, 10, 132, 255), 0.3)' : 'none',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease'
                   }}
@@ -640,10 +515,10 @@ export const BottomToolbar: React.FC = () => {
                   >
                     <img src={thumb} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {item.name}
                   </div>
-                  <div className="font-mono tabular-nums" style={{ fontSize: '9px', color: '#94a3b8' }}>
+                  <div className="font-mono tabular-nums" style={{ fontSize: '9px', color: 'var(--label-secondary)' }}>
                     {item.defaultWidth}×{item.defaultDepth}m • {item.defaultFloors} Lt
                   </div>
                 </div>
@@ -661,17 +536,17 @@ export const BottomToolbar: React.FC = () => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 14px',
-            background: 'rgba(15, 23, 42, 0.86)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
-            borderRadius: '24px',
-            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-            zIndex: 45
+            background: 'var(--surface)',
+            backdropFilter: 'blur(var(--glass-blur))',
+            WebkitBackdropFilter: 'blur(var(--glass-blur))',
+            border: '1px solid var(--hairline)',
+            borderRadius: 'var(--radius-panel)',
+            boxShadow: 'var(--shadow-glass)',
+            zIndex: 'var(--z-hud)' as any
           }}
         >
           {/* Straight vs Bezier */}
-          <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.06)', borderRadius: '9999px', padding: '2px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--fill-control)', borderRadius: '9999px', padding: '2px' }}>
             <button
               onClick={() => handleRoadDrawModeSelect('straight')}
               style={{
@@ -681,8 +556,8 @@ export const BottomToolbar: React.FC = () => {
                 padding: '4px 10px',
                 borderRadius: '9999px',
                 border: 'none',
-                background: roadDrawMode === 'straight' ? 'rgba(56, 189, 248, 0.3)' : 'transparent',
-                color: roadDrawMode === 'straight' ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                background: roadDrawMode === 'straight' ? 'var(--accent-subtle)' : 'transparent',
+                color: roadDrawMode === 'straight' ? 'var(--accent)' : 'var(--label)',
                 fontSize: '11px',
                 fontWeight: 600,
                 cursor: 'pointer'
@@ -700,8 +575,8 @@ export const BottomToolbar: React.FC = () => {
                 padding: '4px 10px',
                 borderRadius: '9999px',
                 border: 'none',
-                background: roadDrawMode === 'bezier' ? 'rgba(56, 189, 248, 0.3)' : 'transparent',
-                color: roadDrawMode === 'bezier' ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                background: roadDrawMode === 'bezier' ? 'var(--accent-subtle)' : 'transparent',
+                color: roadDrawMode === 'bezier' ? 'var(--accent)' : 'var(--label)',
                 fontSize: '11px',
                 fontWeight: 600,
                 cursor: 'pointer'
@@ -712,7 +587,7 @@ export const BottomToolbar: React.FC = () => {
             </button>
           </div>
 
-          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.15)' }} />
+          <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
 
           {/* Road Profiles */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto' }}>
@@ -727,9 +602,9 @@ export const BottomToolbar: React.FC = () => {
                   style={{
                     padding: '4px 10px',
                     borderRadius: '9999px',
-                    border: isSel ? '1px solid rgba(56, 189, 248, 0.55)' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: isSel ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.04)',
-                    color: isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                    border: isSel ? '1px solid var(--accent)' : '1px solid var(--hairline)',
+                    background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                    color: isSel ? 'var(--accent)' : 'var(--label)',
                     fontSize: '11px',
                     fontWeight: isSel ? 600 : 500,
                     cursor: 'pointer',
@@ -744,7 +619,7 @@ export const BottomToolbar: React.FC = () => {
 
           <button
             onClick={() => setActiveTool('select')}
-            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(226, 232, 240, 0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >
             <X size={12} />
           </button>
@@ -759,13 +634,13 @@ export const BottomToolbar: React.FC = () => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 14px',
-            background: 'rgba(15, 23, 42, 0.86)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
-            borderRadius: '24px',
-            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-            zIndex: 45
+            background: 'var(--surface)',
+            backdropFilter: 'blur(var(--glass-blur))',
+            WebkitBackdropFilter: 'blur(var(--glass-blur))',
+            border: '1px solid var(--hairline)',
+            borderRadius: 'var(--radius-panel)',
+            boxShadow: 'var(--shadow-glass)',
+            zIndex: 'var(--z-hud)' as any
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -783,9 +658,9 @@ export const BottomToolbar: React.FC = () => {
                     gap: '6px',
                     padding: '4px 10px',
                     borderRadius: '9999px',
-                    border: isSel ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid transparent',
-                    background: isSel ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
-                    color: isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                    border: isSel ? '1px solid var(--accent)' : '1px solid transparent',
+                    background: isSel ? 'var(--fill-control-active)' : 'transparent',
+                    color: isSel ? 'var(--label)' : 'var(--label-secondary)',
                     fontSize: '11px',
                     fontWeight: isSel ? 600 : 500,
                     cursor: 'pointer'
@@ -798,11 +673,11 @@ export const BottomToolbar: React.FC = () => {
             })}
           </div>
 
-          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.15)' }} />
+          <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
 
           {/* Lot Size Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '11px', color: '#94a3b8' }}>Kavling:</span>
+            <span style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>Kavling:</span>
             {[
               { w: 12, l: 15, label: '12×15m' },
               { w: 15, l: 20, label: '15×20m' },
@@ -816,9 +691,9 @@ export const BottomToolbar: React.FC = () => {
                   style={{
                     padding: '3px 8px',
                     borderRadius: '9999px',
-                    border: isSel ? '1px solid rgba(56, 189, 248, 0.55)' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: isSel ? 'rgba(56, 189, 248, 0.22)' : 'rgba(255, 255, 255, 0.04)',
-                    color: isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                    border: isSel ? '1px solid var(--accent)' : '1px solid var(--hairline)',
+                    background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                    color: isSel ? 'var(--accent)' : 'var(--label)',
                     fontSize: '11px',
                     fontWeight: isSel ? 600 : 500,
                     cursor: 'pointer'
@@ -830,7 +705,7 @@ export const BottomToolbar: React.FC = () => {
             })}
           </div>
 
-          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.15)' }} />
+          <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
 
           <button
             onClick={() => {
@@ -859,7 +734,7 @@ export const BottomToolbar: React.FC = () => {
 
           <button
             onClick={() => setActiveTool('select')}
-            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(226, 232, 240, 0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >
             <X size={12} />
           </button>
@@ -874,13 +749,13 @@ export const BottomToolbar: React.FC = () => {
             alignItems: 'center',
             gap: '8px',
             padding: '8px 14px',
-            background: 'rgba(15, 23, 42, 0.86)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
-            borderRadius: '24px',
-            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-            zIndex: 45
+            background: 'var(--surface)',
+            backdropFilter: 'blur(var(--glass-blur))',
+            WebkitBackdropFilter: 'blur(var(--glass-blur))',
+            border: '1px solid var(--hairline)',
+            borderRadius: 'var(--radius-panel)',
+            boxShadow: 'var(--shadow-glass)',
+            zIndex: 'var(--z-hud)' as any
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto' }}>
@@ -898,16 +773,16 @@ export const BottomToolbar: React.FC = () => {
                     gap: '5px',
                     padding: '4px 10px',
                     borderRadius: '9999px',
-                    border: isSel ? '1px solid rgba(56, 189, 248, 0.55)' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: isSel ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.04)',
-                    color: isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                    border: isSel ? '1px solid var(--accent)' : '1px solid var(--hairline)',
+                    background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                    color: isSel ? 'var(--accent)' : 'var(--label)',
                     fontSize: '11px',
                     fontWeight: isSel ? 600 : 500,
                     cursor: 'pointer',
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  <Icon size={13} strokeWidth={1.8} style={{ color: isSel ? '#38bdf8' : 'rgba(226, 232, 240, 0.85)' }} />
+                  <Icon size={13} strokeWidth={1.8} style={{ color: isSel ? 'var(--accent)' : 'var(--label-secondary)' }} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -916,112 +791,14 @@ export const BottomToolbar: React.FC = () => {
 
           <button
             onClick={() => setActiveTool('select')}
-            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(226, 232, 240, 0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >
             <X size={12} />
           </button>
         </div>
       )}
 
-      {/* 2F. 'analyze' Mode: Quick Toggles (with AnalysisOverlay as Full Laboratory) */}
-      {activeTool === 'analyze' && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 14px',
-            background: 'rgba(15, 23, 42, 0.86)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
-            borderRadius: '24px',
-            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-            zIndex: 45
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              onClick={() => {
-                if (engine?.sunPathVisualizer) {
-                  engine.sunPathVisualizer.setVisible(!engine.sunPathVisualizer.isVisible);
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 10px',
-                borderRadius: '9999px',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: '#ffffff',
-                fontSize: '11px',
-                fontWeight: 500,
-                cursor: 'pointer'
-              }}
-            >
-              <Sun size={13} style={{ color: '#f59e0b' }} />
-              <span>Busur Matahari</span>
-            </button>
 
-            <button
-              onClick={() => {
-                if (engine?.ventilationAnalyzer) {
-                  engine.ventilationAnalyzer.setWindVisible(!engine.ventilationAnalyzer.isWindActive);
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 10px',
-                borderRadius: '9999px',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: '#ffffff',
-                fontSize: '11px',
-                fontWeight: 500,
-                cursor: 'pointer'
-              }}
-            >
-              <Wind size={13} style={{ color: '#38bdf8' }} />
-              <span>Pita Aliran Angin</span>
-            </button>
-
-            <button
-              onClick={() => {
-                if (engine?.lotManager) {
-                  engine.lotManager.masterGroup.visible = !engine.lotManager.masterGroup.visible;
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 10px',
-                borderRadius: '9999px',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: '#ffffff',
-                fontSize: '11px',
-                fontWeight: 500,
-                cursor: 'pointer'
-              }}
-            >
-              <CheckCircle2 size={13} style={{ color: '#34c759' }} />
-              <span>Batas Kavling & GSB</span>
-            </button>
-          </div>
-
-          <button
-            onClick={() => setActiveTool('select')}
-            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(226, 232, 240, 0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
     </div>
   );
 };

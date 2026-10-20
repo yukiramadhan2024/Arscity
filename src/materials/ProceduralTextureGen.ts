@@ -74,31 +74,84 @@ export class ProceduralTextureGen {
   }
 
   /**
-   * Procedural Asphalt Road Texture
+   * Procedural Hotmix Asphalt Road Texture (1024x1024)
+   * Authentic dark charcoal base (#26292E to #1E2024) with thousands of
+   * micro stone aggregates (#3A3F47, #16181B, and bright silica #525864).
    */
-  public static getAsphaltTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `asphalt_${size}`;
+  public static getAsphaltTexture(size: number = 1024): THREE.CanvasTexture {
+    const key = `asphalt_hotmix_${size}`;
     if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
 
     const { canvas, ctx } = this.createCanvas(size, size);
 
-    // Base charcoal
-    ctx.fillStyle = '#22252a';
+    // 1. Dark charcoal gradient base (#26292E to #1E2024)
+    const baseGrad = ctx.createLinearGradient(0, 0, size, size);
+    baseGrad.addColorStop(0, '#26292E');
+    baseGrad.addColorStop(0.5, '#212328');
+    baseGrad.addColorStop(1, '#1E2024');
+    ctx.fillStyle = baseGrad;
     ctx.fillRect(0, 0, size, size);
 
-    // Fine mineral aggregate grain
+    // 2. Base bitumen binder grain variation
     const imgData = ctx.getImageData(0, 0, size, size);
     const data = imgData.data;
 
+    // Pseudo-random deterministic noise
     for (let i = 0; i < data.length; i += 4) {
-      const n = (Math.random() - 0.5) * 28;
-      const baseVal = 38 + n;
-      data[i] = Math.max(20, Math.min(65, baseVal));
-      data[i + 1] = Math.max(20, Math.min(65, baseVal));
-      data[i + 2] = Math.max(20, Math.min(68, baseVal + 2));
+      const n = (Math.random() - 0.5) * 16;
+      data[i] = Math.max(26, Math.min(48, data[i] + n));
+      data[i + 1] = Math.max(28, Math.min(50, data[i + 1] + n));
+      data[i + 2] = Math.max(32, Math.min(56, data[i + 2] + n));
       data[i + 3] = 255;
     }
     ctx.putImageData(imgData, 0, 0);
+
+    // 3. Thousands of micro stone aggregates (Hotmix aggregate distribution)
+    // Palet warna agregat:
+    // - Medium slate pebble: #3A3F47
+    // - Dark bitumen-coated aggregate: #16181B
+    // - Bright silica glint: #525864
+    // - Warm river gravel: #2F333B
+    const aggregateColors = [
+      '#3A3F47',
+      '#16181B',
+      '#3A3F47',
+      '#16181B',
+      '#2F333B',
+      '#525864', // Aksentuasi silika terang
+      '#444953'
+    ];
+
+    const pebbleCount = Math.floor(size * 18);
+    for (let p = 0; p < pebbleCount; p++) {
+      const px = Math.random() * size;
+      const py = Math.random() * size;
+      const radius = Math.random() < 0.8 ? (0.6 + Math.random() * 1.2) : (1.8 + Math.random() * 1.8);
+      const color = aggregateColors[Math.floor(Math.random() * aggregateColors.length)];
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      // Irregular aggregate shape
+      const sides = 4 + Math.floor(Math.random() * 3);
+      for (let s = 0; s < sides; s++) {
+        const angle = (s / sides) * Math.PI * 2;
+        const r = radius * (0.75 + Math.random() * 0.5);
+        const x = px + Math.cos(angle) * r;
+        const y = py + Math.sin(angle) * r;
+        if (s === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 4. Subtle micro-pores & bitumen sheen
+    ctx.fillStyle = 'rgba(22, 24, 27, 0.35)';
+    for (let m = 0; m < size * 4; m++) {
+      const mx = Math.random() * size;
+      const my = Math.random() * size;
+      ctx.fillRect(mx, my, 1.2, 1.2);
+    }
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
@@ -107,6 +160,42 @@ export class ProceduralTextureGen {
     this.cache.set(key, texture);
     return texture;
   }
+
+  /**
+   * Procedural Asphalt Normal/Bump Map (1024x1024)
+   * Captures micro-relief of aggregate stone grains for afternoon sunlight relief.
+   */
+  public static getAsphaltNormalTexture(size: number = 1024): THREE.CanvasTexture {
+    const key = `asphalt_normal_${size}`;
+    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
+
+    const { canvas, ctx } = this.createCanvas(size, size);
+
+    // Base normal map flat tangent: (128, 128, 255)
+    ctx.fillStyle = '#8080ff';
+    ctx.fillRect(0, 0, size, size);
+
+    const imgData = ctx.getImageData(0, 0, size, size);
+    const data = imgData.data;
+
+    // Normal disturbance from micro-aggregates
+    for (let i = 0; i < data.length; i += 4) {
+      const noiseX = (Math.random() - 0.5) * 32;
+      const noiseY = (Math.random() - 0.5) * 32;
+      data[i] = Math.max(80, Math.min(176, 128 + noiseX));     // Tangent X
+      data[i + 1] = Math.max(80, Math.min(176, 128 + noiseY)); // Tangent Y
+      data[i + 2] = 245 + Math.floor(Math.random() * 10);     // Tangent Z (pointing outward)
+      data[i + 3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    this.cache.set(key, texture);
+    return texture;
+  }
+
 
   /**
    * Procedural Concrete / Sidewalk Paving Texture
@@ -532,21 +621,22 @@ export class ProceduralTextureGen {
   }
 
   /**
-   * Procedural Asphalt Roughness Variation Map
+   * Procedural Asphalt Roughness Map (1024x1024)
+   * Roughness target: ~0.88 with variation between bitumen and mineral grains.
    */
-  public static getAsphaltRoughnessTexture(size: number = 512): THREE.CanvasTexture {
+  public static getAsphaltRoughnessTexture(size: number = 1024): THREE.CanvasTexture {
     const key = `asphalt_roughness_${size}`;
     if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
 
     const { canvas, ctx } = this.createCanvas(size, size);
-    ctx.fillStyle = '#b0b0b0';
+    ctx.fillStyle = '#dfdfdf';
     ctx.fillRect(0, 0, size, size);
 
     const imgData = ctx.getImageData(0, 0, size, size);
     const data = imgData.data;
     for (let i = 0; i < data.length; i += 4) {
-      const n = (Math.random() - 0.5) * 50;
-      const val = Math.max(140, Math.min(235, 185 + n));
+      const n = (Math.random() - 0.5) * 28;
+      const val = Math.max(200, Math.min(245, 224 + n));
       data[i] = val;
       data[i + 1] = val;
       data[i + 2] = val;

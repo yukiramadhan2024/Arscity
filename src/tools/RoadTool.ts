@@ -3,6 +3,7 @@ import { RoadManager } from '../roads/RoadManager';
 import { RoadType, ROAD_PROFILES } from '../roads/RoadTypes';
 import { RaycastManager } from '../core/engine/RaycastManager';
 import { proceduralAudio } from '../audio/ProceduralAudio';
+import { ProceduralTextureGen } from '../materials/ProceduralTextureGen';
 
 export class RoadTool {
   public roadManager: RoadManager;
@@ -16,10 +17,14 @@ export class RoadTool {
   public startPoint: THREE.Vector3 | null = null;
   private midControlPoint: THREE.Vector3 | null = null;
 
-  // Ghost preview mesh
+  // Ghost preview mesh & measurement guide lines
   private ghostMesh: THREE.Mesh;
-  private ghostMaterialValid: THREE.MeshBasicMaterial;
+  private ghostMaterialValid: THREE.MeshStandardMaterial;
   private ghostMaterialInvalid: THREE.MeshBasicMaterial;
+  private guideGroup: THREE.Group;
+  private centerGuideLine: THREE.Line;
+  private leftGuideLine: THREE.Line;
+  private rightGuideLine: THREE.Line;
 
   public currentRoadLength: number = 0;
   public isValidPlacement: boolean = false;
@@ -30,11 +35,18 @@ export class RoadTool {
     this.raycastManager = raycastManager;
     this.scene = scene;
 
-    // iOS 27 System Tokens: --good (#34C759) and --bad (#FF3B30)
-    this.ghostMaterialValid = new THREE.MeshBasicMaterial({
-      color: 0x34c759,
+    // Realistic Semi-Transparent Hotmix Asphalt Preview Material
+    const asphaltTex = ProceduralTextureGen.getAsphaltTexture(512);
+    asphaltTex.wrapS = THREE.RepeatWrapping;
+    asphaltTex.wrapT = THREE.RepeatWrapping;
+
+    this.ghostMaterialValid = new THREE.MeshStandardMaterial({
+      map: asphaltTex,
+      color: 0xffffff,
+      roughness: 0.88,
+      metalness: 0.05,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.82,
       depthWrite: false,
       side: THREE.DoubleSide
     });
@@ -42,16 +54,46 @@ export class RoadTool {
     this.ghostMaterialInvalid = new THREE.MeshBasicMaterial({
       color: 0xff3b30,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.65,
       depthWrite: false,
       side: THREE.DoubleSide
     });
 
-    const geom = new THREE.PlaneGeometry(1, 1);
+    const geom = new THREE.BufferGeometry();
     this.ghostMesh = new THREE.Mesh(geom, this.ghostMaterialValid);
     this.ghostMesh.visible = false;
     this.ghostMesh.name = 'RoadGhostPreview';
     scene.add(this.ghostMesh);
+
+    // Measurement guides: dashed centerline and cyan edge guides
+    this.guideGroup = new THREE.Group();
+    this.guideGroup.name = 'RoadGhostGuides';
+    this.guideGroup.visible = false;
+
+    const lineMatCenter = new THREE.LineDashedMaterial({
+      color: 0xffffff,
+      dashSize: 1.5,
+      gapSize: 1.0,
+      linewidth: 1,
+      transparent: true,
+      opacity: 0.95
+    });
+
+    const lineMatEdges = new THREE.LineBasicMaterial({
+      color: 0x38bdf8,
+      linewidth: 1,
+      transparent: true,
+      opacity: 0.8
+    });
+
+    this.centerGuideLine = new THREE.Line(new THREE.BufferGeometry(), lineMatCenter);
+    this.leftGuideLine = new THREE.Line(new THREE.BufferGeometry(), lineMatEdges);
+    this.rightGuideLine = new THREE.Line(new THREE.BufferGeometry(), lineMatEdges);
+
+    this.guideGroup.add(this.centerGuideLine);
+    this.guideGroup.add(this.leftGuideLine);
+    this.guideGroup.add(this.rightGuideLine);
+    scene.add(this.guideGroup);
   }
 
   public setRoadType(type: RoadType): void {
@@ -137,9 +179,14 @@ export class RoadTool {
     const profile = ROAD_PROFILES[this.activeRoadType];
     const width = profile.width;
 
-    const segments = 16;
+    const segments = 24;
     const positions = new Float32Array((segments + 1) * 2 * 3);
+    const uvs = new Float32Array((segments + 1) * 2 * 2);
     const indices: number[] = [];
+
+    const centerPts: THREE.Vector3[] = [];
+    const leftPts: THREE.Vector3[] = [];
+    const rightPts: THREE.Vector3[] = [];
 
     let p0 = this.startPoint;
     let p3 = currentEnd;
@@ -164,14 +211,22 @@ export class RoadTool {
       const left = pt.clone().addScaledVector(norm, -width * 0.5);
       const right = pt.clone().addScaledVector(norm, width * 0.5);
 
+      centerPts.push(new THREE.Vector3(pt.x, 0.1, pt.z));
+      leftPts.push(new THREE.Vector3(left.x, 0.1, left.z));
+      rightPts.push(new THREE.Vector3(right.x, 0.1, right.z));
+
       const baseIdx = i * 2;
       positions[baseIdx * 3] = left.x;
       positions[baseIdx * 3 + 1] = 0.08;
       positions[baseIdx * 3 + 2] = left.z;
+      uvs[baseIdx * 2] = 0;
+      uvs[baseIdx * 2 + 1] = t * (dist * 0.4);
 
       positions[(baseIdx + 1) * 3] = right.x;
       positions[(baseIdx + 1) * 3 + 1] = 0.08;
       positions[(baseIdx + 1) * 3 + 2] = right.z;
+      uvs[(baseIdx + 1) * 2] = 1;
+      uvs[(baseIdx + 1) * 2 + 1] = t * (dist * 0.4);
 
       if (i < segments) {
         indices.push(baseIdx, baseIdx + 2, baseIdx + 1);
@@ -182,9 +237,23 @@ export class RoadTool {
     this.ghostMesh.geometry.dispose();
     const newGeom = new THREE.BufferGeometry();
     newGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    newGeom.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     newGeom.setIndex(indices);
     newGeom.computeVertexNormals();
     this.ghostMesh.geometry = newGeom;
+
+    // Update measurement guide lines
+    this.centerGuideLine.geometry.dispose();
+    this.centerGuideLine.geometry = new THREE.BufferGeometry().setFromPoints(centerPts);
+    this.centerGuideLine.computeLineDistances();
+
+    this.leftGuideLine.geometry.dispose();
+    this.leftGuideLine.geometry = new THREE.BufferGeometry().setFromPoints(leftPts);
+
+    this.rightGuideLine.geometry.dispose();
+    this.rightGuideLine.geometry = new THREE.BufferGeometry().setFromPoints(rightPts);
+
+    this.guideGroup.visible = this.isValidPlacement;
   }
 
   private sampleCubic(p0: THREE.Vector3, p1: THREE.Vector3, p2: THREE.Vector3, p3: THREE.Vector3, t: number): THREE.Vector3 {
@@ -201,12 +270,19 @@ export class RoadTool {
     this.startPoint = null;
     this.midControlPoint = null;
     this.ghostMesh.visible = false;
+    if (this.guideGroup) this.guideGroup.visible = false;
     if (this.onLengthUpdate) this.onLengthUpdate(0, false);
   }
 
   public dispose(): void {
     this.cancelDrawing();
     this.scene.remove(this.ghostMesh);
+    if (this.guideGroup) {
+      this.scene.remove(this.guideGroup);
+      this.centerGuideLine.geometry.dispose();
+      this.leftGuideLine.geometry.dispose();
+      this.rightGuideLine.geometry.dispose();
+    }
     this.ghostMesh.geometry.dispose();
     this.ghostMaterialValid.dispose();
     this.ghostMaterialInvalid.dispose();

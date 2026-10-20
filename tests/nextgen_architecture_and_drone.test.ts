@@ -6,7 +6,7 @@ import { CameraController } from '../src/core/engine/CameraController';
 import { BuildingCatalogRegistry } from '../src/buildings/BuildingCatalogRegistry';
 import { PrefabMeshBuilder } from '../src/buildings/PrefabMeshBuilder';
 import { TectonicComponents } from '../src/buildings/TectonicComponents';
-import { BuildingInstance } from '../src/types/city';
+import { BuildingInstance } from '../src/buildings/PrefabTypes';
 
 describe('Next-Gen Architectural Scale Overhaul & Camera Tests', () => {
   let domElement: HTMLElement;
@@ -136,6 +136,38 @@ describe('Next-Gen Architectural Scale Overhaul & Camera Tests', () => {
       expect(isNaN(controller.polar)).toBe(false);
       expect(isNaN(controller.azimuth)).toBe(false);
     });
+
+    it('moves in the correct lateral direction in Walk Mode with KeyA (left) and KeyD (right)', () => {
+      controller.setWalkMode(true);
+      controller.walkPosition.set(0, 1.65, 0);
+      controller.walkYaw = 0; // facing +Z
+
+      const startX = controller.walkPosition.x;
+
+      // KeyD -> player strafes to their right (-X when facing +Z)
+      (controller as any).keysDown.add('KeyD');
+      controller.update(0.2);
+      expect(controller.walkPosition.x).toBeLessThan(startX);
+
+      // KeyA -> player strafes to their left (+X when facing +Z)
+      (controller as any).keysDown.clear();
+      (controller as any).keysDown.add('KeyA');
+      controller.update(0.4);
+      expect(controller.walkPosition.x).toBeGreaterThan(startX);
+
+      controller.setWalkMode(false);
+    });
+
+    it('respects enabled = false flag and freezes camera input updates', () => {
+      controller.enabled = false;
+      const initialAzimuth = controller.azimuth;
+
+      (controller as any).onKeyDown({ code: 'KeyQ' } as any);
+      controller.update(0.1);
+
+      expect(controller.azimuth).toBe(initialAzimuth);
+      controller.enabled = true;
+    });
   });
 
   describe('2. Strict 2-Font Discipline Enforcement', () => {
@@ -189,9 +221,9 @@ describe('Next-Gen Architectural Scale Overhaul & Camera Tests', () => {
   });
 
   describe('3. True 1:1 Scale & Hollow Walkable Architectural Shells', () => {
-    it('ensures all 58 catalog items meet true 1:1 scale standards (floorHeight >= 4.0m)', () => {
+    it('ensures all 97 catalog items meet true 1:1 scale standards (floorHeight >= 4.0m)', () => {
       const buildings = BuildingCatalogRegistry.getAllBuildings();
-      expect(buildings.length).toBe(58);
+      expect(buildings.length).toBe(97);
 
       for (const b of buildings) {
         expect(b.floorHeight).toBeGreaterThanOrEqual(4.0);
@@ -216,7 +248,7 @@ describe('Next-Gen Architectural Scale Overhaul & Camera Tests', () => {
         wallMaterial: 'plaster',
         roofColor: '#1e293b',
         roofType: 'gable',
-        roofMaterial: 'zinc',
+        roofMaterial: 'metal',
         roofOverhang: 0.8
       };
 
@@ -246,7 +278,7 @@ describe('Next-Gen Architectural Scale Overhaul & Camera Tests', () => {
         floorHeight: 5.5,
         floorCount: 4,
         wallColor: '#ffffff',
-        wallMaterial: 'concrete_board',
+        wallMaterial: 'concrete',
         roofColor: '#334155',
         roofType: 'flat',
         roofMaterial: 'concrete',
@@ -304,15 +336,14 @@ describe('Next-Gen Architectural Scale Overhaul & Camera Tests', () => {
           position: new THREE.Vector3(0, 0, 0),
           rotationY: 0,
           width: item.defaultWidth,
-          length: item.defaultLength,
+          length: item.defaultLength || item.defaultDepth,
           floorHeight: item.floorHeight,
-          floorCount: item.floors,
-          wallColor: item.wallColor,
-          wallMaterial: item.wallMaterial,
-          roofColor: item.roofColor,
-          roofType: item.roofType,
-          roofMaterial: item.roofMaterial,
-          roofOverhang: item.roofOverhang
+          floorCount: item.defaultFloors || item.defaultFloorCount || 1,
+          wallColor: item.defaultWallColor || '#ffffff',
+          wallMaterial: item.defaultWallMaterial || 'plaster',
+          roofType: item.defaultRoofType || (item.roofStyle as any),
+          roofMaterial: item.defaultRoofMaterial || 'metal',
+          roofOverhang: item.defaultOverhang
         };
 
         const group = PrefabMeshBuilder.buildBuildingGroup(bld);

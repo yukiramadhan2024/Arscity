@@ -216,8 +216,10 @@ export const AnalysisOverlay: React.FC = () => {
         top: '76px',
         left: '72px',
         width: '320px',
+        maxHeight: 'calc(100vh - 96px)',
+        overflowY: 'auto',
         padding: '14px',
-        zIndex: 45,
+        zIndex: 'var(--z-hud)' as any,
         borderRadius: 'var(--radius-panel)'
       }}
     >

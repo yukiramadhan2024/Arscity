@@ -95,6 +95,7 @@ export interface BuildingInstance {
   wallMaterial: WallMaterialType;
   wallColor: string;
   roofMaterial: RoofMaterialType;
+  roofColor?: string;
   lotId?: string;
 
   // Unified Custom Architecture Extensions (T2.1)

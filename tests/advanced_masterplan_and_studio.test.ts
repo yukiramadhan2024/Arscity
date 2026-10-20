@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { BuildingManager } from '../src/buildings/BuildingManager';
 import { RoadManager } from '../src/roads/RoadManager';
+import { RoadType } from '../src/roads/RoadTypes';
 import { LandscapeManager } from '../src/world/LandscapeManager';
 import { LotManager } from '../src/zones/LotManager';
 import { AdvancedBuildingCodeRegistry } from '../src/zones/AdvancedBuildingCode';
@@ -50,7 +51,13 @@ function addRoad(
 ): void {
   const nodeA = mgr.graph.getOrCreateNode(p1);
   const nodeB = mgr.graph.getOrCreateNode(p2);
-  mgr.graph.addEdge(nodeA.id, nodeB.id, type);
+  const roadTypeMap: Record<string, RoadType> = {
+    artery_20m: 'arterial',
+    collector_12m: 'collector',
+    local_7m: 'local',
+    alley_4m: 'alley'
+  };
+  mgr.graph.addEdge(nodeA.id, nodeB.id, roadTypeMap[type] ?? 'local');
 }
 
 describe('Advanced Masterplan & Architecture Studio Suite Upgrade (6 Sectors)', () => {
@@ -204,9 +211,9 @@ describe('Advanced Masterplan & Architecture Studio Suite Upgrade (6 Sectors)', 
         floorHeight: 3.6,
         roofType: 'gable',
         roofOverhang: 1.2,
-        wallMaterial: 'glass',
+        wallMaterial: 'plaster',
         wallColor: '#ffffff',
-        roofMaterial: 'metal_deck'
+        roofMaterial: 'metal'
       };
 
       const daylightShallow = SolarAnalyzer.evaluateDaylightAutonomy(shallowBld);
@@ -261,7 +268,7 @@ describe('Advanced Masterplan & Architecture Studio Suite Upgrade (6 Sectors)', 
 
       expect(estimate.hasRooftopSolar).toBe(true);
       expect(estimate.solarTenYearSavingsIdr).toBe(solarEst.tenYearSavingsIdr);
-      expect(estimate.tenYearTotalOpexIdr).toBeLessThan(estimate.tenYearBaselineOpexIdr);
+      expect(estimate.tenYearTotalOpexIdr).toBeLessThan(estimate.tenYearBaselineOpexIdr!);
     });
   });
 

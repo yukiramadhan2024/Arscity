@@ -76,8 +76,8 @@ describe('Building Code Metrics & Regulations (T2.2)', () => {
       roofType: 'gable',
       roofOverhang: 0.6,
       wallMaterial: 'plaster',
-      wallColor: 0xffffff,
-      roofMaterial: 'genteng'
+      wallColor: '#ffffff',
+      roofMaterial: 'clay_tile'
     };
     bldMgr.buildings.set(bld1.id, bld1);
 
@@ -114,8 +114,8 @@ describe('Building Code Metrics & Regulations (T2.2)', () => {
       roofType: 'gable',
       roofOverhang: 0.5,
       wallMaterial: 'brick',
-      wallColor: 0xffffff,
-      roofMaterial: 'genteng'
+      wallColor: '#ffffff',
+      roofMaterial: 'clay_tile'
     };
     bldMgr.buildings.set(protrudingBld.id, protrudingBld);
 

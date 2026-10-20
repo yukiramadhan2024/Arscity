@@ -1,15 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Engine } from '../core/engine/Engine';
 import { useUIStore } from '../ui/state/useUIStore';
-import { TopHeader } from '../ui/components/TopHeader';
-import { BottomToolbar } from '../ui/components/BottomToolbar';
-import { RoadSubToolbar } from '../ui/components/RoadSubToolbar';
-import { BuildingCatalogBar } from '../ui/components/BuildingCatalogBar';
-import { ZoneSubToolbar } from '../ui/components/ZoneSubToolbar';
-import { LandscapeSubToolbar } from '../ui/components/LandscapeSubToolbar';
-import { AnalysisOverlay } from '../ui/components/AnalysisOverlay';
-import { InspectorPanel } from '../ui/components/InspectorPanel';
-import { Minimap } from '../ui/components/Minimap';
+import { HudLayout } from '../ui/components/HudLayout';
+import { HelpModal } from '../ui/components/HelpModal';
 import { GlossaryModal } from '../ui/components/GlossaryModal';
 import { StyleLibraryModal } from '../ui/components/StyleLibraryModal';
 import { MissionModal } from '../ui/components/MissionModal';
@@ -19,15 +12,12 @@ import { SettingsModal } from '../ui/components/SettingsModal';
 import { CustomBuildingCreatorModal } from '../ui/components/CustomBuildingCreatorModal';
 import { OnboardingModal } from '../ui/components/OnboardingModal';
 import { PhotoModeOverlay } from '../ui/components/PhotoModeOverlay';
-import { SideUtilityDock } from '../ui/components/SideUtilityDock';
 import { LoadTestModal } from '../ui/components/LoadTestModal';
 import { RealWorldExportModal } from '../ui/components/RealWorldExportModal';
 import { ArchitectureQuizModal } from '../education/ArchitectureQuizModal';
 import { LoginPage } from '../ui/components/LoginPage';
 import { WorldHubModal } from '../ui/components/WorldHubModal';
-import { SpatialCursorTooltip } from '../ui/components/SpatialCursorTooltip';
 import { FirstPersonHUD } from '../ui/components/FirstPersonHUD';
-import { HelpCircle, X, Keyboard, Compass } from 'lucide-react';
 
 export const App: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -65,9 +55,10 @@ export const App: React.FC = () => {
     isWalkMode,
     toggleWalkMode,
     showQuiz,
-    setShowQuiz
+    setShowQuiz,
+    showHelp,
+    setShowHelp,
   } = useUIStore();
-  const [showHelp, setShowHelp] = useState<boolean>(false);
   const [, setSelectionTrigger] = useState<number>(0);
 
   useEffect(() => {
@@ -102,7 +93,7 @@ export const App: React.FC = () => {
         e.preventDefault();
         engine.redo();
       } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        setShowHelp((prev) => !prev);
+        setShowHelp(!useUIStore.getState().showHelp);
       } else if (e.key === 'Escape') {
         setShowHelp(false);
         setIsPhotoMode(false);
@@ -137,112 +128,12 @@ export const App: React.FC = () => {
         <>
           <FirstPersonHUD />
 
-          {!isPhotoMode && (
-            <div className="ui-overlay">
-              <TopHeader />
-              <SpatialCursorTooltip />
-
-              {/* In God-View / Orbit mode, render construction toolbars and minimap */}
-              {cameraMode === 'orbit' && (
-                <>
-                  {/* Side Utility Dock (Save/Load, Photo Mode, Settings, Help) */}
-                  <SideUtilityDock onOpenHelp={() => setShowHelp(true)} />
-
-                  {/* 2D Minimap Radar */}
-                  <Minimap />
-
-                  {/* Analysis Lab Overlay (Dedicated Left Laboratory) */}
-                  <AnalysisOverlay />
-
-                  {/* Property Inspector Panel */}
-                  <InspectorPanel />
-
-                  {/* Bottom Toolbar Dock */}
-                  <BottomToolbar />
-                </>
-              )}
-            </div>
+          {!isPhotoMode && cameraMode === 'orbit' && (
+            <HudLayout onOpenHelp={() => setShowHelp(true)} />
           )}
 
-          {/* Help Modal */}
-          {showHelp && (
-            <div className="modal-overlay interactive" role="dialog" aria-modal="true">
-              <div
-                className="modal-sheet"
-                style={{
-                  width: '520px',
-                  maxWidth: '92vw',
-                  maxHeight: '85vh'
-                }}
-              >
-                <div className="modal-sheet-header">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Keyboard size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
-                    <div>
-                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
-                        Pintasan Keyboard
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                        Navigasi kamera dan alat rancang cepat
-                      </div>
-                    </div>
-                  </div>
-                  <button onClick={() => setShowHelp(false)} className="icon-btn" aria-label="Tutup Bantuan">
-                    <X size={16} strokeWidth={1.75} />
-                  </button>
-                </div>
-
-                <div className="modal-sheet-body">
-                  <div className="inset-header">NAVIGASI KAMERA</div>
-                  <div className="inset-group">
-                    <div className="inset-row">
-                      <span style={{ fontSize: '13px', color: 'var(--label)' }}>Geser Kamera (Pan)</span>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'monospace' }}>
-                        WASD / Klik Tengah
-                      </span>
-                    </div>
-                    <div className="inset-row">
-                      <span style={{ fontSize: '13px', color: 'var(--label)' }}>Jarak Pandang (Zoom)</span>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'monospace' }}>
-                        Scroll Mouse
-                      </span>
-                    </div>
-                    <div className="inset-row">
-                      <span style={{ fontSize: '13px', color: 'var(--label)' }}>Rotasi Sudut (Orbit)</span>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'monospace' }}>
-                        Klik Kanan Drag / Q & E
-                      </span>
-                    </div>
-                    <div className="inset-row">
-                      <span style={{ fontSize: '13px', color: 'var(--label)' }}>Kemiringan Sudut (Tilt)</span>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'monospace' }}>
-                        Shift + Drag Kanan
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="inset-header">TIPS ARSITEKTUR TROPIS</div>
-                  <div className="inset-group">
-                    <div className="inset-row" style={{ background: 'var(--fill-control)' }}>
-                      <p style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--label)' }}>
-                        Gunakan pengatur waktu di pojok kanan atas untuk melihat pergerakan bayangan matahari dari lintang Yogyakarta (-7.8° LS). Fasad yang menghadap Barat dan Timur menerima panas tertinggi.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    <button
-                      onClick={() => setShowHelp(false)}
-                      className="ios-btn ios-btn-primary"
-                      style={{ padding: '8px 22px', fontSize: '13px' }}
-                    >
-                      Tutup
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Dedicated Help Modal */}
+          <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
 
           {/* Onboarding Liquid Glass Modal */}
           <OnboardingModal />

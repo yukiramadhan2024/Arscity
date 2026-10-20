@@ -76,18 +76,19 @@ export const SpatialCursorTooltip: React.FC = () => {
     top: `${mousePos.y}px`,
     pointerEvents: 'none',
     zIndex: 150,
-    padding: '8px 14px',
+    padding: '10px 16px',
     borderRadius: '16px',
-    background: 'rgba(15, 23, 42, 0.92)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    border: '1px solid rgba(255, 255, 255, 0.14)',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.55)',
+    background: 'var(--surface-raised)',
+    backdropFilter: 'blur(24px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+    border: '1px solid var(--hairline)',
+    boxShadow: 'var(--shadow-raised)',
     display: 'flex',
     flexDirection: 'column',
     gap: '4px',
-    maxWidth: '280px',
-    userSelect: 'none'
+    maxWidth: '290px',
+    userSelect: 'none',
+    color: 'var(--label)'
   };
 
   // 1. Telemetri Gizmo Aktif
@@ -102,20 +103,20 @@ export const SpatialCursorTooltip: React.FC = () => {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: isWarn ? '#FF3B30' : '#0A84FF',
-              boxShadow: isWarn ? '0 0 8px rgba(255, 59, 48, 0.8)' : '0 0 8px rgba(10, 132, 255, 0.8)',
+              backgroundColor: isWarn ? '#FF3B30' : '#007AFF',
+              boxShadow: isWarn ? '0 0 8px rgba(255, 59, 48, 0.6)' : '0 0 8px rgba(0, 122, 255, 0.6)',
               flexShrink: 0
             }}
           />
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             {gizmoTelem.label}
           </span>
         </div>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }} className="tabular-nums font-mono">
+        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--label)' }} className="tabular-nums font-mono">
           {gizmoTelem.value}
         </div>
         {gizmoTelem.secondary && (
-          <div style={{ fontSize: '11px', color: '#CBD5E1' }} className="tabular-nums">
+          <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }} className="tabular-nums">
             {gizmoTelem.secondary}
           </div>
         )}
@@ -140,20 +141,20 @@ export const SpatialCursorTooltip: React.FC = () => {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: '#0A84FF',
-              boxShadow: '0 0 8px rgba(10, 132, 255, 0.8)',
+              backgroundColor: '#007AFF',
+              boxShadow: '0 0 8px rgba(0, 122, 255, 0.6)',
               flexShrink: 0
             }}
           />
-          <Scissors size={13} strokeWidth={2} style={{ color: '#0A84FF' }} />
-          <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF' }}>
+          <Scissors size={13} strokeWidth={2} style={{ color: '#007AFF' }} />
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
             Irisan Denah Lantai
           </span>
         </div>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: '#FFFFFF' }} className="tabular-nums font-mono">
+        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)' }} className="tabular-nums font-mono">
           Ketinggian: {cutH.toFixed(2)} m
         </div>
-        <div style={{ fontSize: '11px', color: '#CBD5E1' }}>
+        <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
           {layerName}
         </div>
       </div>
@@ -184,17 +185,17 @@ export const SpatialCursorTooltip: React.FC = () => {
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                backgroundColor: isValid ? '#0A84FF' : '#FF3B30',
-                boxShadow: isValid ? '0 0 8px rgba(10, 132, 255, 0.8)' : '0 0 8px rgba(255, 59, 48, 0.8)',
+                backgroundColor: isValid ? '#007AFF' : '#FF3B30',
+                boxShadow: isValid ? '0 0 8px rgba(0, 122, 255, 0.6)' : '0 0 8px rgba(255, 59, 48, 0.6)',
                 flexShrink: 0
               }}
             />
-            <Route size={13} strokeWidth={2} style={{ color: isValid ? '#0A84FF' : '#FF3B30' }} />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF' }}>
+            <Route size={13} strokeWidth={2} style={{ color: isValid ? '#007AFF' : '#FF3B30' }} />
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
               {profile.name} (Lebar {profile.width}m)
             </span>
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: '#FFFFFF' }} className="tabular-nums font-mono">
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)' }} className="tabular-nums font-mono">
             Panjang: {lengthM.toFixed(1)} m | Sudut: {angleDeg}°
           </div>
           {!isValid && (
@@ -230,25 +231,25 @@ export const SpatialCursorTooltip: React.FC = () => {
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                backgroundColor: isValid ? '#0A84FF' : '#FF3B30',
-                boxShadow: isValid ? '0 0 8px rgba(10, 132, 255, 0.8)' : '0 0 8px rgba(255, 59, 48, 0.8)',
+                backgroundColor: isValid ? '#007AFF' : '#FF3B30',
+                boxShadow: isValid ? '0 0 8px rgba(0, 122, 255, 0.6)' : '0 0 8px rgba(255, 59, 48, 0.6)',
                 flexShrink: 0
               }}
             />
-            <Building size={13} strokeWidth={2} style={{ color: isValid ? '#0A84FF' : '#FF3B30' }} />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF' }}>
+            <Building size={13} strokeWidth={2} style={{ color: isValid ? '#007AFF' : '#FF3B30' }} />
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
               {name}
             </span>
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: '#FFFFFF' }} className="tabular-nums font-mono">
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)' }} className="tabular-nums font-mono">
             Dimensi: {width}m × {length}m | Rotasi: {rotDeg}°
           </div>
           {lot ? (
-            <div style={{ fontSize: '11px', color: '#34C759', fontWeight: 500 }}>
+            <div style={{ fontSize: '11px', color: '#16A34A', fontWeight: 600 }}>
               Kavling {lot.name} ({lot.zone})
             </div>
           ) : (
-            <div style={{ fontSize: '11px', color: '#CBD5E1' }}>
+            <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
               Lahan Bebas (Tekan [R] untuk memutar 90°)
             </div>
           )}
@@ -267,17 +268,17 @@ export const SpatialCursorTooltip: React.FC = () => {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: '#34C759',
-              boxShadow: '0 0 8px rgba(52, 199, 89, 0.8)',
+              backgroundColor: '#16A34A',
+              boxShadow: '0 0 8px rgba(22, 163, 74, 0.6)',
               flexShrink: 0
             }}
           />
-          <Trees size={14} strokeWidth={2} style={{ color: '#34C759' }} />
-          <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF' }}>
+          <Trees size={14} strokeWidth={2} style={{ color: '#16A34A' }} />
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
             Vegetasi & Resapan Tropis
           </span>
         </div>
-        <div style={{ fontSize: '11px', color: '#CBD5E1', lineHeight: '1.4' }}>
+        <div style={{ fontSize: '11px', color: 'var(--label-secondary)', lineHeight: '1.4' }}>
           Klik untuk menanam pohon peneduh, taman rumput, atau biopori resapan
         </div>
       </div>
@@ -294,17 +295,17 @@ export const SpatialCursorTooltip: React.FC = () => {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: '#0A84FF',
-              boxShadow: '0 0 8px rgba(10, 132, 255, 0.8)',
+              backgroundColor: '#007AFF',
+              boxShadow: '0 0 8px rgba(0, 122, 255, 0.6)',
               flexShrink: 0
             }}
           />
-          <LayoutGrid size={14} strokeWidth={2} style={{ color: '#0A84FF' }} />
-          <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF' }}>
+          <LayoutGrid size={14} strokeWidth={2} style={{ color: '#007AFF' }} />
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
             Penataan Zonasi Kavling
           </span>
         </div>
-        <div style={{ fontSize: '11px', color: '#CBD5E1', lineHeight: '1.4' }}>
+        <div style={{ fontSize: '11px', color: 'var(--label-secondary)', lineHeight: '1.4' }}>
           Klik pada lahan untuk membuat kavling zonasi dan batas sempadan bangunan
         </div>
       </div>

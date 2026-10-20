@@ -144,6 +144,7 @@ export class CameraController {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
+    if (!this.enabled) return;
     // Ignore if typing in an input
     if ((e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') {
       return;
@@ -164,6 +165,7 @@ export class CameraController {
   };
 
   private onMouseDown = (e: MouseEvent): void => {
+    if (!this.enabled) return;
     this.previousMousePosition = { x: e.clientX, y: e.clientY };
 
     if (e.button === 0 && e.altKey) {
@@ -183,6 +185,7 @@ export class CameraController {
   };
 
   private onMouseMove = (e: MouseEvent): void => {
+    if (!this.enabled) return;
     const deltaX = e.clientX - this.previousMousePosition.x;
     const deltaY = e.clientY - this.previousMousePosition.y;
     this.previousMousePosition = { x: e.clientX, y: e.clientY };
@@ -196,7 +199,7 @@ export class CameraController {
     }
 
     if (this.isWalkMode && (this.isRightDragging || this.isAltOrbitDragging || e.buttons === 1)) {
-      this.walkYaw += deltaX * 0.004 * this.mousepadSensitivity;
+      this.walkYaw -= deltaX * 0.003 * this.mousepadSensitivity;
       this.walkPitch -= deltaY * 0.003 * this.mousepadSensitivity;
       this.walkPitch = Math.max(-Math.PI * 0.45, Math.min(Math.PI * 0.45, this.walkPitch));
       return;
@@ -251,6 +254,7 @@ export class CameraController {
 
   private onWheel = (e: WheelEvent): void => {
     e.preventDefault();
+    if (!this.enabled) return;
 
     // 0. Drone speed adjustment when in Drone Mode
     if (this.isDroneMode) {
@@ -283,6 +287,7 @@ export class CameraController {
 
   // Touch handlers for touchpad and touchscreen gestures
   private onTouchStart = (e: TouchEvent): void => {
+    if (!this.enabled) return;
     if (e.touches.length === 2) {
       e.preventDefault();
       const t1 = e.touches[0];
@@ -296,6 +301,7 @@ export class CameraController {
   };
 
   private onTouchMove = (e: TouchEvent): void => {
+    if (!this.enabled) return;
     if (e.touches.length === 2 && this.previousTouchDistance !== null && this.previousTouchAngle !== null) {
       e.preventDefault();
       const t1 = e.touches[0];
@@ -515,6 +521,8 @@ export class CameraController {
   }
 
   public update(deltaTime: number): void {
+    if (!this.enabled) return;
+
     // 1. True 6-DOF Free-Fly Drone Mode
     if (this.isDroneMode) {
       this.dronePitch = THREE.MathUtils.clamp(this.dronePitch, -1.48, 1.48);
@@ -609,8 +617,8 @@ export class CameraController {
       if (this.keysDown.has('KeyD') || this.keysDown.has('ArrowRight')) strafe += 1;
 
       if (forward !== 0 || strafe !== 0) {
-        this.walkPosition.x += (sinY * forward + cosY * strafe) * walkSpeed;
-        this.walkPosition.z += (cosY * forward - sinY * strafe) * walkSpeed;
+        this.walkPosition.x += (sinY * forward - cosY * strafe) * walkSpeed;
+        this.walkPosition.z += (cosY * forward + sinY * strafe) * walkSpeed;
       }
 
       this.walkPosition.x = THREE.MathUtils.clamp(this.walkPosition.x, -780, 780);

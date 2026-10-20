@@ -347,6 +347,7 @@ export class Engine {
 
   private onCanvasClick = (e: MouseEvent): void => {
     if (e.button !== 0) return;
+    if (this.currentCameraMode !== 'orbit') return;
     this.raycastManager.updateMousePosition(e.clientX, e.clientY);
 
     if (this.activeToolName === 'road') {
@@ -565,6 +566,10 @@ export class Engine {
 
     // Teardown previous mode
     if (this.currentCameraMode === 'first_person') {
+      this.cameraController.target.copy(this.firstPersonController.position);
+      this.cameraController.target.y = 0;
+      this.cameraController.focusAt(this.cameraController.target);
+      this.cameraController.enabled = true;
       this.firstPersonController.exit();
     } else if (this.currentCameraMode === 'cinematic_drone') {
       this.cinematicDroneController.stopTour();
@@ -576,6 +581,7 @@ export class Engine {
     // Setup new mode
     if (mode === 'first_person') {
       const startPos = this.cameraController.target.clone();
+      this.cameraController.enabled = false;
       this.firstPersonController.enter(startPos, this.cameraController.azimuth + Math.PI);
     } else if (mode === 'cinematic_drone') {
       this.cameraController.setDroneMode(true);

@@ -12,13 +12,13 @@ import { LandscapeManager } from '../src/world/LandscapeManager';
 import { RoadManager } from '../src/roads/RoadManager';
 import { BuildingInstance } from '../src/buildings/PrefabTypes';
 
-describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Buildings)', () => {
+describe('Data-Driven Building Catalog & Parametric Procedural Architect (97 Buildings)', () => {
   const allBuildings = BuildingCatalogRegistry.getAllBuildings();
 
-  it('contains exactly 58 buildings with zero duplicate IDs', () => {
-    expect(allBuildings).toHaveLength(58);
+  it('contains exactly 97 buildings with zero duplicate IDs', () => {
+    expect(allBuildings).toHaveLength(97);
     const idSet = new Set(allBuildings.map((b) => b.id));
-    expect(idSet.size).toBe(58);
+    expect(idSet.size).toBe(97);
   });
 
   it('strictly adheres to anti-AI-slop rule: 0 Unicode emojis in names, descriptions, or categories', () => {
@@ -33,22 +33,41 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
     }
   });
 
-  it('correctly maps all 6 categories with expected counts', () => {
+  it('correctly maps all 15 categories with expected counts summing to 97', () => {
     const counts = BuildingCatalogRegistry.getCategoryCounts();
-    expect(counts.hunian).toBe(4);
+    expect(counts.all).toBe(97);
+    expect(counts.hunian).toBe(6);
     expect(counts.kuliner_kafe).toBe(12);
     expect(counts.mall_ritel).toBe(12);
     expect(counts.kampus_kos).toBe(9);
     expect(counts.budaya_hotel).toBe(11);
     expect(counts.publik_hijau).toBe(10);
+    expect(counts.pemerintahan_keamanan).toBe(6);
+    expect(counts.pendidikan).toBe(1);
+    expect(counts.kesehatan).toBe(2);
+    expect(counts.perdagangan_jasa).toBe(1);
+    expect(counts.industri_logistik).toBe(4);
+    expect(counts.transportasi).toBe(5);
+    expect(counts.utilitas).toBe(6);
+    expect(counts.ibadah_budaya).toBe(7);
+    expect(counts.rekreasi_terbuka).toBe(5);
     expect(
       counts.hunian +
         counts.kuliner_kafe +
         counts.mall_ritel +
         counts.kampus_kos +
         counts.budaya_hotel +
-        counts.publik_hijau
-    ).toBe(58);
+        counts.publik_hijau +
+        counts.pemerintahan_keamanan +
+        counts.pendidikan +
+        counts.kesehatan +
+        counts.perdagangan_jasa +
+        counts.industri_logistik +
+        counts.transportasi +
+        counts.utilitas +
+        counts.ibadah_budaya +
+        counts.rekreasi_terbuka
+    ).toBe(97);
   });
 
   it('includes all 48 newly requested Indonesian building types', () => {
@@ -115,8 +134,68 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
     }
   });
 
+  it('includes all 39 newly requested Indonesian city functional buildings and public facilities', () => {
+    const requiredUrbanIds = [
+      'perumahan_cluster_asri',
+      'rusunawa_rakyat',
+      'balai_kota_pemerintahan',
+      'kantor_kecamatan_kelurahan',
+      'kantor_polisi_resor',
+      'pos_pemadam_kebakaran',
+      'gedung_pengadilan_negeri',
+      'kantor_pos_giro',
+      'lembaga_kursus_pelatihan',
+      'rumah_sakit_umum_daerah',
+      'klinik_pratama_warga',
+      'gedung_bank_sentral',
+      'pabrik_manufaktur_modern',
+      'kawasan_industri_terpadu',
+      'pergudangan_logistik_kargo',
+      'pelabuhan_kering_dryport',
+      'terminal_bus_antarkota',
+      'bandara_terminal_udara',
+      'pelabuhan_dermaga_laut',
+      'jembatan_penyeberangan_girder',
+      'flyover_jalan_layang',
+      'gardu_induk_listrik',
+      'pembangkit_listrik_surya_bio',
+      'instalasi_pengolahan_air_pdam',
+      'instalasi_pengolahan_limbah_ipal',
+      'tpa_sanitary_landfill',
+      'menara_telekomunikasi_bts',
+      'gereja_katedral_menara',
+      'pura_kahyangan_nusantara',
+      'vihara_dharma_meditasi',
+      'klenteng_tri_dharma',
+      'gedung_teater_pertunjukan',
+      'galeri_seni_kontemporer',
+      'monumen_tugu_kota',
+      'taman_kota_terbuka',
+      'lapangan_alun_alun_kota',
+      'stadion_olahraga_kota',
+      'pusat_olahraga_sportcenter',
+      'pemakaman_taman_asri'
+    ];
+
+    for (const reqId of requiredUrbanIds) {
+      const item = BuildingCatalogRegistry.getBuilding(reqId);
+      expect(item, `Building ${reqId} must exist in registry`).toBeDefined();
+      expect(item?.id).toBe(reqId);
+    }
+
+    // Verify key Indonesian aliases work seamlessly
+    expect(BuildingCatalogRegistry.getBuilding('balai_kota')?.id).toBe('balai_kota_pemerintahan');
+    expect(BuildingCatalogRegistry.getBuilding('rumah_sakit')?.id).toBe('rumah_sakit_umum_daerah');
+    expect(BuildingCatalogRegistry.getBuilding('pabrik')?.id).toBe('pabrik_manufaktur_modern');
+    expect(BuildingCatalogRegistry.getBuilding('bandara')?.id).toBe('bandara_terminal_udara');
+    expect(BuildingCatalogRegistry.getBuilding('terminal')?.id).toBe('terminal_bus_antarkota');
+    expect(BuildingCatalogRegistry.getBuilding('gereja')?.id).toBe('gereja_katedral_menara');
+    expect(BuildingCatalogRegistry.getBuilding('stadion')?.id).toBe('stadion_olahraga_kota');
+    expect(BuildingCatalogRegistry.getBuilding('alun_alun')?.id).toBe('lapangan_alun_alun_kota');
+  });
+
   describe('Automated Procedural 3D Mesh Generation & Geometry Invariants', () => {
-    it('generates valid 3D meshes with >0 vertices and 0 NaN coordinates for all 58 buildings', () => {
+    it('generates valid 3D meshes with >0 vertices and 0 NaN coordinates for all 97 buildings', () => {
       for (const item of allBuildings) {
         const dummyInstance: BuildingInstance = {
           id: `test_${item.id}`,
@@ -195,7 +274,7 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
         roofOverhang: gacoan.defaultOverhang,
         wallMaterial: 'brick',
         wallColor: '#ea580c',
-        roofMaterial: 'metal_zinc'
+        roofMaterial: 'metal'
       };
 
       const group1 = PrefabMeshBuilder.buildBuildingGroup(instance);
@@ -214,8 +293,8 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
     });
   });
 
-  describe('Adaptive Interior Layout Generation for All 58 Buildings', () => {
-    it('produces valid room layouts with positive areas for all 58 buildings', () => {
+  describe('Adaptive Interior Layout Generation for All 97 Buildings', () => {
+    it('produces valid room layouts with positive areas for all 97 buildings', () => {
       for (const item of allBuildings) {
         const layouts = InteriorLayoutFactory.getLayoutForBuilding(
           item.id,
@@ -244,7 +323,7 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
   describe('Thermal Comfort, CAPEX, & OPEX Simulation Integrity', () => {
     const costEstimator = CostEstimator.getInstance();
 
-    it('calculates valid CAPEX and 10-year OPEX for all 58 buildings without NaN', () => {
+    it('calculates valid CAPEX and 10-year OPEX for all 97 buildings without NaN', () => {
       for (const item of allBuildings) {
         const instance: BuildingInstance = {
           id: `sim_${item.id}`,
@@ -292,7 +371,10 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
         floorCount: jogloKopi.defaultFloors,
         floorHeight: jogloKopi.floorHeight,
         roofType: jogloKopi.roofStyle,
-        roofOverhang: jogloKopi.defaultOverhang
+        roofOverhang: jogloKopi.defaultOverhang,
+        wallMaterial: 'wood',
+        wallColor: '#8b5a2b',
+        roofMaterial: 'clay_tile'
       };
 
       bldMgr.buildings.set(jogloInstance.id, jogloInstance);
@@ -331,7 +413,11 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
           length: item.defaultDepth,
           floorCount: item.defaultFloors,
           floorHeight: item.floorHeight,
-          roofType: item.roofStyle
+          roofType: item.roofStyle,
+          roofOverhang: item.defaultOverhang,
+          wallMaterial: 'plaster',
+          wallColor: '#ffffff',
+          roofMaterial: 'clay_tile'
         });
       }
 
@@ -343,16 +429,16 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
     });
   });
 
-  describe('Save/Load & Deserialization Compatibility for All 58 Buildings', () => {
+  describe('Save/Load & Deserialization Compatibility for All 97 Buildings', () => {
     it('validates and roundtrips every preset through CitySerializer', () => {
       const rawData: CitySaveData = {
         version: '2.0.0',
-        cityTitle: 'Uji Katalog 58 Gedung',
+        cityTitle: 'Uji Katalog 97 Gedung',
         timestamp: Date.now(),
         environment: {
           timeOfDay: 12.0,
           dayOfYear: 180,
-          weather: 'sunny'
+          weather: 'clear'
         },
         roads: {
           nodes: [
@@ -364,7 +450,7 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
               id: 'edge_1',
               startNodeId: 'node_1',
               endNodeId: 'node_2',
-              type: 'main',
+              type: 'arterial',
               controlPoints: [
                 [0, 0, 0],
                 [100, 0, 0]
@@ -396,7 +482,7 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (58 Bui
       const val = CitySerializer.validateCityData(rawData);
       expect(val.valid).toBe(true);
       expect(val.errors).toHaveLength(0);
-      expect(rawData.buildings).toHaveLength(58);
+      expect(rawData.buildings).toHaveLength(97);
     });
   });
 });

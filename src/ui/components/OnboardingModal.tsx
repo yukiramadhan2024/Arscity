@@ -28,27 +28,28 @@ export const OnboardingModal: React.FC = () => {
       >
         {/* Header */}
         <div className="modal-sheet-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '32px',
-                height: '32px',
+                width: '38px',
+                height: '38px',
                 borderRadius: '50%',
-                background: 'var(--fill-control-hover)',
+                background: 'rgba(10, 132, 255, 0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--accent)'
+                color: '#007AFF',
+                flexShrink: 0
               }}
             >
-              <Building size={18} strokeWidth={1.75} />
+              <Building size={20} color="#007AFF" strokeWidth={2.2} />
             </div>
             <div>
-              <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--label)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
                 Selamat Datang di Arscity
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                Konfigurasi Awal Antarmuka iOS 27 Liquid Glass
+              <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>
+                Konfigurasi Awal Antarmuka Laboratorium Analisis
               </div>
             </div>
           </div>
@@ -56,8 +57,8 @@ export const OnboardingModal: React.FC = () => {
 
         {/* Body */}
         <div className="modal-sheet-body">
-          <p style={{ fontSize: '13px', color: 'var(--label)', lineHeight: 1.5, marginBottom: '14px' }}>
-            Arscity menghadirkan pengalaman sandbox arsitektur dan tata kota tropis dengan antarmuka Liquid Glass yang disempurnakan untuk kenyamanan visual dan keterbacaan optimal.
+          <p style={{ fontSize: '13px', color: 'var(--label-secondary)', lineHeight: 1.55, marginBottom: '16px' }}>
+            Arscity menghadirkan pengalaman sandbox arsitektur dan tata kota tropis dengan antarmuka kaca translusen yang disempurnakan untuk kenyamanan visual dan keterbacaan optimal.
           </p>
 
           {/* Setup Transparansi Kaca */}
@@ -66,8 +67,8 @@ export const OnboardingModal: React.FC = () => {
             {/* Slider */}
             <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', fontWeight: 500 }}>Transparansi Kaca</span>
-                <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent)' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Transparansi Kaca</span>
+                <span className="tabular-nums font-mono font-bold" style={{ fontSize: '13px', color: 'var(--accent)' }}>
                   {Math.round(glassOpacity * 100)}%
                 </span>
               </div>
@@ -88,39 +89,43 @@ export const OnboardingModal: React.FC = () => {
                 style={{
                   position: 'relative',
                   height: '74px',
-                  borderRadius: '12px',
+                  borderRadius: '16px',
                   overflow: 'hidden',
-                  background: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #0f172a 100%)',
+                  background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '8px'
+                  padding: '8px',
+                  border: '1px solid var(--hairline)'
                 }}
               >
                 <div
                   style={{
                     position: 'absolute',
                     inset: 0,
-                    backgroundImage: 'radial-gradient(circle at 30% 30%, rgba(0,122,255,0.4) 0%, transparent 40%), radial-gradient(circle at 70% 70%, rgba(52,199,89,0.3) 0%, transparent 40%)'
+                    backgroundImage: 'radial-gradient(circle at 30% 30%, rgba(10,132,255,0.2) 0%, transparent 40%), radial-gradient(circle at 70% 70%, rgba(52,199,89,0.2) 0%, transparent 40%)'
                   }}
                 />
                 <div
                   className="glass-surface"
                   style={{
-                    padding: '8px 14px',
-                    borderRadius: '10px',
+                    padding: '8px 16px',
+                    borderRadius: '14px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    zIndex: 2
+                    gap: '10px',
+                    zIndex: 2,
+                    background: 'var(--surface-raised)',
+                    border: '1px solid var(--hairline)',
+                    boxShadow: '0 8px 24px rgba(15, 23, 42, 0.2)'
                   }}
                 >
-                  <Eye size={15} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+                  <Eye size={16} strokeWidth={2.2} style={{ color: 'var(--accent)' }} />
                   <div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--label)' }}>
                       Pratinjau Kaca Langsung
                     </div>
-                    <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
                       Keterbacaan teks teruji di atas viewport 3D
                     </div>
                   </div>
@@ -130,7 +135,7 @@ export const OnboardingModal: React.FC = () => {
 
             {/* Tema */}
             <div className="inset-row">
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>Tema</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Tema</span>
               <div className="segmented-control">
                 {[
                   { id: 'auto' as ThemeMode, label: 'Otomatis' },
@@ -150,7 +155,7 @@ export const OnboardingModal: React.FC = () => {
 
             {/* Gaya Kaca */}
             <div className="inset-row">
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>Gaya Kaca</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Gaya Kaca</span>
               <div className="segmented-control">
                 {[
                   { id: 'clear' as GlassStyle, label: 'Bening' },
@@ -172,7 +177,17 @@ export const OnboardingModal: React.FC = () => {
             <button
               onClick={() => setShowOnboarding(false)}
               className="ios-btn ios-btn-primary"
-              style={{ padding: '8px 24px', fontSize: '13px' }}
+              style={{
+                padding: '10px 28px',
+                fontSize: '13px',
+                fontWeight: 700,
+                borderRadius: '14px',
+                background: '#007AFF',
+                color: '#FFFFFF',
+                border: 'none',
+                boxShadow: '0 4px 14px rgba(0, 122, 255, 0.35)',
+                cursor: 'pointer'
+              }}
             >
               Mulai Menata Kota
             </button>

@@ -126,19 +126,49 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
       >
         {/* Header */}
         <div className="modal-sheet-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <HardDrive size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: 'rgba(10, 132, 255, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <HardDrive size={20} color="#007AFF" strokeWidth={2.2} />
+            </div>
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
                 Simpan & Muat Kota
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+              <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>
                 Arsip penyimpanan lokal dan ekspor denah arsitektur
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="icon-btn" aria-label="Tutup Dialog">
-            <X size={16} strokeWidth={1.75} />
+          <button
+            onClick={onClose}
+            className="icon-btn"
+            aria-label="Tutup Dialog"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'var(--fill-control)',
+              border: '1px solid var(--hairline)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--label-secondary)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
 

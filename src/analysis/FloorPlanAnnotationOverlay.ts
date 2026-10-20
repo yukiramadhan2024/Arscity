@@ -62,7 +62,7 @@ export class FloorPlanAnnotationOverlay {
           this.createdMaterials.push(mat);
 
           const surfaceMesh = new THREE.Mesh(geo, mat);
-          surfaceMesh.rotation.x = -Math.PI * 0.5;
+          surfaceMesh.rotation.x = Math.PI * 0.5;
           surfaceMesh.position.y = 0.38; // Just above plinth
           group.add(surfaceMesh);
 

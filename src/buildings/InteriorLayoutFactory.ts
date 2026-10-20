@@ -44,17 +44,29 @@ export class InteriorLayoutFactory {
                 layout = this.buildKulinerKafeLayout(width, length, floorHeight, fl, item);
                 break;
               case 'mall_ritel':
+              case 'perdagangan_jasa':
                 layout = this.buildMallRitelLayout(width, length, floorHeight, fl, item);
                 break;
               case 'kampus_kos':
+              case 'pendidikan':
                 layout = this.buildKampusKosLayout(width, length, floorHeight, fl, item);
                 break;
               case 'budaya_hotel':
+              case 'ibadah_budaya':
                 layout = this.buildBudayaHotelLayout(width, length, floorHeight, fl, item);
                 break;
               case 'publik_hijau':
+              case 'pemerintahan_keamanan':
+              case 'kesehatan':
+              case 'rekreasi_terbuka':
                 layout = this.buildPublikHijauLayout(width, length, floorHeight, fl, item);
                 break;
+              case 'hunian':
+                layout = this.buildHouse2StoryLayout(width, length, floorHeight, fl);
+                break;
+              case 'industri_logistik':
+              case 'transportasi':
+              case 'utilitas':
               default:
                 layout = this.buildGenericLayout(width, length, floorHeight, fl);
                 break;

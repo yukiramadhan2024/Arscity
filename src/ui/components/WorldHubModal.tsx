@@ -1,25 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '../state/useUIStore';
+import { ArscityLogo } from './ArscityLogo';
 import {
-  Plus,
-  Play,
+  Upload,
+  User,
+  LogOut,
+  X,
+  Sparkles,
   Trash2,
   Clock,
-  Sparkles,
-  ArrowRight,
-  X,
-  LogOut,
-  User,
-  Compass,
-  FolderOpen,
-  Route,
-  Trees,
   Building2,
-  MapPin,
-  Upload
+  Route,
+  ArrowRight,
+  FolderOpen,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { IndexedDBStorage, SavedMapMeta } from '../../io/IndexedDBStorage';
 import { GeoJSONImporter } from '../../io/GeoJSONImporter';
+import { JsonExporter } from '../../io/JsonExporter';
+import { GlassFolder, FolderFile } from '@/components/ui/glass-folder-cards';
 
 interface WorldHubModalProps {
   isOpen?: boolean;
@@ -27,23 +27,27 @@ interface WorldHubModalProps {
 }
 
 export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onClose }) => {
-  const {
-    isMapHubOpen,
-    closeMapHub,
-    loadMap,
-    userEmail,
-    logout,
-    savedMapsList,
-    refreshSavedMaps,
-    isLoadingMap,
-    loadingMapMessage,
-  } = useUIStore();
+  const uiStore = useUIStore();
+  // Safe SSR/Hydration fallback for test and headless environments
+  const state = typeof useUIStore.getState === 'function' ? useUIStore.getState() : uiStore;
+  const isMapHubOpen = uiStore.isMapHubOpen ?? state.isMapHubOpen;
+  const closeMapHub = uiStore.closeMapHub ?? state.closeMapHub;
+  const loadMap = uiStore.loadMap ?? state.loadMap;
+  const userEmail = uiStore.userEmail ?? state.userEmail;
+  const logout = uiStore.logout ?? state.logout;
+  const savedMapsList = uiStore.savedMapsList?.length ? uiStore.savedMapsList : (state.savedMapsList || []);
+  const refreshSavedMaps = uiStore.refreshSavedMaps ?? state.refreshSavedMaps;
+  const isLoadingMap = uiStore.isLoadingMap ?? state.isLoadingMap;
+  const loadingMapMessage = uiStore.loadingMapMessage ?? state.loadingMapMessage;
+  const engine = uiStore.engine ?? state.engine;
+  const activeMapId = uiStore.activeMapId ?? state.activeMapId;
+  const activeMapName = uiStore.activeMapName ?? state.activeMapName;
+  const resolvedTheme = (uiStore.resolvedTheme ?? state.resolvedTheme ?? 'dark') as 'light' | 'dark';
 
-  const [newCityName, setNewCityName] = useState<string>('');
-  const [isCreatingNew, setIsCreatingNew] = useState<boolean>(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isSlotListExpanded, setIsSlotListExpanded] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     refreshSavedMaps();
@@ -59,12 +63,18 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
   const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const { engine } = useUIStore.getState();
-    if (!engine) return;
+    const currentEngine = engine || useUIStore.getState().engine;
+    if (!currentEngine) {
+      setImportStatus('Kanvas 3D belum siap. Memulai kanvas standar...');
+      await loadMap('empty', 'empty_map', 'Kanvas Impor');
+    }
 
     try {
       setImportStatus('Menganalisis berkas peta...');
-      const res = await GeoJSONImporter.importFromFile(file, engine);
+      const targetEngine = engine || useUIStore.getState().engine;
+      if (!targetEngine) throw new Error('Engine tidak tersedia.');
+
+      const res = await GeoJSONImporter.importFromFile(file, targetEngine);
       if (res.type === 'arscity') {
         setImportStatus(`Peta Proyek .arscity berhasil dimuat (${res.roadsCount} jalan, ${res.buildingsCount} gedung).`);
       } else {
@@ -76,78 +86,196 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
       }, 1600);
     } catch (err: any) {
       setImportStatus(`Gagal mengimpor: ${err?.message || 'Format berkas tidak valid'}`);
-      setTimeout(() => setImportStatus(null), 3000);
+      setTimeout(() => setImportStatus(null), 3500);
     } finally {
       if (e.target) e.target.value = '';
     }
-  };
-
-  const handleCreateEmptyMap = async () => {
-    const name = newCityName.trim() || 'Lahan Baru';
-    const res = await IndexedDBStorage.createNewEmptyMap(name);
-    setIsCreatingNew(false);
-    setNewCityName('');
-    await loadMap('saved', res.id, name);
   };
 
   const handleLoadMalioboro = async () => {
     await loadMap('malioboro', 'malioboro_preset', 'Koridor Malioboro Yogyakarta');
   };
 
+  const handleLoadEmptyDirect = async () => {
+    await loadMap('empty', 'empty_map', 'Lahan Kosong Standar');
+  };
+
+  const handleCreateNewCitySlot = async () => {
+    const count = savedMapsList.length + 1;
+    const defaultName = `Kota Tropis Baru ${count}`;
+    const res = await IndexedDBStorage.createNewEmptyMap(defaultName);
+    await refreshSavedMaps();
+    await loadMap('saved', res.id, defaultName);
+  };
+
   const handleLoadSavedMap = async (map: SavedMapMeta) => {
     await loadMap('saved', map.id, map.name);
   };
 
-  const handleDeleteSavedMap = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeleteSavedMap = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     await IndexedDBStorage.deleteMapById(id);
     setDeleteConfirmId(null);
     await refreshSavedMaps();
   };
 
-  const formatDate = (ts: number): string => {
-    if (!ts) return 'Baru dibuat';
-    const d = new Date(ts);
-    return `${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} • ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+  const handleClearAllSavedMaps = async () => {
+    if (typeof window !== 'undefined' && window.confirm('Hapus seluruh slot kota tersimpan dari memori lokal IndexedDB?')) {
+      for (const m of savedMapsList) {
+        await IndexedDBStorage.deleteMapById(m.id);
+      }
+      await refreshSavedMaps();
+    }
   };
+
+  const handleExportActiveCity = async () => {
+    const curEngine = engine || useUIStore.getState().engine;
+    if (curEngine && curEngine.roadManager) {
+      const fileName = `${(activeMapName || 'arscity_proyek').toLowerCase().replace(/\s+/g, '_')}.arscity`;
+      JsonExporter.exportCityToJson(curEngine, fileName);
+      setImportStatus(`Berkas ${fileName} berhasil diunduh.`);
+      setTimeout(() => setImportStatus(null), 2500);
+      return;
+    }
+
+    if (activeMapId) {
+      const data = await IndexedDBStorage.loadMapById(activeMapId);
+      if (data) {
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const fileName = `${(data.cityTitle || 'arscity_proyek').toLowerCase().replace(/\s+/g, '_')}.arscity`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setImportStatus(`Berkas ${fileName} berhasil diunduh.`);
+        setTimeout(() => setImportStatus(null), 2500);
+        return;
+      }
+    }
+
+    setImportStatus('Belum ada kota aktif yang siap diekspor. Muat peta terlebih dahulu.');
+    setTimeout(() => setImportStatus(null), 2500);
+  };
+
+  const formatDateShort = (ts: number): string => {
+    if (!ts) return 'BARU DIBUAT';
+    const d = new Date(ts);
+    const dateStr = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    return `${dateStr} · ${timeStr}`;
+  };
+
+  /* =========================================================================
+     FOLDER 1: Peta Bawaan Nusantara & Malioboro
+     ========================================================================= */
+  const folder1Files: FolderFile[] = [
+    {
+      id: 'preset-malioboro',
+      name: 'Koridor Malioboro',
+      meta: 'YOGYAKARTA · CAGAR BUDAYA',
+      art: 'ember',
+    },
+    {
+      id: 'preset-empty',
+      name: 'Lahan Kosong Standar',
+      meta: '1600×1600M · DATAR',
+      art: 'glacier',
+    },
+  ];
+
+  /* =========================================================================
+     FOLDER 2: Penyimpanan Kota Saya (IndexedDB)
+     ========================================================================= */
+  const folder2Files: FolderFile[] =
+    savedMapsList.length === 0
+      ? [
+          {
+            id: 'new-city-placeholder',
+            name: 'Kota Tropis Baru',
+            meta: 'KLIK UNTUK MULAI',
+            art: 'glacier',
+          },
+        ]
+      : savedMapsList.slice(0, 5).map((map, idx) => {
+          const arts: ('dusk' | 'aurora' | 'verdant')[] = ['dusk', 'aurora', 'verdant'];
+          return {
+            id: map.id,
+            name: map.name,
+            meta: `${map.buildingCount} GEDUNG · ${formatDateShort(map.updatedAt)}`,
+            art: arts[idx % 3],
+            payload: map,
+          };
+        });
+
+  /* =========================================================================
+     FOLDER 3: Berkas Proyek & CAD
+     ========================================================================= */
+  const folder3Files: FolderFile[] = [
+    {
+      id: 'action-import',
+      name: 'Impor Berkas .Arscity / .GeoJSON',
+      meta: 'BUKA DARI PERANGKAT',
+      art: 'dusk',
+    },
+    {
+      id: 'action-export',
+      name: 'Ekspor Kota Aktif (.Arscity)',
+      meta: 'ARSIP LOKAL GZIP',
+      art: 'verdant',
+    },
+    {
+      id: 'action-clear',
+      name: 'Kelola & Bersihkan Slot',
+      meta: 'MANAJEMEN MEMORI',
+      art: 'ember',
+    },
+  ];
 
   return (
     <div
       className="wh-overlay interactive"
       role="dialog"
       aria-modal="true"
-      aria-label="Pilih Peta atau Mulai Kota Baru"
+      aria-label="Pusat Penyimpanan & Dunia Arscity"
     >
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .wh-overlay {
           position: fixed;
           inset: 0;
-          z-index: 100;
+          z-index: var(--z-auth, 70);
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 24px;
-          background-color: rgba(9, 13, 22, 0.82);
-          backdrop-filter: blur(28px) saturate(180%);
-          -webkit-backdrop-filter: blur(28px) saturate(180%);
+          background-color: var(--overlay, rgba(9, 13, 22, 0.8));
+          backdrop-filter: blur(28px) saturate(160%);
+          -webkit-backdrop-filter: blur(28px) saturate(160%);
           box-sizing: border-box;
-          font-family: var(--font-sans);
+          font-family: var(--font-sans, 'Inter', sans-serif);
           user-select: none;
         }
         .wh-card-frame {
           position: relative;
           width: 100%;
-          max-width: 1040px;
-          max-height: 92vh;
+          max-width: 1140px;
+          max-height: 94vh;
           border-radius: 28px;
           overflow: hidden;
-          background-color: #FFFFFF;
-          border: 1px solid rgba(255, 255, 255, 0.4);
-          box-shadow: 0 25px 70px -15px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.04);
+          background: ${resolvedTheme === 'light' ? 'rgba(240, 246, 252, 0.88)' : 'rgba(15, 23, 42, 0.88)'};
+          backdrop-filter: blur(32px) saturate(180%);
+          -webkit-backdrop-filter: blur(32px) saturate(180%);
+          border: 1.5px solid ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.16)'};
+          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
           display: flex;
           flex-direction: column;
           box-sizing: border-box;
+          color: var(--label, #F8FAFC);
         }
         .wh-mesh-bg {
           position: absolute;
@@ -163,8 +291,9 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           width: 520px;
           height: 520px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(251, 146, 60, 0.38) 0%, rgba(254, 215, 170, 0.25) 45%, rgba(255, 255, 255, 0) 72%);
-          filter: blur(32px);
+          background: radial-gradient(circle, rgba(251, 146, 60, 0.28) 0%, rgba(254, 215, 170, 0.15) 45%, rgba(255, 255, 255, 0) 72%);
+          filter: blur(36px);
+          opacity: 0.25;
         }
         .wh-mesh-slate {
           position: absolute;
@@ -173,53 +302,44 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           width: 480px;
           height: 480px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(148, 163, 184, 0.35) 0%, rgba(203, 213, 225, 0.22) 45%, rgba(255, 255, 255, 0) 70%);
-          filter: blur(32px);
+          background: radial-gradient(circle, rgba(148, 163, 184, 0.25) 0%, rgba(203, 213, 225, 0.15) 45%, rgba(255, 255, 255, 0) 70%);
+          filter: blur(36px);
+          opacity: 0.2;
         }
         .wh-mesh-amber-top {
           position: absolute;
           right: 80px;
           top: 10px;
-          width: 280px;
-          height: 280px;
+          width: 320px;
+          height: 320px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(254, 215, 170, 0.22) 0%, rgba(255, 255, 255, 0) 70%);
-          filter: blur(28px);
+          background: radial-gradient(circle, rgba(254, 215, 170, 0.18) 0%, rgba(255, 255, 255, 0) 70%);
+          filter: blur(32px);
+          opacity: 0.22;
         }
         .wh-header {
           position: relative;
           z-index: 10;
           padding: 16px 28px;
-          border-bottom: 1px solid #F1F5F9;
+          border-bottom: 1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'};
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 16px;
           flex-wrap: wrap;
-          background-color: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background-color: ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(30, 41, 59, 0.85)'};
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
         }
         .wh-logo-wrap {
           display: flex;
           align-items: center;
-          gap: 12px;
-        }
-        .wh-logo-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background-color: #2563EB;
-          color: #FFFFFF;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+          gap: 14px;
         }
         .wh-body {
           position: relative;
           z-index: 10;
-          padding: 20px 28px 24px;
+          padding: 16px 28px 24px;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
@@ -232,86 +352,81 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           background: transparent;
         }
         .wh-body::-webkit-scrollbar-thumb {
-          background: rgba(148, 163, 184, 0.35);
+          background: var(--separator, rgba(255, 255, 255, 0.15));
           border-radius: 9999px;
         }
-        .wh-body::-webkit-scrollbar-thumb:hover {
-          background: rgba(100, 116, 139, 0.55);
-        }
-        .wh-section-title {
-          font-size: 11px;
-          font-weight: 700;
-          color: #94A3B8;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          margin-bottom: 10px;
-        }
-        .wh-grid-duo {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-          gap: 18px;
-        }
-        .wh-feature-card {
+        .wh-folders-stage {
           position: relative;
-          background-color: rgba(255, 255, 255, 0.94);
-          border: 1px solid #E2E8F0;
-          border-radius: 20px;
-          padding: 20px 22px;
-          box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+          width: 100%;
           display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          min-height: 215px;
-          transition: all 180ms ease-out;
+          justify-content: center;
+          align-items: flex-start;
+          gap: 28px;
+          flex-wrap: wrap;
+          padding-top: 64px; /* Headroom agar kartu terangkat bebas dan tidak terpotong */
+          padding-bottom: 24px;
+          box-sizing: border-box;
         }
-        .wh-feature-card:hover {
-          border-color: #CBD5E1;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
-          transform: translateY(-2px);
-        }
-        .wh-chip {
-          display: inline-flex;
+        .wh-hint-bar {
+          display: flex;
           align-items: center;
-          gap: 5px;
-          font-size: 11px;
-          font-weight: 500;
-          color: #475569;
-          background-color: #F8FAFC;
-          border: 1px solid #E2E8F0;
-          padding: 3px 9px;
-          border-radius: 7px;
+          justify-content: center;
+          padding: 10px 18px;
+          border-radius: 12px;
+          background: ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.75)' : 'rgba(30, 41, 59, 0.6)'};
+          border: 1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'};
+          font-family: var(--font-mono, monospace);
           font-variant-numeric: tabular-nums;
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--label-secondary, #94a3b8);
+          letter-spacing: 0.04em;
+          text-align: center;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
-        .wh-saved-card {
-          background-color: rgba(255, 255, 255, 0.95);
-          border: 1px solid #E2E8F0;
-          border-radius: 16px;
-          padding: 14px 18px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        .wh-slots-drawer {
+          border-radius: 18px;
+          background: ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.72)' : 'rgba(30, 41, 59, 0.65)'};
+          border: 1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)'};
+          padding: 16px 20px;
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
-          gap: 10px;
-          cursor: pointer;
-          transition: all 150ms ease-out;
+          gap: 12px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
         }
-        .wh-saved-card:hover {
-          border-color: #94A3B8;
-          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+        .wh-slot-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 14px;
+          border-radius: 12px;
+          background: ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.7)'};
+          border: 1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'};
+          cursor: pointer;
+          transition: border-color 150ms ease, transform 150ms ease;
+        }
+        .wh-slot-item:hover {
+          border-color: var(--accent, #0a84ff);
           transform: translateY(-1px);
+        }
+        @media (max-width: 1024px) {
+          .wh-folders-stage {
+            gap: 20px;
+            padding-top: 120px;
+          }
         }
         @media (max-width: 640px) {
           .wh-header { padding: 14px 18px; }
-          .wh-body { padding: 16px; gap: 16px; }
-          .wh-grid-duo { grid-template-columns: 1fr; }
+          .wh-body { padding: 12px 16px 20px; gap: 16px; }
+          .wh-folders-stage { padding-top: 110px; gap: 16px; }
         }
       `}</style>
 
-      {/* Main Hub Card */}
+      {/* Main Hub Frame */}
       <div className="wh-card-frame">
-        {/* Multi-Color Gradient Mesh Background Inside Card */}
+        {/* Multi-Color Gradient Mesh Background */}
         <div className="wh-mesh-bg">
-          <div style={{ position: 'absolute', inset: 0, backgroundColor: '#FFFFFF' }} />
+          <div style={{ position: 'absolute', inset: 0 }} />
           <div className="wh-mesh-peach" />
           <div className="wh-mesh-slate" />
           <div className="wh-mesh-amber-top" />
@@ -320,20 +435,28 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
         {/* Header Section */}
         <div className="wh-header">
           <div className="wh-logo-wrap">
-            <div className="wh-logo-icon">
-              <Compass style={{ width: '20px', height: '20px' }} strokeWidth={2} />
-            </div>
+            <ArscityLogo size={36} />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: '#111827' }}>
+                <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--label, #F8FAFC)' }}>
                   ARSCITY
                 </span>
-                <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '9999px', backgroundColor: '#EFF6FF', color: '#2563EB', border: '1px solid #DBEAFE' }}>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '3px 10px',
+                    borderRadius: '9999px',
+                    backgroundColor: 'rgba(10, 132, 255, 0.15)',
+                    color: 'var(--accent, #0a84ff)',
+                    border: '1px solid rgba(10, 132, 255, 0.3)',
+                  }}
+                >
                   World Hub
                 </span>
               </div>
-              <p style={{ fontSize: '12px', color: '#6B7280', margin: '2px 0 0 0' }}>
-                Sandbox 3D Arsitektur Tropis &amp; Tata Kota Nusantara
+              <p style={{ fontSize: '13px', color: 'var(--label-secondary, #94A3B8)', margin: '2px 0 0 0' }}>
+                Pusat Penyimpanan &amp; Dunia Arscity
               </p>
             </div>
           </div>
@@ -348,19 +471,19 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 gap: '6px',
                 padding: '6px 14px',
                 borderRadius: '9999px',
-                backgroundColor: '#EFF6FF',
-                border: '1px solid #BFDBFE',
+                backgroundColor: 'var(--fill-control, rgba(255, 255, 255, 0.1))',
+                border: '1px solid var(--hairline, rgba(255, 255, 255, 0.16))',
                 fontSize: '12px',
                 fontWeight: 600,
-                color: '#1D4ED8',
+                color: 'var(--label, #F8FAFC)',
                 cursor: 'pointer',
                 transition: 'all 120ms ease',
-                boxShadow: '0 1px 2px rgba(37, 99, 235, 0.08)'
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
               }}
               title="Impor peta dari berkas .geojson atau proyek .arscity"
             >
-              <Upload size={13} strokeWidth={2} />
-              <span>Impor Peta .GeoJSON / .Arscity</span>
+              <Upload size={13} strokeWidth={2} style={{ color: 'var(--accent, #0a84ff)' }} />
+              <span>Impor .GeoJSON / .Arscity</span>
             </button>
             <input
               ref={fileInputRef}
@@ -378,15 +501,15 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                   gap: '8px',
                   padding: '6px 14px',
                   borderRadius: '9999px',
-                  backgroundColor: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
+                  backgroundColor: 'var(--fill-control, rgba(255, 255, 255, 0.1))',
+                  border: '1px solid var(--hairline, rgba(255, 255, 255, 0.16))',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#1E293B',
-                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                  color: 'var(--label, #F8FAFC)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
                 }}
               >
-                <User size={13} style={{ color: '#2563EB' }} />
+                <User size={13} style={{ color: 'var(--accent, #0a84ff)' }} />
                 <span>{userEmail}</span>
               </div>
             )}
@@ -400,10 +523,10 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 padding: '6px 14px',
                 borderRadius: '9999px',
                 backgroundColor: 'transparent',
-                border: '1px solid #E2E8F0',
+                border: '1px solid var(--hairline, rgba(255, 255, 255, 0.14))',
                 fontSize: '12px',
                 fontWeight: 500,
-                color: '#64748B',
+                color: 'var(--label-secondary, #94A3B8)',
                 cursor: 'pointer',
                 transition: 'all 120ms ease',
               }}
@@ -419,12 +542,12 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 width: '32px',
                 height: '32px',
                 borderRadius: '50%',
-                backgroundColor: '#F1F5F9',
-                border: 'none',
+                backgroundColor: 'var(--fill-control, rgba(255, 255, 255, 0.1))',
+                border: '1px solid var(--hairline, rgba(255, 255, 255, 0.16))',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#475569',
+                color: 'var(--label, #F8FAFC)',
                 cursor: 'pointer',
                 transition: 'background-color 120ms ease',
               }}
@@ -434,6 +557,32 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
               <X size={16} strokeWidth={2} />
             </button>
           </div>
+        </div>
+
+        {/* Subtitle / Description Banner */}
+        <div
+          style={{
+            padding: '10px 28px',
+            backgroundColor: resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.04)',
+            borderBottom: `1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.08)'}`,
+            fontSize: '12.5px',
+            color: 'var(--label-secondary, #94A3B8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>Pilih folder dunia untuk membuka lembar peta, atau tekan tombol (+) pada folder untuk menambah kota baru</span>
+          <span
+            style={{
+              fontSize: '11px',
+              fontFamily: 'var(--font-mono, monospace)',
+              fontVariantNumeric: 'tabular-nums',
+              fontWeight: 600,
+            }}
+          >
+            {savedMapsList.length} KOTA TERSIMPAN
+          </span>
         </div>
 
         {/* Import Status Alert Banner */}
@@ -449,7 +598,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px'
+              gap: '8px',
             }}
           >
             <Sparkles size={14} style={{ color: '#2563EB' }} />
@@ -459,332 +608,188 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
 
         {/* Scrollable Body Content */}
         <div className="wh-body">
-          {/* Section 1: PILIH KAWASAN PETA (Dua Kartu Harmonis) */}
-          <div>
-            <div className="wh-section-title">
-              Pilih Kawasan Peta
-            </div>
+          {/* Barisan 3 Folder Kaca Interaktif (3D GlassFolder Grid) */}
+          <div className="wh-folders-stage">
+            {/* Folder 1 (Kiri): Peta Bawaan Nusantara */}
+            <GlassFolder
+              label="Peta Bawaan Nusantara"
+              art="verdant"
+              action="more"
+              width={310}
+              tone={resolvedTheme}
+              files={folder1Files}
+              onFileSelect={(file) => {
+                if (file.id === 'preset-malioboro') {
+                  handleLoadMalioboro();
+                } else if (file.id === 'preset-empty') {
+                  handleLoadEmptyDirect();
+                }
+              }}
+              menu={[
+                {
+                  label: 'Muat Ulang Koridor Malioboro',
+                  onSelect: handleLoadMalioboro,
+                  onClick: handleLoadMalioboro,
+                },
+                {
+                  label: 'Buka Kanvas Kosong',
+                  onSelect: handleLoadEmptyDirect,
+                  onClick: handleLoadEmptyDirect,
+                },
+              ]}
+            />
 
-            <div className="wh-grid-duo">
-              {/* Card A: Lahan Kosong Baru */}
-              <div
-                className="wh-feature-card"
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  backgroundImage: 'linear-gradient(to right, rgba(37, 99, 235, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(37, 99, 235, 0.05) 1px, transparent 1px)',
-                  backgroundSize: '20px 20px',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '4px 10px',
-                      borderRadius: '9999px',
-                      backgroundColor: '#EFF6FF',
-                      color: '#2563EB',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      border: '1px solid #DBEAFE',
-                      marginBottom: '14px',
-                    }}
-                  >
-                    <Plus size={12} strokeWidth={2.5} />
-                    <span>KANVAS BARU • PROYEK BEBAS</span>
-                  </div>
+            {/* Folder 2 (Tengah): Penyimpanan Kota Saya */}
+            <GlassFolder
+              label="Penyimpanan Kota Saya"
+              art="aurora"
+              action="add"
+              width={310}
+              tone={resolvedTheme}
+              files={folder2Files}
+              onAdd={handleCreateNewCitySlot}
+              onFileSelect={(file) => {
+                if (file.id === 'new-city-placeholder') {
+                  handleCreateNewCitySlot();
+                } else if (file.id) {
+                  loadMap('saved', file.id, file.name);
+                }
+              }}
+            />
 
-                  <h3
-                    style={{
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: '22px',
-                      fontWeight: 600,
-                      color: '#0F172A',
-                      letterSpacing: '-0.02em',
-                      margin: '0 0 4px 0',
-                    }}
-                  >
-                    Lahan Kosong Baru
-                  </h3>
-
-                  <p
-                    style={{
-                      fontSize: '12.5px',
-                      color: '#64748B',
-                      lineHeight: 1.45,
-                      margin: '0 0 12px 0',
-                    }}
-                  >
-                    Kanvas CAD steril berkoordinat kartesian 1600m × 1600m untuk eksplorasi perancangan tata ruang dan bangunan mandiri.
-                  </p>
-
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
-                    <span className="wh-chip">1600m × 1600m CAD</span>
-                    <span className="wh-chip">Datum 0.0m DPL</span>
-                    <span className="wh-chip">Bebas Zonasi</span>
-                  </div>
-                </div>
-
-                {isCreatingNew ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <input
-                      type="text"
-                      value={newCityName}
-                      onChange={(e) => setNewCityName(e.target.value)}
-                      placeholder="Nama Proyek (misal: Kawasan Hunian Asri)"
-                      style={{
-                        padding: '9px 14px',
-                        borderRadius: '9999px',
-                        border: '1px solid #CBD5E1',
-                        backgroundColor: '#FFFFFF',
-                        fontSize: '12.5px',
-                        color: '#0F172A',
-                        outline: 'none',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                      }}
-                      autoFocus
-                    />
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={handleCreateEmptyMap}
-                        style={{
-                          flex: 1,
-                          padding: '9px 16px',
-                          borderRadius: '9999px',
-                          backgroundColor: '#0F172A',
-                          color: '#FFFFFF',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Inisialisasi Lahan
-                      </button>
-                      <button
-                        onClick={() => setIsCreatingNew(false)}
-                        style={{
-                          padding: '9px 16px',
-                          borderRadius: '9999px',
-                          backgroundColor: '#F1F5F9',
-                          color: '#475569',
-                          fontSize: '12px',
-                          fontWeight: 500,
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Batal
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setIsCreatingNew(true)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      padding: '11px 22px',
-                      borderRadius: '9999px',
-                      backgroundColor: '#0F172A',
-                      color: '#FFFFFF',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      border: 'none',
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 8px rgba(15, 23, 42, 0.15)',
-                      transition: 'all 150ms ease',
-                    }}
-                  >
-                    <Plus size={15} strokeWidth={2.5} />
-                    <span>Inisialisasi Peta Baru</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Card B: Koridor Malioboro Yogyakarta (Featured Preset) */}
-              <div
-                className="wh-feature-card"
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  backgroundImage: 'linear-gradient(135deg, rgba(236, 253, 245, 0.55) 0%, rgba(255, 255, 255, 0.95) 100%)',
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '4px 10px',
-                      borderRadius: '9999px',
-                      backgroundColor: '#ECFDF5',
-                      color: '#059669',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      border: '1px solid #A7F3D0',
-                      marginBottom: '14px',
-                    }}
-                  >
-                    <Sparkles size={12} strokeWidth={2} />
-                    <span>PRESET PROYEK • YOGYAKARTA</span>
-                  </div>
-
-                  <h3
-                    style={{
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: '22px',
-                      fontWeight: 600,
-                      color: '#0F172A',
-                      letterSpacing: '-0.02em',
-                      margin: '0 0 4px 0',
-                    }}
-                  >
-                    Koridor Malioboro Yogyakarta
-                  </h3>
-
-                  <p
-                    style={{
-                      fontSize: '12.5px',
-                      color: '#64748B',
-                      lineHeight: 1.45,
-                      margin: '0 0 12px 0',
-                    }}
-                  >
-                    Rekonstruksi koridor cagar budaya Malioboro dengan deretan ruko arkade, Joglo Kepatihan, dan vegetasi peneduh tropis.
-                  </p>
-
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
-                    <span className="wh-chip">
-                      <MapPin size={12} strokeWidth={1.75} style={{ color: '#059669' }} />
-                      <span>7°47&apos;44&quot; LS, 110°21&apos;57&quot; BT</span>
-                    </span>
-                    <span className="wh-chip">
-                      <Building2 size={12} strokeWidth={1.75} style={{ color: '#059669' }} />
-                      <span>20+ Ruko &amp; Cagar Budaya</span>
-                    </span>
-                    <span className="wh-chip">
-                      <Trees size={12} strokeWidth={1.75} style={{ color: '#059669' }} />
-                      <span>Joglo KDH &gt; 35%</span>
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleLoadMalioboro}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '11px 22px',
-                    borderRadius: '9999px',
-                    backgroundColor: '#10B981',
-                    color: '#FFFFFF',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    border: 'none',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)',
-                    transition: 'all 150ms ease',
-                  }}
-                >
-                  <Play size={14} fill="currentColor" />
-                  <span>Muat Malioboro</span>
-                </button>
-              </div>
-            </div>
+            {/* Folder 3 (Kanan): Berkas Proyek & CAD */}
+            <GlassFolder
+              label="Berkas Proyek & CAD"
+              art="glacier"
+              action="more"
+              labelPlacement="top-left"
+              width={310}
+              tone={resolvedTheme}
+              files={folder3Files}
+              onFileSelect={(file) => {
+                if (file.id === 'action-import') {
+                  fileInputRef.current?.click();
+                } else if (file.id === 'action-export') {
+                  handleExportActiveCity();
+                } else if (file.id === 'action-clear') {
+                  setIsSlotListExpanded((prev) => !prev);
+                }
+              }}
+              menu={[
+                {
+                  label: 'Impor Berkas Peta...',
+                  onSelect: () => fileInputRef.current?.click(),
+                  onClick: () => fileInputRef.current?.click(),
+                },
+                {
+                  label: 'Simpan Cadangan Kota Saat Ini',
+                  onSelect: handleExportActiveCity,
+                  onClick: handleExportActiveCity,
+                },
+                {
+                  label: 'Hapus Semua Simpanan Lama',
+                  danger: true,
+                  onSelect: handleClearAllSavedMaps,
+                  onClick: handleClearAllSavedMaps,
+                },
+              ]}
+            />
           </div>
 
-          {/* Section 2: PETA TERSIMPAN SAYA (Koleksi Kota Pengguna) */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div className="wh-section-title" style={{ marginBottom: 0 }}>
-                Peta Tersimpan Saya
-              </div>
-              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>
-                {savedMapsList.length} Kota Terdata
-              </span>
-            </div>
+          {/* Baris Petunjuk Interaksi Monospasi di Bawah Folder */}
+          <div className="wh-hint-bar">
+            ARAHKAN KURSOR UNTUK MENGINTIP · KLIK FOLDER UNTUK MEMBUKA · KLIK LEMBAR PETA UNTUK MASUK · TEKAN (+) UNTUK DUNIA BARU
+          </div>
 
-            {savedMapsList.length === 0 ? (
+          {/* Pengelolaan Slot Simpanan (> 4 slot atau saat diklik) */}
+          {savedMapsList.length > 0 && (
+            <div className="wh-slots-drawer">
               <div
                 style={{
-                  padding: '36px 20px',
-                  borderRadius: '20px',
-                  backgroundColor: 'rgba(248, 250, 252, 0.65)',
-                  border: '1px dashed #CBD5E1',
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  color: '#64748B',
-                  fontSize: '13px',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
                 }}
+                onClick={() => setIsSlotListExpanded((prev) => !prev)}
               >
-                <FolderOpen size={30} strokeWidth={1.5} style={{ color: '#94A3B8' }} />
-                <span>Belum ada peta tersimpan. Mulai dari Lahan Kosong Baru atau coba Malioboro!</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FolderOpen size={16} style={{ color: 'var(--accent, #0a84ff)' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label, #F8FAFC)' }}>
+                    Manajemen Seluruh Slot Kota ({savedMapsList.length} Tersimpan)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--label-secondary, #94A3B8)' }}>
+                  <span>{isSlotListExpanded ? 'Sembunyikan Daftar' : 'Tampilkan Daftar'}</span>
+                  {isSlotListExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </div>
               </div>
-            ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
-                  gap: '16px',
-                }}
-              >
-                {savedMapsList.map((map) => (
-                  <div
-                    key={map.id}
-                    onClick={() => handleLoadSavedMap(map)}
-                    className="wh-saved-card"
-                  >
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <h4
+
+              {isSlotListExpanded && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                  {savedMapsList.map((map) => (
+                    <div
+                      key={map.id}
+                      className="wh-slot-item"
+                      onClick={() => handleLoadSavedMap(map)}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--label, #F8FAFC)' }}>
+                          {map.name}
+                        </span>
+                        <div
                           style={{
-                            margin: 0,
-                            fontSize: '15px',
-                            fontWeight: 600,
-                            color: '#0F172A',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            fontSize: '11px',
+                            fontFamily: 'var(--font-mono, monospace)',
+                            fontVariantNumeric: 'tabular-nums',
+                            color: 'var(--label-secondary, #94A3B8)',
                           }}
                         >
-                          {map.name}
-                        </h4>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <Clock size={11} />
+                            {formatDateShort(map.updatedAt)}
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <Building2 size={11} />
+                            {map.buildingCount} Gedung
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <Route size={11} />
+                            {map.roadCount} Ruas
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {deleteConfirmId === map.id ? (
-                          <div style={{ display: 'flex', gap: '4px' }}>
+                          <div style={{ display: 'flex', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
                             <button
-                              onClick={(e) => handleDeleteSavedMap(map.id, e)}
+                              onClick={() => handleDeleteSavedMap(map.id)}
                               style={{
-                                padding: '3px 8px',
+                                padding: '4px 10px',
                                 fontSize: '11px',
                                 fontWeight: 600,
                                 borderRadius: '6px',
-                                backgroundColor: '#EF4444',
+                                backgroundColor: 'var(--bad, #EF4444)',
                                 color: '#FFFFFF',
                                 border: 'none',
                                 cursor: 'pointer',
                               }}
-                              title="Konfirmasi Hapus"
                             >
                               Hapus
                             </button>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeleteConfirmId(null);
-                              }}
+                              onClick={() => setDeleteConfirmId(null)}
                               style={{
-                                padding: '3px 8px',
+                                padding: '4px 10px',
                                 fontSize: '11px',
                                 fontWeight: 500,
                                 borderRadius: '6px',
-                                backgroundColor: '#F1F5F9',
-                                color: '#475569',
+                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                color: 'var(--label-secondary, #94A3B8)',
                                 border: 'none',
                                 cursor: 'pointer',
                               }}
@@ -799,72 +804,40 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                               setDeleteConfirmId(map.id);
                             }}
                             style={{
-                              padding: '4px',
+                              padding: '6px',
                               borderRadius: '6px',
                               backgroundColor: 'transparent',
                               border: 'none',
-                              color: '#94A3B8',
+                              color: 'var(--label-tertiary, #94A3B8)',
                               cursor: 'pointer',
                             }}
-                            title="Hapus Peta"
+                            title="Hapus Slot Peta"
+                            aria-label={`Hapus ${map.name}`}
                           >
                             <Trash2 size={14} />
                           </button>
                         )}
-                      </div>
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontSize: '11px',
-                          color: '#64748B',
-                        }}
-                      >
-                        <Clock size={12} />
-                        <span>{formatDate(map.updatedAt)}</span>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            color: 'var(--accent, #0a84ff)',
+                          }}
+                        >
+                          <span>Buka</span>
+                          <ArrowRight size={13} />
+                        </div>
                       </div>
                     </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingTop: '10px',
-                        borderTop: '1px solid #F1F5F9',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: '#64748B' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Building2 size={12} strokeWidth={1.75} />
-                          <span className="tabular-nums font-mono">{map.buildingCount}</span> gedung
-                        </span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Route size={12} strokeWidth={1.75} />
-                          <span className="tabular-nums font-mono">{map.roadCount}</span> ruas
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: '#2563EB',
-                        }}
-                      >
-                        <span>Buka</span>
-                        <ArrowRight size={13} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -910,3 +883,5 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
     </div>
   );
 };
+
+export default WorldHubModal;

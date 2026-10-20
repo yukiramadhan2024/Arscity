@@ -28,7 +28,10 @@ describe('FASE 3: Tropical Thermal Simulation, Flood Water, & Structural Shake',
       roofOverhang: 1.6,
       category: 'residential',
       floorHeight: 3.5,
-      roofType: 'joglo'
+      roofType: 'joglo',
+      wallMaterial: 'wood',
+      wallColor: '#8b5a2b',
+      roofMaterial: 'clay_tile'
     };
     bldMgr.buildings.set(coolBuilding.id, coolBuilding);
 
@@ -57,7 +60,10 @@ describe('FASE 3: Tropical Thermal Simulation, Flood Water, & Structural Shake',
       roofOverhang: 0.2, // Very low overhang
       category: 'commercial',
       floorHeight: 3.2,
-      roofType: 'flat'
+      roofType: 'flat',
+      wallMaterial: 'concrete',
+      wallColor: '#f0f0f0',
+      roofMaterial: 'concrete'
     };
     bldMgr.buildings.set(hotBuilding.id, hotBuilding);
 
@@ -163,7 +169,10 @@ describe('FASE 3: Tropical Thermal Simulation, Flood Water, & Structural Shake',
       roofOverhang: 1.2,
       category: 'residential',
       floorHeight: 3.2,
-      roofType: 'limasan'
+      roofType: 'hip',
+      wallMaterial: 'plaster',
+      wallColor: '#ffffff',
+      roofMaterial: 'clay_tile'
     };
 
     const est = costEst.estimateBuildingCost(testBld);

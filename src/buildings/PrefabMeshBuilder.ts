@@ -114,6 +114,19 @@ export class PrefabMeshBuilder {
           transformedGeos.push(tGeo);
         }
 
+        // Ensure consistent indexing across all geometries
+        const hasIndexed = transformedGeos.some((g) => g.index !== null);
+        const hasNonIndexed = transformedGeos.some((g) => g.index === null);
+        if (hasIndexed && hasNonIndexed) {
+          for (let i = 0; i < transformedGeos.length; i++) {
+            if (transformedGeos[i].index !== null) {
+              const nonIndexed = transformedGeos[i].toNonIndexed();
+              transformedGeos[i].dispose();
+              transformedGeos[i] = nonIndexed;
+            }
+          }
+        }
+
         const merged = mergeGeometries(transformedGeos, false);
         for (const tg of transformedGeos) {
           tg.dispose();
@@ -1674,6 +1687,39 @@ export class PrefabMeshBuilder {
       case 'transit_canopy':
         this.buildTransitCanopy(group, bld, item);
         break;
+      case 'telecom_tower':
+        this.buildTelecomTower(group, bld, item);
+        break;
+      case 'monument_obelisk':
+        this.buildMonumentObelisk(group, bld, item);
+        break;
+      case 'stadium_arena':
+        this.buildStadiumArena(group, bld, item);
+        break;
+      case 'bridge_girder':
+        this.buildBridgeGirder(group, bld, item);
+        break;
+      case 'flyover_viaduct':
+        this.buildFlyoverViaduct(group, bld, item);
+        break;
+      case 'substation_power':
+        this.buildSubstationPower(group, bld, item);
+        break;
+      case 'water_clarifier':
+        this.buildWaterClarifier(group, bld, item);
+        break;
+      case 'sacred_temple':
+        this.buildSacredTemple(group, bld, item);
+        break;
+      case 'cathedral_church':
+        this.buildCathedralChurch(group, bld, item);
+        break;
+      case 'vihara_pagoda':
+        this.buildViharaPagoda(group, bld, item);
+        break;
+      case 'klenteng_traditional':
+        this.buildKlentengTraditional(group, bld, item);
+        break;
       case 'standard':
       default:
         this.buildParametricStandardBuilding(group, bld, item);
@@ -2503,6 +2549,602 @@ export class PrefabMeshBuilder {
       default:
         this.buildModernFlatRoofWithOverhang(group, rw, rl, roofBaseY, frameMat, concreteMat);
         break;
+    }
+  }
+
+  // 15. TELECOM TOWER (High-rise Steel Lattice Mast, Multiple Antenna Galleries, Equipment Shelter)
+  private static buildTelecomTower(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const totalH = Math.max(bld.floorHeight || 24, 20);
+
+    const steelMat = this.getMaterial('frame');
+    const redMat = this.getMaterial('plaster', '#dc2626');
+    const whiteMat = this.getMaterial('plaster', '#f8fafc');
+    const concreteMat = this.getMaterial('concrete');
+    const plinthMat = this.getMaterial('stone_plinth');
+
+    // 1. Concrete ground pad
+    const plinthH = 0.5;
+    this.addBox(group, w, plinthH, l, 0, plinthH * 0.5, 0, plinthMat);
+
+    // 2. Equipment shelter cabin
+    const shelterW = Math.min(w * 0.45, 4.5);
+    const shelterL = Math.min(l * 0.45, 4.5);
+    const shelterH = 3.2;
+    this.addBox(group, shelterW, shelterH, shelterL, -w * 0.22, plinthH + shelterH * 0.5, -l * 0.22, concreteMat);
+
+    // 3. Four corner lattice legs tapering from bottom to top
+    const baseSpan = Math.min(w, l) * 0.35;
+    const topSpan = baseSpan * 0.3;
+    const legThick = 0.25;
+    const tiers = 6;
+    const tierH = totalH / tiers;
+
+    for (let t = 0; t < tiers; t++) {
+      const y0 = plinthH + t * tierH;
+      const y1 = plinthH + (t + 1) * tierH;
+      const r0 = baseSpan - (t / tiers) * (baseSpan - topSpan);
+      const r1 = baseSpan - ((t + 1) / tiers) * (baseSpan - topSpan);
+      const tierMat = t % 2 === 0 ? redMat : whiteMat;
+
+      // 4 Corner vertical posts
+      const corners = [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1]
+      ];
+      for (const [cx, cz] of corners) {
+        const xAvg = (cx * (r0 + r1)) * 0.5;
+        const zAvg = (cz * (r0 + r1)) * 0.5;
+        this.addBox(group, legThick, tierH, legThick, xAvg, (y0 + y1) * 0.5, zAvg, tierMat);
+      }
+
+      // Horizontal perimeter belt beams
+      this.addBox(group, r1 * 2, 0.15, 0.15, 0, y1, -r1, steelMat);
+      this.addBox(group, r1 * 2, 0.15, 0.15, 0, y1, r1, steelMat);
+      this.addBox(group, 0.15, 0.15, r1 * 2, -r1, y1, 0, steelMat);
+      this.addBox(group, 0.15, 0.15, r1 * 2, r1, y1, 0, steelMat);
+
+      // Diagonal cross-bracing
+      this.addBox(group, r1 * 2.2, 0.1, 0.1, 0, (y0 + y1) * 0.5, -r0, steelMat, 0, 0, 0.55);
+      this.addBox(group, r1 * 2.2, 0.1, 0.1, 0, (y0 + y1) * 0.5, r0, steelMat, 0, 0, -0.55);
+    }
+
+    // 4. Upper platform & antenna gallery
+    const platY = plinthH + totalH * 0.82;
+    this.addBox(group, topSpan * 3.0, 0.2, topSpan * 3.0, 0, platY, 0, steelMat);
+    this.addBox(group, topSpan * 3.0, 1.1, 0.08, 0, platY + 0.6, -topSpan * 1.5, steelMat);
+    this.addBox(group, topSpan * 3.0, 1.1, 0.08, 0, platY + 0.6, topSpan * 1.5, steelMat);
+
+    // 5. Directional sector panel antennas (white rectangles)
+    for (const [ax, az] of [[0, -topSpan * 1.55], [0, topSpan * 1.55], [-topSpan * 1.55, 0], [topSpan * 1.55, 0]]) {
+      this.addBox(group, 0.4, 2.2, 0.2, ax, platY + 1.2, az, whiteMat);
+    }
+
+    // 6. Microwave dish antennas (circular cylinders)
+    this.addCylinder(group, 0.7, 0.7, 0.35, -topSpan * 1.3, platY + 2.0, 0, whiteMat);
+    this.addCylinder(group, 0.6, 0.6, 0.35, topSpan * 1.3, platY + 1.2, 0, whiteMat);
+
+    // 7. Lightning arrestor mast at apex
+    const mastH = 4.5;
+    const mastY = plinthH + totalH;
+    this.addCylinder(group, 0.08, 0.12, mastH, 0, mastY + mastH * 0.5, 0, steelMat);
+    this.addBox(group, 0.35, 0.35, 0.35, 0, mastY + mastH - 0.2, 0, redMat);
+  }
+
+  // 16. MONUMENT OBELISK (Stepped Terraced Base, Central Tapering Shaft, Golden Pinnacle)
+  private static buildMonumentObelisk(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const totalH = Math.max(bld.floorHeight || 18, 14);
+
+    const stoneMat = this.getMaterial('stone');
+    const plinthMat = this.getMaterial('stone_plinth');
+    const goldMat = this.getMaterial('plaster', '#eab308');
+    const waterMat = this.getMaterial('concrete', '#0284c7');
+    const accentMat = this.getMaterial('plaster', '#0f172a');
+
+    // 1. Broad stepped circular fountain basin
+    const baseRadius = Math.min(w, l) * 0.45;
+    this.addCylinder(group, baseRadius, baseRadius + 0.5, 0.4, 0, 0.2, 0, plinthMat);
+    this.addCylinder(group, baseRadius - 0.4, baseRadius - 0.4, 0.25, 0, 0.35, 0, waterMat);
+
+    // 2. Multi-tiered octagonal pedestal
+    this.addBox(group, w * 0.55, 0.6, l * 0.55, 0, 0.7, 0, stoneMat);
+    this.addBox(group, w * 0.42, 0.8, l * 0.42, 0, 1.4, 0, accentMat);
+    this.addBox(group, w * 0.32, 1.2, l * 0.32, 0, 2.4, 0, stoneMat);
+
+    // 3. Central tapering obelisk shaft
+    const shaftBaseY = 3.0;
+    const shaftH = totalH - 5.5;
+    const shaftW0 = Math.min(w, l) * 0.18;
+    const shaftW1 = shaftW0 * 0.55;
+
+    const segs = 5;
+    const segH = shaftH / segs;
+    for (let s = 0; s < segs; s++) {
+      const sw = shaftW0 - (s / segs) * (shaftW0 - shaftW1);
+      const sy = shaftBaseY + s * segH + segH * 0.5;
+      this.addBox(group, sw, segH, sw, 0, sy, 0, stoneMat);
+      if (s > 0) {
+        this.addBox(group, sw + 0.1, 0.15, sw + 0.1, 0, shaftBaseY + s * segH, 0, accentMat);
+      }
+    }
+
+    // 4. Pyramidion / Golden flame pinnacle
+    const apexBaseY = shaftBaseY + shaftH;
+    this.addBox(group, shaftW1 * 1.2, 0.3, shaftW1 * 1.2, 0, apexBaseY + 0.15, 0, accentMat);
+    this.addCylinder(group, 0.05, shaftW1 * 0.6, 2.5, 0, apexBaseY + 1.55, 0, goldMat);
+    this.addBox(group, 0.5, 0.5, 0.5, 0, apexBaseY + 2.8, 0, goldMat);
+  }
+
+  // 17. STADIUM ARENA (Tiered Seating Bowl, Green Pitch, Aerodynamic Roofs, Floodlight Pylons)
+  private static buildStadiumArena(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const totalH = Math.max((bld.floorCount || 3) * (bld.floorHeight || 4.5), 14);
+
+    const concreteMat = this.getMaterial('concrete');
+    const plinthMat = this.getMaterial('stone_plinth');
+    const frameMat = this.getMaterial('frame');
+    const roofMat = this.getMaterial('zinc_roof');
+    const grassMat = this.getMaterial('concrete', '#15803d');
+    const trackMat = this.getMaterial('plaster', '#b91c1c');
+
+    // 1. Base podium
+    const plinthH = 0.5;
+    this.addBox(group, w + 1.0, plinthH, l + 1.0, 0, plinthH * 0.5, 0, plinthMat);
+
+    // 2. Interior sports field: Running track and central green pitch
+    const fieldW = w * 0.65;
+    const fieldL = l * 0.70;
+    this.addBox(group, fieldW + 3.0, 0.08, fieldL + 3.0, 0, plinthH + 0.04, 0, trackMat);
+    this.addBox(group, fieldW, 0.1, fieldL, 0, plinthH + 0.06, 0, grassMat);
+
+    // 3. Tiered Grandstand seating bowl surrounding the pitch
+    const tiers = 4;
+    const stepH = (totalH * 0.5) / tiers;
+    for (let t = 0; t < tiers; t++) {
+      const stepY = plinthH + (t + 1) * stepH;
+      const ringW = fieldW + 3.0 + (t + 1) * 2.2;
+      const ringL = fieldL + 3.0 + (t + 1) * 2.2;
+      this.addBox(group, ringW, stepH, 2.0, 0, stepY - stepH * 0.5, -ringL * 0.5, concreteMat);
+      this.addBox(group, ringW, stepH, 2.0, 0, stepY - stepH * 0.5, ringL * 0.5, concreteMat);
+      this.addBox(group, 2.0, stepH, ringL, -ringW * 0.5, stepY - stepH * 0.5, 0, concreteMat);
+      this.addBox(group, 2.0, stepH, ringL, ringW * 0.5, stepY - stepH * 0.5, 0, concreteMat);
+    }
+
+    // 4. Exterior facade perimeter ring with expressed structural colonnade
+    const extW = w * 0.98;
+    const extL = l * 0.98;
+    this.addBox(group, extW, totalH * 0.65, 1.2, 0, plinthH + totalH * 0.325, -extL * 0.5, concreteMat);
+    this.addBox(group, extW, totalH * 0.65, 1.2, 0, plinthH + totalH * 0.325, extL * 0.5, concreteMat);
+    this.addBox(group, 1.2, totalH * 0.65, extL, -extW * 0.5, plinthH + totalH * 0.325, 0, concreteMat);
+    this.addBox(group, 1.2, totalH * 0.65, extL, extW * 0.5, plinthH + totalH * 0.325, 0, concreteMat);
+
+    // 5. Cantilevered aerodynamic stadium roof canopies (East & West)
+    const canopyW = w * 0.28;
+    const canopyL = l * 0.92;
+    const canopyY = plinthH + totalH * 0.85;
+    this.addBox(group, canopyW, 0.3, canopyL, -w * 0.32, canopyY, 0, roofMat, 0, 0, -0.15);
+    this.addBox(group, canopyW, 0.3, canopyL, w * 0.32, canopyY, 0, roofMat, 0, 0, 0.15);
+
+    // 6. Four corner floodlight towers
+    const lightH = totalH * 1.35;
+    for (const [lx, lz] of [[-w * 0.46, -l * 0.46], [w * 0.46, -l * 0.46], [-w * 0.46, l * 0.46], [w * 0.46, l * 0.46]]) {
+      this.addCylinder(group, 0.3, 0.55, lightH, lx, lightH * 0.5, lz, frameMat);
+      this.addBox(group, 2.4, 1.6, 0.6, lx, lightH, lz, frameMat);
+      this.addBox(group, 2.2, 1.4, 0.1, lx, lightH, lz + 0.3, this.getMaterial('warm_light'));
+    }
+  }
+
+  // 18. BRIDGE GIRDER (Massive Abutments, Concrete Piers, Steel Girders, Asphalt Deck, Railings)
+  private static buildBridgeGirder(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const h = Math.max(bld.floorHeight || 5.2, 4.5);
+
+    const concreteMat = this.getMaterial('concrete');
+    const steelMat = this.getMaterial('dark_ibeam');
+    const roadMat = this.getMaterial('concrete', '#1e293b');
+    const lineMat = this.getMaterial('plaster', '#f8fafc');
+
+    // 1. Concrete abutments at both longitudinal ends
+    const abutmentW = w * 0.95;
+    const abutmentL = 3.5;
+    this.addBox(group, abutmentW, h, abutmentL, 0, h * 0.5, -l * 0.5 + abutmentL * 0.5, concreteMat);
+    this.addBox(group, abutmentW, h, abutmentL, 0, h * 0.5, l * 0.5 - abutmentL * 0.5, concreteMat);
+
+    // 2. Central pier pillars
+    const pierH = h * 0.75;
+    this.addCylinder(group, 0.8, 1.1, pierH, -w * 0.25, pierH * 0.5, 0, concreteMat);
+    this.addCylinder(group, 0.8, 1.1, pierH, w * 0.25, pierH * 0.5, 0, concreteMat);
+    this.addBox(group, w * 0.75, 0.6, 2.0, 0, pierH + 0.3, 0, concreteMat);
+
+    // 3. Steel I-Beam longitudinal girders spanning underneath the deck
+    const girderSpan = l - 1.0;
+    const girderY = h - 0.5;
+    for (const gx of [-w * 0.35, -w * 0.12, w * 0.12, w * 0.35]) {
+      this.addBox(group, 0.35, 0.7, girderSpan, gx, girderY, 0, steelMat);
+    }
+
+    // 4. Bridge deck slab and asphalt roadway surface
+    this.addBox(group, w, 0.35, l, 0, h + 0.175, 0, concreteMat);
+    this.addBox(group, w * 0.75, 0.04, l, 0, h + 0.37, 0, roadMat);
+    this.addBox(group, 0.18, 0.05, l * 0.9, 0, h + 0.38, 0, lineMat);
+
+    // 5. Parapet crash barriers and pedestrian walkways on both sides
+    const walkW = (w - w * 0.75) * 0.5;
+    this.addBox(group, walkW, 0.15, l, -w * 0.5 + walkW * 0.5, h + 0.42, 0, concreteMat);
+    this.addBox(group, walkW, 0.15, l, w * 0.5 - walkW * 0.5, h + 0.42, 0, concreteMat);
+
+    this.addBox(group, 0.12, 1.0, l, -w * 0.5 + 0.06, h + 0.9, 0, steelMat);
+    this.addBox(group, 0.12, 1.0, l, w * 0.5 - 0.06, h + 0.9, 0, steelMat);
+  }
+
+  // 19. FLYOVER VIADUCT (Hammerhead Piers, Box Girder Superstructure, Asphalt Roadway)
+  private static buildFlyoverViaduct(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const h = Math.max((bld.floorCount || 2) * (bld.floorHeight || 4.5), 8.0);
+
+    const concreteMat = this.getMaterial('concrete');
+    const roadMat = this.getMaterial('concrete', '#1e293b');
+    const barrierMat = this.getMaterial('concrete', '#64748b');
+    const lineMat = this.getMaterial('plaster', '#eab308');
+
+    // 1. Massive cylindrical hammerhead concrete piers rising from ground
+    const pierH = h - 1.2;
+    const pierZOffsets = [-l * 0.32, 0, l * 0.32];
+    for (const pz of pierZOffsets) {
+      this.addCylinder(group, 0.9, 1.1, pierH, 0, pierH * 0.5, pz, concreteMat);
+      this.addBox(group, w * 0.75, 1.2, 2.4, 0, pierH + 0.6, pz, concreteMat);
+    }
+
+    // 2. Precast segmental concrete box girder superstructure
+    const girderH = 1.6;
+    const girderY = h + girderH * 0.5;
+    this.addBox(group, w * 0.72, girderH, l, 0, girderY, 0, concreteMat);
+
+    // 3. Cantilevered deck slab and asphalt pavement
+    this.addBox(group, w, 0.35, l, 0, h + girderH + 0.175, 0, concreteMat);
+    this.addBox(group, w * 0.92, 0.05, l, 0, h + girderH + 0.375, 0, roadMat);
+
+    // Center median barrier
+    this.addBox(group, 0.45, 0.75, l, 0, h + girderH + 0.75, 0, barrierMat);
+    this.addBox(group, 0.15, 0.06, l * 0.9, -w * 0.22, h + girderH + 0.38, 0, lineMat);
+    this.addBox(group, 0.15, 0.06, l * 0.9, w * 0.22, h + girderH + 0.38, 0, lineMat);
+
+    // 4. Outer crash barrier parapets
+    this.addBox(group, 0.25, 0.9, l, -w * 0.5 + 0.125, h + girderH + 0.8, 0, barrierMat);
+    this.addBox(group, 0.25, 0.9, l, w * 0.5 - 0.125, h + girderH + 0.8, 0, barrierMat);
+  }
+
+  // 20. SUBSTATION POWER (Transformer Bays, Radiator Fins, Bushings, Control House, Solar/Bio Unit)
+  private static buildSubstationPower(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const h = Math.max(bld.floorHeight || 4.5, 4.0);
+
+    const concreteMat = this.getMaterial('concrete');
+    const steelMat = this.getMaterial('frame');
+    const metalMat = this.getMaterial('metal_panel');
+    const ceramicMat = this.getMaterial('plaster', '#9a3412');
+    const plinthMat = this.getMaterial('stone_plinth');
+    const solarMat = this.getMaterial('glass', '#0f172a');
+
+    // 1. Crushed gravel / concrete ground pad
+    const plinthH = 0.4;
+    this.addBox(group, w, plinthH, l, 0, plinthH * 0.5, 0, plinthMat);
+
+    // 2. Relay & Control Building on one quadrant
+    const ctrlW = w * 0.38;
+    const ctrlL = l * 0.42;
+    const ctrlH = h;
+    this.addBox(group, ctrlW, ctrlH, ctrlL, -w * 0.26, plinthH + ctrlH * 0.5, -l * 0.24, concreteMat);
+    this.addBox(group, ctrlW * 0.5, 2.2, 0.1, -w * 0.26, plinthH + 1.1, -l * 0.24 + ctrlL * 0.5 + 0.05, steelMat);
+
+    // 3. Two large step-down power transformers
+    const transW = 3.6;
+    const transL = 3.2;
+    const transH = 2.8;
+    for (const tx of [w * 0.12, w * 0.35]) {
+      const ty = plinthH + transH * 0.5;
+      this.addBox(group, transW, transH, transL, tx, ty, -l * 0.15, metalMat);
+      this.addBox(group, transW + 0.4, transH * 0.75, 0.3, tx, ty, -l * 0.15 + transL * 0.5 + 0.15, steelMat);
+      this.addBox(group, transW + 0.4, transH * 0.75, 0.3, tx, ty, -l * 0.15 - transL * 0.5 - 0.15, steelMat);
+      for (const bx of [-1.0, 0, 1.0]) {
+        this.addCylinder(group, 0.12, 0.18, 1.4, tx + bx, plinthH + transH + 0.7, -l * 0.15, ceramicMat);
+      }
+    }
+
+    // 4. Overhead steel lattice gantry frames
+    const gantryH = h * 1.5;
+    this.addCylinder(group, 0.15, 0.2, gantryH, w * 0.05, gantryH * 0.5, l * 0.25, steelMat);
+    this.addCylinder(group, 0.15, 0.2, gantryH, w * 0.42, gantryH * 0.5, l * 0.25, steelMat);
+    this.addBox(group, w * 0.45, 0.3, 0.3, w * 0.235, gantryH, l * 0.25, steelMat);
+
+    // 5. Ground solar PV array / bio converter unit
+    const pvW = w * 0.45;
+    const pvL = l * 0.35;
+    this.addBox(group, pvW, 0.15, pvL, -w * 0.22, plinthH + 1.2, l * 0.25, solarMat, -0.25, 0, 0);
+  }
+
+  // 21. WATER CLARIFIER (Circular Clarifier Tanks, Scraper Bridges, Filtration House)
+  private static buildWaterClarifier(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const h = Math.max(bld.floorHeight || 4.8, 4.0);
+
+    const concreteMat = this.getMaterial('concrete');
+    const plinthMat = this.getMaterial('stone_plinth');
+    const waterMat = this.getMaterial('concrete', '#0284c7');
+    const steelMat = this.getMaterial('frame');
+
+    // 1. Concrete facility slab
+    const plinthH = 0.4;
+    this.addBox(group, w, plinthH, l, 0, plinthH * 0.5, 0, plinthMat);
+
+    // 2. Two circular sedimentation clarifier tanks
+    const tankRadius = Math.min(w * 0.32, l * 0.36);
+    const tankWallH = 2.4;
+    const tankY = plinthH + tankWallH * 0.5;
+    const tankOffsets = [-w * 0.22, w * 0.22];
+
+    for (const tx of tankOffsets) {
+      this.addCylinder(group, tankRadius, tankRadius, tankWallH, tx, tankY, -l * 0.08, concreteMat);
+      this.addCylinder(group, tankRadius - 0.35, tankRadius - 0.35, 0.1, tx, tankY + tankWallH * 0.35, -l * 0.08, waterMat);
+      this.addCylinder(group, 0.6, 0.6, tankWallH + 0.6, tx, tankY + 0.3, -l * 0.08, steelMat);
+      this.addBox(group, tankRadius * 2.1, 0.3, 0.45, tx, plinthH + tankWallH + 0.2, -l * 0.08, steelMat);
+    }
+
+    // 3. Chemical filtration & pump control house
+    const houseW = w * 0.65;
+    const houseL = l * 0.28;
+    const houseH = h;
+    const houseZ = l * 0.32;
+    this.addBox(group, houseW, houseH, houseL, 0, plinthH + houseH * 0.5, houseZ, concreteMat);
+
+    this.addBox(group, w * 0.5, 0.25, 0.6, 0, plinthH + tankWallH, -l * 0.08, steelMat);
+  }
+
+  // 22. SACRED TEMPLE (Candi Bentar Gateway, Multi-Tiered Meru Roofs, Padmasana Shrines)
+  private static buildSacredTemple(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const totalH = Math.max(bld.floorHeight || 6.8, 5.0);
+
+    const brickMat = this.getMaterial('brick', '#b45309');
+    const stoneMat = this.getMaterial('stone_plinth');
+    const teakMat = this.getMaterial('carved_teak');
+    const roofMat = this.getMaterial('wood_shingle');
+    const goldMat = this.getMaterial('plaster', '#eab308');
+
+    // 1. Terraced stone plinth
+    const plinthH = 0.6;
+    this.addBox(group, w, plinthH, l, 0, plinthH * 0.5, 0, stoneMat);
+
+    // 2. Candi Bentar (Split Gateway) at front entrance
+    const gateW = 2.0;
+    const gateH = totalH * 0.85;
+    const gateZ = l * 0.5 - 1.2;
+    const gap = 2.2;
+    this.addBox(group, gateW, gateH * 0.6, 1.4, -gap * 0.5 - gateW * 0.5, plinthH + gateH * 0.3, gateZ, brickMat);
+    this.addBox(group, gateW * 0.75, gateH * 0.4, 1.2, -gap * 0.5 - gateW * 0.5, plinthH + gateH * 0.8, gateZ, brickMat);
+    this.addBox(group, gateW, gateH * 0.6, 1.4, gap * 0.5 + gateW * 0.5, plinthH + gateH * 0.3, gateZ, brickMat);
+    this.addBox(group, gateW * 0.75, gateH * 0.4, 1.2, gap * 0.5 + gateW * 0.5, plinthH + gateH * 0.8, gateZ, brickMat);
+
+    // 3. Multi-tiered Meru shrine tower at rear courtyard
+    const meruBaseW = Math.min(w * 0.35, 5.0);
+    const meruBaseL = Math.min(l * 0.35, 5.0);
+    const meruBaseZ = -l * 0.22;
+    this.addBox(group, meruBaseW, 2.0, meruBaseL, 0, plinthH + 1.0, meruBaseZ, teakMat);
+
+    const tiers = 5;
+    const meruRoofH = totalH - 2.0;
+    const stepH = meruRoofH / tiers;
+    for (let t = 0; t < tiers; t++) {
+      const tw = meruBaseW * (1.3 - (t / tiers) * 0.8);
+      const tl = meruBaseL * (1.3 - (t / tiers) * 0.8);
+      const ty = plinthH + 2.0 + t * stepH;
+      this.addBox(group, tw, stepH * 0.75, tl, 0, ty + stepH * 0.375, meruBaseZ, roofMat);
+    }
+    this.addCylinder(group, 0.05, 0.2, 0.8, 0, plinthH + 2.0 + meruRoofH + 0.4, meruBaseZ, goldMat);
+
+    // 4. Padmasana stone shrines on sides
+    for (const sx of [-w * 0.28, w * 0.28]) {
+      this.addBox(group, 1.4, 2.5, 1.4, sx, plinthH + 1.25, -l * 0.15, stoneMat);
+      this.addBox(group, 1.1, 0.8, 1.1, sx, plinthH + 2.9, -l * 0.15, goldMat);
+    }
+  }
+
+  // 23. CATHEDRAL CHURCH (High Gothic Nave, Tall Bell Tower, Lancet Windows, Cross Apex)
+  private static buildCathedralChurch(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const naveH = Math.max(bld.floorHeight || 7.5, 6.0);
+
+    const stoneMat = this.getMaterial('stone');
+    const plinthMat = this.getMaterial('stone_plinth');
+    const slateMat = this.getMaterial('slate_tile');
+    const glassMat = this.getMaterial('glass', '#0284c7');
+    const frameMat = this.getMaterial('frame');
+
+    // 1. Stone plinth
+    const plinthH = 0.5;
+    this.addBox(group, w + 0.6, plinthH, l + 0.6, 0, plinthH * 0.5, 0, plinthMat);
+
+    // 2. Main nave hall
+    const naveW = w * 0.62;
+    const naveL = l * 0.72;
+    const naveZ = -l * 0.08;
+    this.buildHollowPerimeterShell(group, naveW, naveH, naveL, plinthH, stoneMat, false);
+
+    // Buttresses along side walls
+    const bays = 4;
+    const bayStep = naveL / bays;
+    for (let b = 0; b <= bays; b++) {
+      const bz = naveZ - naveL * 0.5 + b * bayStep;
+      this.addBox(group, 0.6, naveH * 0.9, 0.6, -naveW * 0.5 - 0.3, plinthH + naveH * 0.45, bz, stoneMat);
+      this.addBox(group, 0.6, naveH * 0.9, 0.6, naveW * 0.5 + 0.3, plinthH + naveH * 0.45, bz, stoneMat);
+      if (b < bays) {
+        const winZ = bz + bayStep * 0.5;
+        this.addBox(group, 0.08, naveH * 0.5, 1.2, -naveW * 0.5, plinthH + naveH * 0.5, winZ, glassMat);
+        this.addBox(group, 0.08, naveH * 0.5, 1.2, naveW * 0.5, plinthH + naveH * 0.5, winZ, glassMat);
+      }
+    }
+
+    this.buildModernGableRoof(group, naveW + 1.2, naveL + 1.0, plinthH + naveH, 3.2, slateMat);
+
+    // 3. Tall bell tower & spire at front facade
+    const towerW = Math.min(w * 0.32, 6.0);
+    const towerL = Math.min(l * 0.25, 6.0);
+    const towerH = naveH * 1.85;
+    const towerZ = l * 0.5 - towerL * 0.5;
+    this.addBox(group, towerW, towerH, towerL, 0, plinthH + towerH * 0.5, towerZ, stoneMat);
+
+    const spireH = 5.5;
+    const spireBaseY = plinthH + towerH;
+    this.addCylinder(group, 0.1, towerW * 0.55, spireH, 0, spireBaseY + spireH * 0.5, towerZ, slateMat);
+
+    const crossY = spireBaseY + spireH + 0.6;
+    this.addBox(group, 0.12, 1.4, 0.12, 0, crossY, towerZ, frameMat);
+    this.addBox(group, 0.8, 0.12, 0.12, 0, crossY + 0.2, towerZ, frameMat);
+  }
+
+  // 24. VIHARA PAGODA (Multi-tier Pagoda, Sweeping Flared Roofs, Crimson Columns, Stupa)
+  private static buildViharaPagoda(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const totalH = Math.max((bld.floorCount || 2) * (bld.floorHeight || 5.5), 9.0);
+
+    const stoneMat = this.getMaterial('stone_plinth');
+    const yellowMat = this.getMaterial('plaster', '#fef08a');
+    const redMat = this.getMaterial('plaster', '#b91c1c');
+    const roofMat = this.getMaterial('clay_tile');
+    const goldMat = this.getMaterial('plaster', '#eab308');
+
+    // 1. Stepped lotus plinth
+    const plinthH = 0.6;
+    this.addBox(group, w, plinthH, l, 0, plinthH * 0.5, 0, stoneMat);
+
+    // 2. Multi-tier Pagoda (3 tiers receding upwards)
+    const tiers = 3;
+    const tierH = totalH / tiers;
+    for (let t = 0; t < tiers; t++) {
+      const scale = 1.0 - t * 0.22;
+      const tw = w * 0.75 * scale;
+      const tl = l * 0.75 * scale;
+      const ty = plinthH + t * tierH;
+
+      this.addBox(group, tw, tierH * 0.65, tl, 0, ty + tierH * 0.325, 0, yellowMat);
+
+      for (const [cx, cz] of [[-tw * 0.5, -tl * 0.5], [tw * 0.5, -tl * 0.5], [-tw * 0.5, tl * 0.5], [tw * 0.5, tl * 0.5]]) {
+        this.addCylinder(group, 0.18, 0.22, tierH * 0.7, cx, ty + tierH * 0.35, cz, redMat);
+      }
+
+      const rw = tw + 1.8;
+      const rl = tl + 1.8;
+      this.buildModernHipRoof(group, rw, rl, ty + tierH * 0.65, 1.4, roofMat);
+    }
+
+    // 3. Ornate gold stupa pinnacle at top apex
+    const apexY = plinthH + totalH + 0.8;
+    this.addCylinder(group, 0.08, 0.45, 2.0, 0, apexY + 1.0, 0, goldMat);
+    this.addBox(group, 0.4, 0.4, 0.4, 0, apexY + 2.2, 0, goldMat);
+  }
+
+  // 25. KLENTENG TRADITIONAL (Swallowtail Yanwei Roofs, Dragon Ridges, Red Colonnade, Lanterns)
+  private static buildKlentengTraditional(
+    group: THREE.Group,
+    bld: BuildingInstance,
+    item?: BuildingCatalogItem
+  ): void {
+    const w = bld.width;
+    const l = bld.length;
+    const h = Math.max(bld.floorHeight || 5.8, 5.0);
+
+    const plinthMat = this.getMaterial('stone_plinth');
+    const redMat = this.getMaterial('plaster', '#b91c1c');
+    const goldMat = this.getMaterial('plaster', '#eab308');
+    const roofMat = this.getMaterial('clay_tile');
+
+    // 1. Terraced stone plinth with dragon-carved entrance steps
+    const plinthH = 0.55;
+    this.addBox(group, w, plinthH, l, 0, plinthH * 0.5, 0, plinthMat);
+
+    // 2. Main prayer hall
+    const hallW = w * 0.78;
+    const hallL = l * 0.72;
+    const hallZ = -l * 0.06;
+    this.buildHollowPerimeterShell(group, hallW, h, hallL, plinthH, redMat, true, 2.8, 3.2);
+
+    // 3. Colonnaded front porch supported by vibrant red columns
+    const porchZ = l * 0.5 - 1.2;
+    for (const px of [-hallW * 0.4, -hallW * 0.14, hallW * 0.14, hallW * 0.4]) {
+      this.addCylinder(group, 0.35, 0.42, 0.4, px, plinthH + 0.2, porchZ, plinthMat);
+      this.addCylinder(group, 0.22, 0.25, h - 0.4, px, plinthH + 0.4 + (h - 0.4) * 0.5, porchZ, redMat);
+      this.addBox(group, 0.6, 0.25, 0.6, px, plinthH + h - 0.12, porchZ, goldMat);
+    }
+
+    // 4. Traditional Yanwei (swallowtail curved roof)
+    const rw = hallW + 2.4;
+    const rl = hallL + 2.2;
+    this.buildModernHipRoof(group, rw, rl, plinthH + h, 2.2, roofMat);
+
+    // Upturned sweeping ridge crest with twin dragon ornaments
+    const ridgeY = plinthH + h + 2.2;
+    this.addBox(group, rw * 0.7, 0.35, 0.3, 0, ridgeY, hallZ, goldMat);
+    this.addBox(group, 0.35, 0.8, 0.3, -rw * 0.35, ridgeY + 0.35, hallZ, goldMat, 0, 0, 0.4);
+    this.addBox(group, 0.35, 0.8, 0.3, rw * 0.35, ridgeY + 0.35, hallZ, goldMat, 0, 0, -0.4);
+    this.addCylinder(group, 0.25, 0.25, 0.5, 0, ridgeY + 0.45, hallZ, redMat);
+
+    // 5. Hanging red lanterns at front veranda
+    for (const lx of [-hallW * 0.27, hallW * 0.27]) {
+      this.addCylinder(group, 0.3, 0.25, 0.6, lx, plinthH + h - 0.8, porchZ, redMat);
+      this.addBox(group, 0.1, 0.2, 0.1, lx, plinthH + h - 1.2, porchZ, goldMat);
     }
   }
 

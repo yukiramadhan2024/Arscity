@@ -47,7 +47,7 @@
    ==================================================== */
 
 :root {
-  /* Auth & Theme Tokens - Tropical Architectural Night */
+  /* Auth & Brand Tokens (shared by Login, Hub, shadcn-style components) */
   --background: #090D16;
   --foreground: #f8fafc;
   --card: #0f172a;
@@ -56,112 +56,222 @@
   --primary-foreground: #ffffff;
   --muted-foreground: rgba(235, 235, 245, 0.65);
   --destructive: #ef4444;
-  --color-primary: #0A84FF; /* Blueprint Cyan */
-  --color-secondary: #10b981; /* Tropical Canopy Emerald */
-  --color-accent: #0284c7; /* Blueprint Blue */
+  --color-primary: #0A84FF;
+  --color-secondary: #10b981;
+  --color-accent: #0284c7;
   --color-destructive: #ef4444;
   --color-chart-1: #0A84FF;
   --color-chart-2: #10b981;
   --color-chart-3: #0284c7;
-  --color-chart-4: #d97706; /* Teak Amber */
-  --color-chart-5: #059669; /* Canopy Green */
+  --color-chart-4: #d97706;
+  --color-chart-5: #059669;
 
-  /* UNIFIED DARK SLATE GLASS TOKENS (Satu Tema Kaca Gelap Terpadu) */
+  /* ---------- SURFACES (Dark = default) ---------- */
+  --app-bg: #080d16;
   --bg-grouped: #0f172a;
   --surface: rgba(15, 23, 42, 0.86);
+  --surface-strong: rgba(15, 23, 42, 0.95);
+  --surface-solid: #0f172a;
   --surface-raised: #1e293b;
+  --surface-inset: rgba(30, 41, 59, 0.65);
+  --scrim: rgba(0, 0, 0, 0.40);
+
+  /* ---------- LABELS ---------- */
   --label: #F8FAFC;
+  --label-strong: #FFFFFF;
+  --label-muted: #CBD5E1;
   --label-secondary: #94A3B8;
-  --label-tertiary: rgba(148, 163, 184, 0.5);
+  --label-tertiary: #64748B;
+  --icon: rgba(226, 232, 240, 0.85);
+  --on-accent: #FFFFFF;
+
+  /* ---------- LINES & FILLS ---------- */
   --separator: rgba(255, 255, 255, 0.14);
+  --hairline: rgba(255, 255, 255, 0.14);
+  --hairline-soft: rgba(255, 255, 255, 0.10);
+  --fill-subtle: rgba(255, 255, 255, 0.05);
   --fill-control: rgba(255, 255, 255, 0.08);
   --fill-control-hover: rgba(255, 255, 255, 0.14);
   --fill-control-active: rgba(255, 255, 255, 0.22);
+
+  /* ---------- SEMANTIC COLORS (rgb triplets allow rgba(var(--x-rgb), a)) ---------- */
   --accent: #0A84FF;
   --accent-rgb: 10, 132, 255;
   --accent-hover: #3d9dff;
-  --good: #34C759;
-  --warn: #FF9500;
-  --bad: #FF3B30;
+  --accent-subtle: rgba(10, 132, 255, 0.16);
+  --info: #38BDF8;
+  --info-rgb: 56, 189, 248;
+  --good: #30D158;
+  --good-rgb: 48, 209, 88;
+  --warn: #FF9F0A;
+  --warn-rgb: 255, 159, 10;
+  --bad: #FF453A;
+  --bad-rgb: 255, 69, 58;
 
-  /* Glass Material Tokens */
+  /* ---------- GLASS MATERIAL ---------- */
   --glass-base: 15, 23, 42;
   --glass-opacity: 0.86;
   --glass-blur: 20px;
   --glass-saturate: 180%;
   --specular-alpha: 0.14;
-  --hairline: rgba(255, 255, 255, 0.14);
   --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.45);
   --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-popover: 0 12px 36px rgba(0, 0, 0, 0.5);
   --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.65);
 
-  /* Radius Tokens (Concentric Hierarchy) */
+  /* ---------- RADIUS (Concentric Hierarchy) ---------- */
   --radius-capsule: 9999px;
-  --radius-panel: 28px;
+  --radius-panel: 24px;
   --radius-minimap: 20px;
   --radius-popover: 18px;
   --radius-inset: 16px;
-  --radius-inner-panel: 16px; /* 28px - 12px padding */
+  --radius-inner-panel: 16px;
   --radius-sub: 12px;
   --radius-sm: 8px;
 
-  /* Typography Scale & Strict 2-Font Discipline */
+  /* ---------- TYPOGRAPHY SCALE ---------- */
   --font-scale: 1;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
   --font-stack: var(--font-sans);
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 22px;
 
-  /* Zone Map Desaturated Apple Colors (35% opacity on map) */
+  /* ---------- Z-INDEX SCALE (single source of truth) ---------- */
+  --z-canvas: 0;
+  --z-hud: 10;
+  --z-hud-popover: 20;
+  --z-cursor: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+  --z-auth: 70;
+
+  /* ---------- HUD LAYOUT GRID ---------- */
+  --hud-gap: 16px;
+  --hud-header-h: 48px;
+  --hud-rail-w: 50px;
+  --hud-left-w: clamp(280px, 24vw, 340px);
+  --hud-right-w: clamp(300px, 26vw, 360px);
+  --hud-minimap-size: 160px;
+  --hud-bottom-h: 72px;
+
+  /* ---------- MOTION ---------- */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+
+  /* Zone Map Colors (identical in both themes) */
   --zone-residential: #d97706;
   --zone-commercial: #0284c7;
   --zone-office: #4f46e5;
   --zone-public: #e11d48;
   --zone-green: #16a34a;
   --zone-mixed: #9333ea;
+
+  color-scheme: dark;
 }
 
-/* UNIFIED DARK THEME & OVERRIDES */
-[data-theme="dark"],
-[data-theme="light"],
-[data-theme="auto"] {
-  --bg-grouped: #0f172a;
-  --surface: rgba(15, 23, 42, 0.86);
-  --surface-raised: #1e293b;
-  --label: #F8FAFC;
-  --label-secondary: #94A3B8;
-  --label-tertiary: rgba(148, 163, 184, 0.5);
-  --separator: rgba(255, 255, 255, 0.14);
-  --fill-control: rgba(255, 255, 255, 0.08);
-  --fill-control-hover: rgba(255, 255, 255, 0.14);
-  --fill-control-active: rgba(255, 255, 255, 0.22);
-  --accent: #0A84FF;
-  --accent-rgb: 10, 132, 255;
-  --accent-hover: #3d9dff;
-  --good: #34C759;
-  --warn: #FF9500;
-  --bad: #FF3B30;
+/* ====================================================
+   LIGHT THEME (html[data-theme="light"])
+   Frosted white glass, slate ink, iOS light system colors
+   ==================================================== */
+[data-theme="light"] {
+  --background: #F1F5F9;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --border: rgba(15, 23, 42, 0.12);
+  --muted-foreground: rgba(15, 23, 42, 0.6);
 
-  --glass-base: 15, 23, 42;
-  --glass-opacity: 0.86;
-  --specular-alpha: 0.14;
-  --hairline: rgba(255, 255, 255, 0.14);
-  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.45);
-  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.65);
+  --app-bg: #E2E8F0;
+  --bg-grouped: #F1F5F9;
+  --surface: rgba(255, 255, 255, 0.80);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --surface-solid: #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-inset: rgba(241, 245, 249, 0.85);
+  --scrim: rgba(15, 23, 42, 0.28);
+
+  --label: #0F172A;
+  --label-strong: #020617;
+  --label-muted: #334155;
+  --label-secondary: #475569;
+  --label-tertiary: #64748B;
+  --icon: rgba(15, 23, 42, 0.78);
+  --on-accent: #FFFFFF;
+
+  --separator: rgba(15, 23, 42, 0.12);
+  --hairline: rgba(15, 23, 42, 0.12);
+  --hairline-soft: rgba(15, 23, 42, 0.08);
+  --fill-subtle: rgba(15, 23, 42, 0.035);
+  --fill-control: rgba(15, 23, 42, 0.06);
+  --fill-control-hover: rgba(15, 23, 42, 0.10);
+  --fill-control-active: rgba(15, 23, 42, 0.16);
+
+  --accent: #007AFF;
+  --accent-rgb: 0, 122, 255;
+  --accent-hover: #0066D6;
+  --accent-subtle: rgba(0, 122, 255, 0.12);
+  --info: #0369A1;
+  --info-rgb: 2, 132, 199;
+  --good: #248A3D;
+  --good-rgb: 36, 138, 61;
+  --warn: #C93400;
+  --warn-rgb: 201, 52, 0;
+  --bad: #D70015;
+  --bad-rgb: 215, 0, 21;
+
+  --glass-base: 255, 255, 255;
+  --specular-alpha: 0.6;
+  --shadow-glass: 0 8px 28px rgba(15, 23, 42, 0.14);
+  --shadow-card: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --shadow-popover: 0 12px 32px rgba(15, 23, 42, 0.16);
+  --shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.22);
+
+  --lab-card-bg: rgba(248, 250, 252, 0.88);
+  --lab-card-blur: 24px;
+  --lab-card-saturate: 180%;
+  --lab-card-border: 1px solid rgba(15, 23, 42, 0.10);
+  --lab-card-radius: 24px;
+  --lab-card-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 20px 50px rgba(15, 23, 42, 0.14);
+
+  --lab-badge-bg: rgba(10, 132, 255, 0.12);
+  --lab-badge-icon: #007AFF;
+  --lab-title-color: #0F172A;
+  --lab-subtitle-color: #475569;
+
+  --lab-section-bg: rgba(255, 255, 255, 0.88);
+  --lab-section-border: 1px solid rgba(15, 23, 42, 0.08);
+  --lab-section-radius: 18px;
+  --lab-section-divider: rgba(15, 23, 42, 0.06);
+
+  --lab-pill-bg: rgba(226, 232, 240, 0.7);
+  --lab-pill-active-bg: #FFFFFF;
+  --lab-pill-active-text: #0F172A;
+  --lab-pill-active-shadow: 0 2px 8px rgba(15, 23, 42, 0.10);
+
+  color-scheme: light;
 }
 
 /* HIGH CONTRAST MODE */
 [data-contrast="high"] {
-  --separator: rgba(0, 0, 0, 0.75);
-  --label-secondary: rgba(0, 0, 0, 0.85);
-  --label-tertiary: rgba(0, 0, 0, 0.65);
-  --hairline: rgba(0, 0, 0, 0.35);
-}
-[data-theme="dark"][data-contrast="high"] {
   --separator: rgba(255, 255, 255, 0.75);
+  --hairline: rgba(255, 255, 255, 0.45);
+  --hairline-soft: rgba(255, 255, 255, 0.35);
   --label-secondary: rgba(255, 255, 255, 0.85);
-  --label-tertiary: rgba(255, 255, 255, 0.65);
-  --hairline: rgba(255, 255, 255, 0.35);
+  --label-tertiary: rgba(255, 255, 255, 0.7);
+}
+[data-theme="light"][data-contrast="high"] {
+  --separator: rgba(0, 0, 0, 0.75);
+  --hairline: rgba(0, 0, 0, 0.45);
+  --hairline-soft: rgba(0, 0, 0, 0.35);
+  --label-secondary: rgba(0, 0, 0, 0.85);
+  --label-tertiary: rgba(0, 0, 0, 0.7);
 }
 
 /* BASE RESETS & ROOT */
@@ -175,11 +285,31 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Sleek Modern Floating Scrollbars (Eliminates harsh browser scrollbar tracks) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.50);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+}
+
 html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #080d16;
+  background-color: var(--app-bg);
   color: var(--label);
   font-family: var(--font-sans);
   font-size: calc(14px * var(--font-scale));
@@ -230,44 +360,89 @@ html, body, #root {
   justify-content: space-between;
 }
 
+/* ====================================================
+   LABORATORIUM ANALISIS UNIFIED DESIGN SYSTEM STANDARD
+   Clean, light frosted translucent glass, soft specular highlights,
+   circular blue badges, white inset containers, and pill controls.
+   ==================================================== */
+:root {
+  --lab-card-bg: rgba(15, 23, 42, 0.86);
+  --lab-card-blur: 24px;
+  --lab-card-saturate: 180%;
+  --lab-card-border: 1px solid rgba(255, 255, 255, 0.12);
+  --lab-card-radius: 24px;
+  --lab-card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.45);
+
+  --lab-badge-bg: rgba(10, 132, 255, 0.18);
+  --lab-badge-icon: #38BDF8;
+  --lab-title-color: #F8FAFC;
+  --lab-subtitle-color: #94A3B8;
+
+  --lab-section-bg: rgba(30, 41, 59, 0.65);
+  --lab-section-border: 1px solid rgba(255, 255, 255, 0.08);
+  --lab-section-radius: 18px;
+  --lab-section-divider: rgba(255, 255, 255, 0.08);
+
+  --lab-pill-bg: rgba(30, 41, 59, 0.85);
+  --lab-pill-active-bg: #0A84FF;
+  --lab-pill-active-text: #FFFFFF;
+  --lab-pill-active-shadow: 0 2px 10px rgba(10, 132, 255, 0.4);
+}
+
+html[data-theme="light"],
+[data-theme="light"] {
+  --lab-card-bg: rgba(248, 250, 252, 0.92);
+  --lab-card-blur: 24px;
+  --lab-card-saturate: 180%;
+  --lab-card-border: 1px solid rgba(15, 23, 42, 0.10);
+  --lab-card-radius: 24px;
+  --lab-card-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 20px 50px rgba(15, 23, 42, 0.14);
+
+  --lab-badge-bg: rgba(10, 132, 255, 0.12);
+  --lab-badge-icon: #007AFF;
+  --lab-title-color: #0F172A;
+  --lab-subtitle-color: #475569;
+
+  --lab-section-bg: rgba(241, 245, 249, 0.85);
+  --lab-section-border: 1px solid rgba(15, 23, 42, 0.08);
+  --lab-section-radius: 18px;
+  --lab-section-divider: rgba(15, 23, 42, 0.08);
+
+  --lab-pill-bg: rgba(255, 255, 255, 0.90);
+  --lab-pill-active-bg: #007AFF;
+  --lab-pill-active-text: #FFFFFF;
+  --lab-pill-active-shadow: 0 2px 10px rgba(0, 122, 255, 0.35);
+}
+
 .interactive {
   pointer-events: auto;
 }
 
 /* ====================================================
-   LIQUID GLASS REFINED MATERIAL (Functional Layer Only)
+   LIQUID GLASS REFINED MATERIAL - LABORATORIUM ANALISIS
    ==================================================== */
 .glass-surface {
-  background: rgba(var(--glass-base), var(--glass-opacity));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, var(--specular-alpha)),
-              0 0 0 1px var(--hairline),
-              var(--shadow-glass);
-  color: var(--label);
+  background: var(--lab-card-bg);
+  -webkit-backdrop-filter: blur(var(--lab-card-blur)) saturate(var(--lab-card-saturate));
+  backdrop-filter: blur(var(--lab-card-blur)) saturate(var(--lab-card-saturate));
+  border: var(--lab-card-border);
+  box-shadow: var(--lab-card-shadow);
+  color: var(--lab-title-color);
   position: relative;
 }
 
 [data-glass="tinted"] .glass-surface {
-  background: color-mix(in srgb, var(--accent) 7%, rgba(var(--glass-base), var(--glass-opacity)));
+  background: color-mix(in srgb, var(--accent) 7%, rgba(235, 242, 250, 0.72));
 }
 
-/* PERFORMANCE-ADAPTIVE GLASS SURFACE (Phase 5)
-   Falls back to high-performance solid/semi-opaque surface
-   when FPS < 48 for > 3s, or Reduced Motion / High Contrast is active. */
+/* PERFORMANCE-ADAPTIVE GLASS SURFACE (Phase 5) */
 [data-adaptive-glass="low"] .glass-surface,
 [data-contrast="high"] .glass-surface,
 [data-reduced-motion="true"] .glass-surface {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
-  background: rgba(var(--glass-base), 0.94) !important;
+  background: rgba(235, 242, 250, 0.96) !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
-}
-
-[data-adaptive-glass="low"][data-theme="dark"] .glass-surface,
-[data-contrast="high"][data-theme="dark"] .glass-surface,
-[data-reduced-motion="true"][data-theme="dark"] .glass-surface {
-  background: rgba(28, 28, 30, 0.96) !important;
 }
 
 /* FLOATING CAPSULE TOOLBARS & BARS */
@@ -276,34 +451,34 @@ html, body, #root {
 }
 
 .glass-panel-outer {
-  border-radius: var(--radius-panel);
+  border-radius: var(--lab-card-radius);
 }
 
 /* ====================================================
-   SOLID INSET GROUPED LISTS (For Long-form Reading)
+   SOLID INSET GROUPED LISTS - LABORATORIUM ANALISIS
    Inspector, Glossary, Missions, Settings, Dialogs
    ==================================================== */
 .inset-group {
-  background: rgba(30, 41, 59, 0.65);
-  border-radius: var(--radius-inset);
-  box-shadow: var(--shadow-card);
+  background: var(--lab-section-bg);
+  border-radius: var(--lab-section-radius);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: var(--lab-section-border);
   margin-bottom: 12px;
 }
 
 .inset-header {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #94A3B8;
-  padding: 4px 14px 6px 14px;
+  color: var(--lab-subtitle-color);
+  padding: 6px 14px 4px 14px;
 }
 
 .inset-footer {
   font-size: 11px;
-  color: #94A3B8;
+  color: var(--lab-subtitle-color);
   padding: 4px 14px 10px 14px;
   line-height: 1.4;
 }
@@ -313,9 +488,9 @@ html, body, #root {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
-  font-size: 14px;
-  color: #F8FAFC;
+  border-bottom: 1px solid var(--lab-section-divider);
+  font-size: 13px;
+  color: var(--lab-title-color);
   background: transparent;
   min-height: 40px;
 }
@@ -330,37 +505,37 @@ html, body, #root {
 }
 
 .inset-row-clickable:hover {
-  background: var(--fill-control);
+  background: rgba(15, 23, 42, 0.04);
 }
 
 .inset-row-clickable:active {
-  background: var(--fill-control-active);
+  background: rgba(15, 23, 42, 0.08);
 }
 
 /* ====================================================
-   iOS SEGMENTED CONTROL
+   SEGMENTED PILL CONTROLS - LABORATORIUM ANALISIS
    ==================================================== */
 .segmented-control {
   display: inline-flex;
-  background: var(--fill-control);
-  padding: 2px;
-  border-radius: var(--radius-capsule);
+  background: var(--lab-pill-bg);
+  padding: 3px;
+  border-radius: 9999px;
   position: relative;
-  gap: 2px;
-  border: 0.5px solid var(--separator);
+  gap: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
 .segmented-item {
   position: relative;
-  padding: 5px 12px;
+  padding: 5px 14px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--label-secondary);
+  color: var(--lab-subtitle-color);
   border: none;
   background: transparent;
   cursor: pointer;
-  border-radius: var(--radius-capsule);
-  transition: color 120ms ease-out, background-color 120ms ease-out;
+  border-radius: 9999px;
+  transition: all 140ms ease-out;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -370,14 +545,15 @@ html, body, #root {
 }
 
 .segmented-item:hover {
-  color: var(--label);
+  color: var(--lab-title-color);
 }
 
 .segmented-item.active {
-  background: var(--surface-raised);
-  color: var(--label);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  background: var(--lab-pill-active-bg);
+  color: var(--lab-pill-active-text);
+  font-weight: 700;
+  box-shadow: var(--lab-pill-active-shadow);
+  transform: translateY(-0.5px);
 }
 
 .segmented-item:active {
@@ -672,11 +848,8 @@ input[type="range"].ios-slider:focus-visible {
    Contains City Management: Save/Load, Photo, Settings
    ==================================================== */
 .side-dock-wrapper {
-  position: absolute;
-  top: 76px;
-  left: 16px;
-  z-index: 40;
-  pointer-events: none;
+  position: relative;
+  pointer-events: auto;
 }
 
 .side-dock-container {
@@ -684,13 +857,23 @@ input[type="range"].ios-slider:focus-visible {
   flex-direction: column;
   align-items: center;
   padding: 8px 6px;
-  gap: 6px;
-  border-radius: var(--radius-capsule);
-  background: rgba(15, 23, 42, 0.86) !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  gap: 4px;
+  border-radius: 24px;
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.35);
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.side-dock-container::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .side-dock-btn {
@@ -698,22 +881,20 @@ input[type="range"].ios-slider:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: #F1F5F9;
+  color: var(--label-secondary);
   cursor: pointer;
   outline: none;
-  transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1),
-              color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-              transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .side-dock-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #0A84FF;
+  background: var(--accent-subtle);
+  color: var(--accent);
   transform: scale(1.08);
 }
 
@@ -726,10 +907,10 @@ input[type="range"].ios-slider:focus-visible {
   left: calc(100% + 12px);
   top: 50%;
   transform: translateY(-50%) translateX(-6px);
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(16px);
+  background: var(--surface-strong);
   -webkit-backdrop-filter: blur(16px);
-  color: #F8FAFC;
+  backdrop-filter: blur(16px);
+  color: var(--label);
   font-size: 12px;
   font-weight: 500;
   padding: 6px 12px;
@@ -740,9 +921,9 @@ input[type="range"].ios-slider:focus-visible {
   visibility: hidden;
   transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
               transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  z-index: 100;
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-popover);
+  z-index: var(--z-hud-popover);
 }
 
 .side-dock-btn:hover .side-dock-tooltip {
@@ -758,33 +939,41 @@ input[type="range"].ios-slider:focus-visible {
 
 /* ====================================================
    FLOATING INSPECTOR PANEL
+/* ====================================================
+   FLOATING INSPECTOR PANEL - LABORATORIUM ANALISIS
    Header is thin glass capsule, content is solid grouped
    ==================================================== */
 .inspector-panel {
   position: absolute;
   top: 16px;
   right: 16px;
-  width: 330px;
+  width: 340px;
   max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
   z-index: 45;
-  border-radius: var(--radius-panel);
+  background: var(--lab-card-bg);
+  -webkit-backdrop-filter: blur(var(--lab-card-blur)) saturate(var(--lab-card-saturate));
+  backdrop-filter: blur(var(--lab-card-blur)) saturate(var(--lab-card-saturate));
+  border: var(--lab-card-border);
+  border-radius: var(--lab-card-radius);
   overflow: hidden;
-  box-shadow: var(--shadow-glass);
+  box-shadow: var(--lab-card-shadow);
+  color: var(--lab-title-color);
 }
 
 .inspector-header {
-  padding: 10px 16px;
+  padding: 14px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 0.5px solid var(--separator);
+  border-bottom: 1px solid var(--lab-section-divider);
+  background: transparent;
 }
 
 .inspector-body {
-  background: var(--bg-grouped);
-  padding: 12px;
+  background: transparent;
+  padding: 14px;
   overflow-y: auto;
   flex: 1;
 }
@@ -808,50 +997,60 @@ input[type="range"].ios-slider:focus-visible {
 }
 
 /* ====================================================
-   MODAL DIALOGS / SHEETS (Inset Grouped Content)
+   MODAL DIALOGS / SHEETS - LABORATORIUM ANALISIS
    ==================================================== */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.40);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.35);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: var(--z-modal);
   animation: modalFadeIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modal-sheet {
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-radius: var(--radius-panel);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+  background: var(--lab-card-bg);
+  -webkit-backdrop-filter: blur(var(--lab-card-blur)) saturate(var(--lab-card-saturate));
+  backdrop-filter: blur(var(--lab-card-blur)) saturate(var(--lab-card-saturate));
+  border: var(--lab-card-border);
+  border-radius: var(--lab-card-radius);
+  box-shadow: var(--lab-card-shadow);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  color: #F8FAFC;
+  color: var(--lab-title-color);
 }
 
 .modal-sheet-header {
-  padding: 14px 20px;
-  background: rgba(15, 23, 42, 0.86);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 16px 20px;
+  background: transparent;
+  border-bottom: 1px solid var(--lab-section-divider);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .modal-sheet-body {
-  padding: 16px 20px;
+  padding: 18px 20px;
   overflow-y: auto;
   flex: 1;
   background: transparent;
+}
+
+/* ====================================================
+   WHITE MAKET / DATA LENS CARD BOUNDARY REINFORCEMENT
+   Crisp dual-layer outer ring and ambient drop shadow
+   ==================================================== */
+.modal-sheet,
+.side-dock-container,
+.inspector-panel,
+.top-header,
+.top-header-capsule {
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 20px 50px rgba(15, 23, 42, 0.16);
 }
 
 /* ====================================================

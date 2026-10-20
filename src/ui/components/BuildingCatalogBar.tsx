@@ -28,7 +28,28 @@ import {
   Flame,
   Cross,
   Boxes,
-  Film
+  Film,
+  ShieldCheck,
+  Scale,
+  Mail,
+  HeartPulse,
+  Factory,
+  Plane,
+  Ship,
+  GitCommit,
+  TrendingUp,
+  Zap,
+  Sun,
+  Droplets,
+  Recycle,
+  Trash2,
+  Radio,
+  Church,
+  Theater,
+  Palette,
+  Maximize2,
+  Trophy,
+  Dumbbell
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -52,7 +73,28 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Flame,
   Cross,
   Boxes,
-  Film
+  Film,
+  ShieldCheck,
+  Scale,
+  Mail,
+  HeartPulse,
+  Factory,
+  Plane,
+  Ship,
+  GitCommit,
+  TrendingUp,
+  Zap,
+  Sun,
+  Droplets,
+  Recycle,
+  Trash2,
+  Radio,
+  Church,
+  Theater,
+  Palette,
+  Maximize2,
+  Trophy,
+  Dumbbell
 };
 
 function renderCatalogIcon(iconName: string, size = 14) {
@@ -76,21 +118,25 @@ export const BuildingCatalogBar: React.FC = () => {
   const categories: Array<{ id: 'all' | BuildingCategory; label: string; icon: React.ElementType }> = [
     { id: 'all', label: `Semua (${totalCount})`, icon: LayoutGrid },
     { id: 'hunian', label: 'Hunian', icon: Home },
-    { id: 'kuliner_kafe', label: 'Kafe & Kuliner', icon: Coffee },
-    { id: 'mall_ritel', label: 'Mall & Ritel', icon: ShoppingBag },
-    { id: 'kampus_kos', label: 'Kampus & Kos', icon: GraduationCap },
-    { id: 'budaya_hotel', label: 'Budaya & Hotel', icon: Hotel },
-    { id: 'publik_hijau', label: 'Publik & Hijau', icon: Trees },
+    { id: 'pemerintahan_keamanan', label: 'Pemerintahan', icon: ShieldCheck },
+    { id: 'pendidikan', label: 'Pendidikan', icon: GraduationCap },
+    { id: 'kesehatan', label: 'Kesehatan', icon: HeartPulse },
+    { id: 'perdagangan_jasa', label: 'Perdagangan & Jasa', icon: ShoppingBag },
+    { id: 'industri_logistik', label: 'Industri & Logistik', icon: Factory },
+    { id: 'transportasi', label: 'Transportasi', icon: Bus },
+    { id: 'utilitas', label: 'Utilitas', icon: Zap },
+    { id: 'ibadah_budaya', label: 'Ibadah & Budaya', icon: Church },
+    { id: 'rekreasi_terbuka', label: 'Rekreasi & Terbuka', icon: Trees },
   ];
 
-  const filteredBuildings = allBuildings.filter((item) => {
-    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
+  const categoryBuildings = BuildingCatalogRegistry.getBuildingsByCategory(activeCategory);
+  const filteredBuildings = categoryBuildings.filter((item) => {
     const matchesSearch =
       searchQuery.trim() === '' ||
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.id.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return matchesSearch;
   });
 
   const handleSelectPreset = (key: string) => {

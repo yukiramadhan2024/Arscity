@@ -6,8 +6,8 @@ import { CostEstimator } from '../src/simulation/CostEstimator';
 import { RunoffSimulator } from '../src/simulation/RunoffSimulator';
 import { ThermalVentilationAnalyzer } from '../src/analysis/ThermalVentilationAnalyzer';
 import { SpatialHashGrid } from '../src/core/engine/SpatialHashGrid';
-import { Lot } from '../src/zones/LotManager';
 import { LotParcel } from '../src/zones/ZoneTypes';
+type Lot = Partial<LotParcel> & Record<string, any>;
 import { BuildingInstance } from '../src/buildings/PrefabTypes';
 import { BuildingManager } from '../src/buildings/BuildingManager';
 import { LandscapeManager } from '../src/world/LandscapeManager';
@@ -57,8 +57,8 @@ describe('Systemic SimCity Architecture Pillars', () => {
         createdAt: Date.now(),
       };
 
-      spatialGrid.insert('lot_cool_neighbor', 10, 0, coolNeighborLot);
-      spatialGrid.insert('lot_target', 0, 0, targetLot);
+      spatialGrid.insert('lot_cool_neighbor', { minX: 0, maxX: 20, minZ: -10, maxZ: 10 }, coolNeighborLot);
+      spatialGrid.insert('lot_target', { minX: -10, maxX: 10, minZ: -10, maxZ: 10 }, targetLot);
 
       const lotsMap = new Map<string, Lot>([
         ['lot_cool_neighbor', coolNeighborLot],
@@ -76,7 +76,7 @@ describe('Systemic SimCity Architecture Pillars', () => {
         length: 10,
         floorCount: 1,
         floorHeight: 3.5,
-        roofType: 'limasan',
+        roofType: 'hip',
         roofOverhang: 1.4,
         wallMaterial: 'plaster',
         wallColor: '#ffffff',
@@ -132,7 +132,7 @@ describe('Systemic SimCity Architecture Pillars', () => {
       expect(thermalResult?.neighborhoodWaterAbsorptionAidM3Hr).toBeGreaterThan(0);
 
       // Verify runoff simulator accounts for neighbor absorption aid
-      const floodResult = runoffSim.evaluateLotFlooding(targetLot, landMgr, 60.0, mockLotMgr);
+      const floodResult = runoffSim.evaluateLotFlooding(targetLot as any, landMgr, 60.0, mockLotMgr);
       expect(floodResult.neighborAbsorptionAidM3Hr).toBeGreaterThan(0);
       expect(floodResult.netNeighborRunoffImpactM3Hr).toBeLessThan(0);
     });
@@ -180,8 +180,8 @@ describe('Systemic SimCity Architecture Pillars', () => {
         createdAt: Date.now(),
       };
 
-      spatialGrid.insert('lot_hot', 12, 0, hotNeighborLot);
-      spatialGrid.insert('lot_target_2', 0, 0, targetLot);
+      spatialGrid.insert('lot_hot', { minX: 2, maxX: 22, minZ: -10, maxZ: 10 }, hotNeighborLot);
+      spatialGrid.insert('lot_target_2', { minX: -10, maxX: 10, minZ: -10, maxZ: 10 }, targetLot);
 
       const lotsMap = new Map<string, Lot>([
         ['lot_hot', hotNeighborLot],
@@ -201,7 +201,7 @@ describe('Systemic SimCity Architecture Pillars', () => {
         floorHeight: 3.5,
         roofType: 'flat',
         roofOverhang: 0.2,
-        wallMaterial: 'glass',
+        wallMaterial: 'plaster',
         wallColor: '#1e293b',
         roofMaterial: 'concrete',
       };
@@ -217,7 +217,7 @@ describe('Systemic SimCity Architecture Pillars', () => {
         length: 10,
         floorCount: 1,
         floorHeight: 3.5,
-        roofType: 'limasan',
+        roofType: 'hip',
         roofOverhang: 1.4,
         wallMaterial: 'plaster',
         wallColor: '#ffffff',
@@ -249,7 +249,7 @@ describe('Systemic SimCity Architecture Pillars', () => {
       expect(thermalResult?.neighborhoodHeatIslandC).toBeGreaterThanOrEqual(0.8);
       expect(thermalResult?.neighborhoodRunoffSurplusM3Hr).toBeGreaterThanOrEqual(0.4);
 
-      const floodResult = runoffSim.evaluateLotFlooding(targetLot, landMgr, 60.0, mockLotMgr);
+      const floodResult = runoffSim.evaluateLotFlooding(targetLot as any, landMgr, 60.0, mockLotMgr);
       expect(floodResult.neighborRunoffSurplusM3Hr).toBeGreaterThan(0);
       expect(floodResult.netNeighborRunoffImpactM3Hr).toBeGreaterThan(0);
     });
@@ -265,9 +265,9 @@ describe('Systemic SimCity Architecture Pillars', () => {
       const nodeC = graph.getOrCreateNode(new THREE.Vector3(200, 0, 0));
       const nodeD = graph.getOrCreateNode(new THREE.Vector3(500, 0, 0));
 
-      graph.addEdge(nodeA.id, nodeB.id, 'local_residential');
-      graph.addEdge(nodeB.id, nodeC.id, 'local_residential');
-      graph.addEdge(nodeC.id, nodeD.id, 'local_residential');
+      graph.addEdge(nodeA.id, nodeB.id, 'local');
+      graph.addEdge(nodeB.id, nodeC.id, 'local');
+      graph.addEdge(nodeC.id, nodeD.id, 'local');
 
       // Test reachable distances within 250m from Node A
       const dists = graph.computeNetworkDistancesFromPoint(new THREE.Vector3(0, 0, 0), 250);
@@ -294,7 +294,7 @@ describe('Systemic SimCity Architecture Pillars', () => {
       const graph = new RoadGraph();
       const n1 = graph.getOrCreateNode(new THREE.Vector3(-10, 0, -50));
       const n2 = graph.getOrCreateNode(new THREE.Vector3(-10, 0, 50));
-      graph.addEdge(n1.id, n2.id, 'local_residential');
+      graph.addEdge(n1.id, n2.id, 'local');
 
       const lot: LotParcel = {
         id: 'lot_auto_1',

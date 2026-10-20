@@ -78,7 +78,7 @@ describe('Smart Auto-Fix & 3D Gizmo Parameter Manipulation', () => {
 
     const building: BuildingInstance = {
       id: 'bld_1',
-      prefabKey: 'house_36',
+      presetKey: 'house_36',
       name: 'Rumah Uji',
       category: 'residential',
       position: new THREE.Vector3(0, 0, 7),
@@ -88,6 +88,7 @@ describe('Smart Auto-Fix & 3D Gizmo Parameter Manipulation', () => {
       floorCount: 1,
       floorHeight: 3.2,
       roofType: 'gable',
+      roofOverhang: 0.8,
       roofColor: '#a04030',
       roofMaterial: 'clay_tile',
       wallColor: '#ffffff',
@@ -104,7 +105,7 @@ describe('Smart Auto-Fix & 3D Gizmo Parameter Manipulation', () => {
     // 2. Add an oversized building that breaches GSB and KDB
     const building: BuildingInstance = {
       id: 'bld_fix_test',
-      prefabKey: 'house_36',
+      presetKey: 'house_36',
       name: 'Rumah Uji Pelanggar',
       category: 'residential',
       position: new THREE.Vector3(0, 0, 7), // Far forward near road edge
@@ -114,6 +115,7 @@ describe('Smart Auto-Fix & 3D Gizmo Parameter Manipulation', () => {
       floorCount: 1,
       floorHeight: 3.2,
       roofType: 'gable',
+      roofOverhang: 0.8,
       roofColor: '#a04030',
       roofMaterial: 'clay_tile',
       wallColor: '#ffffff',
@@ -157,7 +159,7 @@ describe('Smart Auto-Fix & 3D Gizmo Parameter Manipulation', () => {
   it('records 3D Gizmo floor height adjustments and supports Undo/Redo', () => {
     const building: BuildingInstance = {
       id: 'bld_gizmo_floor',
-      prefabKey: 'shophouse_standard',
+      presetKey: 'shophouse_standard',
       name: 'Ruko Uji',
       category: 'commercial',
       position: new THREE.Vector3(0, 0, 0),
@@ -167,6 +169,7 @@ describe('Smart Auto-Fix & 3D Gizmo Parameter Manipulation', () => {
       floorCount: 2,
       floorHeight: 3.5,
       roofType: 'flat',
+      roofOverhang: 0.5,
       roofColor: '#505050',
       roofMaterial: 'concrete',
       wallColor: '#f0f0f0',
@@ -197,7 +200,7 @@ describe('Smart Auto-Fix & 3D Gizmo Parameter Manipulation', () => {
   it('records 3D Gizmo roof overhang / tritisan adjustments and supports Undo/Redo', () => {
     const building: BuildingInstance = {
       id: 'bld_gizmo_overhang',
-      prefabKey: 'joglo_heritage',
+      presetKey: 'joglo_heritage',
       name: 'Joglo Uji',
       category: 'residential',
       position: new THREE.Vector3(0, 0, 0),
@@ -237,7 +240,7 @@ describe('Smart Auto-Fix & 3D Gizmo Parameter Manipulation', () => {
   it('records 3D Gizmo rotation ring with 15° magnetic snapping and supports Undo/Redo', () => {
     const building: BuildingInstance = {
       id: 'bld_gizmo_rotation',
-      prefabKey: 'house_36',
+      presetKey: 'house_36',
       name: 'Rumah Putar Uji',
       category: 'residential',
       position: new THREE.Vector3(0, 0, 0),
@@ -247,6 +250,7 @@ describe('Smart Auto-Fix & 3D Gizmo Parameter Manipulation', () => {
       floorCount: 1,
       floorHeight: 3.2,
       roofType: 'gable',
+      roofOverhang: 0.8,
       roofColor: '#a04030',
       roofMaterial: 'clay_tile',
       wallColor: '#ffffff',

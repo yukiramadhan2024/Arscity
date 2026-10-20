@@ -1,14 +1,21 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useUIStore } from '../state/useUIStore';
 import { ZONE_RULES } from '../../zones/ZoneTypes';
-import { Navigation } from 'lucide-react';
+import { Compass, Minimize2 } from 'lucide-react';
 
 export const Minimap: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { engine, resolvedTheme } = useUIStore();
+  const { engine, resolvedTheme, activeTool } = useUIStore();
+  const [isManuallyCollapsed, setIsManuallyCollapsed] = useState<boolean>(false);
+
+  // Auto-collapse when Analysis Lab is active to prevent left-side overlap
+  const isAutoCollapsed = activeTool === 'analyze';
+  const isCollapsed = isManuallyCollapsed || isAutoCollapsed;
 
   useEffect(() => {
+    if (isCollapsed) return;
+
     let animId: number;
     let sweepAngle = 0;
 
@@ -21,7 +28,7 @@ export const Minimap: React.FC = () => {
       if (!ctx) return;
 
       const dpr = window.devicePixelRatio || 1;
-      const displaySize = 160;
+      const displaySize = 156;
       if (canvas.width !== displaySize * dpr || canvas.height !== displaySize * dpr) {
         canvas.width = displaySize * dpr;
         canvas.height = displaySize * dpr;
@@ -37,17 +44,21 @@ export const Minimap: React.FC = () => {
 
       const isDark = resolvedTheme === 'dark';
 
-      // Circular clip path for round radar
+      // Rounded clip path for Laboratorium Analisis card
       ctx.beginPath();
-      ctx.arc(w / 2, h / 2, w / 2 - 2, 0, Math.PI * 2);
+      if ((ctx as any).roundRect) {
+        (ctx as any).roundRect(0, 0, w, h, 20);
+      } else {
+        ctx.arc(w / 2, h / 2, w / 2 - 2, 0, Math.PI * 2);
+      }
       ctx.clip();
 
-      // Deep dark radar background
-      ctx.fillStyle = '#0a0f1d';
+      // Deep dark / clean light minimap background
+      ctx.fillStyle = isDark ? '#0F172A' : '#F1F5F9';
       ctx.fillRect(0, 0, w, h);
 
       // Subtle range rings
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+      ctx.strokeStyle = isDark ? 'rgba(56, 189, 248, 0.12)' : 'rgba(2, 132, 199, 0.15)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(w / 2, h / 2, 35, 0, Math.PI * 2);
@@ -57,7 +68,7 @@ export const Minimap: React.FC = () => {
       ctx.stroke();
 
       // Compass crosshairs
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(15, 23, 42, 0.12)';
       ctx.lineWidth = 0.75;
       ctx.beginPath();
       ctx.moveTo(w / 2, 4);
@@ -95,7 +106,7 @@ export const Minimap: React.FC = () => {
 
       // 2. Render Roads (Muted Blue-Gray)
       if (engine.roadManager) {
-        ctx.strokeStyle = '#334155';
+        ctx.strokeStyle = isDark ? '#334155' : '#94a3b8';
         ctx.lineWidth = Math.max(2.5, 7 * scale);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -137,10 +148,10 @@ export const Minimap: React.FC = () => {
           ctx.translate(bx, by);
           ctx.rotate(-bld.rotationY);
 
-          ctx.fillStyle = '#64748b';
+          ctx.fillStyle = isDark ? '#64748b' : '#cbd5e1';
           ctx.fillRect(-bw / 2, -bl / 2, bw, bl);
 
-          ctx.strokeStyle = '#94a3b8';
+          ctx.strokeStyle = isDark ? '#94a3b8' : '#64748b';
           ctx.lineWidth = 0.5;
           ctx.strokeRect(-bw / 2, -bl / 2, bw, bl);
 
@@ -148,56 +159,29 @@ export const Minimap: React.FC = () => {
         }
       }
 
-      // 4. Subtle Radar Sweep Glow
-      sweepAngle += 0.025;
-      const sweepGradient = ctx.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, 70);
-      sweepGradient.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
-      sweepGradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
-
-      ctx.fillStyle = sweepGradient;
+      // 4. Titik Posisi Pusat Pemain (Clean 2D Static Indicator)
+      ctx.fillStyle = 'rgba(0, 122, 255, 0.2)';
       ctx.beginPath();
-      ctx.arc(w / 2, h / 2, 70, sweepAngle, sweepAngle + Math.PI * 0.45);
-      ctx.lineTo(w / 2, h / 2);
+      ctx.arc(w / 2, h / 2, 8, 0, Math.PI * 2);
       ctx.fill();
 
-      // 5. Camera View Frustum Cone (Cyan Translucent)
-      const eyeX = toScreenX(cam.camera.position.x);
-      const eyeY = toScreenY(cam.camera.position.z);
-
-      const fovRad = (45 * Math.PI) / 180;
-      const angle = Math.atan2(h / 2 - eyeY, w / 2 - eyeX);
-      const coneDist = 42;
-
-      ctx.fillStyle = 'rgba(0, 229, 255, 0.22)';
+      ctx.fillStyle = '#007AFF';
       ctx.beginPath();
-      ctx.moveTo(eyeX, eyeY);
-      ctx.lineTo(eyeX + Math.cos(angle - fovRad / 2) * coneDist, eyeY + Math.sin(angle - fovRad / 2) * coneDist);
-      ctx.lineTo(eyeX + Math.cos(angle + fovRad / 2) * coneDist, eyeY + Math.sin(angle + fovRad / 2) * coneDist);
-      ctx.closePath();
+      ctx.arc(w / 2, h / 2, 4, 0, Math.PI * 2);
       ctx.fill();
 
-      // Sightline
-      ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([2, 2]);
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(eyeX, eyeY);
-      ctx.lineTo(w / 2, h / 2);
+      ctx.arc(w / 2, h / 2, 4, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.setLineDash([]);
-
-      // White Arrow at Center
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, 3, 0, Math.PI * 2);
-      ctx.fill();
 
       ctx.restore();
     };
 
     animId = requestAnimationFrame(renderMinimap);
     return () => cancelAnimationFrame(animId);
-  }, [engine, resolvedTheme]);
+  }, [engine, resolvedTheme, isCollapsed]);
 
   const handleMinimapClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!engine || !canvasRef.current) return;
@@ -229,6 +213,40 @@ export const Minimap: React.FC = () => {
     engine.cameraController.rotateOrbit(deltaAngle);
   };
 
+  // Compact Collapsed Capsule Button
+  if (isCollapsed) {
+    return (
+      <button
+        className="interactive"
+        onClick={() => setIsManuallyCollapsed(false)}
+        style={{
+          position: 'absolute',
+          bottom: '24px',
+          left: '24px',
+          width: '46px',
+          height: '46px',
+          borderRadius: '20px',
+          background: 'rgba(235, 242, 250, 0.75)',
+          backdropFilter: 'blur(28px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+          border: '1.5px solid rgba(255, 255, 255, 0.85)',
+          boxShadow: '0 20px 50px rgba(15, 23, 42, 0.15)',
+          zIndex: 'var(--z-hud)' as any,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: '#007AFF',
+          transition: 'transform 0.15s ease'
+        }}
+        title="Buka Minimap"
+        aria-label="Buka Minimap"
+      >
+        <Compass size={22} strokeWidth={2} />
+      </button>
+    );
+  }
+
   return (
     <div
       className="interactive"
@@ -236,17 +254,21 @@ export const Minimap: React.FC = () => {
         position: 'absolute',
         bottom: '24px',
         left: '24px',
-        width: '160px',
-        height: '160px',
-        borderRadius: '50%',
-        background: 'rgba(15, 23, 42, 0.78)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        border: '1.5px solid rgba(255, 255, 255, 0.18)',
-        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-        zIndex: 40,
+        width: '168px',
+        height: '168px',
+        borderRadius: '28px',
+        background: 'rgba(235, 242, 250, 0.72)',
+        backdropFilter: 'blur(28px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+        border: '1.5px solid rgba(255, 255, 255, 0.85)',
+        boxShadow: '0 20px 50px rgba(15, 23, 42, 0.15)',
+        zIndex: 'var(--z-hud)' as any,
+        padding: '6px',
         overflow: 'hidden',
-        userSelect: 'none'
+        userSelect: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
       }}
     >
       {/* Interactive True North Reset Button */}
@@ -254,20 +276,20 @@ export const Minimap: React.FC = () => {
         onClick={handleResetNorth}
         style={{
           position: 'absolute',
-          top: '5px',
+          top: '10px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(15, 23, 42, 0.6)',
-          border: '1px solid rgba(255, 255, 255, 0.25)',
+          background: 'rgba(10, 132, 255, 0.14)',
+          border: '1px solid rgba(10, 132, 255, 0.3)',
           borderRadius: '9999px',
-          padding: '1px 7px',
-          color: '#ffffff',
+          padding: '2px 8px',
+          color: '#007AFF',
           fontSize: '11px',
           fontWeight: 800,
           fontFamily: 'var(--font-mono)',
-          textShadow: '0 2px 6px rgba(0,0,0,0.9)',
           zIndex: 15,
           cursor: 'pointer',
+          boxShadow: '0 2px 6px rgba(10, 132, 255, 0.12)',
           transition: 'all 0.2s ease',
           lineHeight: '14px'
         }}
@@ -277,21 +299,49 @@ export const Minimap: React.FC = () => {
         N
       </button>
 
+      {/* Minimize Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsManuallyCollapsed(true);
+        }}
+        style={{
+          position: 'absolute',
+          top: '10px',
+          right: '12px',
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          background: 'rgba(255, 255, 255, 0.82)',
+          border: '1px solid rgba(255, 255, 255, 0.9)',
+          color: '#475569',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 16
+        }}
+        title="Ciutkan Minimap"
+        aria-label="Ciutkan Minimap"
+      >
+        <Minimize2 size={11} />
+      </button>
+
       {/* SimCity Camera Orbit Controls (Left & Right 45-degree rotation) */}
       <button
         onClick={(e) => handleRotateOrbit(e, -Math.PI / 4)}
         style={{
           position: 'absolute',
           top: '50%',
-          left: '4px',
+          left: '8px',
           transform: 'translateY(-50%)',
-          width: '20px',
-          height: '20px',
+          width: '22px',
+          height: '22px',
           borderRadius: '50%',
-          background: 'rgba(15, 23, 42, 0.65)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          color: '#94a3b8',
-          fontSize: '10px',
+          background: 'rgba(255, 255, 255, 0.82)',
+          border: '1px solid rgba(255, 255, 255, 0.9)',
+          color: '#0F172A',
+          fontSize: '11px',
           fontWeight: 700,
           fontFamily: 'var(--font-mono)',
           display: 'flex',
@@ -299,7 +349,8 @@ export const Minimap: React.FC = () => {
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 15,
-          padding: 0
+          padding: 0,
+          boxShadow: '0 1px 4px rgba(15, 23, 42, 0.08)'
         }}
         title="Putar Kamera 45° Berlawanan Jarum Jam (Q)"
         aria-label="Putar Kiri"
@@ -312,15 +363,15 @@ export const Minimap: React.FC = () => {
         style={{
           position: 'absolute',
           top: '50%',
-          right: '4px',
+          right: '8px',
           transform: 'translateY(-50%)',
-          width: '20px',
-          height: '20px',
+          width: '22px',
+          height: '22px',
           borderRadius: '50%',
-          background: 'rgba(15, 23, 42, 0.65)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          color: '#94a3b8',
-          fontSize: '10px',
+          background: 'rgba(255, 255, 255, 0.82)',
+          border: '1px solid rgba(255, 255, 255, 0.9)',
+          color: '#0F172A',
+          fontSize: '11px',
           fontWeight: 700,
           fontFamily: 'var(--font-mono)',
           display: 'flex',
@@ -328,7 +379,8 @@ export const Minimap: React.FC = () => {
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 15,
-          padding: 0
+          padding: 0,
+          boxShadow: '0 1px 4px rgba(15, 23, 42, 0.08)'
         }}
         title="Putar Kamera 45° Searah Jarum Jam (E)"
         aria-label="Putar Kanan"
@@ -340,9 +392,9 @@ export const Minimap: React.FC = () => {
         ref={canvasRef}
         onClick={handleMinimapClick}
         style={{
-          width: '160px',
-          height: '160px',
-          borderRadius: '50%',
+          width: '156px',
+          height: '156px',
+          borderRadius: '22px',
           cursor: 'crosshair',
           display: 'block'
         }}
@@ -350,4 +402,3 @@ export const Minimap: React.FC = () => {
     </div>
   );
 };
-

@@ -233,8 +233,8 @@ export class FirstPersonController {
       const sinY = Math.sin(this.yaw);
       const cosY = Math.cos(this.yaw);
 
-      const dx = (sinY * forward + cosY * strafe) * speed;
-      const dz = (cosY * forward - sinY * strafe) * speed;
+      const dx = (sinY * forward - cosY * strafe) * speed;
+      const dz = (cosY * forward + sinY * strafe) * speed;
 
       // Wall and doorway portal collision detection
       const canMove = this.testWallCollision(dx, dz);

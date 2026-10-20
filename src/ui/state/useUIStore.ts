@@ -12,6 +12,18 @@ import type { GraphicsQuality } from '../../core/engine/GraphicsPresets';
 export type ViewMode = 'perspective' | 'topdown' | 'inspect';
 export type AppScreen = 'auth' | 'login' | 'hub' | 'game';
 export type CameraMode = 'orbit' | 'first_person' | 'cinematic_drone';
+export type ModalId =
+  | 'glossary'
+  | 'styles'
+  | 'missions'
+  | 'tutorial'
+  | 'saveLoad'
+  | 'settings'
+  | 'customBuildingStudio'
+  | 'loadTest'
+  | 'realWorldExport'
+  | 'quiz'
+  | 'help';
 
 interface UIState {
   engine: Engine | null;
@@ -98,6 +110,13 @@ interface UIState {
 
   inspectorVisible: boolean;
   setInspectorVisible: (val: boolean) => void;
+
+  // Centralized Modal Management (Single Modal Rule)
+  activeModal: ModalId | null;
+  openModal: (id: ModalId) => void;
+  closeModal: () => void;
+  showHelp: boolean;
+  setShowHelp: (val: boolean) => void;
 
   // Education modals
   showGlossary: boolean;
@@ -202,7 +221,7 @@ const loadSavedSettings = () => {
 };
 
 const savedSettings = loadSavedSettings();
-const initialThemeMode: ThemeMode = savedSettings.themeMode || 'auto';
+const initialThemeMode: ThemeMode = savedSettings.themeMode || 'dark';
 const initialGlassStyle: GlassStyle = savedSettings.glassStyle || 'clear';
 const initialGlassOpacity: number = typeof savedSettings.glassOpacity === 'number' ? savedSettings.glassOpacity : 0.60;
 const initialTextScale: number = typeof savedSettings.textScale === 'number' ? savedSettings.textScale : 1.0;
@@ -238,8 +257,8 @@ export const useUIStore = create<UIState>((set, get) => {
   const calculateResolvedTheme = (mode: ThemeMode, hour: number): 'light' | 'dark' => {
     if (mode === 'light') return 'light';
     if (mode === 'dark') return 'dark';
-    // Auto: daytime in Indonesia (06:00 to 18:00 WIB) is light, night is dark
-    return hour >= 6.0 && hour < 18.0 ? 'light' : 'dark';
+    // Auto: Default to pristine light Laboratorium Analisis
+    return 'light';
   };
 
   const initialHour = 16.25; // 16:15 WIB Golden Hour Default
@@ -582,126 +601,116 @@ export const useUIStore = create<UIState>((set, get) => {
     inspectorVisible: true,
     setInspectorVisible: (inspectorVisible) => set({ inspectorVisible }),
 
-    // Education modals with single-modal exclusivity
+    // Centralized Modal Management (Single Modal Rule)
+    activeModal: null,
+    openModal: (id) => {
+      set({
+        activeModal: id,
+        showGlossary: id === 'glossary',
+        showStyles: id === 'styles',
+        showMissions: id === 'missions',
+        showTutorial: id === 'tutorial',
+        showSaveLoad: id === 'saveLoad',
+        showSettings: id === 'settings',
+        showCustomBuildingStudio: id === 'customBuildingStudio',
+        showLoadTest: id === 'loadTest',
+        showRealWorldExport: id === 'realWorldExport',
+        showQuiz: id === 'quiz',
+        showHelp: id === 'help',
+      });
+    },
+    closeModal: () => {
+      set({
+        activeModal: null,
+        showGlossary: false,
+        showStyles: false,
+        showMissions: false,
+        showTutorial: false,
+        showSaveLoad: false,
+        showSettings: false,
+        showCustomBuildingStudio: false,
+        showLoadTest: false,
+        showRealWorldExport: false,
+        showQuiz: false,
+        showHelp: false,
+      });
+    },
+
+    showHelp: false,
+    setShowHelp: (val) => {
+      if (val) get().openModal('help');
+      else if (get().activeModal === 'help') get().closeModal();
+      else set({ showHelp: false });
+    },
+
     showGlossary: false,
-    setShowGlossary: (showGlossary) => {
-      if (showGlossary) {
-        set({
-          showGlossary: true,
-          showStyles: false,
-          showMissions: false,
-          showTutorial: false,
-          showSaveLoad: false,
-          showSettings: false,
-          showCustomBuildingStudio: false,
-          showLoadTest: false,
-          showRealWorldExport: false,
-          showQuiz: false
-        });
-      } else {
-        set({ showGlossary: false });
-      }
+    setShowGlossary: (val) => {
+      if (val) get().openModal('glossary');
+      else if (get().activeModal === 'glossary') get().closeModal();
+      else set({ showGlossary: false });
     },
 
     showStyles: false,
-    setShowStyles: (showStyles) => {
-      if (showStyles) {
-        set({
-          showStyles: true,
-          showGlossary: false,
-          showMissions: false,
-          showTutorial: false,
-          showSaveLoad: false,
-          showSettings: false,
-          showCustomBuildingStudio: false,
-          showLoadTest: false,
-          showRealWorldExport: false,
-          showQuiz: false
-        });
-      } else {
-        set({ showStyles: false });
-      }
+    setShowStyles: (val) => {
+      if (val) get().openModal('styles');
+      else if (get().activeModal === 'styles') get().closeModal();
+      else set({ showStyles: false });
     },
 
     showMissions: false,
-    setShowMissions: (showMissions) => {
-      if (showMissions) {
-        set({
-          showMissions: true,
-          showGlossary: false,
-          showStyles: false,
-          showTutorial: false,
-          showSaveLoad: false,
-          showSettings: false,
-          showCustomBuildingStudio: false,
-          showLoadTest: false,
-          showRealWorldExport: false,
-          showQuiz: false
-        });
-      } else {
-        set({ showMissions: false });
-      }
+    setShowMissions: (val) => {
+      if (val) get().openModal('missions');
+      else if (get().activeModal === 'missions') get().closeModal();
+      else set({ showMissions: false });
     },
 
     showTutorial: false,
-    setShowTutorial: (showTutorial) => {
-      if (showTutorial) {
-        set({
-          showTutorial: true,
-          showGlossary: false,
-          showStyles: false,
-          showMissions: false,
-          showSaveLoad: false,
-          showSettings: false,
-          showCustomBuildingStudio: false,
-          showLoadTest: false,
-          showRealWorldExport: false,
-          showQuiz: false
-        });
-      } else {
-        set({ showTutorial: false });
-      }
+    setShowTutorial: (val) => {
+      if (val) get().openModal('tutorial');
+      else if (get().activeModal === 'tutorial') get().closeModal();
+      else set({ showTutorial: false });
     },
 
-    // Polish modals & modes
     showSaveLoad: false,
-    setShowSaveLoad: (showSaveLoad) => {
-      if (showSaveLoad) {
-        set({
-          showSaveLoad: true,
-          showGlossary: false,
-          showStyles: false,
-          showMissions: false,
-          showTutorial: false,
-          showSettings: false,
-          showCustomBuildingStudio: false,
-          showLoadTest: false,
-          showRealWorldExport: false,
-          showQuiz: false
-        });
-      } else {
-        set({ showSaveLoad: false });
-      }
+    setShowSaveLoad: (val) => {
+      if (val) get().openModal('saveLoad');
+      else if (get().activeModal === 'saveLoad') get().closeModal();
+      else set({ showSaveLoad: false });
     },
 
     showSettings: false,
-    setShowSettings: (showSettings) => {
-      if (showSettings) {
-        set({
-          showSettings: true,
-          showGlossary: false,
-          showStyles: false,
-          showMissions: false,
-          showTutorial: false,
-          showSaveLoad: false,
-          showCustomBuildingStudio: false,
-          showLoadTest: false,
-          showRealWorldExport: false,
-          showQuiz: false
-        });
-      } else {
-        set({ showSettings: false });
-      }
+    setShowSettings: (val) => {
+      if (val) get().openModal('settings');
+      else if (get().activeModal === 'settings') get().closeModal();
+      else set({ showSettings: false });
+    },
+
+    showCustomBuildingStudio: false,
+    setShowCustomBuildingStudio: (val) => {
+      if (val) get().openModal('customBuildingStudio');
+      else if (get().activeModal === 'customBuildingStudio') get().closeModal();
+      else set({ showCustomBuildingStudio: false });
+    },
+
+    showLoadTest: false,
+    setShowLoadTest: (val) => {
+      if (val) get().openModal('loadTest');
+      else if (get().activeModal === 'loadTest') get().closeModal();
+      else set({ showLoadTest: false });
+    },
+
+    showRealWorldExport: false,
+    setShowRealWorldExport: (val) => {
+      if (val) get().openModal('realWorldExport');
+      else if (get().activeModal === 'realWorldExport') get().closeModal();
+      else set({ showRealWorldExport: false });
+    },
+
+    showQuiz: false,
+    setShowQuiz: (val) => {
+      if (val) get().openModal('quiz');
+      else if (get().activeModal === 'quiz') get().closeModal();
+      else set({ showQuiz: false });
     },
 
     graphicsQuality: initialGraphicsQuality,
@@ -733,86 +742,6 @@ export const useUIStore = create<UIState>((set, get) => {
         get().engine!.cameraController.mousepadSensitivity = mousepadSensitivity;
       }
       saveSettings();
-    },
-
-    showCustomBuildingStudio: false,
-    setShowCustomBuildingStudio: (showCustomBuildingStudio) => {
-      if (showCustomBuildingStudio) {
-        set({
-          showCustomBuildingStudio: true,
-          showGlossary: false,
-          showStyles: false,
-          showMissions: false,
-          showTutorial: false,
-          showSaveLoad: false,
-          showSettings: false,
-          showLoadTest: false,
-          showRealWorldExport: false,
-          showQuiz: false
-        });
-      } else {
-        set({ showCustomBuildingStudio: false });
-      }
-    },
-
-    showLoadTest: false,
-    setShowLoadTest: (showLoadTest) => {
-      if (showLoadTest) {
-        set({
-          showLoadTest: true,
-          showGlossary: false,
-          showStyles: false,
-          showMissions: false,
-          showTutorial: false,
-          showSaveLoad: false,
-          showSettings: false,
-          showCustomBuildingStudio: false,
-          showRealWorldExport: false,
-          showQuiz: false
-        });
-      } else {
-        set({ showLoadTest: false });
-      }
-    },
-
-    showRealWorldExport: false,
-    setShowRealWorldExport: (showRealWorldExport) => {
-      if (showRealWorldExport) {
-        set({
-          showRealWorldExport: true,
-          showGlossary: false,
-          showStyles: false,
-          showMissions: false,
-          showTutorial: false,
-          showSaveLoad: false,
-          showSettings: false,
-          showCustomBuildingStudio: false,
-          showLoadTest: false,
-          showQuiz: false
-        });
-      } else {
-        set({ showRealWorldExport: false });
-      }
-    },
-
-    showQuiz: false,
-    setShowQuiz: (showQuiz) => {
-      if (showQuiz) {
-        set({
-          showQuiz: true,
-          showGlossary: false,
-          showStyles: false,
-          showMissions: false,
-          showTutorial: false,
-          showSaveLoad: false,
-          showSettings: false,
-          showCustomBuildingStudio: false,
-          showLoadTest: false,
-          showRealWorldExport: false
-        });
-      } else {
-        set({ showQuiz: false });
-      }
     },
 
     // Authentication & Screen Navigation
@@ -928,3 +857,22 @@ export const useUIStore = create<UIState>((set, get) => {
     }
   };
 });
+
+if (typeof window !== 'undefined' && window.matchMedia) {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleMediaChange = () => {
+    const state = useUIStore.getState();
+    if (state.themeMode === 'auto') {
+      const resolved = mq.matches ? 'dark' : 'light';
+      if (resolved !== state.resolvedTheme) {
+        state.setThemeMode('auto');
+      }
+    }
+  };
+  if (mq.addEventListener) {
+    mq.addEventListener('change', handleMediaChange);
+  } else if ((mq as any).addListener) {
+    (mq as any).addListener(handleMediaChange);
+  }
+}
+

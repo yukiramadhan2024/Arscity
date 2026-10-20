@@ -3,6 +3,15 @@ import { RoofType, WallMaterialType, RoofMaterialType } from './PrefabTypes';
 
 export type BuildingCategory =
   | 'hunian'
+  | 'pemerintahan_keamanan'
+  | 'pendidikan'
+  | 'kesehatan'
+  | 'perdagangan_jasa'
+  | 'industri_logistik'
+  | 'transportasi'
+  | 'utilitas'
+  | 'ibadah_budaya'
+  | 'rekreasi_terbuka'
   | 'kuliner_kafe'
   | 'mall_ritel'
   | 'kampus_kos'
@@ -34,7 +43,18 @@ export type BuildingArchetype =
   | 'arcade_shophouse'
   | 'pendopo_open'
   | 'stilted_house'
-  | 'transit_canopy';
+  | 'transit_canopy'
+  | 'telecom_tower'
+  | 'monument_obelisk'
+  | 'stadium_arena'
+  | 'bridge_girder'
+  | 'flyover_viaduct'
+  | 'substation_power'
+  | 'water_clarifier'
+  | 'sacred_temple'
+  | 'cathedral_church'
+  | 'vihara_pagoda'
+  | 'klenteng_traditional';
 
 export interface BuildingCatalogItem {
   id: string;
@@ -1496,6 +1516,954 @@ const CANONICAL_BUILDING_CATALOG: BuildingCatalogItem[] = [
     defaultWallColor: '#9a3412',
     defaultRoofMaterial: 'clay_tile',
     hasPlinth: true
+  },
+
+  // =========================================================================
+  // 7. HUNIAN & PERUMAHAN BARU (2 Bangunan)
+  // =========================================================================
+  {
+    id: 'perumahan_cluster_asri',
+    name: 'Perumahan Cluster Asri',
+    category: 'hunian',
+    icon: 'Home',
+    description: 'Kompleks perumahan tapak modern bernuansa hijau dengan jalan lingkungan dan taman cluster.',
+    defaultWidth: 16,
+    defaultDepth: 14,
+    defaultFloors: 2,
+    floorHeight: 4.0,
+    roofStyle: 'hip',
+    defaultRoofType: 'hip',
+    archetype: 'standard',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.32,
+    hasCrossVentilation: true,
+    isPublicAmenity: false,
+    baseCostPerSqm: 5_200_000,
+    recommendedZones: ['residential'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#f1f5f9',
+    defaultRoofMaterial: 'clay_tile'
+  },
+  {
+    id: 'rusunawa_rakyat',
+    name: 'Rusunawa Bertingkat Rakyat',
+    category: 'hunian',
+    icon: 'Building2',
+    description: 'Rumah susun sewa sederhana 5 lantai untuk masyarakat berpenghasilan rendah dengan koridor ventilasi silang.',
+    defaultWidth: 24,
+    defaultDepth: 16,
+    defaultFloors: 5,
+    floorHeight: 4.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'courtyard_block',
+    defaultOverhang: 0.8,
+    windowWallRatio: 0.35,
+    hasCrossVentilation: true,
+    isPublicAmenity: false,
+    baseCostPerSqm: 4_600_000,
+    recommendedZones: ['residential', 'mixed_use'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#e2e8f0',
+    defaultRoofMaterial: 'concrete'
+  },
+
+  // =========================================================================
+  // 8. PEMERINTAHAN & KEAMANAN (6 Bangunan)
+  // =========================================================================
+  {
+    id: 'balai_kota_pemerintahan',
+    name: 'Balai Kota Pemerintahan',
+    category: 'pemerintahan_keamanan',
+    icon: 'Landmark',
+    description: 'Pusat administrasi pemerintahan kota megah dengan fasad kolom neoklasik tropis dan kubah sentral.',
+    defaultWidth: 42,
+    defaultDepth: 32,
+    defaultFloors: 4,
+    floorHeight: 4.5,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'podium_tower',
+    defaultOverhang: 1.5,
+    windowWallRatio: 0.40,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 8_500_000,
+    recommendedZones: ['public_facility', 'office'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#f8fafc',
+    defaultRoofMaterial: 'metal',
+    hasPlinth: true,
+    hasPillars: true
+  },
+  {
+    id: 'kantor_kecamatan_kelurahan',
+    name: 'Kantor Terpadu Kecamatan & Kelurahan',
+    category: 'pemerintahan_keamanan',
+    icon: 'Building2',
+    description: 'Gedung pelayanan publik terpadu tingkat kecamatan dengan loket administrasi kependudukan dan ruang warga.',
+    defaultWidth: 22,
+    defaultDepth: 18,
+    defaultFloors: 2,
+    floorHeight: 4.0,
+    roofStyle: 'hip',
+    defaultRoofType: 'hip',
+    archetype: 'standard',
+    defaultOverhang: 1.2,
+    windowWallRatio: 0.35,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 5_400_000,
+    recommendedZones: ['public_facility', 'office'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#f1f5f9',
+    defaultRoofMaterial: 'clay_tile'
+  },
+  {
+    id: 'kantor_polisi_resor',
+    name: 'Kantor Kepolisian Resor (Polres)',
+    category: 'pemerintahan_keamanan',
+    icon: 'ShieldCheck',
+    description: 'Markas kepolisian kota dengan sentra pelayanan kepolisian terpadu, ruang tahanan aman, dan garasi patroli.',
+    defaultWidth: 28,
+    defaultDepth: 22,
+    defaultFloors: 3,
+    floorHeight: 4.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'standard',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.30,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 6_200_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#1e293b',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'pos_pemadam_kebakaran',
+    name: 'Markas Pemadam Kebakaran & Penyelamatan',
+    category: 'pemerintahan_keamanan',
+    icon: 'Flame',
+    description: 'Pos damkar siaga 24 jam dengan 3 bay garasi armada pemadam, menara latihan selang, dan asrama kru.',
+    defaultWidth: 26,
+    defaultDepth: 20,
+    defaultFloors: 2,
+    floorHeight: 4.6,
+    roofStyle: 'shed_industrial',
+    defaultRoofType: 'shed_industrial',
+    archetype: 'standard',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.28,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 5_900_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'brick',
+    defaultWallColor: '#b91c1c',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'gedung_pengadilan_negeri',
+    name: 'Gedung Pengadilan Negeri',
+    category: 'pemerintahan_keamanan',
+    icon: 'Scale',
+    description: 'Balai keadilan resmi berkontur wibawa dengan ruang sidang utama, pilar monumental, dan sistem pengamanan ketat.',
+    defaultWidth: 32,
+    defaultDepth: 26,
+    defaultFloors: 3,
+    floorHeight: 4.4,
+    roofStyle: 'hip',
+    defaultRoofType: 'hip',
+    archetype: 'podium_tower',
+    defaultOverhang: 1.4,
+    windowWallRatio: 0.32,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 7_800_000,
+    recommendedZones: ['public_facility', 'office'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#e2e8f0',
+    defaultRoofMaterial: 'metal',
+    hasPlinth: true,
+    hasPillars: true
+  },
+  {
+    id: 'kantor_pos_giro',
+    name: 'Kantor Pos & Logistik Giro',
+    category: 'pemerintahan_keamanan',
+    icon: 'Mail',
+    description: 'Pusat layanan surat pos, ekspedisi paket kilat, dan layanan keuangan giro dengan loket antrean modern.',
+    defaultWidth: 18,
+    defaultDepth: 16,
+    defaultFloors: 2,
+    floorHeight: 4.0,
+    roofStyle: 'gable',
+    defaultRoofType: 'gable',
+    archetype: 'standard',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.38,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 5_100_000,
+    recommendedZones: ['commercial', 'public_facility'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#ea580c',
+    defaultRoofMaterial: 'clay_tile'
+  },
+
+  // =========================================================================
+  // 9. PENDIDIKAN (1 Bangunan Baru)
+  // =========================================================================
+  {
+    id: 'lembaga_kursus_pelatihan',
+    name: 'Lembaga Kursus & Pelatihan Kejuruan',
+    category: 'pendidikan',
+    icon: 'BookOpen',
+    description: 'Pusat pelatihan vokasi dan ketrampilan kerja dilengkapi laboratorium komputer cerdas dan studio bahasa.',
+    defaultWidth: 20,
+    defaultDepth: 18,
+    defaultFloors: 3,
+    floorHeight: 4.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'standard',
+    defaultOverhang: 0.8,
+    windowWallRatio: 0.42,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 5_300_000,
+    recommendedZones: ['public_facility', 'commercial'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#0284c7',
+    defaultRoofMaterial: 'concrete'
+  },
+
+  // =========================================================================
+  // 10. KESEHATAN (2 Bangunan Baru)
+  // =========================================================================
+  {
+    id: 'rumah_sakit_umum_daerah',
+    name: 'Rumah Sakit Umum Daerah (RSUD Tipe A)',
+    category: 'kesehatan',
+    icon: 'HeartPulse',
+    description: 'Kompleks rumah sakit rujukan modern dengan instalasi gawat darurat (IGD), rawat inap bertingkat, dan helipad.',
+    defaultWidth: 48,
+    defaultDepth: 36,
+    defaultFloors: 6,
+    floorHeight: 4.2,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'podium_tower',
+    defaultOverhang: 1.2,
+    windowWallRatio: 0.45,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 9_200_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#ffffff',
+    defaultRoofMaterial: 'concrete',
+    hasPlinth: true
+  },
+  {
+    id: 'klinik_pratama_warga',
+    name: 'Klinik Pratama Rawat Jalan',
+    category: 'kesehatan',
+    icon: 'Cross',
+    description: 'Klinik kesehatan tingkat pertama dengan dokter umum, dokter gigi, ruang bersalin, dan laboratorium dasar.',
+    defaultWidth: 16,
+    defaultDepth: 14,
+    defaultFloors: 2,
+    floorHeight: 4.0,
+    roofStyle: 'hip',
+    defaultRoofType: 'hip',
+    archetype: 'standard',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.36,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 5_200_000,
+    recommendedZones: ['residential', 'commercial', 'public_facility'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#f8fafc',
+    defaultRoofMaterial: 'metal'
+  },
+
+  // =========================================================================
+  // 11. PERDAGANGAN & JASA (1 Bangunan Baru)
+  // =========================================================================
+  {
+    id: 'gedung_bank_sentral',
+    name: 'Gedung Bank & Keuangan Daerah',
+    category: 'perdagangan_jasa',
+    icon: 'Landmark',
+    description: 'Menara kantor perbankan bertingkat tinggi dengan galeri ATM 24 jam, brankas bawah tanah, dan fasad kaca reflektif.',
+    defaultWidth: 30,
+    defaultDepth: 26,
+    defaultFloors: 8,
+    floorHeight: 4.2,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'podium_tower',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.65,
+    hasCrossVentilation: false,
+    isPublicAmenity: true,
+    baseCostPerSqm: 8_900_000,
+    recommendedZones: ['commercial', 'office'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#0284c7',
+    defaultRoofMaterial: 'metal'
+  },
+
+  // =========================================================================
+  // 12. INDUSTRI & LOGISTIK (4 Bangunan)
+  // =========================================================================
+  {
+    id: 'pabrik_manufaktur_modern',
+    name: 'Pabrik Manufaktur & Perakitan Modern',
+    category: 'industri_logistik',
+    icon: 'Factory',
+    description: 'Hanggar industri beratap lengkung ventilasi tinggi dengan jalur perakitan conveyor otomatis dan dermaga bongkar muat.',
+    defaultWidth: 45,
+    defaultDepth: 30,
+    defaultFloors: 2,
+    floorHeight: 6.0,
+    roofStyle: 'sawtooth',
+    defaultRoofType: 'sawtooth',
+    archetype: 'standard',
+    defaultOverhang: 1.2,
+    windowWallRatio: 0.20,
+    hasCrossVentilation: true,
+    isPublicAmenity: false,
+    baseCostPerSqm: 4_800_000,
+    recommendedZones: ['office', 'commercial'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#475569',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'kawasan_industri_terpadu',
+    name: 'Pusat Pengelola Kawasan Industri',
+    category: 'industri_logistik',
+    icon: 'Boxes',
+    description: 'Pusat administrasi kawasan industri terintegrasi dengan timbangan truk digital, gardu kendali, dan kantor bea cukai.',
+    defaultWidth: 36,
+    defaultDepth: 24,
+    defaultFloors: 3,
+    floorHeight: 4.2,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'standard',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.35,
+    hasCrossVentilation: true,
+    isPublicAmenity: false,
+    baseCostPerSqm: 5_600_000,
+    recommendedZones: ['office', 'commercial'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#334155',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'pergudangan_logistik_kargo',
+    name: 'Gudang Logistik & Hub Distribusi Kargo',
+    category: 'industri_logistik',
+    icon: 'Warehouse',
+    description: 'Pusat pergudangan e-commerce dan kargo kontainer dengan 8 pintu loading dock serta sistem racking bertingkat.',
+    defaultWidth: 50,
+    defaultDepth: 32,
+    defaultFloors: 1,
+    floorHeight: 8.5,
+    roofStyle: 'shed_industrial',
+    defaultRoofType: 'shed_industrial',
+    archetype: 'standard',
+    defaultOverhang: 1.8,
+    windowWallRatio: 0.15,
+    hasCrossVentilation: true,
+    isPublicAmenity: false,
+    baseCostPerSqm: 4_200_000,
+    recommendedZones: ['commercial', 'office'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#64748b',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'pelabuhan_kering_dryport',
+    name: 'Depot Kontainer & Pelabuhan Kering (Dry Port)',
+    category: 'industri_logistik',
+    icon: 'Boxes',
+    description: 'Fasilitas penumpukan dan konsolidasi peti kemas darat dengan crane gantry rel dan pemeriksaan bea cukai.',
+    defaultWidth: 56,
+    defaultDepth: 36,
+    defaultFloors: 2,
+    floorHeight: 5.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'standard',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.22,
+    hasCrossVentilation: true,
+    isPublicAmenity: false,
+    baseCostPerSqm: 4_900_000,
+    recommendedZones: ['commercial', 'office'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#1e293b',
+    defaultRoofMaterial: 'concrete'
+  },
+
+  // =========================================================================
+  // 13. TRANSPORTASI (5 Bangunan)
+  // =========================================================================
+  {
+    id: 'terminal_bus_antarkota',
+    name: 'Terminal Bus Antarkota & Antarprovinsi',
+    category: 'transportasi',
+    icon: 'Bus',
+    description: 'Terminal transportasi darat tipe A berkanopi kantilever luas dengan ruang tunggu ber-AC dan jalur peron bus teratur.',
+    defaultWidth: 44,
+    defaultDepth: 28,
+    defaultFloors: 2,
+    floorHeight: 4.8,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'transit_canopy',
+    defaultOverhang: 2.5,
+    windowWallRatio: 0.50,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 6_500_000,
+    recommendedZones: ['public_facility', 'commercial'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#0284c7',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'bandara_terminal_udara',
+    name: 'Terminal Penumpang Bandara Udara',
+    category: 'transportasi',
+    icon: 'Plane',
+    description: 'Gedung terminal bandara aerodinamis dengan kanopi ombak bentang lebar, ruang boarding luas, dan menara ATC pengawas.',
+    defaultWidth: 64,
+    defaultDepth: 40,
+    defaultFloors: 3,
+    floorHeight: 5.5,
+    roofStyle: 'arched_vault',
+    defaultRoofType: 'arched_vault',
+    archetype: 'transit_canopy',
+    defaultOverhang: 3.0,
+    windowWallRatio: 0.60,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 12_500_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#ffffff',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'pelabuhan_dermaga_laut',
+    name: 'Gedung Terminal Dermaga & Pelabuhan Laut',
+    category: 'transportasi',
+    icon: 'Ship',
+    description: 'Terminal penumpang kapal feri dan pesiar dengan jembatan garbarata kapal, mercusuar maritim, dan teras dermaga laut.',
+    defaultWidth: 42,
+    defaultDepth: 30,
+    defaultFloors: 2,
+    floorHeight: 5.0,
+    roofStyle: 'arched_vault',
+    defaultRoofType: 'arched_vault',
+    archetype: 'transit_canopy',
+    defaultOverhang: 2.0,
+    windowWallRatio: 0.52,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 7_800_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#0369a1',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'jembatan_penyeberangan_girder',
+    name: 'Jembatan Penghubung Antarwilayah (Girder Bridge)',
+    category: 'transportasi',
+    icon: 'GitCommit',
+    description: 'Struktur jembatan gelagar baja dan beton kokoh melintasi rintangan sungai dengan trotoar pejalan kaki dan penerangan terpadu.',
+    defaultWidth: 36,
+    defaultDepth: 14,
+    defaultFloors: 1,
+    floorHeight: 5.2,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'bridge_girder',
+    defaultOverhang: 0.5,
+    windowWallRatio: 0.10,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 8_200_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#64748b',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'flyover_jalan_layang',
+    name: 'Flyover Segmen Jalan Layang Kota',
+    category: 'transportasi',
+    icon: 'TrendingUp',
+    description: 'Jalan layang viaduct bertingkat bertopang pilar beton segmental mengurai kemacetan lalu lintas persimpangan arteri.',
+    defaultWidth: 40,
+    defaultDepth: 16,
+    defaultFloors: 2,
+    floorHeight: 6.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'flyover_viaduct',
+    defaultOverhang: 0.6,
+    windowWallRatio: 0.05,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 9_500_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#475569',
+    defaultRoofMaterial: 'concrete'
+  },
+
+  // =========================================================================
+  // 14. UTILITAS (6 Bangunan)
+  // =========================================================================
+  {
+    id: 'gardu_induk_listrik',
+    name: 'Gardu Induk Distribusi Listrik Kota',
+    category: 'utilitas',
+    icon: 'Zap',
+    description: 'Instalasi gardu trafo daya tegangan tinggi dengan pemutus sirkuit gas (GIS), tiang isolator, dan pagar pengaman.',
+    defaultWidth: 26,
+    defaultDepth: 20,
+    defaultFloors: 1,
+    floorHeight: 5.5,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'substation_power',
+    defaultOverhang: 0.6,
+    windowWallRatio: 0.12,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 7_100_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#334155',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'pembangkit_listrik_surya_bio',
+    name: 'Pembangkit Listrik Tenaga Surya & Bioenergi',
+    category: 'utilitas',
+    icon: 'Sun',
+    description: 'Pembangkit energi bersih terbarukan berbasis susunan panel fotovoltaik atap masif dan unit konversi biomassa ramah lingkungan.',
+    defaultWidth: 38,
+    defaultDepth: 26,
+    defaultFloors: 2,
+    floorHeight: 4.5,
+    roofStyle: 'sawtooth',
+    defaultRoofType: 'sawtooth',
+    archetype: 'substation_power',
+    defaultOverhang: 1.2,
+    windowWallRatio: 0.25,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 8_400_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#0f766e',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'instalasi_pengolahan_air_pdam',
+    name: 'Instalasi Pengolahan Air Bersih (IPA PDAM)',
+    category: 'utilitas',
+    icon: 'Droplets',
+    description: 'Fasilitas filtrasi dan pemurnian air minum kota dengan kolam sedimentasi bundar, bak aerasi, dan menara pompa distribusi.',
+    defaultWidth: 34,
+    defaultDepth: 26,
+    defaultFloors: 2,
+    floorHeight: 4.8,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'water_clarifier',
+    defaultOverhang: 0.8,
+    windowWallRatio: 0.20,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 6_900_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#0284c7',
+    defaultRoofMaterial: 'concrete'
+  },
+  {
+    id: 'instalasi_pengolahan_limbah_ipal',
+    name: 'Instalasi Pengolahan Air Limbah Terpadu (IPAL)',
+    category: 'utilitas',
+    icon: 'Recycle',
+    description: 'Pusat pengolahan air limbah domestik perkotaan dengan reaktor anaerobik, bak sedimentasi sekunder, dan sistem biofilter.',
+    defaultWidth: 32,
+    defaultDepth: 24,
+    defaultFloors: 2,
+    floorHeight: 4.6,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'water_clarifier',
+    defaultOverhang: 0.8,
+    windowWallRatio: 0.18,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 6_700_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#15803d',
+    defaultRoofMaterial: 'concrete'
+  },
+  {
+    id: 'tpa_sanitary_landfill',
+    name: 'Pusat Pengolahan Sampah Terpadu (TPS & TPA)',
+    category: 'utilitas',
+    icon: 'Trash2',
+    description: 'Fasilitas pemilahan sampah daur ulang, komposting organik, dan pengolahan residu sanitary landfill modern.',
+    defaultWidth: 36,
+    defaultDepth: 26,
+    defaultFloors: 1,
+    floorHeight: 6.2,
+    roofStyle: 'shed_industrial',
+    defaultRoofType: 'shed_industrial',
+    archetype: 'standard',
+    defaultOverhang: 1.2,
+    windowWallRatio: 0.15,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 4_500_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#57534e',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'menara_telekomunikasi_bts',
+    name: 'Menara Telekomunikasi Seluler (Tower BTS)',
+    category: 'utilitas',
+    icon: 'Radio',
+    description: 'Menara transmisi telekomunikasi 4G/5G bertipe rangka baja lattice kokoh dengan perangkat shelter kendali sinyal.',
+    defaultWidth: 12,
+    defaultDepth: 12,
+    defaultFloors: 1,
+    floorHeight: 24.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'telecom_tower',
+    defaultOverhang: 0.4,
+    windowWallRatio: 0.05,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 7_500_000,
+    recommendedZones: ['public_facility', 'commercial'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#dc2626',
+    defaultRoofMaterial: 'metal'
+  },
+
+  // =========================================================================
+  // 15. IBADAH & BUDAYA (7 Bangunan)
+  // =========================================================================
+  {
+    id: 'gereja_katedral_menara',
+    name: 'Gereja Katedral Menara Salib',
+    category: 'ibadah_budaya',
+    icon: 'Church',
+    description: 'Katedral agung dengan nave langit-langit kubah berkaca patri warna-warni dan menara lonceng menjulang tinggi.',
+    defaultWidth: 26,
+    defaultDepth: 36,
+    defaultFloors: 2,
+    floorHeight: 7.5,
+    roofStyle: 'gable',
+    defaultRoofType: 'gable',
+    archetype: 'cathedral_church',
+    defaultOverhang: 1.4,
+    windowWallRatio: 0.35,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 7_600_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#e2e8f0',
+    defaultRoofMaterial: 'metal',
+    hasPlinth: true
+  },
+  {
+    id: 'pura_kahyangan_nusantara',
+    name: 'Pura Kahyangan Candi Bentar',
+    category: 'ibadah_budaya',
+    icon: 'Landmark',
+    description: 'Tempat ibadah Hindu bernuansa sakral Bali-Jawa dengan candi bentar kembar, pelataran jaba tengah, dan meru tumpang kayu jati.',
+    defaultWidth: 24,
+    defaultDepth: 28,
+    defaultFloors: 1,
+    floorHeight: 6.8,
+    roofStyle: 'joglo',
+    defaultRoofType: 'joglo',
+    archetype: 'sacred_temple',
+    defaultOverhang: 1.6,
+    windowWallRatio: 0.20,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 6_900_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'brick',
+    defaultWallColor: '#b45309',
+    defaultRoofMaterial: 'clay_tile',
+    hasPlinth: true
+  },
+  {
+    id: 'vihara_dharma_meditasi',
+    name: 'Vihara Buddha Dharma Loka',
+    category: 'ibadah_budaya',
+    icon: 'Compass',
+    description: 'Pusat meditasi dan ibadah Buddha berarsitektur pagoda hening dengan atap bertingkat teratur dan aula rupang emas.',
+    defaultWidth: 22,
+    defaultDepth: 26,
+    defaultFloors: 2,
+    floorHeight: 5.5,
+    roofStyle: 'hip',
+    defaultRoofType: 'hip',
+    archetype: 'vihara_pagoda',
+    defaultOverhang: 1.8,
+    windowWallRatio: 0.30,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 6_800_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#fef08a',
+    defaultRoofMaterial: 'clay_tile',
+    hasPlinth: true
+  },
+  {
+    id: 'klenteng_tri_dharma',
+    name: 'Klenteng Bersejarah Tri Dharma',
+    category: 'ibadah_budaya',
+    icon: 'Flame',
+    description: 'Kelenteng tradisional berhias ukiran naga kembar, tiang merah cerah bersanding lampion, dan gerbang beratap lengkung khas.',
+    defaultWidth: 20,
+    defaultDepth: 24,
+    defaultFloors: 1,
+    floorHeight: 5.8,
+    roofStyle: 'hip',
+    defaultRoofType: 'hip',
+    archetype: 'klenteng_traditional',
+    defaultOverhang: 1.8,
+    windowWallRatio: 0.25,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 7_100_000,
+    recommendedZones: ['public_facility', 'commercial'],
+    defaultWallMaterial: 'wood',
+    defaultWallColor: '#b91c1c',
+    defaultRoofMaterial: 'clay_tile',
+    hasPlinth: true
+  },
+  {
+    id: 'gedung_teater_pertunjukan',
+    name: 'Gedung Teater & Seni Pertunjukan',
+    category: 'ibadah_budaya',
+    icon: 'Theater',
+    description: 'Gedung auditorium pertunjukan seni berkapasitas 800 penonton dengan akustik berstandar dunia dan panggung proscenium.',
+    defaultWidth: 36,
+    defaultDepth: 30,
+    defaultFloors: 3,
+    floorHeight: 5.2,
+    roofStyle: 'arched_vault',
+    defaultRoofType: 'arched_vault',
+    archetype: 'podium_tower',
+    defaultOverhang: 1.5,
+    windowWallRatio: 0.25,
+    hasCrossVentilation: false,
+    isPublicAmenity: true,
+    baseCostPerSqm: 8_800_000,
+    recommendedZones: ['public_facility', 'commercial'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#475569',
+    defaultRoofMaterial: 'metal',
+    hasPlinth: true
+  },
+  {
+    id: 'galeri_seni_kontemporer',
+    name: 'Galeri Seni & Budaya Kontemporer',
+    category: 'ibadah_budaya',
+    icon: 'Palette',
+    description: 'Ruang pameran karya seni rupa modern dengan pencahayaan skylight terarah, partisi dinamis, dan kafe seni semi terbuka.',
+    defaultWidth: 24,
+    defaultDepth: 20,
+    defaultFloors: 2,
+    floorHeight: 4.6,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'standard',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.40,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 6_400_000,
+    recommendedZones: ['public_facility', 'commercial'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#f8fafc',
+    defaultRoofMaterial: 'concrete'
+  },
+  {
+    id: 'monumen_tugu_kota',
+    name: 'Monumen Tugu Titik Nol Kota',
+    category: 'ibadah_budaya',
+    icon: 'Landmark',
+    description: 'Monumen tugu lambang persatuan kota bermahkota kubah emas dengan air mancur melingkar dan pelataran upacara berundak.',
+    defaultWidth: 16,
+    defaultDepth: 16,
+    defaultFloors: 1,
+    floorHeight: 18.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'monument_obelisk',
+    defaultOverhang: 0.6,
+    windowWallRatio: 0.05,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 9_000_000,
+    recommendedZones: ['public_facility', 'green_space'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#e2e8f0',
+    defaultRoofMaterial: 'metal',
+    hasPlinth: true
+  },
+
+  // =========================================================================
+  // 16. REKREASI & RUANG TERBUKA (5 Bangunan)
+  // =========================================================================
+  {
+    id: 'taman_kota_terbuka',
+    name: 'Taman Kota Terbuka Hijau (Green Park)',
+    category: 'rekreasi_terbuka',
+    icon: 'Trees',
+    description: 'Ruang terbuka hijau publik seluas 40x40 meter dengan pepohonan kanopi rindang, jalur pedestrian jogging, dan gazebo santai.',
+    defaultWidth: 40,
+    defaultDepth: 40,
+    defaultFloors: 1,
+    floorHeight: 4.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'pendopo_open',
+    defaultOverhang: 1.5,
+    windowWallRatio: 0.10,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 2_800_000,
+    recommendedZones: ['green_space', 'public_facility'],
+    defaultWallMaterial: 'wood',
+    defaultWallColor: '#15803d',
+    defaultRoofMaterial: 'clay_tile'
+  },
+  {
+    id: 'lapangan_alun_alun_kota',
+    name: 'Alun-Alun & Lapangan Terbuka Kota',
+    category: 'rekreasi_terbuka',
+    icon: 'Maximize2',
+    description: 'Pusat kegiatan warga dan upacara kenegaraan dengan hamparan rumput hijau, panggung rakyat, dan ring beringin kembar.',
+    defaultWidth: 48,
+    defaultDepth: 48,
+    defaultFloors: 1,
+    floorHeight: 4.2,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'pendopo_open',
+    defaultOverhang: 1.8,
+    windowWallRatio: 0.10,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 2_500_000,
+    recommendedZones: ['green_space', 'public_facility'],
+    defaultWallMaterial: 'wood',
+    defaultWallColor: '#166534',
+    defaultRoofMaterial: 'clay_tile'
+  },
+  {
+    id: 'stadion_olahraga_kota',
+    name: 'Stadion Sepak Bola & Atletik Kota',
+    category: 'rekreasi_terbuka',
+    icon: 'Trophy',
+    description: 'Arena olahraga bertaraf nasional dengan tribun keliling berkapasitas 15.000 penonton, lapangan rumput, dan lintasan lari.',
+    defaultWidth: 60,
+    defaultDepth: 44,
+    defaultFloors: 3,
+    floorHeight: 6.0,
+    roofStyle: 'arched_vault',
+    defaultRoofType: 'arched_vault',
+    archetype: 'stadium_arena',
+    defaultOverhang: 2.5,
+    windowWallRatio: 0.20,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 11_500_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#1e293b',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'pusat_olahraga_sportcenter',
+    name: 'Pusat Olahraga & Kebugaran (Sport Center)',
+    category: 'rekreasi_terbuka',
+    icon: 'Dumbbell',
+    description: 'Gelanggang serbaguna mencakup lapangan basket, futsal, kolam renang semi olimpiade, dan gym kebugaran terpadu.',
+    defaultWidth: 38,
+    defaultDepth: 28,
+    defaultFloors: 2,
+    floorHeight: 5.5,
+    roofStyle: 'arched_vault',
+    defaultRoofType: 'arched_vault',
+    archetype: 'standard',
+    defaultOverhang: 1.4,
+    windowWallRatio: 0.35,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 6_800_000,
+    recommendedZones: ['public_facility'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#0284c7',
+    defaultRoofMaterial: 'metal'
+  },
+  {
+    id: 'pemakaman_taman_asri',
+    name: 'Pemakaman Taman Asri & Krematorium',
+    category: 'rekreasi_terbuka',
+    icon: 'Trees',
+    description: 'Taman pemakaman umum teratur dengan lansekap pepohonan peneduh, pendopo persemayaman, dan jalur peziarah bersih.',
+    defaultWidth: 36,
+    defaultDepth: 36,
+    defaultFloors: 1,
+    floorHeight: 4.2,
+    roofStyle: 'hip',
+    defaultRoofType: 'hip',
+    archetype: 'pendopo_open',
+    defaultOverhang: 1.5,
+    windowWallRatio: 0.15,
+    hasCrossVentilation: true,
+    isPublicAmenity: true,
+    baseCostPerSqm: 2_200_000,
+    recommendedZones: ['green_space', 'public_facility'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#78716c',
+    defaultRoofMaterial: 'clay_tile'
   }
 ];
 
@@ -1513,10 +2481,90 @@ CANONICAL_BUILDING_CATALOG.forEach((item) => {
   }
 });
 
-// Alias Map for legacy preset keys
+// Comprehensive Alias Map for natural queries and legacy preset keys
 const LEGACY_ALIASES: Record<string, string> = {
   minimarket: 'minimarket_tropis',
-  community_hall: 'paviliun_taman_baca'
+  community_hall: 'paviliun_taman_baca',
+  // Hunian
+  rumah_tapak: 'house_36',
+  perumahan: 'perumahan_cluster_asri',
+  apartemen: 'apartemen_studio_modern',
+  rusun: 'rusunawa_rakyat',
+  kos: 'kost_putra_putri',
+  asrama: 'asrama_mahasiswa_kampus',
+  // Pemerintahan dan keamanan
+  balai_kota: 'balai_kota_pemerintahan',
+  kantor_kecamatan: 'kantor_kecamatan_kelurahan',
+  kantor_kelurahan: 'kantor_kecamatan_kelurahan',
+  kantor_polisi: 'kantor_polisi_resor',
+  pemadam_kebakaran: 'pos_pemadam_kebakaran',
+  damkar: 'pos_pemadam_kebakaran',
+  pengadilan: 'gedung_pengadilan_negeri',
+  kantor_pos: 'kantor_pos_giro',
+  // Pendidikan
+  sekolah: 'sekolah_dasar_inpres',
+  kampus: 'gedung_fakultas_kampus',
+  perpustakaan: 'perpustakaan_daerah',
+  lembaga_kursus: 'lembaga_kursus_pelatihan',
+  // Kesehatan
+  rumah_sakit: 'rumah_sakit_umum_daerah',
+  rsud: 'rumah_sakit_umum_daerah',
+  puskesmas: 'puskesmas_rawat_inap',
+  klinik: 'klinik_pratama_warga',
+  apotek: 'apotek_kimia_farma_style',
+  // Perdagangan dan jasa
+  pasar_tradisional: 'pasar_tradisional_modern',
+  mal: 'mall_lifestyle_atrium',
+  supermarket: 'supermarket_lokal',
+  ruko: 'ruko_arcade_3fl',
+  bank: 'gedung_bank_sentral',
+  perkantoran: 'gedung_perkantoran_tower',
+  hotel: 'hotel_resort_bintang4',
+  restoran: 'resto_mie_gacoan',
+  kafe: 'cafe_industrial_tropis',
+  // Industri dan logistik
+  pabrik: 'pabrik_manufaktur_modern',
+  kawasan_industri: 'kawasan_industri_terpadu',
+  pergudangan: 'pergudangan_logistik_kargo',
+  pelabuhan_kering: 'pelabuhan_kering_dryport',
+  // Transportasi
+  terminal: 'terminal_bus_antarkota',
+  stasiun: 'stasiun_kereta_komuter',
+  bandara: 'bandara_terminal_udara',
+  halte: 'halte_trans_shelter',
+  pelabuhan: 'pelabuhan_dermaga_laut',
+  jembatan: 'jembatan_penyeberangan_girder',
+  flyover: 'flyover_jalan_layang',
+  area_parkir: 'gedung_parkir_vertikal',
+  // Utilitas
+  gardu_listrik: 'gardu_induk_listrik',
+  pembangkit_listrik: 'pembangkit_listrik_surya_bio',
+  instalasi_air_minum: 'instalasi_pengolahan_air_pdam',
+  pdam: 'instalasi_pengolahan_air_pdam',
+  pengolahan_limbah: 'instalasi_pengolahan_limbah_ipal',
+  ipal: 'instalasi_pengolahan_limbah_ipal',
+  tps: 'tpa_sanitary_landfill',
+  tpa: 'tpa_sanitary_landfill',
+  menara_telekomunikasi: 'menara_telekomunikasi_bts',
+  bts: 'menara_telekomunikasi_bts',
+  // Ibadah dan budaya
+  masjid: 'masjid_agung_kubah',
+  gereja: 'gereja_katedral_menara',
+  pura: 'pura_kahyangan_nusantara',
+  vihara: 'vihara_dharma_meditasi',
+  klenteng: 'klenteng_tri_dharma',
+  museum: 'museum_heritage',
+  teater: 'gedung_teater_pertunjukan',
+  galeri: 'galeri_seni_kontemporer',
+  monumen: 'monumen_tugu_kota',
+  // Rekreasi dan ruang terbuka
+  taman_kota: 'taman_kota_terbuka',
+  lapangan_kota: 'lapangan_alun_alun_kota',
+  alun_alun: 'lapangan_alun_alun_kota',
+  stadion: 'stadion_olahraga_kota',
+  gor: 'gor_bulutangkis',
+  pusat_olahraga: 'pusat_olahraga_sportcenter',
+  pemakaman: 'pemakaman_taman_asri'
 };
 
 const CATALOG_BY_ID = new Map<string, BuildingCatalogItem>();
@@ -1525,10 +2573,10 @@ CANONICAL_BUILDING_CATALOG.forEach((item) => {
 });
 
 export class BuildingCatalogRegistry {
-  public static readonly TOTAL_BUILDINGS = 58;
+  public static readonly TOTAL_BUILDINGS = 97;
 
   /**
-   * Returns all 58 buildings in the canonical catalog.
+   * Returns all 97 buildings in the canonical catalog.
    */
   public static getAllBuildings(): BuildingCatalogItem[] {
     return CANONICAL_BUILDING_CATALOG;
@@ -1547,13 +2595,42 @@ export class BuildingCatalogRegistry {
   }
 
   /**
-   * Retrieves all buildings matching a given category.
+   * Retrieves all buildings matching a given category with functional cross-sector support.
    */
   public static getBuildingsByCategory(category: BuildingCategory | 'all'): BuildingCatalogItem[] {
     if (category === 'all') {
       return CANONICAL_BUILDING_CATALOG;
     }
-    return CANONICAL_BUILDING_CATALOG.filter((b) => b.category === category);
+
+    return CANONICAL_BUILDING_CATALOG.filter((b) => {
+      if (b.category === category) return true;
+
+      // Smart functional cross-sector mapping for urban functions
+      switch (category) {
+        case 'hunian':
+          return b.id.includes('house') || b.id.includes('kos') || b.id.includes('asrama') || b.id.includes('apartemen') || b.id.includes('rusun') || b.id.includes('perumahan') || b.id.includes('shophouse') || b.id.includes('villa') || b.id.includes('townhouse');
+        case 'pemerintahan_keamanan':
+          return b.id.includes('balai_kota') || b.id.includes('kantor') || b.id.includes('polisi') || b.id.includes('polsek') || b.id.includes('damkar') || b.id.includes('pemadam') || b.id.includes('pengadilan') || b.id.includes('kelurahan') || b.id.includes('kecamatan');
+        case 'pendidikan':
+          return b.category === 'kampus_kos' || b.id.includes('sekolah') || b.id.includes('kampus') || b.id.includes('fakultas') || b.id.includes('perpustakaan') || b.id.includes('kursus') || b.id.includes('riset');
+        case 'kesehatan':
+          return b.id.includes('rumah_sakit') || b.id.includes('puskesmas') || b.id.includes('klinik') || b.id.includes('apotek');
+        case 'perdagangan_jasa':
+          return b.category === 'kuliner_kafe' || b.category === 'mall_ritel' || b.id.includes('bank') || b.id.includes('pasar') || b.id.includes('mall') || b.id.includes('supermarket') || b.id.includes('ruko') || b.id.includes('hotel') || b.id.includes('kantor_tower');
+        case 'industri_logistik':
+          return b.id.includes('pabrik') || b.id.includes('industri') || b.id.includes('gudang') || b.id.includes('pergudangan') || b.id.includes('kargo') || b.id.includes('dryport') || b.id.includes('logistik');
+        case 'transportasi':
+          return b.id.includes('terminal') || b.id.includes('stasiun') || b.id.includes('bandara') || b.id.includes('halte') || b.id.includes('pelabuhan') || b.id.includes('jembatan') || b.id.includes('flyover') || b.id.includes('parkir');
+        case 'utilitas':
+          return b.id.includes('listrik') || b.id.includes('gardu') || b.id.includes('air') || b.id.includes('pdam') || b.id.includes('limbah') || b.id.includes('ipal') || b.id.includes('tpa') || b.id.includes('tps') || b.id.includes('telekomunikasi') || b.id.includes('bts');
+        case 'ibadah_budaya':
+          return b.id.includes('masjid') || b.id.includes('gereja') || b.id.includes('pura') || b.id.includes('vihara') || b.id.includes('klenteng') || b.id.includes('museum') || b.id.includes('teater') || b.id.includes('galeri') || b.id.includes('monumen') || b.id.includes('joglo') || b.id.includes('pendopo') || b.id.includes('kapel');
+        case 'rekreasi_terbuka':
+          return b.id.includes('taman') || b.id.includes('lapangan') || b.id.includes('alun_alun') || b.id.includes('stadion') || b.id.includes('gor') || b.id.includes('olahraga') || b.id.includes('pemakaman');
+        default:
+          return false;
+      }
+    });
   }
 
   /**
@@ -1605,6 +2682,15 @@ export class BuildingCatalogRegistry {
     const counts: Record<BuildingCategory | 'all', number> = {
       all: CANONICAL_BUILDING_CATALOG.length,
       hunian: 0,
+      pemerintahan_keamanan: 0,
+      pendidikan: 0,
+      kesehatan: 0,
+      perdagangan_jasa: 0,
+      industri_logistik: 0,
+      transportasi: 0,
+      utilitas: 0,
+      ibadah_budaya: 0,
+      rekreasi_terbuka: 0,
       kuliner_kafe: 0,
       mall_ritel: 0,
       kampus_kos: 0,
@@ -1621,3 +2707,4 @@ export class BuildingCatalogRegistry {
     return counts;
   }
 }
+

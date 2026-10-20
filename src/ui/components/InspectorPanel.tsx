@@ -156,86 +156,88 @@ export const InspectorPanel: React.FC = () => {
     }
   }
 
-  // If not expanded, always display the 1:1 Slim Vertical Capsule (~170px width, 24px radius)
+  // If not expanded, always display the 1:1 Slim Vertical Capsule with Laboratorium Analisis frame
   if (!isExpanded) {
     return (
       <aside
-        className="interactive"
+        className="inspector-panel interactive"
         style={{
           position: 'absolute',
           top: '16px',
           right: '16px',
-          width: '168px',
-          background: 'rgba(15, 23, 42, 0.78)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255, 255, 255, 0.18)',
+          width: '180px',
+          background: 'var(--surface)',
+          backdropFilter: 'blur(var(--glass-blur)) saturate(180%)',
+          WebkitBackdropFilter: 'blur(var(--glass-blur)) saturate(180%)',
+          border: '1px solid var(--hairline)',
           borderRadius: '24px',
-          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.45)',
-          padding: '14px 16px',
+          boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.35)',
+          padding: '16px',
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
-          zIndex: 45,
-          userSelect: 'none'
+          zIndex: 'var(--z-hud)' as any,
+          userSelect: 'none',
+          color: 'var(--label)'
         }}
       >
         {/* Blok 1: KDB */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em' }}>KDB</span>
-            <span className="font-mono tabular-nums font-bold" style={{ fontSize: '18px', color: '#ffffff' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label-secondary)', letterSpacing: '0.04em' }}>KDB</span>
+            <span className="font-mono tabular-nums font-bold" style={{ fontSize: '18px', color: 'var(--label)' }}>
               {kdbDisplay}%
             </span>
           </div>
-          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.12)', borderRadius: '9999px', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(100, Math.max(5, kdbDisplay))}%`, height: '100%', background: '#34c759', borderRadius: '9999px' }} />
+          <div style={{ width: '100%', height: '5px', background: 'var(--fill-control-active)', borderRadius: '9999px', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(100, Math.max(5, kdbDisplay))}%`, height: '100%', background: '#34C759', borderRadius: '9999px' }} />
           </div>
         </div>
 
-        <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.10)' }} />
+        <div style={{ height: '1px', background: 'var(--separator)' }} />
 
         {/* Blok 2: GSB */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em' }}>GSB</span>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label-secondary)', letterSpacing: '0.04em' }}>GSB</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             {isGsbValid ? (
-              <CheckCircle2 size={15} strokeWidth={2.2} style={{ color: '#34c759' }} />
+              <CheckCircle2 size={15} strokeWidth={2.2} style={{ color: '#34C759' }} />
             ) : (
-              <AlertCircle size={15} strokeWidth={2.2} style={{ color: '#ef4444' }} />
+              <AlertCircle size={15} strokeWidth={2.2} style={{ color: '#EF4444' }} />
             )}
             <span
               className="font-mono font-bold"
-              style={{ fontSize: '12px', color: isGsbValid ? '#34c759' : '#ef4444', letterSpacing: '0.05em' }}
+              style={{ fontSize: '12px', color: isGsbValid ? '#34C759' : '#EF4444', letterSpacing: '0.05em' }}
             >
               {gsbDisplay}
             </span>
           </div>
         </div>
 
-        <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.10)' }} />
+        <div style={{ height: '1px', background: 'var(--separator)' }} />
 
         {/* Blok 3: KDH */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em' }}>KDH</span>
-            <span className="font-mono tabular-nums font-bold" style={{ fontSize: '18px', color: '#ffffff' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label-secondary)', letterSpacing: '0.04em' }}>KDH</span>
+            <span className="font-mono tabular-nums font-bold" style={{ fontSize: '18px', color: 'var(--label)' }}>
               {kdhDisplay}%
             </span>
           </div>
-          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.12)', borderRadius: '9999px', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(100, Math.max(5, kdhDisplay))}%`, height: '100%', background: '#34c759', borderRadius: '9999px' }} />
+          <div style={{ width: '100%', height: '5px', background: 'var(--fill-control-active)', borderRadius: '9999px', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(100, Math.max(5, kdhDisplay))}%`, height: '100%', background: '#34C759', borderRadius: '9999px' }} />
           </div>
         </div>
 
-        <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.10)' }} />
+        <div style={{ height: '1px', background: 'var(--separator)' }} />
 
         {/* Blok 4: Termometer */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Thermometer size={16} strokeWidth={2.2} style={{ color: '#38bdf8' }} />
+            <Thermometer size={16} strokeWidth={2.2} style={{ color: '#007AFF' }} />
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label-secondary)' }}>SUHU</span>
           </div>
-          <span className="font-mono tabular-nums font-bold" style={{ fontSize: '15px', color: '#ffffff' }}>
+          <span className="font-mono tabular-nums font-bold" style={{ fontSize: '15px', color: 'var(--label)' }}>
             {tempDisplay}°C
           </span>
         </div>
@@ -246,13 +248,13 @@ export const InspectorPanel: React.FC = () => {
             onClick={handleAutoFix}
             style={{
               marginTop: '2px',
-              padding: '6px 8px',
-              background: 'rgba(52, 199, 89, 0.16)',
+              padding: '7px 8px',
+              background: 'rgba(52, 199, 89, 0.18)',
               border: '1px solid rgba(52, 199, 89, 0.45)',
               borderRadius: '12px',
-              color: '#34c759',
+              color: '#34C759',
               fontSize: '11px',
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -273,19 +275,20 @@ export const InspectorPanel: React.FC = () => {
           onClick={() => setIsExpanded(true)}
           style={{
             marginTop: hasViolations ? '0px' : '2px',
-            padding: '5px 8px',
-            background: 'rgba(56, 189, 248, 0.12)',
-            border: '1px solid rgba(56, 189, 248, 0.28)',
+            padding: '7px 8px',
+            background: 'var(--accent)',
+            border: 'none',
             borderRadius: '12px',
-            color: '#38bdf8',
+            color: '#FFFFFF',
             fontSize: '11px',
-            fontWeight: 600,
+            fontWeight: 700,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '4px',
-            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 8px rgba(10, 132, 255, 0.35)',
+            transition: 'all 0.15s ease',
             width: '100%'
           }}
           title="Buka Inspeksi Objek Terpilih"

@@ -9,7 +9,7 @@ describe('CitySerializer - Validation, Migrations & Roundtrip Safety', () => {
     environment: {
       timeOfDay: 11.6,
       dayOfYear: 172,
-      weather: 'sunny',
+      weather: 'clear',
     },
     roads: {
       nodes: [
@@ -21,7 +21,7 @@ describe('CitySerializer - Validation, Migrations & Roundtrip Safety', () => {
           id: 'edge_1',
           startNodeId: 'node_1',
           endNodeId: 'node_2',
-          type: 'main',
+          type: 'arterial',
           controlPoints: [
             [0, 0, 0],
             [50, 0, 0],

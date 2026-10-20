@@ -182,19 +182,49 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
       >
         {/* Header */}
         <div className="modal-sheet-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BookOpen size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: 'rgba(10, 132, 255, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <BookOpen size={20} color="#007AFF" strokeWidth={2.2} />
+            </div>
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
                 Glosarium Arsitektur & Tata Kota
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+              <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>
                 Standar dan regulasi tata ruang tropis Indonesia
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="icon-btn" aria-label="Tutup Glosarium">
-            <X size={16} strokeWidth={1.75} />
+          <button
+            onClick={onClose}
+            className="icon-btn"
+            aria-label="Tutup Glosarium"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'var(--fill-control)',
+              border: '1px solid var(--hairline)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--label-secondary)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
 

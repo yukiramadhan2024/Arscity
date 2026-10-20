@@ -3,6 +3,7 @@ import { useUIStore } from '../state/useUIStore';
 import { HardDrive, Camera, Settings, HelpCircle, Share2, Award, FolderOpen, LogOut } from 'lucide-react';
 import { CitySerializer } from '../../io/CitySerializer';
 import { IndexedDBStorage } from '../../io/IndexedDBStorage';
+import { ArscityLogo } from './ArscityLogo';
 
 interface SideUtilityDockProps {
   onOpenHelp?: () => void;
@@ -35,22 +36,28 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
 
   return (
     <aside className="side-dock-wrapper" aria-label="Utilitas Sistem Kota">
-      <div
-        className="side-dock-container interactive"
-        style={{
-          background: 'rgba(15, 23, 42, 0.86)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.14)',
-          borderRadius: '9999px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
-          padding: '8px 6px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '6px'
-        }}
-      >
+      <div className="side-dock-container interactive">
+        {/* Logo Identitas Sudut Aplikasi */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, rgba(10, 132, 255, 0.18) 0%, rgba(56, 189, 248, 0.08) 100%)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            boxShadow: '0 2px 10px rgba(10, 132, 255, 0.25)',
+            marginBottom: '4px'
+          }}
+          title="Arscity - Studio Tata Kota Nusantara"
+          aria-label="Identitas Arscity"
+        >
+          <ArscityLogo size={24} />
+        </div>
+
+        <div style={{ width: '22px', height: '1px', background: 'var(--separator)', marginBottom: '4px' }} />
         {/* Peta Kota */}
         <button
           onClick={handleSwitchMap}
@@ -118,7 +125,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
         </button>
 
         {/* Pemisah Sub-Grup */}
-        <div style={{ width: '22px', height: '1px', background: 'rgba(255, 255, 255, 0.14)', margin: '2px 0' }} />
+        <div style={{ width: '22px', height: '1px', background: 'var(--separator)', margin: '2px 0' }} />
 
         {/* Bantuan */}
         {onOpenHelp && (

@@ -4,7 +4,6 @@ import {
   Sun,
   Cloud,
   CloudRain,
-  ShieldCheck,
   MoreHorizontal,
   X,
   Grid,
@@ -12,7 +11,10 @@ import {
   Compass,
   Award,
   Sparkles,
-  Check
+  Check,
+  Globe,
+  User,
+  Video
 } from 'lucide-react';
 import { WeatherType } from '../../world/WeatherSystem';
 
@@ -31,7 +33,9 @@ export const TopHeader: React.FC = () => {
     fps,
     engine,
     setShowMissions,
-    setShowTutorial
+    setShowTutorial,
+    cameraMode,
+    setCameraMode
   } = useUIStore();
 
   const [showUtilityMenu, setShowUtilityMenu] = useState<boolean>(false);
@@ -62,63 +66,35 @@ export const TopHeader: React.FC = () => {
     setWeather(next[weather] || 'clear');
   };
 
-  // Logika Kepatuhan Regulasi Tata Ruang Kota
-  // Menghitung persentase kepatuhan bangunan kota terhadap regulasi teknis (GSB, KDB, KLB, Tinggi, Batas Kavling)
-  const lotsWithBuildings = engine?.lotManager?.lots.size
-    ? Array.from(engine.lotManager.lots.values()).filter((l) => l.containedBuildingIds && l.containedBuildingIds.length > 0)
-    : [];
 
-  const buildingViolatedLots = lotsWithBuildings.filter((l) => {
-    return l.violations && l.violations.some((v) =>
-      v.code === 'GSB_FRONT' ||
-      v.code === 'GSB_SIDE' ||
-      v.code === 'GSB_REAR' ||
-      v.code === 'KDB' ||
-      v.code === 'KLB' ||
-      v.code === 'HEIGHT' ||
-      v.code === 'OUT_OF_BOUNDS' ||
-      v.code === 'CROSS_LOTS'
-    );
-  });
-
-  // Jika belum ada bangunan yang melanggar aturan (atau semua bangunan patuh), tampilkan Regulasi 100%
-  const compliancePercent = lotsWithBuildings.length > 0
-    ? Math.round(((lotsWithBuildings.length - buildingViolatedLots.length) / lotsWithBuildings.length) * 100)
-    : 100;
-
-  const complianceColor =
-    compliancePercent >= 80
-      ? '#34C759'
-      : compliancePercent >= 50
-      ? '#FF9500'
-      : '#FF3B30';
 
   return (
     <>
       {/* Kapsul Kaca Gelap Terpusat (Unified Dark Slate Glass) */}
       <header
-        className="interactive"
+        className="top-header interactive"
         style={{
           position: 'absolute',
           top: '16px',
           left: '50%',
           transform: 'translateX(-50%)',
-          zIndex: 50,
+          zIndex: 'var(--z-hud)' as any,
           pointerEvents: 'auto'
         }}
       >
         <div
+          className="top-header-capsule"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '14px',
             padding: '6px 18px',
-            background: 'rgba(15, 23, 42, 0.86)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
-            borderRadius: '9999px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+            background: 'var(--surface)',
+            backdropFilter: 'blur(var(--glass-blur))',
+            WebkitBackdropFilter: 'blur(var(--glass-blur))',
+            border: '1px solid var(--hairline)',
+            borderRadius: 'var(--radius-capsule)',
+            boxShadow: '0 0 0 1px rgba(15, 23, 42, 0.08), 0 20px 50px rgba(15, 23, 42, 0.16)',
             userSelect: 'none'
           }}
         >
@@ -129,7 +105,7 @@ export const TopHeader: React.FC = () => {
               className="font-mono tabular-nums font-semibold"
               style={{
                 fontSize: '12px',
-                color: '#F8FAFC',
+                color: 'var(--label)',
                 minWidth: '70px',
                 letterSpacing: '-0.01em'
               }}
@@ -158,8 +134,8 @@ export const TopHeader: React.FC = () => {
                 width: '100px',
                 height: '4px',
                 borderRadius: '9999px',
-                accentColor: '#0A84FF',
-                background: 'rgba(10, 132, 255, 0.35)',
+                accentColor: 'var(--accent)',
+                background: 'var(--fill-control-active)',
                 cursor: 'pointer',
                 margin: 0
               }}
@@ -178,18 +154,18 @@ export const TopHeader: React.FC = () => {
                 alignItems: 'center',
                 gap: '6px',
                 padding: '4px 12px',
-                background: showWeatherMenu ? 'rgba(10, 132, 255, 0.25)' : 'rgba(255, 255, 255, 0.06)',
-                border: showWeatherMenu ? '1px solid rgba(10, 132, 255, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '9999px',
+                background: showWeatherMenu ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                border: showWeatherMenu ? '1px solid var(--accent)' : '1px solid var(--hairline-soft)',
+                borderRadius: 'var(--radius-capsule)',
                 cursor: 'pointer',
-                color: '#F8FAFC',
+                color: 'var(--label)',
                 transition: 'all 0.15s ease'
               }}
               title="Klik untuk mengganti cuaca (Cerah, Berawan, Hujan)"
               aria-label={`Cuaca: ${currentWeather.label}`}
             >
-              <WeatherIcon size={15} strokeWidth={2} style={{ color: '#0A84FF' }} />
-              <span style={{ fontSize: '12px', fontWeight: 500, color: '#F8FAFC', whiteSpace: 'nowrap' }}>
+              <WeatherIcon size={15} strokeWidth={2} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--label)', whiteSpace: 'nowrap' }}>
                 {currentWeather.label}
               </span>
             </button>
@@ -202,16 +178,16 @@ export const TopHeader: React.FC = () => {
                   top: '36px',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  background: 'rgba(15, 23, 42, 0.95)',
+                  background: 'var(--surface-strong)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255, 255, 255, 0.14)',
-                  borderRadius: '12px',
-                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)',
+                  border: '1px solid var(--hairline)',
+                  borderRadius: 'var(--radius-sub)',
+                  boxShadow: 'var(--shadow-popover)',
                   padding: '4px',
                   display: 'flex',
                   gap: '4px',
-                  zIndex: 100
+                  zIndex: 'var(--z-hud-popover)' as any
                 }}
               >
                 {weatherOptions.map((opt) => {
@@ -230,9 +206,9 @@ export const TopHeader: React.FC = () => {
                         gap: '5px',
                         padding: '6px 10px',
                         borderRadius: '8px',
-                        background: isSel ? '#0A84FF' : 'transparent',
+                        background: isSel ? 'var(--accent)' : 'transparent',
                         border: 'none',
-                        color: isSel ? '#FFFFFF' : '#CBD5E1',
+                        color: isSel ? '#FFFFFF' : 'var(--label)',
                         fontSize: '11px',
                         fontWeight: isSel ? 600 : 500,
                         cursor: 'pointer',
@@ -248,33 +224,53 @@ export const TopHeader: React.FC = () => {
             )}
           </div>
 
-          {/* Indikator Kepatuhan Regulasi Tata Ruang Kota */}
+
+          {/* Mode Kamera: Orbit / Pejalan Kaki / Drone View */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '0 4px',
-              borderLeft: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRight: '1px solid rgba(255, 255, 255, 0.12)',
-              paddingLeft: '12px',
-              paddingRight: '12px'
+              background: 'rgba(226, 232, 240, 0.75)',
+              borderRadius: '9999px',
+              padding: '2px',
+              gap: '2px'
             }}
-            title={`Kepatuhan Regulasi Kota: ${compliancePercent}% (${lotsWithBuildings.length - buildingViolatedLots.length}/${lotsWithBuildings.length || 1} kavling patuh)`}
           >
-            <ShieldCheck size={14} strokeWidth={2.2} style={{ color: complianceColor }} />
-            <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, letterSpacing: '0.02em' }}>
-              Regulasi
-            </span>
-            <span
-              className="font-mono tabular-nums font-bold"
-              style={{
-                fontSize: '12px',
-                color: complianceColor
-              }}
-            >
-              {compliancePercent}%
-            </span>
+            {[
+              { id: 'orbit' as const, label: 'Orbit', icon: Globe },
+              { id: 'first_person' as const, label: 'Pejalan Kaki', icon: User },
+              { id: 'cinematic_drone' as const, label: 'Drone View', icon: Video }
+            ].map((m) => {
+              const IconComp = m.icon;
+              const isActive = cameraMode === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setCameraMode(m.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '4px 10px',
+                    borderRadius: '9999px',
+                    background: isActive ? '#FFFFFF' : 'transparent',
+                    color: isActive ? '#0F172A' : '#64748B',
+                    fontWeight: isActive ? 700 : 500,
+                    fontSize: '11px',
+                    border: 'none',
+                    boxShadow: isActive ? '0 1px 3px rgba(15, 23, 42, 0.12)' : 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={`Aktifkan mode kamera ${m.label}`}
+                  aria-label={m.label}
+                >
+                  <IconComp size={15} strokeWidth={2} style={{ color: isActive ? '#007AFF' : 'inherit' }} />
+                  <span>{m.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Bagian Kanan: Status FPS & Tombol Menu Kontrol Cepat */}
@@ -283,7 +279,7 @@ export const TopHeader: React.FC = () => {
               className="font-mono tabular-nums font-semibold"
               style={{
                 fontSize: '11px',
-                color: '#34C759',
+                color: 'var(--good)',
                 letterSpacing: '0.04em'
               }}
             >
@@ -297,9 +293,9 @@ export const TopHeader: React.FC = () => {
                 width: '24px',
                 height: '24px',
                 borderRadius: '50%',
-                background: showUtilityMenu ? 'rgba(10, 132, 255, 0.35)' : 'rgba(255, 255, 255, 0.08)',
+                background: showUtilityMenu ? 'var(--accent-subtle)' : 'var(--fill-control)',
                 border: 'none',
-                color: '#F8FAFC',
+                color: 'var(--label)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -322,27 +318,27 @@ export const TopHeader: React.FC = () => {
               top: '48px',
               right: '0',
               width: '260px',
-              background: 'rgba(15, 23, 42, 0.95)',
+              background: 'var(--surface-strong)',
               backdropFilter: 'blur(24px)',
               WebkitBackdropFilter: 'blur(24px)',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
-              borderRadius: '16px',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+              border: '1px solid var(--hairline)',
+              borderRadius: 'var(--radius-inset)',
+              boxShadow: 'var(--shadow-popover)',
               padding: '12px',
               display: 'flex',
               flexDirection: 'column',
               gap: '10px',
-              zIndex: 100
+              zIndex: 'var(--z-hud-popover)' as any
             }}
           >
             {/* Header Popover */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--separator)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--label-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Kontrol Cepat
               </span>
               <button
                 onClick={() => setShowUtilityMenu(false)}
-                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: 'var(--label-secondary)', cursor: 'pointer', padding: 0 }}
                 aria-label="Tutup Kontrol Cepat"
               >
                 <X size={14} />
@@ -352,8 +348,8 @@ export const TopHeader: React.FC = () => {
             {/* Kontrol Grid Spasial */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Grid size={13} style={{ color: '#0A84FF' }} />
+                <span style={{ fontSize: '11px', color: 'var(--label)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Grid size={13} style={{ color: 'var(--accent)' }} />
                   Snap Grid:
                 </span>
                 <div style={{ display: 'flex', gap: '4px' }}>
@@ -364,9 +360,9 @@ export const TopHeader: React.FC = () => {
                       style={{
                         padding: '3px 8px',
                         borderRadius: '6px',
-                        background: gridSnap === step ? '#0A84FF' : 'rgba(255,255,255,0.06)',
+                        background: gridSnap === step ? 'var(--accent)' : 'var(--fill-control)',
                         border: 'none',
-                        color: gridSnap === step ? '#FFFFFF' : '#CBD5E1',
+                        color: gridSnap === step ? '#FFFFFF' : 'var(--label)',
                         fontSize: '11px',
                         cursor: 'pointer'
                       }}
@@ -386,22 +382,22 @@ export const TopHeader: React.FC = () => {
                   justifyContent: 'space-between',
                   padding: '6px 8px',
                   borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  background: 'var(--fill-control)',
                   border: 'none',
-                  color: '#F8FAFC',
+                  color: 'var(--label)',
                   fontSize: '11px',
                   cursor: 'pointer'
                 }}
               >
                 <span>Tampilkan Garis Grid</span>
-                <span style={{ color: gridVisible ? '#34C759' : '#94A3B8', fontWeight: 600 }}>
+                <span style={{ color: gridVisible ? 'var(--good)' : 'var(--label-secondary)', fontWeight: 600 }}>
                   {gridVisible ? 'Aktif' : 'Mati'}
                 </span>
               </button>
             </div>
 
             {/* Kontrol Sudut Pandang Kamera */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--separator)' }}>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button
                   onClick={toggleTopDown}
@@ -413,15 +409,15 @@ export const TopHeader: React.FC = () => {
                     gap: '5px',
                     padding: '6px',
                     borderRadius: '8px',
-                    background: isTopDown ? 'rgba(10, 132, 255, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                    border: isTopDown ? '1px solid rgba(10, 132, 255, 0.5)' : 'none',
-                    color: '#F8FAFC',
+                    background: isTopDown ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                    border: isTopDown ? '1px solid var(--accent)' : 'none',
+                    color: isTopDown ? 'var(--accent)' : 'var(--label)',
                     fontSize: '11px',
                     cursor: 'pointer'
                   }}
                   title="Ganti Sudut Pandang 2D Tegak Lurus / 3D Isometrik"
                 >
-                  <Compass size={13} style={{ color: '#0A84FF' }} />
+                  <Compass size={13} style={{ color: 'var(--accent)' }} />
                   <span>{isTopDown ? 'Mode 2D' : 'Mode 3D'}</span>
                 </button>
 
@@ -438,9 +434,9 @@ export const TopHeader: React.FC = () => {
                     gap: '5px',
                     padding: '6px',
                     borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.05)',
+                    background: 'var(--fill-control)',
                     border: 'none',
-                    color: '#F8FAFC',
+                    color: 'var(--label)',
                     fontSize: '11px',
                     cursor: 'pointer'
                   }}
@@ -453,7 +449,7 @@ export const TopHeader: React.FC = () => {
             </div>
 
             {/* Misi & Tutorial Kota */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--separator)' }}>
               <button
                 onClick={() => { setShowMissions(true); setShowUtilityMenu(false); }}
                 style={{
@@ -463,14 +459,14 @@ export const TopHeader: React.FC = () => {
                   gap: '5px',
                   padding: '6px',
                   borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  background: 'var(--fill-control)',
                   border: 'none',
-                  color: '#CBD5E1',
+                  color: 'var(--label)',
                   fontSize: '11px',
                   cursor: 'pointer'
                 }}
               >
-                <Award size={13} style={{ color: '#FF9500' }} />
+                <Award size={13} style={{ color: 'var(--warn)' }} />
                 <span>Misi Kota</span>
               </button>
               <button
@@ -482,14 +478,14 @@ export const TopHeader: React.FC = () => {
                   gap: '5px',
                   padding: '6px',
                   borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  background: 'var(--fill-control)',
                   border: 'none',
-                  color: '#CBD5E1',
+                  color: 'var(--label)',
                   fontSize: '11px',
                   cursor: 'pointer'
                 }}
               >
-                <Sparkles size={13} style={{ color: '#0A84FF' }} />
+                <Sparkles size={13} style={{ color: 'var(--accent)' }} />
                 <span>Tutorial</span>
               </button>
             </div>

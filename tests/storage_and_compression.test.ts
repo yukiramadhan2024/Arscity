@@ -11,7 +11,7 @@ describe('Phase 4: Non-blocking Storage & Compressed File Portability', () => {
     environment: {
       timeOfDay: 14.5,
       dayOfYear: 180,
-      weather: 'sunny',
+      weather: 'clear',
     },
     roads: {
       nodes: [
@@ -23,7 +23,7 @@ describe('Phase 4: Non-blocking Storage & Compressed File Portability', () => {
           id: 'e1',
           startNodeId: 'n1',
           endNodeId: 'n2',
-          type: 'arterial_primary',
+          type: 'arterial',
           controlPoints: [
             [0, 0, 0],
             [50, 0, 0],
@@ -55,7 +55,7 @@ describe('Phase 4: Non-blocking Storage & Compressed File Portability', () => {
       {
         id: 'lot1',
         name: 'Kavling Permukiman 01',
-        zone: 'residential_medium',
+        zone: 'residential',
         position: [20, 0, 20],
         width: 30,
         length: 30,

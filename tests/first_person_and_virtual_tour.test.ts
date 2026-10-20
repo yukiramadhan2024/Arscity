@@ -57,6 +57,21 @@ describe('Mode Eksplorasi Skala Manusia & Tur Virtual (First-Person, Drone & Aud
       expect(controller.position.z).toBeGreaterThan(15); // Moved forward
       expect(controller.position.y).toBeCloseTo(1.65, 1); // Maintained human eye height
 
+      // Reset keys and test KeyD (strafe right) vs KeyA (strafe left)
+      (controller as any).keysDown.clear();
+      const posXInitial = controller.position.x;
+
+      // Facing +Z: screen right is -X, screen left is +X
+      (controller as any).keysDown.add('KeyD');
+      controller.update(0.05);
+      expect(controller.position.x).toBeLessThan(posXInitial); // D moves to player's right (-X)
+
+      const posXAfterD = controller.position.x;
+      (controller as any).keysDown.clear();
+      (controller as any).keysDown.add('KeyA');
+      controller.update(0.05);
+      expect(controller.position.x).toBeGreaterThan(posXAfterD); // A moves to player's left (+X)
+
       controller.exit();
       expect(controller.isActive).toBe(false);
       controller.dispose();
@@ -131,7 +146,7 @@ describe('Mode Eksplorasi Skala Manusia & Tur Virtual (First-Person, Drone & Aud
       // Add a road
       const nodeA = roadManager.graph.getOrCreateNode(new THREE.Vector3(0, 0, 0));
       const nodeB = roadManager.graph.getOrCreateNode(new THREE.Vector3(50, 0, 0));
-      roadManager.graph.addEdge(nodeA.id, nodeB.id, 'main');
+      roadManager.graph.addEdge(nodeA.id, nodeB.id, 'arterial');
 
       // Add a cafe building
       buildingManager.addBuilding({
@@ -145,7 +160,11 @@ describe('Mode Eksplorasi Skala Manusia & Tur Virtual (First-Person, Drone & Aud
         length: 22,
         floorCount: 1,
         floorHeight: 4.2,
-        roofType: 'shed_industrial'
+        roofType: 'shed_industrial',
+        roofOverhang: 1.2,
+        wallMaterial: 'plaster',
+        wallColor: '#f8fafc',
+        roofMaterial: 'metal'
       });
 
       // Add a shade tree
@@ -193,7 +212,11 @@ describe('Mode Eksplorasi Skala Manusia & Tur Virtual (First-Person, Drone & Aud
           length: 8,
           floorCount: 2,
           floorHeight: 3.2,
-          roofType: 'gable'
+          roofType: 'gable',
+          roofOverhang: 1.0,
+          wallMaterial: 'plaster',
+          wallColor: '#ffffff',
+          roofMaterial: 'clay_tile'
         });
       }
 

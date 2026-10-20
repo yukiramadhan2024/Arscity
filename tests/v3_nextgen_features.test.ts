@@ -77,8 +77,15 @@ describe('Arscity v3.0.0 Next-Gen Features Test Suite', () => {
   });
 
   describe('2. 6-DOF Manual Free-Fly & Custom Keyframe Tour Director (CinematicDroneController)', () => {
+    const mockRenderer = {
+      domElement: { captureStream: () => null, toDataURL: () => '' }
+    } as any;
+    const mockBuildingManager = {
+      buildings: new Map()
+    } as any;
+
     it('manages custom keyframe addition, removal, and clearance', () => {
-      const drone = new CinematicDroneController(camera);
+      const drone = new CinematicDroneController(camera, mockRenderer, mockBuildingManager);
       drone.clearKeyframes();
       expect(drone.getKeyframes().length).toBe(0);
 
@@ -111,7 +118,7 @@ describe('Arscity v3.0.0 Next-Gen Features Test Suite', () => {
     });
 
     it('plays custom cinematic keyframe tour with Catmull-Rom and Slerp interpolation', () => {
-      const drone = new CinematicDroneController(camera);
+      const drone = new CinematicDroneController(camera, mockRenderer, mockBuildingManager);
       drone.clearKeyframes();
 
       // Setup 3 keyframes

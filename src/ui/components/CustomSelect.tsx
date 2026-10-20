@@ -102,13 +102,14 @@ export function CustomSelect<T extends string = string>({
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '8px',
-          padding: '6px 10px',
+          padding: '7px 12px',
           fontSize: '13px',
-          fontWeight: 500,
-          color: 'var(--label)',
-          background: 'var(--fill-control)',
-          border: '0.5px solid var(--separator)',
+          fontWeight: 600,
+          color: '#0F172A',
+          background: '#FFFFFF',
+          border: '1.5px solid rgba(15, 23, 42, 0.12)',
           borderRadius: '10px',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
           cursor: disabled ? 'not-allowed' : 'pointer',
           outline: 'none',
           transition: 'all 0.18s ease',
@@ -126,8 +127,9 @@ export function CustomSelect<T extends string = string>({
                 fontSize: '10px',
                 padding: '1px 6px',
                 borderRadius: '6px',
-                background: 'var(--accent-subtle)',
-                color: 'var(--accent)'
+                background: 'rgba(10, 132, 255, 0.12)',
+                color: '#007AFF',
+                fontWeight: 700
               }}
             >
               {selectedOption.badge}
@@ -139,7 +141,7 @@ export function CustomSelect<T extends string = string>({
           strokeWidth={2}
           style={{
             flexShrink: 0,
-            color: 'var(--label-secondary)',
+            color: '#64748B',
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
           }}
@@ -150,7 +152,7 @@ export function CustomSelect<T extends string = string>({
       {isOpen && (
         <div
           role="listbox"
-          className="custom-select-menu glass-surface"
+          className="custom-select-menu"
           style={{
             position: 'absolute',
             top: 'calc(100% + 4px)',
@@ -158,11 +160,13 @@ export function CustomSelect<T extends string = string>({
             right: 0,
             zIndex: 999,
             borderRadius: '14px',
-            padding: '4px',
+            padding: '6px',
             maxHeight: '220px',
             overflowY: 'auto',
-            boxShadow: 'var(--shadow-glass)',
-            border: '0.5px solid var(--glass-border-specular)',
+            background: 'rgba(255, 255, 255, 0.98)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 16px 40px rgba(15, 23, 42, 0.18)',
+            border: '1.5px solid rgba(15, 23, 42, 0.12)',
             animation: 'modalFadeIn 0.15s ease-out'
           }}
         >
@@ -182,13 +186,13 @@ export function CustomSelect<T extends string = string>({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '7px 10px',
-                  borderRadius: '9px',
+                  padding: '8px 12px',
+                  borderRadius: '10px',
                   fontSize: '13px',
                   cursor: 'pointer',
-                  background: isSelected ? 'var(--accent-subtle)' : 'transparent',
-                  color: isSelected ? 'var(--accent)' : 'var(--label)',
-                  fontWeight: isSelected ? 600 : 400,
+                  background: isSelected ? 'rgba(10, 132, 255, 0.12)' : 'transparent',
+                  color: isSelected ? '#007AFF' : '#0F172A',
+                  fontWeight: isSelected ? 700 : 500,
                   transition: 'background 0.12s ease'
                 }}
               >
@@ -200,11 +204,12 @@ export function CustomSelect<T extends string = string>({
                       {option.badge && (
                         <span
                           style={{
-                            fontSize: '10px',
+                            fontSize: '9px',
                             padding: '1px 5px',
                             borderRadius: '4px',
-                            background: 'var(--fill-control)',
-                            color: 'var(--label-secondary)'
+                            background: 'rgba(10, 132, 255, 0.12)',
+                            color: '#007AFF',
+                            fontWeight: 700
                           }}
                         >
                           {option.badge}
@@ -212,7 +217,7 @@ export function CustomSelect<T extends string = string>({
                       )}
                     </div>
                     {option.description && (
-                      <div style={{ fontSize: '11px', color: 'var(--label-tertiary)', marginTop: '2px' }}>
+                      <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
                         {option.description}
                       </div>
                     )}

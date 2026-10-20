@@ -6,10 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Arscity - Game sandbox 3D arsitektur dan tata kota tropis berbasis browser untuk pemula." />
     <title>Arscity - Sandbox Arsitektur & Tata Kota Tropis</title>
-    <script type="module" crossorigin src="./assets/index-DNoSddw0.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BKO6Cfxs.css">
+    <script type="module" crossorigin src="./assets/index-BsE754sp.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-LIuEwhdt.css">
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

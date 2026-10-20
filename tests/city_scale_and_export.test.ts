@@ -28,9 +28,11 @@ describe('Milestone T6: Skala Kota, Aturan Lanjutan, dan Ekspor CAD/3D', () => {
     // Bangunan 2 lantai (tinggi ~ 2 * 3.2 + 2.5 = 8.9m <= 9.0m) -> lolos
     const shortBuilding: BuildingInstance = {
       id: 'bld_1',
+      presetKey: 'house_36',
       name: 'Rumah Tinggal',
+      category: 'residential',
       position: new THREE.Vector3(25, 0, 5),
-      rotation: 0,
+      rotationY: 0,
       width: 8,
       length: 12,
       floorCount: 2,
@@ -42,8 +44,11 @@ describe('Milestone T6: Skala Kota, Aturan Lanjutan, dan Ekspor CAD/3D', () => {
         new THREE.Vector2(-4, 6)
       ],
       floors: [],
-      roofType: 'limasan',
-      wallMaterial: 'brick'
+      roofType: 'hip',
+      roofOverhang: 1.0,
+      wallMaterial: 'brick',
+      wallColor: '#ffffff',
+      roofMaterial: 'clay_tile'
     };
 
     const shortViolations = advancedBuildingCodeRegistry.evaluateBuilding(shortBuilding, mockRoadManager);
@@ -68,46 +73,52 @@ describe('Milestone T6: Skala Kota, Aturan Lanjutan, dan Ekspor CAD/3D', () => {
           id: 'sch',
           name: 'Sekolah Dasar',
           presetKey: 'school',
+          category: 'public',
           position: new THREE.Vector3(0, 0, 0),
-          rotation: 0,
+          rotationY: 0,
           width: 20,
           length: 30,
           floorCount: 2,
           floorHeight: 3.2,
-          footprintPolygon: [],
-          floors: [],
-          roofType: 'pelana',
-          wallMaterial: 'plaster'
+          roofType: 'gable',
+          roofOverhang: 1.2,
+          wallMaterial: 'plaster',
+          wallColor: '#ffffff',
+          roofMaterial: 'clay_tile'
         }],
         ['res1', {
           id: 'res1',
           name: 'Rumah 1',
           presetKey: 'house_36',
+          category: 'residential',
           position: new THREE.Vector3(100, 0, 100), // ~141m dari sekolah (<= 400m)
-          rotation: 0,
+          rotationY: 0,
           width: 6,
           length: 10,
           floorCount: 1,
           floorHeight: 3.2,
-          footprintPolygon: [],
-          floors: [],
-          roofType: 'limasan',
-          wallMaterial: 'brick'
+          roofType: 'hip',
+          roofOverhang: 1.0,
+          wallMaterial: 'brick',
+          wallColor: '#ffffff',
+          roofMaterial: 'clay_tile'
         }],
         ['res2', {
           id: 'res2',
           name: 'Rumah 2',
           presetKey: 'house_54',
+          category: 'residential',
           position: new THREE.Vector3(600, 0, 600), // ~848m dari sekolah (> 400m)
-          rotation: 0,
+          rotationY: 0,
           width: 8,
           length: 12,
           floorCount: 1,
           floorHeight: 3.2,
-          footprintPolygon: [],
-          floors: [],
-          roofType: 'limasan',
-          wallMaterial: 'brick'
+          roofType: 'hip',
+          roofOverhang: 1.0,
+          wallMaterial: 'brick',
+          wallColor: '#ffffff',
+          roofMaterial: 'clay_tile'
         }]
       ])
     };
@@ -149,12 +160,14 @@ describe('Milestone T6: Skala Kota, Aturan Lanjutan, dan Ekspor CAD/3D', () => {
 
   it('menghasilkan berkas DXF 2D yang valid dengan layer terstruktur', () => {
     const mockBuildingManager: any = {
-      buildings: new Map<string, BuildingInstance>([
+      buildings: new Map<string, any>([
         ['bld_1', {
           id: 'bld_1',
+          presetKey: 'house_36',
           name: 'Rumah Sederhana',
+          category: 'residential',
           position: new THREE.Vector3(10, 0, 10),
-          rotation: 0,
+          rotationY: 0,
           width: 6,
           length: 10,
           floorCount: 1,
@@ -177,8 +190,11 @@ describe('Milestone T6: Skala Kota, Aturan Lanjutan, dan Ekspor CAD/3D', () => {
               ]
             }
           ],
-          roofType: 'limasan',
-          wallMaterial: 'brick'
+          roofType: 'hip',
+          roofOverhang: 1.0,
+          wallMaterial: 'brick',
+          wallColor: '#ffffff',
+          roofMaterial: 'clay_tile'
         }]
       ])
     };
