@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, LucideIcon } from 'lucide-react';
 import { fade } from '../motion/presets';
 import { IconButton } from './IconButton';
+import { proceduralAudio } from '../../audio/ProceduralAudio';
 
 export interface ModalSheetProps {
   isOpen: boolean;
@@ -17,6 +18,8 @@ export interface ModalSheetProps {
   ariaLabel?: string;
 }
 
+import { useModalA11y } from '../hooks/useModalA11y';
+
 export const ModalSheet: React.FC<ModalSheetProps> = ({
   isOpen,
   onClose,
@@ -29,21 +32,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
   footer,
   ariaLabel,
 }) => {
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  const modalRef = useModalA11y(isOpen, onClose);
 
   return (
     <AnimatePresence>
@@ -85,6 +74,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
             transition={fade.modal.transition}
             className="modal-sheet"
             style={{
+              transformOrigin: 'left center',
               width: typeof width === 'number' ? `${width}px` : width,
               maxWidth: '94vw',
               maxHeight: typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight,
@@ -169,6 +159,8 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                 size="sm"
                 variant="ghost"
                 onClick={onClose}
+                onPointerDown={() => proceduralAudio.playTaptic('light')}
+                className="modal-close-btn hit-slop-8"
                 aria-label="Tutup jendela"
                 title="Tutup (Esc)"
               />

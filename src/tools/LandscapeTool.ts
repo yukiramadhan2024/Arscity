@@ -39,7 +39,7 @@ export class LandscapeTool {
 
   public setType(type: LandscapeType): void {
     this.activeType = type;
-    if (type === 'shade_tree') {
+    if (type === 'shade_tree' || type === 'tree') {
       this.itemRadius = 2.5;
     } else if (type === 'well') {
       this.itemRadius = 0.8;
@@ -55,6 +55,66 @@ export class LandscapeTool {
     } else if (type === 'bioswale_channel') {
       this.itemWidth = 3;
       this.itemLength = 12;
+    } else if (type === 'tree_tabebuya_pink' || type === 'tree_tabebuya_gold') {
+      this.itemRadius = 3.0;
+    } else if (type === 'tree_flamboyan') {
+      this.itemRadius = 3.8;
+    } else if (type === 'tree_frangipani') {
+      this.itemRadius = 2.0;
+    } else if (type === 'tree_banyan_kurung') {
+      this.itemRadius = 6.5;
+    } else if (type === 'tree_asam_jawa') {
+      this.itemRadius = 3.4;
+    } else if (type === 'flora_bougainvillea_arch') {
+      this.itemWidth = 3.0;
+      this.itemLength = 1.8;
+    } else if (type === 'flora_yellow_bamboo') {
+      this.itemWidth = 1.6;
+      this.itemLength = 0.9;
+    } else if (type === 'flora_lotus_water') {
+      this.itemRadius = 2.4;
+    } else if (type === 'monument_tugu_jogja') {
+      this.itemWidth = 4.6;
+      this.itemLength = 4.6;
+    } else if (type === 'sculpture_kinetic_steel') {
+      this.itemRadius = 1.6;
+    } else if (type === 'sculpture_candi_stone') {
+      this.itemWidth = 2.4;
+      this.itemLength = 2.4;
+    } else if (type === 'sculpture_wayang_corten') {
+      this.itemWidth = 2.6;
+      this.itemLength = 1.0;
+    } else if (type === 'fountain_reflecting_pool') {
+      this.itemRadius = 4.2;
+    } else if (type === 'monument_clock_tower') {
+      this.itemWidth = 3.2;
+      this.itemLength = 3.2;
+    } else if (type === 'street_malioboro_bollards') {
+      this.itemWidth = 1.4;
+      this.itemLength = 3.8;
+    } else if (type === 'street_festoon_lights') {
+      this.itemWidth = 1.0;
+      this.itemLength = 8.0;
+    } else if (type === 'street_timber_pergola') {
+      this.itemWidth = 4.0;
+      this.itemLength = 2.4;
+    } else if (type === 'gate_candi_bentar') {
+      this.itemWidth = 6.0;
+      this.itemLength = 2.0;
+    } else if (type === 'street_garden_lanterns') {
+      this.itemWidth = 1.0;
+      this.itemLength = 4.2;
+    } else if (type === 'plaza_mini_amphitheater') {
+      this.itemRadius = 7.5;
+    } else if (type === 'waterfront_wood_deck') {
+      this.itemWidth = 8.0;
+      this.itemLength = 4.2;
+    } else if (type === 'bridge_green_pedestrian') {
+      this.itemWidth = 3.2;
+      this.itemLength = 14.0;
+    } else if (type === 'pavilion_garden_gazebo') {
+      this.itemWidth = 3.6;
+      this.itemLength = 3.6;
     } else {
       this.itemWidth = 4;
       this.itemLength = 4;
@@ -93,73 +153,39 @@ export class LandscapeTool {
       depthWrite: false
     });
 
-    switch (this.activeType) {
-      case 'grass_garden': {
-        const geom = new THREE.PlaneGeometry(this.itemWidth, this.itemLength);
-        geom.rotateX(-Math.PI / 2);
-        const mesh = new THREE.Mesh(geom, ghostMat);
-        mesh.position.y = 0.05;
-        group.add(mesh);
-        break;
-      }
-      case 'paving_block': {
-        const geom = new THREE.PlaneGeometry(this.itemWidth, this.itemLength);
-        geom.rotateX(-Math.PI / 2);
-        const mesh = new THREE.Mesh(geom, ghostMat);
-        mesh.position.y = 0.05;
-        group.add(mesh);
-        break;
-      }
-      case 'shade_tree': {
-        const trunkGeom = new THREE.CylinderGeometry(0.2, 0.3, 2.5, 8);
-        const trunkMesh = new THREE.Mesh(trunkGeom, ghostMat);
-        trunkMesh.position.y = 1.25;
-        group.add(trunkMesh);
+    if (
+      this.activeType.startsWith('tree') ||
+      this.activeType === 'shade_tree'
+    ) {
+      const trunkGeom = new THREE.CylinderGeometry(0.2, 0.35, 2.5, 8);
+      const trunkMesh = new THREE.Mesh(trunkGeom, ghostMat);
+      trunkMesh.position.y = 1.25;
+      group.add(trunkMesh);
 
-        const canopyGeom = new THREE.DodecahedronGeometry(this.itemRadius, 1);
-        const canopyMesh = new THREE.Mesh(canopyGeom, ghostMat);
-        canopyMesh.position.y = 3.6;
-        group.add(canopyMesh);
-        break;
-      }
-      case 'well': {
-        const wellGeom = new THREE.CylinderGeometry(this.itemRadius, this.itemRadius, 0.4, 16);
-        const wellMesh = new THREE.Mesh(wellGeom, ghostMat);
-        wellMesh.position.y = 0.2;
-        group.add(wellMesh);
-        break;
-      }
-      case 'biopore': {
-        const bioGeom = new THREE.CylinderGeometry(this.itemRadius, this.itemRadius, 0.1, 12);
-        const bioMesh = new THREE.Mesh(bioGeom, ghostMat);
-        bioMesh.position.y = 0.05;
-        group.add(bioMesh);
-        break;
-      }
-      case 'river_segment': {
-        const geom = new THREE.PlaneGeometry(this.itemWidth, this.itemLength);
-        geom.rotateX(-Math.PI / 2);
-        const mesh = new THREE.Mesh(geom, ghostMat);
-        mesh.position.y = 0.05;
-        group.add(mesh);
-        break;
-      }
-      case 'retention_pond': {
-        const geom = new THREE.PlaneGeometry(this.itemWidth, this.itemLength);
-        geom.rotateX(-Math.PI / 2);
-        const mesh = new THREE.Mesh(geom, ghostMat);
-        mesh.position.y = 0.05;
-        group.add(mesh);
-        break;
-      }
-      case 'bioswale_channel': {
-        const geom = new THREE.PlaneGeometry(this.itemWidth, this.itemLength);
-        geom.rotateX(-Math.PI / 2);
-        const mesh = new THREE.Mesh(geom, ghostMat);
-        mesh.position.y = 0.05;
-        group.add(mesh);
-        break;
-      }
+      const canopyGeom = new THREE.DodecahedronGeometry(this.itemRadius, 1);
+      const canopyMesh = new THREE.Mesh(canopyGeom, ghostMat);
+      canopyMesh.position.y = 3.6;
+      group.add(canopyMesh);
+    } else if (
+      this.activeType === 'fountain_reflecting_pool' ||
+      this.activeType === 'flora_lotus_water' ||
+      this.activeType === 'sculpture_kinetic_steel' ||
+      this.activeType === 'plaza_mini_amphitheater' ||
+      this.activeType === 'well' ||
+      this.activeType === 'biopore'
+    ) {
+      const r = this.itemRadius || 2.0;
+      const geom = new THREE.CylinderGeometry(r, r, 0.4, 16);
+      const mesh = new THREE.Mesh(geom, ghostMat);
+      mesh.position.y = 0.2;
+      group.add(mesh);
+    } else {
+      const w = this.itemWidth || 4;
+      const l = this.itemLength || 4;
+      const geom = new THREE.BoxGeometry(w, 0.4, l);
+      const mesh = new THREE.Mesh(geom, ghostMat);
+      mesh.position.y = 0.2;
+      group.add(mesh);
     }
 
     group.visible = this.isVisible;
@@ -169,19 +195,33 @@ export class LandscapeTool {
 
   public handleClick(snappedPos: THREE.Vector3): void {
     const nextId = `land_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const isRect =
+    const hasDimensions =
       this.activeType === 'grass_garden' ||
       this.activeType === 'paving_block' ||
       this.activeType === 'river_segment' ||
       this.activeType === 'retention_pond' ||
-      this.activeType === 'bioswale_channel';
+      this.activeType === 'bioswale_channel' ||
+      this.activeType === 'flora_bougainvillea_arch' ||
+      this.activeType === 'flora_yellow_bamboo' ||
+      this.activeType === 'monument_tugu_jogja' ||
+      this.activeType === 'sculpture_candi_stone' ||
+      this.activeType === 'sculpture_wayang_corten' ||
+      this.activeType === 'monument_clock_tower' ||
+      this.activeType === 'street_malioboro_bollards' ||
+      this.activeType === 'street_festoon_lights' ||
+      this.activeType === 'street_timber_pergola' ||
+      this.activeType === 'gate_candi_bentar' ||
+      this.activeType === 'street_garden_lanterns' ||
+      this.activeType === 'waterfront_wood_deck' ||
+      this.activeType === 'bridge_green_pedestrian' ||
+      this.activeType === 'pavilion_garden_gazebo';
 
     const item: LandscapeItem = {
       id: nextId,
       type: this.activeType,
       position: snappedPos.clone(),
-      width: isRect ? this.itemWidth : undefined,
-      length: isRect ? this.itemLength : undefined,
+      width: hasDimensions ? this.itemWidth : undefined,
+      length: hasDimensions ? this.itemLength : undefined,
       radius: this.itemRadius
     };
 

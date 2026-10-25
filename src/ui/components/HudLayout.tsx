@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { TopHeader } from './TopHeader';
 import { SideUtilityDock } from './SideUtilityDock';
 import { Minimap } from './Minimap';
@@ -76,23 +77,25 @@ export const HudLayout: React.FC<HudLayoutProps> = ({ onOpenHelp }) => {
       </div>
 
       {/* ZONE 3: Left Laboratory Panel (Analysis Overlay) */}
-      {isAnalyzeActive && (
-        <div
-          id="hud-zone-left-panel"
-          style={{
-            position: 'absolute',
-            left: 'calc(var(--hud-rail-width, 48px) + var(--hud-gap, 16px) + 12px)',
-            top: 'var(--hud-top-offset, 76px)',
-            bottom: 'var(--hud-bottom-reserve, 80px)',
-            width: 'var(--hud-left-panel-width, clamp(280px, 24vw, 340px))',
-            pointerEvents: 'none',
-          }}
-        >
-          <div style={{ pointerEvents: 'auto', height: '100%' }}>
-            <AnalysisOverlay />
+      <AnimatePresence>
+        {isAnalyzeActive && (
+          <div
+            id="hud-zone-left-panel"
+            style={{
+              position: 'absolute',
+              left: 'calc(var(--hud-rail-width, 48px) + var(--hud-gap, 16px) + 12px)',
+              top: 'var(--hud-top-offset, 76px)',
+              bottom: 'var(--hud-bottom-reserve, 80px)',
+              width: 'var(--hud-left-panel-width, clamp(280px, 24vw, 340px))',
+              pointerEvents: 'none',
+            }}
+          >
+            <div style={{ pointerEvents: 'auto', height: '100%' }}>
+              <AnalysisOverlay />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* ZONE 4: Bottom-Left Radar / Minimap */}
       <div
@@ -124,7 +127,9 @@ export const HudLayout: React.FC<HudLayoutProps> = ({ onOpenHelp }) => {
         }}
       >
         <div style={{ pointerEvents: 'auto' }}>
-          <InspectorPanel />
+          <AnimatePresence>
+            <InspectorPanel />
+          </AnimatePresence>
         </div>
       </div>
 

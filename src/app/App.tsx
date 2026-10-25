@@ -97,6 +97,21 @@ export const App: React.FC = () => {
       } else if (e.key === 'Escape') {
         setShowHelp(false);
         setIsPhotoMode(false);
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Quick Tool Switching Hotkeys (1-6)
+        const toolMap: Record<string, import('../ui/state/useUIStore').MainToolType> = {
+          '1': 'select',
+          '2': 'road',
+          '3': 'zone',
+          '4': 'build',
+          '5': 'nature',
+          '6': 'analyze'
+        };
+        const targetTool = toolMap[e.key];
+        if (targetTool) {
+          e.preventDefault();
+          useUIStore.getState().setActiveTool(targetTool);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -162,52 +177,7 @@ export const App: React.FC = () => {
             onClose={() => setShowQuiz(false)}
           />
 
-          {/* Mode Jalan Kaki (Walk Mode 1.6m) Floating HUD */}
-          {isWalkMode && (
-            <aside
-              className="glass-surface interactive"
-              style={{
-                position: 'absolute',
-                bottom: '88px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                padding: '8px 18px',
-                borderRadius: 'var(--radius-capsule)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-                zIndex: 60,
-                border: '1px solid var(--accent)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)'
-              }}
-              aria-label="Status Mode Jalan Kaki"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--good, #34c759)',
-                    boxShadow: '0 0 8px var(--good, #34c759)'
-                  }}
-                />
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
-                  Mode Jalan Kaki 1.6m
-                </div>
-              </div>
-              <span style={{ fontSize: '12px', color: 'var(--label-secondary)' }}>
-                Gunakan WASD untuk melangkah, geser mouse untuk melihat arah
-              </span>
-              <button
-                onClick={toggleWalkMode}
-                className="ios-btn ios-btn-primary"
-                style={{ padding: '4px 14px', fontSize: '11px' }}
-              >
-                Keluar ke God-Eye
-              </button>
-            </aside>
-          )}
+
         </>
       )}
     </div>

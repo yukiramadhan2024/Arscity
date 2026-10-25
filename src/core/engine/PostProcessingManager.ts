@@ -60,17 +60,9 @@ export class PostProcessingManager {
       this.renderPass = new RenderPass(scene, camera);
       this.composer.addPass(this.renderPass);
 
-      // 3. Screen Space Ambient Occlusion (SSAO) with strong architectural contact grounding
-      try {
-        this.ssaoPass = new SSAOPass(scene, camera, width, height);
-        this.ssaoPass.kernelRadius = 16;
-        this.ssaoPass.minDistance = 0.0008;
-        this.ssaoPass.maxDistance = 0.06;
-        this.composer.addPass(this.ssaoPass);
-      } catch (ssaoErr) {
-        console.warn('[PostProcessingManager] SSAOPass unavailable, proceeding with Bloom only:', ssaoErr);
-        this.ssaoPass = null;
-      }
+      // 3. Screen Space Ambient Occlusion (SSAO) - disabled to avoid sampling noise artifacts on varied GPU backends
+      // AO is natively handled with high fidelity via MeshStandardMaterial aoMap and procedural textures
+      this.ssaoPass = null;
 
       // 4. UnrealBloomPass calibrated for golden hour sunlight, cyan sun-arc, and 2700K interior glow
       this.bloomPass = new UnrealBloomPass(

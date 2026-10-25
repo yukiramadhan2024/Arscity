@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { proceduralAudio } from '../../audio/ProceduralAudio';
+
+export type OrthographicViewMode = 'top' | 'front' | 'side' | 'section';
 
 export interface CameraOptions {
   fov?: number;
@@ -12,6 +15,7 @@ export class CameraController {
   public camera: THREE.PerspectiveCamera;
   public orthoCamera: THREE.OrthographicCamera;
   public isOrthographic: boolean = false;
+  public orthoMode: OrthographicViewMode = 'top';
   public enabled: boolean = true;
 
   private domElement: HTMLElement;
@@ -38,6 +42,25 @@ export class CameraController {
   public maxPolar: number = (75 * Math.PI) / 180;  // Prevent ground clipping
 
   private damping: number = 0.12;
+
+  // Apple iOS Momentum & Inertia Projection
+  private azimuthVelocity: number = 0;
+  private panVelocityX: number = 0;
+  private panVelocityY: number = 0;
+  private lastDragTimestamp: number = 0;
+  private lastDeltaAzimuth: number = 0;
+  private lastDeltaPanX: number = 0;
+  private lastDeltaPanY: number = 0;
+
+  // Apple iOS Hooke's Rubber-Banding parameters
+  public readonly worldBound: number = 750;
+  public readonly maxRubberStretch: number = 100;
+
+  // Lapis 4: Zero-GC scratchpad vectors
+  private readonly _scratchForward: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchRight: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchDelta: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchNewTarget: THREE.Vector3 = new THREE.Vector3();
 
   // Input states
   private isMiddleDragging: boolean = false;
@@ -167,6 +190,14 @@ export class CameraController {
   private onMouseDown = (e: MouseEvent): void => {
     if (!this.enabled) return;
     this.previousMousePosition = { x: e.clientX, y: e.clientY };
+    this.lastDragTimestamp = performance.now();
+    // Reset any ongoing momentum when starting a new gesture
+    this.azimuthVelocity = 0;
+    this.panVelocityX = 0;
+    this.panVelocityY = 0;
+    this.lastDeltaAzimuth = 0;
+    this.lastDeltaPanX = 0;
+    this.lastDeltaPanY = 0;
 
     if (e.button === 0 && e.altKey) {
       // Alt + Left Drag = Orbit 360 degrees (convenient for touchpad users)
@@ -190,6 +221,10 @@ export class CameraController {
     const deltaY = e.clientY - this.previousMousePosition.y;
     this.previousMousePosition = { x: e.clientX, y: e.clientY };
 
+    const now = performance.now();
+    const dt = Math.max(0.001, (now - this.lastDragTimestamp) / 1000);
+    this.lastDragTimestamp = now;
+
     if (this.isDroneMode && (this.isRightDragging || this.isAltOrbitDragging || e.buttons === 1 || e.buttons === 2)) {
       this.droneYaw -= deltaX * 0.003 * this.mousepadSensitivity;
       this.dronePitch -= deltaY * 0.003 * this.mousepadSensitivity;
@@ -207,10 +242,11 @@ export class CameraController {
 
     if (this.isMiddleDragging) {
       // Pan along camera plane
-      this.pan(
-        deltaX * 0.12 * (this.distance / 50) * this.mousepadSensitivity,
-        deltaY * 0.12 * (this.distance / 50) * this.mousepadSensitivity
-      );
+      const pX = deltaX * 0.12 * (this.distance / 50) * this.mousepadSensitivity;
+      const pY = deltaY * 0.12 * (this.distance / 50) * this.mousepadSensitivity;
+      this.pan(pX, pY);
+      this.lastDeltaPanX = pX / dt;
+      this.lastDeltaPanY = pY / dt;
     } else if (this.isRightDragging || this.isAltOrbitDragging) {
       if (e.shiftKey || this.isShiftDragging) {
         // Shift + Drag = Pitch tilt adjust
@@ -218,7 +254,9 @@ export class CameraController {
         this.polarGoal = Math.max(this.minPolar, Math.min(this.maxPolar, this.polarGoal));
       } else {
         // Free 360-degree horizontal azimuth orbit & pitch
-        this.azimuthGoal += deltaX * 0.007 * this.mousepadSensitivity;
+        const deltaAz = deltaX * 0.007 * this.mousepadSensitivity;
+        this.azimuthGoal += deltaAz;
+        this.lastDeltaAzimuth = deltaAz / dt;
         this.polarGoal += deltaY * 0.005 * this.mousepadSensitivity;
         this.polarGoal = Math.max(this.minPolar, Math.min(this.maxPolar, this.polarGoal));
       }
@@ -246,6 +284,22 @@ export class CameraController {
   };
 
   private onMouseUp = (): void => {
+    const timeSinceLastDrag = performance.now() - this.lastDragTimestamp;
+    // If released while actively moving within 80ms, project natural physical inertia
+    if (timeSinceLastDrag < 80) {
+      if (this.isRightDragging || this.isAltOrbitDragging) {
+        this.azimuthVelocity = THREE.MathUtils.clamp(this.lastDeltaAzimuth, -12, 12);
+      }
+      if (this.isMiddleDragging) {
+        this.panVelocityX = THREE.MathUtils.clamp(this.lastDeltaPanX, -200, 200);
+        this.panVelocityY = THREE.MathUtils.clamp(this.lastDeltaPanY, -200, 200);
+      }
+    } else {
+      this.azimuthVelocity = 0;
+      this.panVelocityX = 0;
+      this.panVelocityY = 0;
+    }
+
     this.isMiddleDragging = false;
     this.isRightDragging = false;
     this.isShiftDragging = false;
@@ -347,16 +401,51 @@ export class CameraController {
   };
 
   public pan(screenDeltaX: number, screenDeltaY: number): void {
-    // Convert screen pan to ground XZ vectors based on current azimuth
-    const forward = new THREE.Vector3(-Math.sin(this.azimuth), 0, -Math.cos(this.azimuth)).normalize();
-    const right = new THREE.Vector3(Math.cos(this.azimuth), 0, -Math.sin(this.azimuth)).normalize();
+    // Convert screen pan to ground XZ vectors based on current azimuth (Zero-GC)
+    this._scratchForward.set(-Math.sin(this.azimuth), 0, -Math.cos(this.azimuth)).normalize();
+    this._scratchRight.set(Math.cos(this.azimuth), 0, -Math.sin(this.azimuth)).normalize();
 
-    this.targetGoal.addScaledVector(right, -screenDeltaX);
-    this.targetGoal.addScaledVector(forward, screenDeltaY);
+    const deltaGroundX = -this._scratchRight.x * screenDeltaX + this._scratchForward.x * screenDeltaY;
+    const deltaGroundZ = -this._scratchRight.z * screenDeltaX + this._scratchForward.z * screenDeltaY;
 
-    // Keep target within world bounds (1600 x 1600 m terrain => [-750, 750])
-    this.targetGoal.x = Math.max(-750, Math.min(750, this.targetGoal.x));
-    this.targetGoal.z = Math.max(-750, Math.min(750, this.targetGoal.z));
+    // Apple Rubber-Banding Hooke's Law:
+    // When pulling camera beyond city ground boundary, apply progressive elastic resistance
+    const applyHookeResistance = (current: number, delta: number, bound: number, maxStretch: number): number => {
+      if (current > bound && delta > 0) {
+        const stretch = current - bound;
+        const factor = Math.max(0.04, 1.0 - (stretch / maxStretch));
+        return delta * (factor * 0.35);
+      }
+      if (current < -bound && delta < 0) {
+        const stretch = -bound - current;
+        const factor = Math.max(0.04, 1.0 - (stretch / maxStretch));
+        return delta * (factor * 0.35);
+      }
+      return delta;
+    };
+
+    const isDragging = this.isMiddleDragging || this.previousTouchCenter !== null;
+    const bound = this.worldBound;
+    const maxStretch = this.maxRubberStretch;
+
+    let resX = deltaGroundX;
+    let resZ = deltaGroundZ;
+
+    if (isDragging) {
+      resX = applyHookeResistance(this.targetGoal.x, deltaGroundX, bound, maxStretch);
+      resZ = applyHookeResistance(this.targetGoal.z, deltaGroundZ, bound, maxStretch);
+    }
+
+    const wasInside = Math.abs(this.targetGoal.x) <= bound && Math.abs(this.targetGoal.z) <= bound;
+    const limit = bound + maxStretch;
+
+    this.targetGoal.x = Math.max(-limit, Math.min(limit, this.targetGoal.x + resX));
+    this.targetGoal.z = Math.max(-limit, Math.min(limit, this.targetGoal.z + resZ));
+
+    const isNowOutside = Math.abs(this.targetGoal.x) > bound || Math.abs(this.targetGoal.z) > bound;
+    if (wasInside && isNowOutside && isDragging) {
+      proceduralAudio.playTaptic('boundary');
+    }
   }
 
   public focusAt(position: THREE.Vector3, distance?: number): void {
@@ -449,29 +538,29 @@ export class CameraController {
     } else {
       this.isDroneMode = false;
 
-      // Smoothly compute ground look-at point ahead of drone so camera doesn't jump
-      const forwardDir = new THREE.Vector3(
+      // Smoothly compute ground look-at point ahead of drone so camera doesn't jump (Zero-GC)
+      this._scratchForward.set(
         -Math.sin(this.droneYaw) * Math.cos(this.dronePitch),
         Math.sin(this.dronePitch),
         -Math.cos(this.droneYaw) * Math.cos(this.dronePitch)
       ).normalize();
 
-      const newTarget = this.dronePosition.clone().addScaledVector(forwardDir, Math.max(15, this.savedDistance * 0.7));
-      newTarget.y = 0;
-      newTarget.x = THREE.MathUtils.clamp(newTarget.x, -750, 750);
-      newTarget.z = THREE.MathUtils.clamp(newTarget.z, -750, 750);
+      this._scratchNewTarget.copy(this.dronePosition).addScaledVector(this._scratchForward, Math.max(15, this.savedDistance * 0.7));
+      this._scratchNewTarget.y = 0;
+      this._scratchNewTarget.x = THREE.MathUtils.clamp(this._scratchNewTarget.x, -750, 750);
+      this._scratchNewTarget.z = THREE.MathUtils.clamp(this._scratchNewTarget.z, -750, 750);
 
-      this.targetGoal.copy(newTarget);
-      this.target.copy(newTarget);
+      this.targetGoal.copy(this._scratchNewTarget);
+      this.target.copy(this._scratchNewTarget);
 
-      const delta = new THREE.Vector3().subVectors(this.camera.position, newTarget);
-      const dist = delta.length();
+      this._scratchDelta.subVectors(this.camera.position, this._scratchNewTarget);
+      const dist = this._scratchDelta.length();
       this.distanceGoal = THREE.MathUtils.clamp(dist, this.minDistance, this.maxDistance);
       this.distance = this.distanceGoal;
 
       if (dist > 0.001) {
-        this.polarGoal = Math.acos(THREE.MathUtils.clamp(delta.y / dist, 0.05, 0.98));
-        this.azimuthGoal = Math.atan2(delta.x, delta.z);
+        this.polarGoal = Math.acos(THREE.MathUtils.clamp(this._scratchDelta.y / dist, 0.05, 0.98));
+        this.azimuthGoal = Math.atan2(this._scratchDelta.x, this._scratchDelta.z);
       } else {
         this.polarGoal = this.savedPolar;
         this.azimuthGoal = this.azimuth;
@@ -655,6 +744,46 @@ export class CameraController {
       this.azimuthGoal += this.inspectSpeed * deltaTime;
     }
 
+    // 4. Apple Rubber-Band Snap-back & Momentum / Inertia Simulation
+    const isActivelyDragging = this.isMiddleDragging || this.previousTouchCenter !== null;
+    const bound = this.worldBound;
+
+    // A. Hooke's elastic return: smoothly spring back inside map boundary when mouse is released
+    if (!isActivelyDragging) {
+      const springFactor = Math.min(1.0, 12.0 * deltaTime);
+      if (this.targetGoal.x > bound) {
+        this.targetGoal.x = THREE.MathUtils.lerp(this.targetGoal.x, bound, springFactor);
+        this.panVelocityX = 0;
+      } else if (this.targetGoal.x < -bound) {
+        this.targetGoal.x = THREE.MathUtils.lerp(this.targetGoal.x, -bound, springFactor);
+        this.panVelocityX = 0;
+      }
+
+      if (this.targetGoal.z > bound) {
+        this.targetGoal.z = THREE.MathUtils.lerp(this.targetGoal.z, bound, springFactor);
+        this.panVelocityY = 0;
+      } else if (this.targetGoal.z < -bound) {
+        this.targetGoal.z = THREE.MathUtils.lerp(this.targetGoal.z, -bound, springFactor);
+        this.panVelocityY = 0;
+      }
+    }
+
+    // B. Inertia glide: project residual velocity and smoothly decay with natural friction
+    if (!this.isRightDragging && !this.isAltOrbitDragging && Math.abs(this.azimuthVelocity) > 0.001) {
+      this.azimuthGoal += this.azimuthVelocity * deltaTime;
+      this.azimuthVelocity *= Math.exp(-4.5 * deltaTime);
+      if (Math.abs(this.azimuthVelocity) <= 0.001) this.azimuthVelocity = 0;
+    }
+
+    if (!isActivelyDragging && (Math.abs(this.panVelocityX) > 0.05 || Math.abs(this.panVelocityY) > 0.05)) {
+      this.pan(this.panVelocityX * deltaTime, this.panVelocityY * deltaTime);
+      const friction = Math.exp(-5.0 * deltaTime);
+      this.panVelocityX *= friction;
+      this.panVelocityY *= friction;
+      if (Math.abs(this.panVelocityX) <= 0.05) this.panVelocityX = 0;
+      if (Math.abs(this.panVelocityY) <= 0.05) this.panVelocityY = 0;
+    }
+
     this.updateCameraTransform(this.damping);
   }
 
@@ -686,9 +815,35 @@ export class CameraController {
       this.orthoCamera.right = (orthoSize * aspect) / 2;
       this.orthoCamera.top = orthoSize / 2;
       this.orthoCamera.bottom = -orthoSize / 2;
-      this.orthoCamera.position.set(this.target.x, 250, this.target.z);
-      this.orthoCamera.lookAt(this.target);
+      if (this.orthoMode === 'front' || this.orthoMode === 'section') {
+        this.orthoCamera.position.set(this.target.x, this.target.y, this.target.z + 180);
+        this.orthoCamera.lookAt(this.target.x, this.target.y, this.target.z);
+      } else if (this.orthoMode === 'side') {
+        this.orthoCamera.position.set(this.target.x + 180, this.target.y, this.target.z);
+        this.orthoCamera.lookAt(this.target.x, this.target.y, this.target.z);
+      } else {
+        this.orthoCamera.position.set(this.target.x, 250, this.target.z);
+        this.orthoCamera.lookAt(this.target);
+      }
       this.orthoCamera.updateProjectionMatrix();
+    }
+  }
+
+  public setOrthographicMode(
+    enabled: boolean,
+    mode: OrthographicViewMode = 'top',
+    focusTarget?: THREE.Vector3,
+    approxDistance?: number
+  ): void {
+    this.isOrthographic = enabled;
+    this.orthoMode = mode;
+    if (focusTarget) {
+      this.target.copy(focusTarget);
+      this.targetGoal.copy(focusTarget);
+    }
+    if (approxDistance) {
+      this.distance = approxDistance;
+      this.distanceGoal = approxDistance;
     }
   }
 

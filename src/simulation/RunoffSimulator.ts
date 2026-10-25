@@ -119,18 +119,18 @@ export class RunoffSimulator {
     let bioswaleCount = 0;
 
     for (const item of landscapeManager.items.values()) {
-      if (item.type === 'paving_block') {
+      if (item.type === 'paving_block' || item.type === 'waterfront_wood_deck' || item.type === 'street_timber_pergola') {
         pavingArea += (item.width || 4) * (item.length || 4);
-      } else if (item.type === 'grass_garden') {
+      } else if (item.type === 'grass_garden' || item.type === 'plaza_mini_amphitheater') {
         grassArea += (item.width || 4) * (item.length || 4);
-      } else if (item.type === 'shade_tree') {
-        const r = item.radius || 2.5;
+      } else if (item.type === 'shade_tree' || item.type.startsWith('tree_') || item.type.startsWith('flora_')) {
+        const r = item.radius || 3.0;
         grassArea += Math.PI * r * r;
       } else if (item.type === 'well') {
         wellCount++;
       } else if (item.type === 'biopore') {
         bioporeCount++;
-      } else if (item.type === 'retention_pond') {
+      } else if (item.type === 'retention_pond' || item.type === 'fountain_reflecting_pool' || item.type === 'flora_lotus_water') {
         retentionPondCount++;
       } else if (item.type === 'bioswale_channel') {
         bioswaleCount++;

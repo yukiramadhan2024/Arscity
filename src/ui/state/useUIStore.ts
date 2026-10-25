@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Engine } from '../../core/engine/Engine';
 import { WeatherType } from '../../world/WeatherSystem';
+import { SolarSeason, getSolarSeasonDayOfYear } from '../../core/math/SolarPosition';
 import type { SavedMapMeta } from '../../io/IndexedDBStorage';
 import type { DslrLensType } from '../../core/engine/CinematicDroneController';
 
@@ -37,6 +38,8 @@ interface UIState {
 
   dayOfYear: number;
   setDayOfYear: (day: number) => void;
+  solarSeason: SolarSeason;
+  setSolarSeason: (season: SolarSeason) => void;
 
   weather: WeatherType;
   setWeather: (weather: WeatherType) => void;
@@ -345,6 +348,13 @@ export const useUIStore = create<UIState>((set, get) => {
     setDayOfYear: (dayOfYear) => {
       set({ dayOfYear });
       get().engine?.setTimeOfDay(get().timeOfDay, dayOfYear);
+    },
+
+    solarSeason: 'solstice_jun' as SolarSeason,
+    setSolarSeason: (solarSeason: SolarSeason) => {
+      const day = getSolarSeasonDayOfYear(solarSeason);
+      set({ solarSeason, dayOfYear: day });
+      get().engine?.setTimeOfDay(get().timeOfDay, day);
     },
 
     weather: 'clear',

@@ -4,6 +4,7 @@ import { RealWorldExporter } from '../../io/RealWorldExporter';
 import { ScreenshotExporter } from '../../io/ScreenshotExporter';
 import { UnderlaySettings } from '../../world/UnderlayPlanManager';
 import { X, FileCode, Box, Image, Download, Upload, Check, Eye, Layout } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface RealWorldExportModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface RealWorldExportModalProps {
 }
 
 export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOpen, onClose }) => {
+  const modalRef = useModalA11y(isOpen, onClose);
   const { engine } = useUIStore();
   const [underlayFile, setUnderlayFile] = useState<string | null>(null);
   const [underlaySettings, setUnderlaySettings] = useState<UnderlaySettings>({
@@ -62,8 +64,17 @@ export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOp
   };
 
   return (
-    <div className="modal-overlay interactive" role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay interactive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="export-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={modalRef}
         className="modal-sheet"
         style={{
           width: '540px',
@@ -76,7 +87,7 @@ export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOp
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FileCode size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
+              <div id="export-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
                 Jembatan Dunia Nyata (CAD & 3D Export)
               </div>
               <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>

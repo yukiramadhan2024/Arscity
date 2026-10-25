@@ -4,23 +4,22 @@ import { HardDrive, Camera, Settings, HelpCircle, Share2, Award, FolderOpen, Log
 import { CitySerializer } from '../../io/CitySerializer';
 import { IndexedDBStorage } from '../../io/IndexedDBStorage';
 import { ArscityLogo } from './ArscityLogo';
+import { proceduralAudio } from '../../audio/ProceduralAudio';
 
 interface SideUtilityDockProps {
   onOpenHelp?: () => void;
 }
 
-export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) => {
-  const {
-    engine,
-    activeMapName,
-    openMapHub,
-    logout,
-    setShowSaveLoad,
-    setShowSettings,
-    setIsPhotoMode,
-    setShowRealWorldExport,
-    setShowQuiz
-  } = useUIStore();
+export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onOpenHelp }) => {
+  const engine = useUIStore((s) => s.engine);
+  const activeMapName = useUIStore((s) => s.activeMapName);
+  const openMapHub = useUIStore((s) => s.openMapHub);
+  const logout = useUIStore((s) => s.logout);
+  const setShowSaveLoad = useUIStore((s) => s.setShowSaveLoad);
+  const setShowSettings = useUIStore((s) => s.setShowSettings);
+  const setIsPhotoMode = useUIStore((s) => s.setIsPhotoMode);
+  const setShowRealWorldExport = useUIStore((s) => s.setShowRealWorldExport);
+  const setShowQuiz = useUIStore((s) => s.setShowQuiz);
 
   const handleSwitchMap = () => {
     if (engine) {
@@ -61,6 +60,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
         {/* Peta Kota */}
         <button
           onClick={handleSwitchMap}
+          onPointerDown={() => proceduralAudio.playTaptic('light')}
           className="side-dock-btn"
           title="Peta Kota"
           aria-label="Peta Kota"
@@ -72,6 +72,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
         {/* Simpan & Muat */}
         <button
           onClick={() => setShowSaveLoad(true)}
+          onPointerDown={() => proceduralAudio.playTaptic('light')}
           className="side-dock-btn"
           title="Simpan & Muat"
           aria-label="Simpan & Muat"
@@ -83,6 +84,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
         {/* Mode Kamera & Foto */}
         <button
           onClick={() => setIsPhotoMode(true)}
+          onPointerDown={() => proceduralAudio.playTaptic('light')}
           className="side-dock-btn"
           title="Mode Kamera & Foto"
           aria-label="Mode Kamera & Foto"
@@ -94,6 +96,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
         {/* Pengaturan */}
         <button
           onClick={() => setShowSettings(true)}
+          onPointerDown={() => proceduralAudio.playTaptic('light')}
           className="side-dock-btn"
           title="Pengaturan"
           aria-label="Pengaturan"
@@ -105,6 +108,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
         {/* Ekspor CAD/3D */}
         <button
           onClick={() => setShowRealWorldExport(true)}
+          onPointerDown={() => proceduralAudio.playTaptic('light')}
           className="side-dock-btn"
           title="Ekspor CAD/3D"
           aria-label="Ekspor CAD/3D"
@@ -116,6 +120,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
         {/* Misi & Edukasi */}
         <button
           onClick={() => setShowQuiz(true)}
+          onPointerDown={() => proceduralAudio.playTaptic('light')}
           className="side-dock-btn"
           title="Misi & Edukasi"
           aria-label="Misi & Edukasi"
@@ -131,6 +136,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
         {onOpenHelp && (
           <button
             onClick={onOpenHelp}
+            onPointerDown={() => proceduralAudio.playTaptic('light')}
             className="side-dock-btn"
             title="Bantuan"
             aria-label="Bantuan"
@@ -143,6 +149,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
         {/* Keluar */}
         <button
           onClick={logout}
+          onPointerDown={() => proceduralAudio.playTaptic('light')}
           className="side-dock-btn"
           title="Keluar"
           aria-label="Keluar"
@@ -153,4 +160,4 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = ({ onOpenHelp }) 
       </div>
     </aside>
   );
-};
+});

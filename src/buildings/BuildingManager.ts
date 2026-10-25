@@ -8,6 +8,7 @@ import type { RaycastManager } from '../core/engine/RaycastManager';
 import type { BBox2D } from '../core/engine/SpatialHashGrid';
 
 import { springAnimator } from '../core/engine/SpringAnimator';
+import { InteriorInteractiveSystem } from './InteriorInteractiveSystem';
 
 export class BuildingManager {
   public buildings: Map<string, BuildingInstance> = new Map();
@@ -147,6 +148,9 @@ export class BuildingManager {
     const building = this.buildings.get(id);
     if (!building) return false;
 
+    // Clean up interactive doors and seats for this building
+    InteriorInteractiveSystem.getInstance().clearBuilding(id);
+
     const group = this.buildingGroups.get(id);
     if (group) {
       this.masterGroup.remove(group);
@@ -180,6 +184,9 @@ export class BuildingManager {
 
   public updateBuilding(building: BuildingInstance): void {
     if (!this.buildings.has(building.id)) return;
+
+    // Clean up interactive doors and seats before rebuild
+    InteriorInteractiveSystem.getInstance().clearBuilding(building.id);
 
     this.buildings.set(building.id, building);
 
@@ -451,6 +458,48 @@ export class BuildingManager {
     PrefabMeshBuilder.clearCache();
     this.notifyStatsChanged();
     if (this.onSelectionChanged) this.onSelectionChanged();
+  }
+
+  /**
+   * Smart Hierarchical Distance & Mode LOD Culling (Lapis 1):
+   * - Hides interior details (stairs, furniture, partition walls) when distance >= lodCutoffDistance (default 60m),
+   *   unless in First-Person, Drone, or Section Cut mode.
+   * - Keeps subsurface foundation hidden unless X-Ray lens or Section Cut is active.
+   */
+  public updateLOD(
+    cameraPosition: THREE.Vector3,
+    cameraMode: string = 'orbit',
+    isSectionCutActive: boolean = false,
+    isSubsurfaceLensActive: boolean = false,
+    lodCutoffDistance: number = 60
+  ): void {
+    const cutoffSq = lodCutoffDistance * lodCutoffDistance;
+    const fpThresholdSq = 80 * 80;
+
+    for (const [id, bld] of this.buildings.entries()) {
+      const grp = this.buildingGroups.get(id);
+      if (!grp) continue;
+
+      const distSq = bld.position.distanceToSquared(cameraPosition);
+
+      // CULLING OPTIMIZATION: Drone mode must NOT enable all 300 interiors simultaneously!
+      // Only true if camera distance < 60m (Orbit or Drone), OR first_person < 80m, OR section cut active
+      const showInterior = isSectionCutActive ||
+        (distSq < cutoffSq) ||
+        (cameraMode === 'first_person' && distSq < fpThresholdSq);
+
+      const showSubsurface = isSubsurfaceLensActive || isSectionCutActive;
+
+      const interiorGroup = grp.getObjectByName('InteriorDetails') || grp.userData.interiorDetails;
+      if (interiorGroup) {
+        interiorGroup.visible = showInterior;
+      }
+
+      const subsurfaceGroup = grp.getObjectByName('SubsurfaceFoundation') || grp.userData.subsurfaceFoundation;
+      if (subsurfaceGroup) {
+        subsurfaceGroup.visible = showSubsurface;
+      }
+    }
   }
 
   public dispose(): void {

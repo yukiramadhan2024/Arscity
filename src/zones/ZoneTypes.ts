@@ -187,6 +187,7 @@ export interface LotParcel {
   length: number;          // Depth in meters
   areaM2: number;          // Total lot area in m2
   containedBuildingIds: string[];
+  frontEdgeIndex?: number; // 0: South, 1: East, 2: North, 3: West
 
   // Evaluated Building Code Metrics
   metrics: {

@@ -7,13 +7,15 @@ export type RoofType =
   | 'gable'
   | 'hip'
   | 'joglo'
+  | 'limasan'
   | 'flat'
-  | 'dome'
   | 'flat_parapet'
+  | 'pyramid'
   | 'sawtooth'
   | 'shed_industrial'
   | 'arched_vault'
-  | 'butterfly';
+  | 'butterfly'
+  | 'dome';
 
 export type WallMaterialType = 'plaster' | 'brick' | 'concrete' | 'wood';
 export type RoofMaterialType = 'clay_tile' | 'metal' | 'concrete';
@@ -26,6 +28,8 @@ export interface PrefabPreset {
   defaultWidth: number;
   defaultLength: number;
   defaultFloorCount: number;
+  minFloors?: number;
+  maxFloors?: number;
   floorHeight: number;
   defaultRoofType: RoofType;
   defaultRoofOverhang: number;
@@ -34,6 +38,19 @@ export interface PrefabPreset {
   defaultRoofMaterial: RoofMaterialType;
   hasPlinth: boolean;
   hasPillars?: boolean;
+}
+
+export interface StairZone {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  direction?: 'z' | '-z' | 'x' | '-x';
+  floorHeight: number;
+  totalFloors: number;
+  floorIndex: number;
+  baseFloorY: number;
+  topFloorY: number;
 }
 
 export const PREFAB_CATALOG: Record<string, PrefabPreset> = {};
@@ -50,6 +67,8 @@ function initPrefabCatalog(): void {
       defaultWidth: b.defaultWidth,
       defaultLength: b.defaultDepth,
       defaultFloorCount: b.defaultFloors,
+      minFloors: b.minFloors,
+      maxFloors: b.maxFloors,
       floorHeight: b.floorHeight,
       defaultRoofType: b.defaultRoofType || (b.roofStyle as RoofType),
       defaultRoofOverhang: b.defaultOverhang,
@@ -107,10 +126,21 @@ export interface BuildingInstance {
 
   // Interior Architecture & Room Layouts (T5.1)
   interiorLayouts?: InteriorLayout[];
+  interiorVariant?: 'variant_a' | 'variant_b' | 'variant_c';
 
   // Tropical Building Physics & Solar PV Extensions (Sector 3)
   hasRooftopSolar?: boolean;
   solarCapacityKwp?: number;
   solarAnnualKwh?: number;
   hasSecondarySkin?: boolean;
+
+  // v3.0.0 Architecture & Serializer Synchronization
+  archetype?: string;
+  hasSolarPV?: boolean;
+  customColor?: string;
+  wallTexture?: string;
+  minFloors?: number;
+  maxFloors?: number;
+  stairZones?: StairZone[];
+  userData?: Record<string, any>;
 }

@@ -20,6 +20,7 @@ import { IndexedDBStorage, SavedMapMeta } from '../../io/IndexedDBStorage';
 import { GeoJSONImporter } from '../../io/GeoJSONImporter';
 import { JsonExporter } from '../../io/JsonExporter';
 import { GlassFolder, FolderFile } from '@/components/ui/glass-folder-cards';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface WorldHubModalProps {
   isOpen?: boolean;
@@ -32,6 +33,13 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
   const state = typeof useUIStore.getState === 'function' ? useUIStore.getState() : uiStore;
   const isMapHubOpen = uiStore.isMapHubOpen ?? state.isMapHubOpen;
   const closeMapHub = uiStore.closeMapHub ?? state.closeMapHub;
+
+  const handleDismiss = () => {
+    if (onClose) onClose();
+    else if (closeMapHub) closeMapHub();
+  };
+
+  const modalRef = useModalA11y(isOpen && isMapHubOpen !== false, handleDismiss);
   const loadMap = uiStore.loadMap ?? state.loadMap;
   const userEmail = uiStore.userEmail ?? state.userEmail;
   const logout = uiStore.logout ?? state.logout;
@@ -423,7 +431,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
       `}</style>
 
       {/* Main Hub Frame */}
-      <div className="wh-card-frame">
+      <div ref={modalRef} className="wh-card-frame">
         {/* Multi-Color Gradient Mesh Background */}
         <div className="wh-mesh-bg">
           <div style={{ position: 'absolute', inset: 0 }} />
@@ -435,7 +443,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
         {/* Header Section */}
         <div className="wh-header">
           <div className="wh-logo-wrap">
-            <ArscityLogo size={36} />
+            <ArscityLogo size={40} />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--label, #F8FAFC)' }}>

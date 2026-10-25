@@ -12,21 +12,19 @@ import { PREFAB_CATALOG } from '../../buildings/PrefabTypes';
 import { BuildingCatalogRegistry } from '../../buildings/BuildingCatalogRegistry';
 
 export const SpatialCursorTooltip: React.FC = () => {
-  const { engine, activeTool } = useUIStore();
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
-  const [visible, setVisible] = useState<boolean>(false);
+  const engine = useUIStore((s) => s.engine);
+  const activeTool = useUIStore((s) => s.activeTool);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
   const [, setTick] = useState<number>(0);
 
   useEffect(() => {
-    let animId: number;
-    const updateTick = () => {
+    // Throttled 100ms interval for telemetry updates (eliminates 60fps React re-renders)
+    const intervalId = window.setInterval(() => {
       setTick((t) => (t + 1) % 1000);
-      animId = requestAnimationFrame(updateTick);
-    };
-    animId = requestAnimationFrame(updateTick);
+    }, 100);
 
     const handlePointerMove = (e: MouseEvent) => {
-      // Abaikan jika kursor berada di atas panel UI interaktif
+      if (!containerRef.current) return;
       const target = e.target as HTMLElement;
       if (
         !target ||
@@ -41,39 +39,42 @@ export const SpatialCursorTooltip: React.FC = () => {
         target.tagName === 'BUTTON' ||
         target.tagName === 'INPUT'
       ) {
-        setVisible(false);
+        containerRef.current.style.display = 'none';
         return;
       }
 
-      setMousePos({
-        x: Math.min(window.innerWidth - 300, Math.max(16, e.clientX + 20)),
-        y: Math.min(window.innerHeight - 130, Math.max(16, e.clientY + 20))
-      });
-      setVisible(true);
+      const posX = Math.min(window.innerWidth - 300, Math.max(16, e.clientX + 20));
+      const posY = Math.min(window.innerHeight - 130, Math.max(16, e.clientY + 20));
+
+      containerRef.current.style.transform = `translate3d(${posX}px, ${posY}px, 0)`;
+      containerRef.current.style.display = 'flex';
     };
 
     const handlePointerLeave = () => {
-      setVisible(false);
+      if (containerRef.current) {
+        containerRef.current.style.display = 'none';
+      }
     };
 
-    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mousemove', handlePointerMove, { passive: true });
     document.addEventListener('mouseleave', handlePointerLeave);
 
     return () => {
-      cancelAnimationFrame(animId);
+      window.clearInterval(intervalId);
       window.removeEventListener('mousemove', handlePointerMove);
       document.removeEventListener('mouseleave', handlePointerLeave);
     };
   }, []);
 
-  if (!engine || !visible || !mousePos) {
+  if (!engine) {
     return null;
   }
 
   const tooltipBaseStyle: React.CSSProperties = {
     position: 'fixed',
-    left: `${mousePos.x}px`,
-    top: `${mousePos.y}px`,
+    left: 0,
+    top: 0,
+    transform: 'translate3d(-999px, -999px, 0)',
     pointerEvents: 'none',
     zIndex: 150,
     padding: '10px 16px',
@@ -96,7 +97,7 @@ export const SpatialCursorTooltip: React.FC = () => {
   if (gizmoTelem && gizmoTelem.active) {
     const isWarn = !!gizmoTelem.warning;
     return (
-      <div style={tooltipBaseStyle}>
+      <div ref={containerRef} style={tooltipBaseStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
@@ -134,7 +135,7 @@ export const SpatialCursorTooltip: React.FC = () => {
     const cutH = engine.sectionCutManager.cutHeight;
     const layerName = engine.sectionCutManager.getInspectedLayerName(cutH);
     return (
-      <div style={tooltipBaseStyle}>
+      <div ref={containerRef} style={tooltipBaseStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
@@ -178,7 +179,7 @@ export const SpatialCursorTooltip: React.FC = () => {
       const isValid = lengthM >= 2.0 && lengthM <= 400.0;
 
       return (
-        <div style={tooltipBaseStyle}>
+        <div ref={containerRef} style={tooltipBaseStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span
               style={{
@@ -224,7 +225,7 @@ export const SpatialCursorTooltip: React.FC = () => {
       const isValid = bt.isPlacementValid;
 
       return (
-        <div style={tooltipBaseStyle}>
+        <div ref={containerRef} style={tooltipBaseStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span
               style={{
@@ -261,7 +262,7 @@ export const SpatialCursorTooltip: React.FC = () => {
   // 5. Telemetri Lansekap & Vegetasi (Landscape / Nature Tool)
   if (activeTool === 'nature' && engine.landscapeTool) {
     return (
-      <div style={tooltipBaseStyle}>
+      <div ref={containerRef} style={tooltipBaseStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
@@ -288,7 +289,7 @@ export const SpatialCursorTooltip: React.FC = () => {
   // 6. Telemetri Zonasi (Zone Tool)
   if (activeTool === 'zone' && engine.zoneTool) {
     return (
-      <div style={tooltipBaseStyle}>
+      <div ref={containerRef} style={tooltipBaseStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{

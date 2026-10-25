@@ -1,591 +1,984 @@
 import * as THREE from 'three';
 
+export interface Material3DPackage {
+  albedo: THREE.CanvasTexture;
+  normal: THREE.CanvasTexture;
+  roughness: THREE.CanvasTexture;
+  ao: THREE.CanvasTexture;
+  height: THREE.CanvasTexture;
+}
+
 /**
- * In-engine procedural PBR texture generator
- * Renders seamless albedo, normal, and roughness textures on HTML5 Canvas
+ * In-engine procedural 3D PBR texture generator for Arscity v3.0.0
+ * Features Sobel gradient height-to-normal, Cavity AO darkening, micro-roughness,
+ * and heightfield displacement maps at 1024x1024 resolution.
  * 100% offline-ready, zero external dependencies, CC0-compliant.
  */
 export class ProceduralTextureGen {
   private static cache: Map<string, THREE.Texture> = new Map();
+  private static packageCache: Map<string, Material3DPackage> = new Map();
 
   /**
-   * Helper to create canvas of given size
+   * Safe mock canvas creator for headless / Node / Vitest environments
+   */
+  private static createMockCanvas(width: number, height: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
+    const mockCanvas: any = {
+      width,
+      height,
+      toDataURL: () => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+    };
+    const mockCtx: any = new Proxy({
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      font: '',
+      textAlign: '',
+      textBaseline: '',
+      letterSpacing: '',
+      getImageData: () => ({ data: new Uint8ClampedArray(width * height * 4) }),
+      createImageData: () => ({ data: new Uint8ClampedArray(width * height * 4) }),
+      createLinearGradient: () => ({ addColorStop: () => {} }),
+      createRadialGradient: () => ({ addColorStop: () => {} }),
+      putImageData: () => {},
+      fillRect: () => {},
+      clearRect: () => {},
+      beginPath: () => {},
+      closePath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      stroke: () => {},
+      fill: () => {},
+      arc: () => {},
+      ellipse: () => {},
+      fillText: () => {},
+      bezierCurveTo: () => {}
+    }, {
+      get(target, prop) {
+        if (prop in target) return (target as any)[prop];
+        return () => {};
+      }
+    });
+    return { canvas: mockCanvas, ctx: mockCtx };
+  }
+
+  /**
+   * Helper to create canvas of given size with safe headless fallback
    */
   private static createCanvas(width: number, height: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
     if (typeof document === 'undefined') {
-      const mockCanvas: any = { width, height };
-      const mockCtx: any = new Proxy({
-        fillStyle: '',
-        strokeStyle: '',
-        lineWidth: 1,
-        getImageData: () => ({ data: new Uint8ClampedArray(width * height * 4) }),
-        createImageData: () => ({ data: new Uint8ClampedArray(width * height * 4) }),
-        createLinearGradient: () => ({ addColorStop: () => {} }),
-        createRadialGradient: () => ({ addColorStop: () => {} }),
-      }, {
-        get(target, prop) {
-          if (prop in target) return (target as any)[prop];
-          return () => {};
+      return this.createMockCanvas(width, height);
+    }
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return this.createMockCanvas(width, height);
+      return { canvas, ctx };
+    } catch {
+      return this.createMockCanvas(width, height);
+    }
+  }
+
+  /**
+   * Tahap 1: Core Mathematical Heightfield & Sobel Normal Map Pipeline
+   * Generates synchronized 1024x1024 Albedo, Tangent Normal, Roughness, Cavity AO, and Bump Height maps.
+   */
+  public static generate3DMaterialMaps(
+    name: string,
+    heightFn: (u: number, v: number, x: number, y: number) => number,
+    colorFn: (u: number, v: number, height: number, x: number, y: number) => [number, number, number],
+    width: number = 1024,
+    height: number = 1024,
+    normalStrength: number = 3.2
+  ): Material3DPackage {
+    const cacheKey = `${name}_${width}x${height}_${normalStrength.toFixed(1)}`;
+    if (this.packageCache.has(cacheKey)) {
+      return this.packageCache.get(cacheKey)!;
+    }
+
+    // Step 1: Calculate HeightField Array (0.0 to 1.0)
+    const totalPixels = width * height;
+    const heightField = new Float32Array(totalPixels);
+    for (let y = 0; y < height; y++) {
+      const v = y / height;
+      const rowOffset = y * width;
+      for (let x = 0; x < width; x++) {
+        const u = x / width;
+        const hVal = THREE.MathUtils.clamp(heightFn(u, v, x, y), 0.0, 1.0);
+        heightField[rowOffset + x] = hVal;
+      }
+    }
+
+    // Prepare HTML5 Canvases for 5 PBR texture channels
+    const { canvas: albedoCanvas, ctx: albedoCtx } = this.createCanvas(width, height);
+    const { canvas: normalCanvas, ctx: normalCtx } = this.createCanvas(width, height);
+    const { canvas: roughCanvas, ctx: roughCtx } = this.createCanvas(width, height);
+    const { canvas: aoCanvas, ctx: aoCtx } = this.createCanvas(width, height);
+    const { canvas: heightCanvas, ctx: heightCtx } = this.createCanvas(width, height);
+
+    const albedoImg = albedoCtx.createImageData(width, height);
+    const normalImg = normalCtx.createImageData(width, height);
+    const roughImg = roughCtx.createImageData(width, height);
+    const aoImg = aoCtx.createImageData(width, height);
+    const heightImg = heightCtx.createImageData(width, height);
+
+    const aData = albedoImg.data;
+    const nData = normalImg.data;
+    const rData = roughImg.data;
+    const aoData = aoImg.data;
+    const hData = heightImg.data;
+
+    // Step 2: Sobel 3x3 Gradient Filter for Tangent-Space Normal Vector
+    // Step 3: Cavity Darkening & Micro-Roughness Mapping
+    const inv8 = 1.0 / 8.0;
+
+    for (let y = 0; y < height; y++) {
+      const v = y / height;
+      const yPrev = ((y - 1 + height) % height) * width;
+      const yCurr = y * width;
+      const yNext = ((y + 1) % height) * width;
+
+      for (let x = 0; x < width; x++) {
+        const u = x / width;
+        const xPrev = (x - 1 + width) % width;
+        const xNext = (x + 1) % width;
+
+        // 3x3 Neighborhood (periodic wrap-around coordinates for seamless tiling)
+        const tl = heightField[yPrev + xPrev];
+        const tc = heightField[yPrev + x];
+        const tr = heightField[yPrev + xNext];
+
+        const ml = heightField[yCurr + xPrev];
+        const mc = heightField[yCurr + x];
+        const mr = heightField[yCurr + xNext];
+
+        const bl = heightField[yNext + xPrev];
+        const bc = heightField[yNext + x];
+        const br = heightField[yNext + xNext];
+
+        // Sobel horizontal gradient (dz/dx)
+        const dx = (tr + 2.0 * mr + br - (tl + 2.0 * ml + bl)) * inv8;
+        // Sobel vertical gradient (dz/dy)
+        const dy = (bl + 2.0 * bc + br - (tl + 2.0 * tc + tr)) * inv8;
+
+        // Tangent Normal: (-dx * strength, -dy * strength, 1.0)
+        let nx = -dx * normalStrength;
+        let ny = -dy * normalStrength;
+        let nz = 1.0;
+        const invLen = 1.0 / Math.sqrt(nx * nx + ny * ny + nz * nz);
+        nx *= invLen;
+        ny *= invLen;
+        nz *= invLen;
+
+        const pIdx = (yCurr + x) * 4;
+
+        // Normal map in Tangent Space RGB [0..255]
+        nData[pIdx] = Math.round((nx * 0.5 + 0.5) * 255);
+        nData[pIdx + 1] = Math.round((ny * 0.5 + 0.5) * 255);
+        nData[pIdx + 2] = Math.round((nz * 0.5 + 0.5) * 255);
+        nData[pIdx + 3] = 255;
+
+        // Height Map (Grayscale)
+        const hByte = Math.round(mc * 255);
+        hData[pIdx] = hByte;
+        hData[pIdx + 1] = hByte;
+        hData[pIdx + 2] = hByte;
+        hData[pIdx + 3] = 255;
+
+        // Cavity & Ambient Occlusion (AO):
+        // Recessed grooves and steep slopes receive natural ambient occlusion shadows
+        const slopeMag = dx * dx + dy * dy;
+        const depthOcclusion = THREE.MathUtils.clamp(mc / 0.40, 0.20, 1.0);
+        const creviceOcclusion = THREE.MathUtils.clamp(1.0 - slopeMag * 2.0, 0.35, 1.0);
+        const aoFactor = depthOcclusion * creviceOcclusion;
+
+        const aoByte = Math.round(aoFactor * 255);
+        aoData[pIdx] = aoByte;
+        aoData[pIdx + 1] = aoByte;
+        aoData[pIdx + 2] = aoByte;
+        aoData[pIdx + 3] = 255;
+
+        // Micro-Roughness:
+        // Deep recesses/grout (mc < 0.3) -> rough (0.95), raised ridges (mc > 0.7) -> smooth / highlight (0.45 - 0.65)
+        const smoothH = THREE.MathUtils.smoothstep(mc, 0.2, 0.82);
+        const roughFactor = THREE.MathUtils.lerp(0.95, 0.50, smoothH);
+        const rByte = Math.round(roughFactor * 255);
+        rData[pIdx] = rByte;
+        rData[pIdx + 1] = rByte;
+        rData[pIdx + 2] = rByte;
+        rData[pIdx + 3] = 255;
+
+        // Albedo: Base color modulated with Cavity Darkening
+        const [baseR, baseG, baseB] = colorFn(u, v, mc, x, y);
+        const cavityMod = 0.30 + 0.70 * aoFactor;
+        aData[pIdx] = Math.round(THREE.MathUtils.clamp(baseR * cavityMod, 0, 255));
+        aData[pIdx + 1] = Math.round(THREE.MathUtils.clamp(baseG * cavityMod, 0, 255));
+        aData[pIdx + 2] = Math.round(THREE.MathUtils.clamp(baseB * cavityMod, 0, 255));
+        aData[pIdx + 3] = 255;
+      }
+    }
+
+    albedoCtx.putImageData(albedoImg, 0, 0);
+    normalCtx.putImageData(normalImg, 0, 0);
+    roughCtx.putImageData(roughImg, 0, 0);
+    aoCtx.putImageData(aoImg, 0, 0);
+    heightCtx.putImageData(heightImg, 0, 0);
+
+    const albedoTex = new THREE.CanvasTexture(albedoCanvas);
+    albedoTex.wrapS = THREE.RepeatWrapping;
+    albedoTex.wrapT = THREE.RepeatWrapping;
+    albedoTex.colorSpace = THREE.SRGBColorSpace;
+
+    const normalTex = new THREE.CanvasTexture(normalCanvas);
+    normalTex.wrapS = THREE.RepeatWrapping;
+    normalTex.wrapT = THREE.RepeatWrapping;
+
+    const roughnessTex = new THREE.CanvasTexture(roughCanvas);
+    roughnessTex.wrapS = THREE.RepeatWrapping;
+    roughnessTex.wrapT = THREE.RepeatWrapping;
+
+    const aoTex = new THREE.CanvasTexture(aoCanvas);
+    aoTex.wrapS = THREE.RepeatWrapping;
+    aoTex.wrapT = THREE.RepeatWrapping;
+
+    const heightTex = new THREE.CanvasTexture(heightCanvas);
+    heightTex.wrapS = THREE.RepeatWrapping;
+    heightTex.wrapT = THREE.RepeatWrapping;
+
+    const pkg: Material3DPackage = {
+      albedo: albedoTex,
+      normal: normalTex,
+      roughness: roughnessTex,
+      ao: aoTex,
+      height: heightTex
+    };
+
+    this.packageCache.set(cacheKey, pkg);
+    return pkg;
+  }
+
+  // =========================================================================
+  // SPECIFIC 3D MATERIAL PACKAGES
+  // =========================================================================
+
+  /**
+   * 1. Genteng Terakota Nusantara (terracotta_tiles)
+   * Curved S-profile (genteng kodok / mantili) on X axis with stepped overlapping rows on Y axis.
+   */
+  public static getTerracottaPackage(size: number = 1024): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'terracotta_tiles',
+      (u, v) => {
+        const tilesX = 8;
+        const tilesY = 12;
+        const row = Math.floor(v * tilesY);
+        const uOffset = (row % 2) * 0.5;
+
+        const tu = ((u * tilesX + uOffset) % 1 + 1) % 1;
+        const tv = (v * tilesY) % 1;
+
+        // Curved S-profile cross-section (curved trough and raised interlocking lip)
+        const sProfile = Math.sin(tu * Math.PI * 2.0 - 0.4) * 0.42 + 0.58;
+
+        // Stepped tile rows with sharp overlap drop at bottom lip
+        const stepOverlap = tv < 0.90
+          ? 0.35 + 0.65 * (tv / 0.90)
+          : Math.max(0.08, 1.0 - (tv - 0.90) / 0.10 * 0.92);
+
+        // Micro clay porous grain
+        const grain = (Math.sin(u * 200) * Math.cos(v * 200)) * 0.03;
+        return sProfile * stepOverlap + grain;
+      },
+      (u, v, h) => {
+        const tilesY = 12;
+        const tv = (v * tilesY) % 1;
+
+        // Warm traditional terracotta tones (#be5735, #963f23, #692b17)
+        const kilnTone = Math.sin(u * 24 + v * 18) * 12;
+        let r = 188 + kilnTone;
+        let g = 82 + kilnTone * 0.5;
+        let b = 48 + kilnTone * 0.3;
+
+        // Shadow under the overlapping tile lip
+        if (tv > 0.88) {
+          r *= 0.55;
+          g *= 0.50;
+          b *= 0.45;
         }
-      });
-      return { canvas: mockCanvas, ctx: mockCtx };
-    }
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    return { canvas, ctx };
+
+        // Highlight along the crest of the S-curve
+        if (h > 0.82) {
+          r = Math.min(255, r * 1.15);
+          g = Math.min(255, g * 1.12);
+        }
+
+        return [r, g, b];
+      },
+      size,
+      size,
+      3.6
+    );
   }
 
   /**
-   * Procedural Grass Texture
+   * 2. Bata Merah Ekspos (exposed_brick)
+   * Precise stretcher bond with deep recessed mortar joints (height = 0.08), smooth beveled edges,
+   * and porous volcanic clay grains.
    */
-  public static getGrassTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `grass_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
+  public static getBrickPackage(size: number = 1024): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'exposed_brick',
+      (u, v) => {
+        const rows = 16;
+        const cols = 8;
+        const row = Math.floor(v * rows);
+        const uOffset = (row % 2) * 0.5;
 
-    const { canvas, ctx } = this.createCanvas(size, size);
+        const bu = ((u * cols + uOffset) % 1 + 1) % 1;
+        const bv = (v * rows) % 1;
 
-    // Base green
-    ctx.fillStyle = '#3a6627';
-    ctx.fillRect(0, 0, size, size);
+        const mortarX = 0.07;
+        const mortarY = 0.12;
 
-    // Multilayer noise for blades and subtle soil variation
-    const imgData = ctx.getImageData(0, 0, size, size);
-    const data = imgData.data;
+        // Recessed mortar joints
+        if (bu < mortarX || bu > 1 - mortarX || bv < mortarY || bv > 1 - mortarY) {
+          const sand = (Math.sin(u * 320) + Math.cos(v * 320)) * 0.02;
+          return 0.08 + sand;
+        }
 
-    for (let i = 0; i < data.length; i += 4) {
-      const noise = (Math.random() - 0.5) * 36;
-      const bladeNoise = (Math.random() - 0.5) * 20;
+        // Beveled brick edge
+        const distToEdge = Math.min(bu - mortarX, 1 - mortarX - bu, bv - mortarY, 1 - mortarY - bv) / 0.07;
+        const bevel = THREE.MathUtils.smoothstep(distToEdge, 0, 1);
 
-      data[i] = Math.max(30, Math.min(80, 58 + noise * 0.4 + bladeNoise));     // R
-      data[i + 1] = Math.max(70, Math.min(150, 102 + noise + bladeNoise * 1.5)); // G
-      data[i + 2] = Math.max(20, Math.min(65, 39 + noise * 0.3));             // B
-      data[i + 3] = 255;
-    }
-    ctx.putImageData(imgData, 0, 0);
+        // Porous clay relief
+        const poreNoise = (Math.sin(u * 150) * Math.sin(v * 150)) * 0.05;
+        return 0.72 + bevel * 0.22 + poreNoise;
+      },
+      (u, v, h) => {
+        const rows = 16;
+        const cols = 8;
+        const row = Math.floor(v * rows);
+        const uOffset = (row % 2) * 0.5;
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+        const bu = ((u * cols + uOffset) % 1 + 1) % 1;
+        const bv = (v * rows) % 1;
+
+        const mortarX = 0.07;
+        const mortarY = 0.12;
+
+        // Mortar color (grey Portland cement with sand specks)
+        if (bu < mortarX || bu > 1 - mortarX || bv < mortarY || bv > 1 - mortarY) {
+          return [195, 202, 212];
+        }
+
+        // Fired clay terracotta palette (#a33d26, #b94a2f, #872e1c)
+        const brickSeed = Math.sin(Math.floor(v * rows) * 31.7 + Math.floor((u * cols + uOffset)) * 13.3);
+        const variation = brickSeed * 18;
+        const r = 182 + variation;
+        const g = 68 + variation * 0.45;
+        const b = 46 + variation * 0.3;
+
+        return [r, g, b];
+      },
+      size,
+      size,
+      3.4
+    );
   }
 
   /**
-   * Procedural Hotmix Asphalt Road Texture (1024x1024)
-   * Authentic dark charcoal base (#26292E to #1E2024) with thousands of
-   * micro stone aggregates (#3A3F47, #16181B, and bright silica #525864).
+   * 3. Batu Candi Andesit Yogyakarta (stone_candi / stone_plinth)
+   * Ashlar volcanic stone blocks with chiseled rock faces, basalt pores, and deep mortar joints.
    */
+  public static getStoneCandiPackage(size: number = 1024): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'stone_candi',
+      (u, v) => {
+        const rows = 8;
+        const r = Math.floor(v * rows);
+        const uOffset = (r % 2) * 0.35 + Math.sin(r * 4.7) * 0.15;
+
+        const cols = 4;
+        const su = ((u * cols + uOffset) % 1 + 1) % 1;
+        const sv = (v * rows) % 1;
+
+        const joint = 0.05;
+        if (su < joint || su > 1 - joint || sv < joint || sv > 1 - joint) {
+          return 0.09;
+        }
+
+        // Chiseled rock face with natural volcanic andesite facets
+        const chisel1 = Math.sin(u * 38 + Math.cos(v * 25) * 2.0) * 0.14;
+        const chisel2 = Math.cos(v * 45 + Math.sin(u * 28) * 1.5) * 0.12;
+        const pores = (Math.sin(u * 180) * Math.cos(v * 180)) * 0.06;
+
+        return 0.65 + chisel1 + chisel2 + pores;
+      },
+      (u, v, h) => {
+        // Dark volcanic charcoal andesite (#383d45, #2b2f36, #4a505b)
+        const mineral = Math.sin(u * 60 + v * 80) * 14;
+        let r = 58 + mineral;
+        let g = 62 + mineral;
+        let b = 68 + mineral;
+
+        if (h < 0.2) {
+          r *= 0.55;
+          g *= 0.55;
+          b *= 0.55;
+        }
+        return [r, g, b];
+      },
+      size,
+      size,
+      3.8
+    );
+  }
+
+  /**
+   * 4. Kayu Jati Arsitektural (teak_wood)
+   * Planks with bevel seams, longitudinal organic grain curves, and tactile teak pores.
+   */
+  public static getTeakWoodPackage(size: number = 1024): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'teak_wood',
+      (u, v) => {
+        const planks = 8;
+        const pu = (u * planks) % 1;
+        const seamW = 0.04;
+
+        if (pu < seamW || pu > 1 - seamW) {
+          return 0.12; // Recessed plank shadow gap
+        }
+
+        // Bevel from gap
+        const dist = Math.min(pu - seamW, 1 - seamW - pu) / 0.08;
+        const bevel = THREE.MathUtils.smoothstep(dist, 0, 1);
+
+        // Flowing longitudinal grain waves
+        const grainWave = Math.sin(v * 48 + Math.sin(u * 12) * 3.5) * 0.10;
+        // Fine teak micro-furrow pores along plank length
+        const teakPores = Math.sin(u * 280) > 0.75 ? -0.06 : 0.02;
+
+        return 0.68 + bevel * 0.20 + grainWave + teakPores;
+      },
+      (u, v, h) => {
+        const planks = 8;
+        const pIdx = Math.floor(u * planks);
+        const plankVariation = Math.sin(pIdx * 5.3) * 16;
+
+        // Indonesian golden-brown teak palette (#9a5925, #7d4319, #b86d33)
+        const grain = Math.sin(v * 48 + Math.sin(u * 12) * 3.5) * 18;
+        let r = 158 + plankVariation + grain;
+        let g = 96 + plankVariation * 0.65 + grain * 0.6;
+        let b = 48 + plankVariation * 0.35 + grain * 0.3;
+
+        if (h < 0.25) {
+          r *= 0.45;
+          g *= 0.40;
+          b *= 0.35;
+        }
+        return [r, g, b];
+      },
+      size,
+      size,
+      2.8
+    );
+  }
+
+  /**
+   * 5. Dinding Plester & Tali Air (plaster_wall / concrete)
+   * Micro stucco sand grains cut by horizontal architectural shadow grooves (tali air) every 1 meter.
+   */
+  public static getPlasterPackage(size: number = 512, _baseColor: string = '#ffffff'): Material3DPackage {
+    // Generate unified neutral white plaster maps; architectural color tinting is applied via material.color
+    const cr = 255;
+    const cg = 255;
+    const cb = 255;
+
+    return this.generate3DMaterialMaps(
+      'plaster_neutral',
+      (u, v) => {
+        // Horizontal architectural shadow groove (tali air) every 25% of height
+        const taliAirInterval = 0.25;
+        const tv = (v % taliAirInterval) / taliAirInterval;
+        const grooveHalfWidth = 0.025;
+
+        if (tv < grooveHalfWidth || tv > 1 - grooveHalfWidth) {
+          return 0.10; // 3D Inset shadow groove
+        }
+
+        // Stucco mineral sand grain
+        const grain = (Math.sin(u * 380) * Math.cos(v * 380)) * 0.06;
+        return 0.78 + grain;
+      },
+      (u, v, h) => {
+        const grainNoise = (Math.sin(u * 220) + Math.cos(v * 220)) * 6;
+        let r = cr + grainNoise;
+        let g = cg + grainNoise;
+        let b = cb + grainNoise;
+
+        // Shadow inside tali air groove
+        if (h < 0.25) {
+          r *= 0.52;
+          g *= 0.54;
+          b *= 0.58;
+        }
+        return [r, g, b];
+      },
+      size,
+      size,
+      2.6
+    );
+  }
+
+  /**
+   * 6. Aspal Hotmix (road_asphalt)
+   * Sharp mineral stone aggregates protruding from dark bitumen matrix.
+   */
+  public static getAsphaltPackage(size: number = 1024): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'road_asphalt',
+      (u, v, x, y) => {
+        // Bitumen matrix base
+        const bitumen = 0.40;
+
+        // Sharp aggregate stone pebbles (pseudo-random grid clusters)
+        const grid = 64;
+        const gx = Math.floor(u * grid);
+        const gy = Math.floor(v * grid);
+        const cellHash = Math.sin(gx * 12.9898 + gy * 78.233) * 43758.5453;
+        const hasPebble = (cellHash - Math.floor(cellHash)) > 0.38;
+
+        if (hasPebble) {
+          const fx = (u * grid) % 1 - 0.5;
+          const fy = (v * grid) % 1 - 0.5;
+          const distSq = fx * fx + fy * fy;
+          if (distSq < 0.18) {
+            const h = 0.88 - distSq * 2.0;
+            return THREE.MathUtils.clamp(h, 0.40, 0.98);
+          }
+        }
+
+        // Fine mineral noise
+        const micro = (Math.sin(x * 1.5) * Math.cos(y * 1.5)) * 0.06;
+        return bitumen + micro;
+      },
+      (u, v, h) => {
+        // Bitumen dark charcoal base (#1E2024 to #26292E)
+        if (h < 0.55) {
+          const bitNoise = (Math.sin(u * 250) + Math.cos(v * 250)) * 4;
+          return [34 + bitNoise, 37 + bitNoise, 42 + bitNoise];
+        }
+
+        // Aggregate stones (#3A3F47 slate or #525864 silica glint)
+        const isSilica = Math.sin(u * 120 + v * 90) > 0.6;
+        if (isSilica) {
+          return [82, 88, 100];
+        }
+        return [58, 63, 71];
+      },
+      size,
+      size,
+      3.2
+    );
+  }
+
+  /**
+   * 7. Paving Trotoar (sidewalk_paving)
+   * Modular paving blocks with beveled perimeter seams and textured stone crowns.
+   */
+  public static getPavingPackage(size: number = 1024): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'sidewalk_paving',
+      (u, v) => {
+        const grid = 8;
+        const pu = (u * grid) % 1;
+        const pv = (v * grid) % 1;
+
+        const joint = 0.06;
+        if (pu < joint || pu > 1 - joint || pv < joint || pv > 1 - joint) {
+          return 0.15; // Sunken sand joint
+        }
+
+        // Rounded chamfer along perimeter of each paver block
+        const dist = Math.min(pu - joint, 1 - joint - pu, pv - joint, 1 - joint - pv) / 0.10;
+        const chamfer = THREE.MathUtils.smoothstep(dist, 0, 1);
+
+        const stoneGrain = (Math.sin(u * 160) + Math.cos(v * 160)) * 0.04;
+        return 0.72 + chamfer * 0.22 + stoneGrain;
+      },
+      (u, v, h) => {
+        // Terrazzo / modern concrete tone (#cbd5e1 with aggregate flecks)
+        const grain = (Math.sin(u * 200) * Math.sin(v * 200)) * 8;
+        let r = 155 + grain;
+        let g = 162 + grain;
+        let b = 172 + grain;
+
+        if (h < 0.25) {
+          r = 75;
+          g = 80;
+          b = 90;
+        }
+        return [r, g, b];
+      },
+      size,
+      size,
+      3.0
+    );
+  }
+
+  /**
+   * 8. Tactile Paving (tactile_paving)
+   * Embossed directional guiding bars (jalur pemandu disabilitas kuning) with 3D raised capsule ridges.
+   */
+  public static getTactilePavingPackage(size: number = 512): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'tactile_paving',
+      (u) => {
+        const bars = 4;
+        const bu = (u * bars) % 1;
+        // Center capsule ridge
+        const dist = Math.abs(bu - 0.5) / 0.22;
+        if (dist < 1.0) {
+          // Curved cylindrical ridge
+          return 0.25 + 0.72 * Math.sqrt(1.0 - dist * dist);
+        }
+        return 0.22; // Recessed flat surface
+      },
+      (u, v, h) => {
+        // Vibrant warning yellow (#facc15 / #eab308)
+        let r = 234;
+        let g = 179;
+        let b = 8;
+
+        if (h > 0.8) {
+          r = 254;
+          g = 240;
+          b = 138; // Highlight peak
+        } else if (h < 0.3) {
+          r = 180;
+          g = 130;
+          b = 4; // Groove shadow
+        }
+        return [r, g, b];
+      },
+      size,
+      size,
+      3.8
+    );
+  }
+
+  /**
+   * 9. Rumput & Tanah Kontur (terrain_grass)
+   * Volumetric turf clumps and subtle micro-contours preventing flat plastic look.
+   */
+  public static getGrassPackage(size: number = 1024): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'terrain_grass',
+      (u, v) => {
+        // Multiscale Voronoi-like grass tufts
+        const clump1 = Math.sin(u * 40 + Math.sin(v * 30) * 1.5) * 0.20;
+        const clump2 = Math.cos(v * 50 + Math.cos(u * 25) * 1.5) * 0.18;
+        const blade = (Math.sin(u * 280) * Math.sin(v * 280)) * 0.10;
+        return 0.62 + clump1 + clump2 + blade;
+      },
+      (u, v, h) => {
+        // Lush equatorial tropical lawn (#2d5a1e to #4d8b2c)
+        const tone = Math.sin(u * 32 + v * 45) * 16;
+        let r = 58 + tone * 0.4;
+        let g = 112 + tone * 1.4;
+        let b = 38 + tone * 0.3;
+
+        // Soil undertones in deep hollows
+        if (h < 0.45) {
+          r = 65;
+          g = 52;
+          b = 32;
+        } else if (h > 0.85) {
+          // Sunlit blades
+          r = Math.min(255, r * 1.2);
+          g = Math.min(255, g * 1.25);
+        }
+        return [r, g, b];
+      },
+      size,
+      size,
+      2.6
+    );
+  }
+
+  /**
+   * 10. Rooster Angin (roster_breeze_block)
+   * Geometric lattice apertures with real recessed voids and raised concrete struts.
+   */
+  public static getRosterPackage(size: number = 512): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'roster_breeze_block',
+      (u, v) => {
+        const grid = 4;
+        const bu = (u * grid) % 1;
+        const bv = (v * grid) % 1;
+
+        // Perimeter strut & diamond central core
+        const strut = 0.14;
+        if (bu < strut || bu > 1 - strut || bv < strut || bv > 1 - strut) {
+          return 0.90; // Raised concrete frame
+        }
+
+        const dx = Math.abs(bu - 0.5);
+        const dy = Math.abs(bv - 0.5);
+        if (dx + dy < 0.28) {
+          return 0.86; // Diamond cross center
+        }
+
+        // Hollow pierced ventilation aperture
+        return 0.05;
+      },
+      (u, v, h) => {
+        if (h < 0.15) {
+          return [15, 18, 24]; // Dark interior breeze cavity
+        }
+        return [226, 232, 240]; // Architectural off-white concrete
+      },
+      size,
+      size,
+      3.8
+    );
+  }
+
+  /**
+   * 11. Dark Zinc Standing Seam Roof Package
+   */
+  public static getDarkZincRoofPackage(size: number = 512): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'zinc_roof',
+      (u) => {
+        const seams = 12;
+        const su = (u * seams) % 1;
+        if (su < 0.06) {
+          return 0.95; // Standing rib
+        }
+        return 0.50; // Flat tray
+      },
+      (u, v, h) => {
+        if (h > 0.8) return [55, 62, 72];
+        return [34, 39, 46];
+      },
+      size,
+      size,
+      3.0
+    );
+  }
+
+  /**
+   * 12. Board-Formed Concrete Package
+   */
+  public static getBoardFormedConcretePackage(size: number = 512): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'concrete_board',
+      (u, v) => {
+        const planks = 8;
+        const pv = (v * planks) % 1;
+        if (pv > 0.95) return 0.2; // Formwork plank seam
+        const grain = (Math.sin(u * 120) * Math.cos(v * 40)) * 0.05;
+        return 0.75 + grain;
+      },
+      (u, v, h) => {
+        if (h < 0.3) return [60, 65, 75];
+        return [142, 151, 164];
+      },
+      size,
+      size,
+      2.8
+    );
+  }
+
+  /**
+   * 13. Weathered Corten Steel Package
+   * Rich oxidized rust patina with microscopic pitting and warm amber-orange mineral tones.
+   */
+  public static getCortenSteelPackage(size: number = 512): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'corten_steel',
+      (u, v) => {
+        const rust1 = Math.sin(u * 28 + Math.cos(v * 24) * 2.0) * 0.12;
+        const rust2 = Math.cos(v * 36 + Math.sin(u * 32) * 1.5) * 0.10;
+        const pitting = (Math.sin(u * 140) * Math.cos(v * 140)) * 0.08;
+        return 0.65 + rust1 + rust2 + pitting;
+      },
+      (u, v, h) => {
+        const variation = Math.sin(u * 40 + v * 50) * 18;
+        // Weathered reddish-orange corten rust (#a34c1b, #8a3a12, #c25e24)
+        let r = 168 + variation;
+        let g = 78 + variation * 0.45;
+        let b = 32 + variation * 0.2;
+        if (h < 0.3) {
+          r *= 0.6;
+          g *= 0.55;
+          b *= 0.5;
+        }
+        return [r, g, b];
+      },
+      size,
+      size,
+      3.2
+    );
+  }
+
+  /**
+   * 14. Terrazzo Stone Package (Malioboro Bollards & Pavement)
+   * Polished smooth matrix with embedded contrasting marble chips and mineral flecks.
+   */
+  public static getTerrazzoPackage(size: number = 512): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'terrazzo_stone',
+      (u, v) => {
+        const fleck = Math.sin(u * 90) * Math.cos(v * 90);
+        return 0.85 + (fleck > 0.6 ? 0.08 : fleck < -0.6 ? -0.05 : 0.0);
+      },
+      (u, v) => {
+        const chip1 = Math.sin(u * 75 + Math.cos(v * 65) * 1.8);
+        const chip2 = Math.cos(u * 110 - v * 95);
+        if (chip1 > 0.82) {
+          // Terracotta quartz chip
+          return [180, 95, 60];
+        }
+        if (chip2 > 0.85) {
+          // Dark charcoal andesite chip
+          return [45, 50, 58];
+        }
+        if (chip1 < -0.82) {
+          // Pure white marble fleck
+          return [245, 245, 250];
+        }
+        // Warm light grey cementitious matrix (#d8dde6)
+        const n = Math.sin(u * 180 + v * 180) * 6;
+        return [216 + n, 221 + n, 230 + n];
+      },
+      size,
+      size,
+      1.6
+    );
+  }
+
+  /**
+   * 15. Polished Granite & Dark Marble Package
+   * Deep black/charcoal stone with crystalline inclusions.
+   */
+  public static getGranitePackage(size: number = 512): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'granite_stone',
+      (u, v) => {
+        const grain = (Math.sin(u * 60) * Math.cos(v * 60)) * 0.06;
+        return 0.90 + grain;
+      },
+      (u, v) => {
+        const sparkle = Math.sin(u * 120 + v * 140);
+        const fleck = Math.cos(u * 80 - v * 70);
+        if (sparkle > 0.88) {
+          return [160, 168, 180]; // Silver quartz sparkle
+        }
+        if (fleck > 0.75) {
+          return [55, 62, 72];
+        }
+        return [24, 28, 36]; // Deep charcoal nero assoluto
+      },
+      size,
+      size,
+      2.0
+    );
+  }
+
+  /**
+   * 16. Organic Tree Bark Package
+   * Deep vertical longitudinal furrows and rough fibrous tree trunk ridges.
+   */
+  public static getBarkPackage(size: number = 512): Material3DPackage {
+    return this.generate3DMaterialMaps(
+      'tree_bark',
+      (u, v) => {
+        const furrow = Math.sin(u * 32 + Math.sin(v * 16) * 1.5) * 0.22;
+        const micro = (Math.sin(u * 120) * Math.cos(v * 80)) * 0.08;
+        return 0.65 + furrow + micro;
+      },
+      (u, v, h) => {
+        const variation = Math.sin(u * 16 + v * 8) * 12;
+        // Warm weathered dark timber bark (#3d2618)
+        let r = 68 + variation;
+        let g = 45 + variation * 0.7;
+        let b = 28 + variation * 0.4;
+        if (h < 0.35) {
+          r *= 0.5;
+          g *= 0.5;
+          b *= 0.5;
+        }
+        return [r, g, b];
+      },
+      size,
+      size,
+      3.8
+    );
+  }
+
+  // =========================================================================
+  // BACKWARD-COMPATIBLE TEXTURE GETTERS (Cached CanvasTextures)
+  // =========================================================================
+
+  public static getGrassTexture(size: number = 1024): THREE.CanvasTexture {
+    return this.getGrassPackage(size).albedo;
+  }
+
   public static getAsphaltTexture(size: number = 1024): THREE.CanvasTexture {
-    const key = `asphalt_hotmix_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    // 1. Dark charcoal gradient base (#26292E to #1E2024)
-    const baseGrad = ctx.createLinearGradient(0, 0, size, size);
-    baseGrad.addColorStop(0, '#26292E');
-    baseGrad.addColorStop(0.5, '#212328');
-    baseGrad.addColorStop(1, '#1E2024');
-    ctx.fillStyle = baseGrad;
-    ctx.fillRect(0, 0, size, size);
-
-    // 2. Base bitumen binder grain variation
-    const imgData = ctx.getImageData(0, 0, size, size);
-    const data = imgData.data;
-
-    // Pseudo-random deterministic noise
-    for (let i = 0; i < data.length; i += 4) {
-      const n = (Math.random() - 0.5) * 16;
-      data[i] = Math.max(26, Math.min(48, data[i] + n));
-      data[i + 1] = Math.max(28, Math.min(50, data[i + 1] + n));
-      data[i + 2] = Math.max(32, Math.min(56, data[i + 2] + n));
-      data[i + 3] = 255;
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    // 3. Thousands of micro stone aggregates (Hotmix aggregate distribution)
-    // Palet warna agregat:
-    // - Medium slate pebble: #3A3F47
-    // - Dark bitumen-coated aggregate: #16181B
-    // - Bright silica glint: #525864
-    // - Warm river gravel: #2F333B
-    const aggregateColors = [
-      '#3A3F47',
-      '#16181B',
-      '#3A3F47',
-      '#16181B',
-      '#2F333B',
-      '#525864', // Aksentuasi silika terang
-      '#444953'
-    ];
-
-    const pebbleCount = Math.floor(size * 18);
-    for (let p = 0; p < pebbleCount; p++) {
-      const px = Math.random() * size;
-      const py = Math.random() * size;
-      const radius = Math.random() < 0.8 ? (0.6 + Math.random() * 1.2) : (1.8 + Math.random() * 1.8);
-      const color = aggregateColors[Math.floor(Math.random() * aggregateColors.length)];
-
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      // Irregular aggregate shape
-      const sides = 4 + Math.floor(Math.random() * 3);
-      for (let s = 0; s < sides; s++) {
-        const angle = (s / sides) * Math.PI * 2;
-        const r = radius * (0.75 + Math.random() * 0.5);
-        const x = px + Math.cos(angle) * r;
-        const y = py + Math.sin(angle) * r;
-        if (s === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // 4. Subtle micro-pores & bitumen sheen
-    ctx.fillStyle = 'rgba(22, 24, 27, 0.35)';
-    for (let m = 0; m < size * 4; m++) {
-      const mx = Math.random() * size;
-      const my = Math.random() * size;
-      ctx.fillRect(mx, my, 1.2, 1.2);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+    return this.getAsphaltPackage(size).albedo;
   }
 
-  /**
-   * Procedural Asphalt Normal/Bump Map (1024x1024)
-   * Captures micro-relief of aggregate stone grains for afternoon sunlight relief.
-   */
   public static getAsphaltNormalTexture(size: number = 1024): THREE.CanvasTexture {
-    const key = `asphalt_normal_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    // Base normal map flat tangent: (128, 128, 255)
-    ctx.fillStyle = '#8080ff';
-    ctx.fillRect(0, 0, size, size);
-
-    const imgData = ctx.getImageData(0, 0, size, size);
-    const data = imgData.data;
-
-    // Normal disturbance from micro-aggregates
-    for (let i = 0; i < data.length; i += 4) {
-      const noiseX = (Math.random() - 0.5) * 32;
-      const noiseY = (Math.random() - 0.5) * 32;
-      data[i] = Math.max(80, Math.min(176, 128 + noiseX));     // Tangent X
-      data[i + 1] = Math.max(80, Math.min(176, 128 + noiseY)); // Tangent Y
-      data[i + 2] = 245 + Math.floor(Math.random() * 10);     // Tangent Z (pointing outward)
-      data[i + 3] = 255;
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    this.cache.set(key, texture);
-    return texture;
+    return this.getAsphaltPackage(size).normal;
   }
 
-
-  /**
-   * Procedural Concrete / Sidewalk Paving Texture
-   */
-  public static getPavingTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `paving_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    ctx.fillStyle = '#949ba5';
-    ctx.fillRect(0, 0, size, size);
-
-    const imgData = ctx.getImageData(0, 0, size, size);
-    const data = imgData.data;
-
-    for (let i = 0; i < data.length; i += 4) {
-      const n = (Math.random() - 0.5) * 18;
-      data[i] = Math.max(120, Math.min(180, 150 + n));
-      data[i + 1] = Math.max(120, Math.min(180, 154 + n));
-      data[i + 2] = Math.max(125, Math.min(185, 160 + n));
-      data[i + 3] = 255;
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    // Draw paving grid pattern
-    ctx.strokeStyle = 'rgba(70, 75, 85, 0.45)';
-    ctx.lineWidth = 2;
-    const step = size / 8;
-    for (let x = 0; x <= size; x += step) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, size);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= size; y += step) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(size, y);
-      ctx.stroke();
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+  public static getAsphaltRoughnessTexture(size: number = 1024): THREE.CanvasTexture {
+    return this.getAsphaltPackage(size).roughness;
   }
 
-  /**
-   * Procedural Terracotta Roof Tile (Genteng)
-   */
-  public static getRoofTileTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `roof_tile_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    // Warm terracotta base
-    ctx.fillStyle = '#a84c2d';
-    ctx.fillRect(0, 0, size, size);
-
-    const rows = 12;
-    const rowHeight = size / rows;
-    for (let r = 0; r < rows; r++) {
-      const y = r * rowHeight;
-      // Ridge gradient
-      const grad = ctx.createLinearGradient(0, y, 0, y + rowHeight);
-      grad.addColorStop(0, '#be5735');
-      grad.addColorStop(0.7, '#963f23');
-      grad.addColorStop(1, '#692b17');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, y, size, rowHeight);
-
-      // Shadow line at bottom of each tile row
-      ctx.fillStyle = 'rgba(40, 15, 8, 0.6)';
-      ctx.fillRect(0, y + rowHeight - 3, size, 3);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+  public static getPavingTexture(size: number = 1024): THREE.CanvasTexture {
+    return this.getPavingPackage(size).albedo;
   }
 
-  /**
-   * Procedural Red Brick Texture (Bata Merah)
-   */
-  public static getBrickTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `brick_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    // Mortar grey base
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillRect(0, 0, size, size);
-
-    const rows = 16;
-    const cols = 8;
-    const rowH = size / rows;
-    const colW = size / cols;
-
-    for (let r = 0; r < rows; r++) {
-      const y = r * rowH;
-      const offset = (r % 2) * (colW / 2);
-      for (let c = -1; c <= cols; c++) {
-        const x = c * colW + offset;
-        const brickHue = (Math.random() - 0.5) * 16;
-        ctx.fillStyle = `rgb(${175 + brickHue}, ${68 + brickHue * 0.5}, ${50 + brickHue * 0.3})`;
-        ctx.fillRect(x + 2, y + 2, colW - 4, rowH - 4);
-      }
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+  public static getRoofTileTexture(size: number = 1024): THREE.CanvasTexture {
+    return this.getTerracottaPackage(size).albedo;
   }
 
-  /**
-   * Procedural Wood Plank Texture (Kayu Jati / Tropis)
-   */
-  public static getWoodTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `wood_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    ctx.fillStyle = '#8b5a2b';
-    ctx.fillRect(0, 0, size, size);
-
-    // Wood grain lines
-    ctx.strokeStyle = 'rgba(70, 40, 15, 0.25)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 80; i++) {
-      const y = Math.random() * size;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.bezierCurveTo(size * 0.3, y + (Math.random() - 0.5) * 8, size * 0.7, y + (Math.random() - 0.5) * 8, size, y);
-      ctx.stroke();
-    }
-
-    // Plank seams
-    const planks = 6;
-    const plankH = size / planks;
-    ctx.fillStyle = 'rgba(35, 18, 5, 0.5)';
-    for (let p = 1; p < planks; p++) {
-      ctx.fillRect(0, p * plankH - 1, size, 2);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+  public static getBrickTexture(size: number = 1024): THREE.CanvasTexture {
+    return this.getBrickPackage(size).albedo;
   }
 
-  /**
-   * Modern Architectural Plaster / Stucco Texture
-   * Subtle mineral grain with micro-shading for crisp contemporary walls
-   */
-  public static getPlasterTexture(size: number = 512, baseColor: string = '#f8fafc'): THREE.CanvasTexture {
-    const key = `plaster_${baseColor}_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    ctx.fillStyle = baseColor;
-    ctx.fillRect(0, 0, size, size);
-
-    const imgData = ctx.getImageData(0, 0, size, size);
-    const data = imgData.data;
-
-    for (let i = 0; i < data.length; i += 4) {
-      const n = (Math.random() - 0.5) * 12;
-      data[i] = Math.max(0, Math.min(255, data[i] + n));
-      data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + n));
-      data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + n));
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+  public static getWoodTexture(size: number = 1024): THREE.CanvasTexture {
+    return this.getTeakWoodPackage(size).albedo;
   }
 
-  /**
-   * Modern Vertical Architectural Timber Slat / Louver Texture
-   * Slender teak battens with deep recessed dark shadow reveals
-   */
-  public static getModernWoodSlatTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `wood_slat_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    // Deep black/charcoal background for recess shadow
-    ctx.fillStyle = '#111418';
-    ctx.fillRect(0, 0, size, size);
-
-    const slatCount = 16;
-    const slatW = size / slatCount;
-    const slatGap = 4;
-    const barW = slatW - slatGap;
-
-    for (let i = 0; i < slatCount; i++) {
-      const x = i * slatW;
-      
-      // Warm modern architectural teak gradient
-      const grad = ctx.createLinearGradient(x, 0, x + barW, 0);
-      const toneVariation = (Math.random() - 0.5) * 15;
-      grad.addColorStop(0, `rgb(${160 + toneVariation}, ${105 + toneVariation * 0.7}, ${55 + toneVariation * 0.4})`);
-      grad.addColorStop(0.5, `rgb(${185 + toneVariation}, ${120 + toneVariation * 0.7}, ${65 + toneVariation * 0.4})`);
-      grad.addColorStop(1, `rgb(${140 + toneVariation}, ${90 + toneVariation * 0.7}, ${45 + toneVariation * 0.4})`);
-      
-      ctx.fillStyle = grad;
-      ctx.fillRect(x, 0, barW, size);
-
-      // Fine grain streaks along slats
-      ctx.strokeStyle = 'rgba(70, 35, 12, 0.2)';
-      ctx.lineWidth = 1;
-      for (let g = 0; g < 6; g++) {
-        const gx = x + Math.random() * barW;
-        ctx.beginPath();
-        ctx.moveTo(gx, 0);
-        ctx.lineTo(gx, size);
-        ctx.stroke();
-      }
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+  public static getPlasterTexture(size: number = 1024, baseColor: string = '#f8fafc'): THREE.CanvasTexture {
+    return this.getPlasterPackage(size, baseColor).albedo;
   }
 
-  /**
-   * Architectural Board-Formed Concrete Texture
-   * Fair-faced concrete with horizontal formwork plank seams & tie-rod details
-   */
+  public static getModernWoodSlatTexture(size: number = 1024): THREE.CanvasTexture {
+    return this.getTeakWoodPackage(size).albedo;
+  }
+
   public static getBoardFormedConcreteTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `concrete_board_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    // Base architectural grey
-    ctx.fillStyle = '#8e97a4';
-    ctx.fillRect(0, 0, size, size);
-
-    const planks = 8;
-    const plankH = size / planks;
-
-    for (let p = 0; p < planks; p++) {
-      const y = p * plankH;
-      const shade = (Math.random() - 0.5) * 16;
-      ctx.fillStyle = `rgba(${135 + shade}, ${145 + shade}, ${155 + shade}, 0.5)`;
-      ctx.fillRect(0, y, size, plankH);
-
-      // Horizontal seam line
-      ctx.fillStyle = 'rgba(50, 55, 65, 0.45)';
-      ctx.fillRect(0, y + plankH - 2, size, 2);
-
-      // Formwork tie-rod indents
-      const holes = [size * 0.2, size * 0.5, size * 0.8];
-      for (const hx of holes) {
-        ctx.beginPath();
-        ctx.arc(hx, y + plankH * 0.5, 4, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(40, 45, 55, 0.6)';
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(hx, y + plankH * 0.5, 2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(20, 25, 30, 0.8)';
-        ctx.fill();
-      }
-    }
-
-    // Mineral noise
-    const imgData = ctx.getImageData(0, 0, size, size);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const n = (Math.random() - 0.5) * 14;
-      d[i] += n;
-      d[i + 1] += n;
-      d[i + 2] += n;
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+    return this.getBoardFormedConcretePackage(size).albedo;
   }
 
-  /**
-   * Modern Standing-Seam Dark Anthracite Zinc Roof Texture
-   */
   public static getDarkZincRoofTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `zinc_roof_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    ctx.fillStyle = '#22272e';
-    ctx.fillRect(0, 0, size, size);
-
-    const seams = 12;
-    const seamSpacing = size / seams;
-
-    for (let s = 0; s < seams; s++) {
-      const x = s * seamSpacing;
-
-      // Standing rib highlight & shadow
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.fillRect(x, 0, 2, size);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(x + 2, 0, 3, size);
-
-      // Subtle metallic reflection gradient between seams
-      const grad = ctx.createLinearGradient(x + 5, 0, x + seamSpacing, 0);
-      grad.addColorStop(0, '#262c35');
-      grad.addColorStop(0.5, '#2e3540');
-      grad.addColorStop(1, '#1e2329');
-      ctx.fillStyle = grad;
-      ctx.fillRect(x + 5, 0, seamSpacing - 5, size);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+    return this.getDarkZincRoofPackage(size).albedo;
   }
 
-  /**
-   * Modern Andesite Volcanic Stone Plinth Texture
-   */
-  public static getStonePlinthTexture(size: number = 512): THREE.CanvasTexture {
-    const key = `stone_plinth_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
+  public static getStonePlinthTexture(size: number = 1024): THREE.CanvasTexture {
+    return this.getStoneCandiPackage(size).albedo;
+  }
 
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    // Dark charcoal andesite
-    ctx.fillStyle = '#373c44';
-    ctx.fillRect(0, 0, size, size);
-
-    const imgData = ctx.getImageData(0, 0, size, size);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const n = (Math.random() - 0.5) * 26;
-      d[i] = Math.max(30, Math.min(80, 55 + n));
-      d[i + 1] = Math.max(30, Math.min(85, 60 + n));
-      d[i + 2] = Math.max(35, Math.min(95, 68 + n));
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    // Stone block division lines
-    ctx.strokeStyle = 'rgba(20, 22, 28, 0.5)';
-    ctx.lineWidth = 2;
-    const rows = 6;
-    const rowH = size / rows;
-    for (let r = 0; r <= rows; r++) {
-      ctx.beginPath();
-      ctx.moveTo(0, r * rowH);
-      ctx.lineTo(size, r * rowH);
-      ctx.stroke();
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
+  public static getTactilePavingTexture(size: number = 512): THREE.CanvasTexture {
+    return this.getTactilePavingPackage(size).albedo;
   }
 
   /**
@@ -596,11 +989,9 @@ export class ProceduralTextureGen {
     if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
 
     const { canvas, ctx } = this.createCanvas(size, size);
-
     ctx.fillStyle = '#1c4519';
     ctx.fillRect(0, 0, size, size);
 
-    // Draw overlapping tropical leaf shapes
     for (let i = 0; i < 40; i++) {
       const cx = Math.random() * size;
       const cy = Math.random() * size;
@@ -621,72 +1012,7 @@ export class ProceduralTextureGen {
   }
 
   /**
-   * Procedural Asphalt Roughness Map (1024x1024)
-   * Roughness target: ~0.88 with variation between bitumen and mineral grains.
-   */
-  public static getAsphaltRoughnessTexture(size: number = 1024): THREE.CanvasTexture {
-    const key = `asphalt_roughness_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-    ctx.fillStyle = '#dfdfdf';
-    ctx.fillRect(0, 0, size, size);
-
-    const imgData = ctx.getImageData(0, 0, size, size);
-    const data = imgData.data;
-    for (let i = 0; i < data.length; i += 4) {
-      const n = (Math.random() - 0.5) * 28;
-      const val = Math.max(200, Math.min(245, 224 + n));
-      data[i] = val;
-      data[i + 1] = val;
-      data[i + 2] = val;
-      data[i + 3] = 255;
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    this.cache.set(key, texture);
-    return texture;
-  }
-
-  /**
-   * Procedural Bright Yellow Tactile Paving Block (Pemandu Disabilitas)
-   */
-  public static getTactilePavingTexture(size: number = 256): THREE.CanvasTexture {
-    const key = `tactile_paving_${size}`;
-    if (this.cache.has(key)) return this.cache.get(key) as THREE.CanvasTexture;
-
-    const { canvas, ctx } = this.createCanvas(size, size);
-
-    // Warm vibrant yellow base (#FACC15)
-    ctx.fillStyle = '#eab308';
-    ctx.fillRect(0, 0, size, size);
-
-    // Embossed directional guiding bars
-    const bars = 4;
-    const barWidth = size / (bars * 2);
-    for (let b = 0; b < bars; b++) {
-      const x = b * barWidth * 2 + barWidth * 0.5;
-      const grad = ctx.createLinearGradient(x, 0, x + barWidth, 0);
-      grad.addColorStop(0, '#fef08a'); // Highlight
-      grad.addColorStop(0.5, '#facc15'); // Peak
-      grad.addColorStop(1, '#ca8a04'); // Shadow
-      ctx.fillStyle = grad;
-      ctx.fillRect(x, 0, barWidth, size);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.cache.set(key, texture);
-    return texture;
-  }
-
-  /**
-   * Procedural Clean White Stencil Road Text "Malioboro"
+   * Procedural Clean White Stencil Road Text "MALIOBORO"
    */
   public static getMalioboroRoadMarkingTexture(): THREE.CanvasTexture {
     const key = 'road_text_malioboro';

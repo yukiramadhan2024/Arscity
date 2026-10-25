@@ -154,6 +154,13 @@ export class SectionCutManager {
     this.updateVisualizerPosition();
   }
 
+  public setVerticalSectionCut(center: THREE.Vector3): void {
+    this.currentMode = 'section_vertical';
+    this.verticalPlane.set(new THREE.Vector3(0, 0, 1), -center.z);
+    this.renderer.clippingPlanes = [this.verticalPlane];
+    this.visualizerGroup.visible = false;
+  }
+
   public setCutOffset(offset: number): void {
     this.cutOffset = offset;
     this.verticalPlane.constant = offset;

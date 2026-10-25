@@ -439,22 +439,68 @@ export function createMalioboroMapData(): CitySaveData {
     lotId: heritageWestLotId,
   });
 
-  // 4. Landscape Items (Trees, Gardens, Infiltration Wells, Biopores)
+  // 4. Landscape Items (Iconic Placemaking, Flora Nusantara, Statues, Lighting, Eco-Drainage)
   const landscape: SerializedLandscapeItem[] = [
-    // Kepatihan Green Courtyard (High KDH > 35%, exemplary tropical architecture)
-    { id: 'land_kepatihan_lawn_1', type: 'grass_patch', position: [44, 0, 44], scale: 12 },
-    { id: 'land_kepatihan_lawn_2', type: 'grass_patch', position: [66, 0, 44], scale: 12 },
-    { id: 'land_kepatihan_lawn_3', type: 'grass_patch', position: [44, 0, 66], scale: 12 },
-    { id: 'land_kepatihan_lawn_4', type: 'grass_patch', position: [66, 0, 66], scale: 12 },
+    // ----------------------------------------------------
+    // NORTH CORRIDOR APEX: TUGU PAL PUTIH YOGYAKARTA
+    // ----------------------------------------------------
+    { id: 'land_tugu_jogja', type: 'monument_tugu_jogja', position: [0, 0, -185], width: 4.5, length: 4.5, radius: 2.5 },
 
-    // Big shade trees (Pohon Peneduh Trembesi / Beringin) around Kepatihan
-    { id: 'land_tree_kepatihan_1', type: 'tree', position: [38, 0, 38], radius: 3.5 },
-    { id: 'land_tree_kepatihan_2', type: 'tree', position: [72, 0, 38], radius: 3.5 },
-    { id: 'land_tree_kepatihan_3', type: 'tree', position: [38, 0, 72], radius: 3.5 },
-    { id: 'land_tree_kepatihan_4', type: 'tree', position: [72, 0, 72], radius: 3.5 },
-    { id: 'land_tree_kepatihan_5', type: 'tree', position: [55, 0, 36], radius: 3.0 },
+    // ----------------------------------------------------
+    // MALIOBORO PEDESTRIAN SIDEWALK FLANKS (x = -8 and x = 8)
+    // Featuring alternating Tabebuya Pink/Gold, Asem Jawa, Bollards, & Festoon Lights
+    // ----------------------------------------------------
+    // West Sidewalk (x = -8)
+    { id: 'land_tree_w_1', type: 'tree_tabebuya_pink', position: [-8, 0, -150], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_bollard_w_1', type: 'street_malioboro_bollards', position: [-8, 0, -135], width: 4.0, length: 2.0 },
+    { id: 'land_tree_w_2', type: 'tree_asam_jawa', position: [-8, 0, -115], width: 6.0, length: 6.0, radius: 3.2 },
+    { id: 'land_festoon_w_1', type: 'street_festoon_lights', position: [-8, 0, -95], width: 8.0, length: 2.0 },
+    { id: 'land_tree_w_3', type: 'tree_tabebuya_gold', position: [-8, 0, -75], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_bollard_w_2', type: 'street_malioboro_bollards', position: [-8, 0, -55], width: 4.0, length: 2.0 },
+    { id: 'land_tree_w_4', type: 'tree_tabebuya_pink', position: [-8, 0, -35], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_tree_w_5', type: 'tree_asam_jawa', position: [-8, 0, 10], width: 6.0, length: 6.0, radius: 3.2 },
+    { id: 'land_bollard_w_3', type: 'street_malioboro_bollards', position: [-8, 0, 35], width: 4.0, length: 2.0 },
+    { id: 'land_festoon_w_2', type: 'street_festoon_lights', position: [-8, 0, 55], width: 8.0, length: 2.0 },
+    { id: 'land_tree_w_6', type: 'tree_tabebuya_gold', position: [-8, 0, 75], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_bollard_w_4', type: 'street_malioboro_bollards', position: [-8, 0, 110], width: 4.0, length: 2.0 },
+    { id: 'land_tree_w_7', type: 'tree_tabebuya_pink', position: [-8, 0, 135], width: 5.5, length: 5.5, radius: 2.8 },
 
-    // Eco-Drainage: Sumur Resapan & Biopori in Kepatihan Complex
+    // East Sidewalk (x = 8)
+    { id: 'land_tree_e_1', type: 'tree_tabebuya_gold', position: [8, 0, -150], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_bollard_e_1', type: 'street_malioboro_bollards', position: [8, 0, -135], width: 4.0, length: 2.0 },
+    { id: 'land_tree_e_2', type: 'tree_tabebuya_pink', position: [8, 0, -115], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_festoon_e_1', type: 'street_festoon_lights', position: [8, 0, -95], width: 8.0, length: 2.0 },
+    { id: 'land_tree_e_3', type: 'tree_asam_jawa', position: [8, 0, -75], width: 6.0, length: 6.0, radius: 3.2 },
+    { id: 'land_bollard_e_2', type: 'street_malioboro_bollards', position: [8, 0, -55], width: 4.0, length: 2.0 },
+    { id: 'land_tree_e_4', type: 'tree_tabebuya_gold', position: [8, 0, -35], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_tree_e_5', type: 'tree_tabebuya_pink', position: [8, 0, 10], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_bollard_e_3', type: 'street_malioboro_bollards', position: [8, 0, 35], width: 4.0, length: 2.0 },
+    { id: 'land_festoon_e_2', type: 'street_festoon_lights', position: [8, 0, 55], width: 8.0, length: 2.0 },
+    { id: 'land_tree_e_6', type: 'tree_asam_jawa', position: [8, 0, 75], width: 6.0, length: 6.0, radius: 3.2 },
+    { id: 'land_bollard_e_4', type: 'street_malioboro_bollards', position: [8, 0, 110], width: 4.0, length: 2.0 },
+    { id: 'land_tree_e_7', type: 'tree_tabebuya_gold', position: [8, 0, 135], width: 5.5, length: 5.5, radius: 2.8 },
+
+    // ----------------------------------------------------
+    // KOMPLEKS KEPATIHAN DIY (CULTURAL & HERITAGE SANCTUARY)
+    // ----------------------------------------------------
+    { id: 'land_candi_bentar_kepatihan', type: 'gate_candi_bentar', position: [28, 0, 30], width: 6.0, length: 2.5 },
+    { id: 'land_beringin_kurung', type: 'tree_banyan_kurung', position: [55, 0, 55], width: 14.0, length: 14.0, radius: 7.0 },
+    { id: 'land_wayang_corten_kepatihan', type: 'sculpture_wayang_corten', position: [38, 0, 32], width: 3.0, length: 1.5 },
+    { id: 'land_lotus_kepatihan', type: 'flora_lotus_water', position: [55, 0, 38], width: 6.0, length: 6.0, radius: 3.0 },
+    { id: 'land_gazebo_kepatihan', type: 'pavilion_garden_gazebo', position: [72, 0, 38], width: 4.5, length: 4.5 },
+    { id: 'land_bamboo_kepatihan', type: 'flora_yellow_bamboo', position: [36, 0, 70], width: 4.0, length: 2.0 },
+    { id: 'land_lanterns_kepatihan', type: 'street_garden_lanterns', position: [42, 0, 35], width: 3.0, length: 1.5 },
+    { id: 'land_tree_flamboyan_kepatihan', type: 'tree_flamboyan', position: [72, 0, 72], width: 8.0, length: 8.0, radius: 4.0 },
+
+    // Kepatihan Green Courtyard Lawns, Trees & Eco-Drainage
+    { id: 'land_kepatihan_lawn_1', type: 'grass_garden', position: [44, 0, 44], width: 12, length: 12 },
+    { id: 'land_kepatihan_lawn_2', type: 'grass_garden', position: [66, 0, 44], width: 12, length: 12 },
+    { id: 'land_kepatihan_lawn_3', type: 'grass_garden', position: [44, 0, 66], width: 12, length: 12 },
+    { id: 'land_kepatihan_lawn_4', type: 'grass_garden', position: [66, 0, 66], width: 12, length: 12 },
+    { id: 'land_tree_kepatihan_1', type: 'tree_banyan_kurung', position: [38, 0, 38], width: 10.0, length: 10.0, radius: 5.0 },
+    { id: 'land_tree_kepatihan_2', type: 'tree_flamboyan', position: [72, 0, 38], width: 8.0, length: 8.0, radius: 4.0 },
+    { id: 'land_tree_kepatihan_3', type: 'tree_tabebuya_pink', position: [38, 0, 72], width: 6.0, length: 6.0, radius: 3.0 },
+    { id: 'land_tree_kepatihan_4', type: 'tree_asam_jawa', position: [72, 0, 72], width: 7.0, length: 7.0, radius: 3.5 },
     { id: 'land_well_kepatihan_1', type: 'well', position: [40, 0, 42], radius: 1.0 },
     { id: 'land_well_kepatihan_2', type: 'well', position: [70, 0, 68], radius: 1.0 },
     { id: 'land_biopore_1', type: 'biopore', position: [42, 0, 50], radius: 0.3 },
@@ -462,50 +508,24 @@ export function createMalioboroMapData(): CitySaveData {
     { id: 'land_biopore_3', type: 'biopore', position: [64, 0, 50], radius: 0.3 },
     { id: 'land_biopore_4', type: 'biopore', position: [68, 0, 52], radius: 0.3 },
 
-    // Malioboro Pedestrian Corridor Street Trees (Peneduh Jalan)
-    { id: 'land_tree_m_1', type: 'tree', position: [-8, 0, -140], radius: 2.2 },
-    { id: 'land_tree_m_2', type: 'tree', position: [8, 0, -140], radius: 2.2 },
-    { id: 'land_tree_m_3', type: 'tree', position: [-8, 0, -100], radius: 2.2 },
-    { id: 'land_tree_m_4', type: 'tree', position: [8, 0, -100], radius: 2.2 },
-    { id: 'land_tree_m_5', type: 'tree', position: [-8, 0, -40], radius: 2.2 },
-    { id: 'land_tree_m_6', type: 'tree', position: [8, 0, -40], radius: 2.2 },
-    { id: 'land_tree_m_7', type: 'tree', position: [-8, 0, 20], radius: 2.2 },
-    { id: 'land_tree_m_8', type: 'tree', position: [8, 0, 20], radius: 2.2 },
-    { id: 'land_tree_m_9', type: 'tree', position: [-8, 0, 80], radius: 2.2 },
-    { id: 'land_tree_m_10', type: 'tree', position: [8, 0, 80], radius: 2.2 },
-    { id: 'land_tree_m_11', type: 'tree', position: [-8, 0, 140], radius: 2.2 },
-    { id: 'land_tree_m_12', type: 'tree', position: [8, 0, 140], radius: 2.2 },
+    // ----------------------------------------------------
+    // TITIK NOL KILOMETER & GEDUNG HERITAGE CIVIC PLAZA
+    // ----------------------------------------------------
+    { id: 'land_fountain_nol', type: 'fountain_reflecting_pool', position: [24, 0, 168], width: 8.0, length: 8.0, radius: 4.0 },
+    { id: 'land_kinetic_nol', type: 'sculpture_kinetic_steel', position: [-24, 0, 168], width: 3.5, length: 3.5 },
+    { id: 'land_clock_tower_nol', type: 'monument_clock_tower', position: [30, 0, 185], width: 3.5, length: 3.5 },
+    { id: 'land_amphitheater_nol', type: 'plaza_mini_amphitheater', position: [-30, 0, 185], width: 12.0, length: 12.0, radius: 6.0 },
+    { id: 'land_pergola_nol', type: 'street_timber_pergola', position: [-24, 0, 148], width: 6.0, length: 4.0 },
+    { id: 'land_deck_nol', type: 'waterfront_wood_deck', position: [24, 0, 148], width: 6.0, length: 4.0 },
+    { id: 'land_candi_stone_nol', type: 'sculpture_candi_stone', position: [15, 0, 175], width: 2.0, length: 2.0 },
 
-    // Titik Nol Km Heritage landscaping
-    { id: 'land_tree_nol_e', type: 'tree', position: [24, 0, 160], radius: 3.0 },
-    { id: 'land_tree_nol_w', type: 'tree', position: [-24, 0, 160], radius: 3.0 },
-    { id: 'land_lawn_nol_e', type: 'grass_patch', position: [26, 0, 162], scale: 6 },
-    { id: 'land_lawn_nol_w', type: 'grass_patch', position: [-26, 0, 162], scale: 6 },
-
-    // SHOWCASE: Joglo Yogyakarta Lush Courtyard & Stepping Stones
-    { id: 'land_joglo_lawn', type: 'grass_patch', position: [-28, 0, -18], scale: 22 },
-    { id: 'land_joglo_tree_1', type: 'tree', position: [-38, 0, -8], radius: 3.4 },
-    { id: 'land_joglo_tree_2', type: 'tree', position: [-38, 0, -28], radius: 3.2 },
-    { id: 'land_joglo_shrub_1', type: 'shrub' as any, position: [-18, 0, -12], scale: 1 },
-    { id: 'land_joglo_shrub_2', type: 'shrub' as any, position: [-18, 0, -24], scale: 1 },
-    { id: 'land_joglo_shrub_3', type: 'shrub' as any, position: [-36, 0, -14], scale: 1 },
-    { id: 'land_joglo_shrub_4', type: 'shrub' as any, position: [-36, 0, -22], scale: 1 },
-    { id: 'land_joglo_stone_1', type: 'stepping_stones' as any, position: [-16, 0, -18], scale: 1 },
-    { id: 'land_joglo_stone_2', type: 'stepping_stones' as any, position: [-14.5, 0, -18], scale: 1 },
-    { id: 'land_joglo_stone_3', type: 'stepping_stones' as any, position: [-13, 0, -18], scale: 1 },
-
-    // SHOWCASE: Tropical Cafe "KOPI & RASA" Outdoor Garden
-    { id: 'land_cafe_lawn', type: 'grass_patch', position: [-24, 0, 16], scale: 20 },
-    { id: 'land_cafe_tree_1', type: 'tree', position: [-34, 0, 24], radius: 3.0 },
-    { id: 'land_cafe_shrub_1', type: 'shrub' as any, position: [-16, 0, 9], scale: 1 },
-    { id: 'land_cafe_shrub_2', type: 'shrub' as any, position: [-16, 0, 23], scale: 1 },
-    { id: 'land_cafe_shrub_3', type: 'shrub' as any, position: [-32, 0, 10], scale: 1 },
-
-    // SHOWCASE: Resto "MIE NUSANTARA" Green Boundary
-    { id: 'land_mie_lawn', type: 'grass_patch', position: [26, 0, 0], scale: 22 },
-    { id: 'land_mie_shrub_1', type: 'shrub' as any, position: [17, 0, -10], scale: 1 },
-    { id: 'land_mie_shrub_2', type: 'shrub' as any, position: [17, 0, 10], scale: 1 },
-    { id: 'land_mie_tree_1', type: 'tree', position: [36, 0, 12], radius: 2.8 },
+    // ----------------------------------------------------
+    // JOGLO COURTYARD & TROPICAL CAFE HIGHLIGHTS
+    // ----------------------------------------------------
+    { id: 'land_frangipani_joglo', type: 'tree_frangipani', position: [-38, 0, -8], width: 4.0, length: 4.0, radius: 2.0 },
+    { id: 'land_bambusa_joglo', type: 'flora_yellow_bamboo', position: [-38, 0, -28], width: 4.0, length: 2.0 },
+    { id: 'land_arch_cafe', type: 'flora_bougainvillea_arch', position: [-20, 0, 16], width: 3.0, length: 4.0 },
+    { id: 'land_frangipani_cafe', type: 'tree_frangipani', position: [-34, 0, 24], width: 4.0, length: 4.0, radius: 2.0 }
   ];
 
   return {

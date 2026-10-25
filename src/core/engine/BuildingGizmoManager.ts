@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BuildingInstance } from '../../buildings/PrefabTypes';
 import { BuildingManager } from '../../buildings/BuildingManager';
+import { BuildingCatalogRegistry } from '../../buildings/BuildingCatalogRegistry';
 import { UpdateBuildingParamCommand } from '../commands/CityCommands';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { ZONE_RULES } from '../../zones/ZoneTypes';
@@ -373,7 +374,8 @@ export class BuildingGizmoManager {
     if (this.activeHandle === 'floor') {
       // 1 floor per 35 vertical pixels
       const floorDelta = Math.round(dy / 35);
-      const newFloorCount = Math.max(1, Math.min(8, this.dragState.initialFloorCount + floorDelta));
+      const limits = BuildingCatalogRegistry.getFloorLimits(bld.presetKey);
+      const newFloorCount = Math.max(limits.minFloors, Math.min(limits.maxFloors, this.dragState.initialFloorCount + floorDelta));
 
       if (newFloorCount !== bld.floorCount) {
         bld.floorCount = newFloorCount;

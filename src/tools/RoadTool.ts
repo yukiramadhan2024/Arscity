@@ -3,7 +3,7 @@ import { RoadManager } from '../roads/RoadManager';
 import { RoadType, ROAD_PROFILES } from '../roads/RoadTypes';
 import { RaycastManager } from '../core/engine/RaycastManager';
 import { proceduralAudio } from '../audio/ProceduralAudio';
-import { ProceduralTextureGen } from '../materials/ProceduralTextureGen';
+import { RoadMaterialHelper } from '../roads/RoadMaterialHelper';
 
 export class RoadTool {
   public roadManager: RoadManager;
@@ -19,12 +19,12 @@ export class RoadTool {
 
   // Ghost preview mesh & measurement guide lines
   private ghostMesh: THREE.Mesh;
-  private ghostMaterialValid: THREE.MeshStandardMaterial;
-  private ghostMaterialInvalid: THREE.MeshBasicMaterial;
   private guideGroup: THREE.Group;
   private centerGuideLine: THREE.Line;
   private leftGuideLine: THREE.Line;
   private rightGuideLine: THREE.Line;
+  private lineMatCenter: THREE.LineDashedMaterial;
+  private lineMatEdges: THREE.LineBasicMaterial;
 
   public currentRoadLength: number = 0;
   public isValidPlacement: boolean = false;
@@ -35,43 +35,20 @@ export class RoadTool {
     this.raycastManager = raycastManager;
     this.scene = scene;
 
-    // Realistic Semi-Transparent Hotmix Asphalt Preview Material
-    const asphaltTex = ProceduralTextureGen.getAsphaltTexture(512);
-    asphaltTex.wrapS = THREE.RepeatWrapping;
-    asphaltTex.wrapT = THREE.RepeatWrapping;
-
-    this.ghostMaterialValid = new THREE.MeshStandardMaterial({
-      map: asphaltTex,
-      color: 0xffffff,
-      roughness: 0.88,
-      metalness: 0.05,
-      transparent: true,
-      opacity: 0.82,
-      depthWrite: false,
-      side: THREE.DoubleSide
-    });
-
-    this.ghostMaterialInvalid = new THREE.MeshBasicMaterial({
-      color: 0xff3b30,
-      transparent: true,
-      opacity: 0.65,
-      depthWrite: false,
-      side: THREE.DoubleSide
-    });
-
+    const initialMat = RoadMaterialHelper.getPreviewMaterial(this.activeRoadType, true);
     const geom = new THREE.BufferGeometry();
-    this.ghostMesh = new THREE.Mesh(geom, this.ghostMaterialValid);
+    this.ghostMesh = new THREE.Mesh(geom, initialMat);
     this.ghostMesh.visible = false;
     this.ghostMesh.name = 'RoadGhostPreview';
     scene.add(this.ghostMesh);
 
-    // Measurement guides: dashed centerline and cyan edge guides
+    // Measurement guides: dashed centerline and edge guides
     this.guideGroup = new THREE.Group();
     this.guideGroup.name = 'RoadGhostGuides';
     this.guideGroup.visible = false;
 
-    const lineMatCenter = new THREE.LineDashedMaterial({
-      color: 0xffffff,
+    this.lineMatCenter = new THREE.LineDashedMaterial({
+      color: 0xf59e0b,
       dashSize: 1.5,
       gapSize: 1.0,
       linewidth: 1,
@@ -79,25 +56,51 @@ export class RoadTool {
       opacity: 0.95
     });
 
-    const lineMatEdges = new THREE.LineBasicMaterial({
+    this.lineMatEdges = new THREE.LineBasicMaterial({
       color: 0x38bdf8,
       linewidth: 1,
       transparent: true,
       opacity: 0.8
     });
 
-    this.centerGuideLine = new THREE.Line(new THREE.BufferGeometry(), lineMatCenter);
-    this.leftGuideLine = new THREE.Line(new THREE.BufferGeometry(), lineMatEdges);
-    this.rightGuideLine = new THREE.Line(new THREE.BufferGeometry(), lineMatEdges);
+    this.centerGuideLine = new THREE.Line(new THREE.BufferGeometry(), this.lineMatCenter);
+    this.leftGuideLine = new THREE.Line(new THREE.BufferGeometry(), this.lineMatEdges);
+    this.rightGuideLine = new THREE.Line(new THREE.BufferGeometry(), this.lineMatEdges);
 
     this.guideGroup.add(this.centerGuideLine);
     this.guideGroup.add(this.leftGuideLine);
     this.guideGroup.add(this.rightGuideLine);
     scene.add(this.guideGroup);
+
+    this.updateGuideStyles();
   }
 
   public setRoadType(type: RoadType): void {
     this.activeRoadType = type;
+    this.updateGuideStyles();
+  }
+
+  private updateGuideStyles(): void {
+    if (this.activeRoadType === 'pedestrian') {
+      this.centerGuideLine.visible = false;
+      this.lineMatEdges.color.setHex(0x94a3b8);
+    } else if (this.activeRoadType === 'alley') {
+      this.centerGuideLine.visible = false;
+      this.lineMatEdges.color.setHex(0xe2e8f0);
+    } else if (this.activeRoadType === 'cycle') {
+      this.centerGuideLine.visible = true;
+      this.lineMatCenter.color.setHex(0xffffff);
+      this.lineMatEdges.color.setHex(0x22c55e);
+    } else if (this.activeRoadType === 'collector' || this.activeRoadType === 'arterial') {
+      this.centerGuideLine.visible = true;
+      this.lineMatCenter.color.setHex(0xf59e0b);
+      this.lineMatEdges.color.setHex(0x38bdf8);
+    } else {
+      // local
+      this.centerGuideLine.visible = true;
+      this.lineMatCenter.color.setHex(0xffffff);
+      this.lineMatEdges.color.setHex(0x38bdf8);
+    }
   }
 
   public setDrawMode(mode: 'straight' | 'bezier'): void {
@@ -172,7 +175,7 @@ export class RoadTool {
       this.onLengthUpdate(this.currentRoadLength, this.isValidPlacement);
     }
 
-    this.ghostMesh.material = this.isValidPlacement ? this.ghostMaterialValid : this.ghostMaterialInvalid;
+    this.ghostMesh.material = RoadMaterialHelper.getPreviewMaterial(this.activeRoadType, this.isValidPlacement);
     this.ghostMesh.visible = true;
 
     // Rebuild ribbon geometry for ghost
@@ -211,9 +214,9 @@ export class RoadTool {
       const left = pt.clone().addScaledVector(norm, -width * 0.5);
       const right = pt.clone().addScaledVector(norm, width * 0.5);
 
-      centerPts.push(new THREE.Vector3(pt.x, 0.1, pt.z));
-      leftPts.push(new THREE.Vector3(left.x, 0.1, left.z));
-      rightPts.push(new THREE.Vector3(right.x, 0.1, right.z));
+      centerPts.push(new THREE.Vector3(pt.x, 0.095, pt.z));
+      leftPts.push(new THREE.Vector3(left.x, 0.095, left.z));
+      rightPts.push(new THREE.Vector3(right.x, 0.095, right.z));
 
       const baseIdx = i * 2;
       positions[baseIdx * 3] = left.x;
@@ -229,8 +232,9 @@ export class RoadTool {
       uvs[(baseIdx + 1) * 2 + 1] = t * (dist * 0.4);
 
       if (i < segments) {
-        indices.push(baseIdx, baseIdx + 2, baseIdx + 1);
-        indices.push(baseIdx + 1, baseIdx + 2, baseIdx + 3);
+        // Segitiga menghadap ke atas (+Y)
+        indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
+        indices.push(baseIdx + 1, baseIdx + 3, baseIdx + 2);
       }
     }
 
@@ -282,9 +286,9 @@ export class RoadTool {
       this.centerGuideLine.geometry.dispose();
       this.leftGuideLine.geometry.dispose();
       this.rightGuideLine.geometry.dispose();
+      this.lineMatCenter.dispose();
+      this.lineMatEdges.dispose();
     }
     this.ghostMesh.geometry.dispose();
-    this.ghostMaterialValid.dispose();
-    this.ghostMaterialInvalid.dispose();
   }
 }

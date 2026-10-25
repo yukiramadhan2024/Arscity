@@ -1,6 +1,7 @@
 import React from 'react';
 import { useUIStore, ThemeMode, GlassStyle } from '../state/useUIStore';
 import { Building, Sparkles, Eye, Check } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 export const OnboardingModal: React.FC = () => {
   const {
@@ -14,11 +15,22 @@ export const OnboardingModal: React.FC = () => {
     setGlassOpacity
   } = useUIStore();
 
+  const modalRef = useModalA11y(showOnboarding, () => setShowOnboarding(false));
+
   if (!showOnboarding) return null;
 
   return (
-    <div className="modal-overlay interactive" role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay interactive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setShowOnboarding(false);
+      }}
+    >
       <div
+        ref={modalRef}
         className="modal-sheet"
         style={{
           width: '540px',
@@ -45,7 +57,7 @@ export const OnboardingModal: React.FC = () => {
               <Building size={20} color="#007AFF" strokeWidth={2.2} />
             </div>
             <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
+              <div id="onboarding-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
                 Selamat Datang di Arscity
               </div>
               <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>

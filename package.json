@@ -1,7 +1,7 @@
 {
   "name": "arscity",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,6 @@
     "test:node": "node --experimental-strip-types scripts/bug-tester.ts"
   },
   "dependencies": {
-    "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "earcut": "^2.2.4",
@@ -27,7 +26,6 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
-    "@types/canvas-confetti": "^1.9.0",
     "@types/earcut": "^2.1.4",
     "@types/node": "^26.6.5",
     "@types/react": "^18.2.56",

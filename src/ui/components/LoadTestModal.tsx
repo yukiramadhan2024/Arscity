@@ -3,6 +3,7 @@ import { useUIStore, GraphicsQuality } from '../state/useUIStore';
 import { LoadTestRunner, BenchmarkMetrics } from '../../dev/LoadTestRunner';
 import { Activity, Play, Trash2, X, Check, Gauge, Cpu, Layers } from 'lucide-react';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface LoadTestModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface LoadTestModalProps {
 }
 
 export const LoadTestModal: React.FC<LoadTestModalProps> = ({ isOpen, onClose }) => {
+  const modalRef = useModalA11y(isOpen, onClose);
   const { engine, graphicsQuality, setGraphicsQuality } = useUIStore();
   const [metrics, setMetrics] = useState<BenchmarkMetrics | null>(null);
   const [isRunningBenchmark, setIsRunningBenchmark] = useState(false);
@@ -57,8 +59,17 @@ export const LoadTestModal: React.FC<LoadTestModalProps> = ({ isOpen, onClose })
   };
 
   return (
-    <div className="modal-overlay interactive" role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay interactive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="loadtest-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={modalRef}
         className="modal-sheet"
         style={{
           width: '560px',
@@ -71,7 +82,7 @@ export const LoadTestModal: React.FC<LoadTestModalProps> = ({ isOpen, onClose })
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Activity size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
+              <div id="loadtest-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
                 Uji Beban & Performa Grafis 3D
               </div>
               <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>

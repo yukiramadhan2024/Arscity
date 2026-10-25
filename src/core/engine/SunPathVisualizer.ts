@@ -1,9 +1,16 @@
 import * as THREE from 'three';
 import { LightingSystem } from './LightingSystem';
+import { calculateSolarPosition } from '../math/SolarPosition';
 
 /**
- * SunPathVisualizer: Renders a futuristic 3D architectural celestial arc and moving sun marker
- * overhead (calibrated to Yogyakarta's solar trajectory at -7.8° S latitude).
+ * SunPathVisualizer: Renders an astronomically accurate 3D architectural celestial arc
+ * and moving sun marker overhead, calibrated to Yogyakarta\'s solar trajectory at -7.8° S latitude.
+ *
+ * Supports seasonal solar declination tilt:
+ * - March Equinox (equinox_mar, day 80): Declination 0°, path near celestial equator
+ * - June Solstice (solstice_jun, day 172): Declination +23.45° LU, tilts towards North (-Z)
+ * - December Solstice (solstice_dec, day 355): Declination -23.45° LS, tilts towards South (+Z)
+ *
  * Features glowing neon cyan dual arcs (#00E5FF), hour tick marks, and an intense golden sun sphere.
  */
 export class SunPathVisualizer {
@@ -16,6 +23,7 @@ export class SunPathVisualizer {
   private sunSphere: THREE.Group | null = null;
   private groundShadowVectorLine: THREE.Line | null = null;
   public isVisible: boolean = true;
+  public currentDayOfYear: number = 172;
 
   private centerPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   private curve: THREE.CatmullRomCurve3 | null = null;
@@ -28,27 +36,69 @@ export class SunPathVisualizer {
     this.masterGroup.visible = true;
     this.scene.add(this.masterGroup);
 
-    this.buildArcGeometry();
+    this.buildArcGeometry(172);
   }
 
-  private buildArcGeometry(): void {
+  /**
+   * Rebuilds the celestial solar arc based on season / day of year.
+   * Disposes previous geometries and lines safely to prevent memory leaks.
+   */
+  public rebuildArc(dayOfYear: number): void {
+    this.currentDayOfYear = dayOfYear;
+
+    // Dispose old meshes and geometries
+    if (this.primaryTubeMesh) {
+      this.masterGroup.remove(this.primaryTubeMesh);
+      this.primaryTubeMesh.geometry.dispose();
+      (this.primaryTubeMesh.material as THREE.Material).dispose();
+      this.primaryTubeMesh = null;
+    }
+
+    if (this.dashedCompanionLine) {
+      this.masterGroup.remove(this.dashedCompanionLine);
+      this.dashedCompanionLine.geometry.dispose();
+      (this.dashedCompanionLine.material as THREE.Material).dispose();
+      this.dashedCompanionLine = null;
+    }
+
+    if (this.tickMarksGroup) {
+      this.masterGroup.remove(this.tickMarksGroup);
+      this.tickMarksGroup.traverse((child) => {
+        if ((child as THREE.Line).isLine) {
+          const line = child as THREE.Line;
+          line.geometry.dispose();
+          if (Array.isArray(line.material)) {
+            line.material.forEach((m) => m.dispose());
+          } else {
+            line.material.dispose();
+          }
+        }
+      });
+      this.tickMarksGroup = null;
+    }
+
+    this.buildArcGeometry(dayOfYear);
+  }
+
+  private buildArcGeometry(dayOfYear: number): void {
     const arcPoints: THREE.Vector3[] = [];
     const companionPoints: THREE.Vector3[] = [];
 
-    // Arc from East (sunrise 05:45) to Zenith to West (sunset 17:45)
-    // In Yogyakarta (-7.8 deg S), sun path tilts slightly North or South depending on season
+    // Arc from sunrise (05:40 WIB) to sunset (17:50 WIB)
     const steps = 60;
-    for (let i = 0; i <= steps; i++) {
-      const theta = (i / steps) * Math.PI; // 0 to PI
-      const x = Math.cos(theta) * this.radius;
-      const y = Math.sin(theta) * this.radius * 0.92;
-      const z = -Math.sin(theta) * this.radius * 0.22; // subtle solar declination tilt
+    const startHour = 5.65;
+    const endHour = 17.85;
 
-      const pt = new THREE.Vector3(x, Math.max(0.4, y), z);
+    for (let i = 0; i <= steps; i++) {
+      const h = startHour + (i / steps) * (endHour - startHour);
+      const coords = calculateSolarPosition(h, dayOfYear);
+
+      const pt = coords.direction.clone().multiplyScalar(this.radius);
+      pt.y = Math.max(0.4, pt.y);
       arcPoints.push(pt);
 
       // Slightly offset companion arc
-      companionPoints.push(new THREE.Vector3(x * 1.03, Math.max(0.4, y * 1.03 + 0.3), z * 1.03));
+      companionPoints.push(new THREE.Vector3(pt.x * 1.03, Math.max(0.4, pt.y * 1.03 + 0.3), pt.z * 1.03));
     }
 
     this.curve = new THREE.CatmullRomCurve3(arcPoints);
@@ -89,15 +139,11 @@ export class SunPathVisualizer {
     });
 
     for (let h = 6; h <= 18; h++) {
-      const progress = (h - 5.75) / (18.0 - 5.75);
-      const theta = progress * Math.PI;
-      const x = Math.cos(theta) * this.radius;
-      const y = Math.sin(theta) * this.radius * 0.92;
-      const z = -Math.sin(theta) * this.radius * 0.22;
+      const coords = calculateSolarPosition(h, dayOfYear);
+      const p1 = coords.direction.clone().multiplyScalar(this.radius);
+      p1.y = Math.max(0.4, p1.y);
 
-      // Small perpendicular tick segment
-      const normal = new THREE.Vector3(x, y, z).normalize();
-      const p1 = new THREE.Vector3(x, y, z);
+      const normal = p1.clone().normalize();
       const p2 = p1.clone().addScaledVector(normal, 1.2);
 
       const tickGeom = new THREE.BufferGeometry().setFromPoints([p1, p2]);
@@ -106,45 +152,49 @@ export class SunPathVisualizer {
     }
     this.masterGroup.add(this.tickMarksGroup);
 
-    // 4. Glowing 3D Golden Sun Sphere (#FFF1D6 + #FFB347 with Halo)
-    this.sunSphere = new THREE.Group();
-    const coreGeom = new THREE.SphereGeometry(1.6, 24, 24);
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: 0xfff1d6, // Intense warm white-gold core
-    });
-    const coreMesh = new THREE.Mesh(coreGeom, coreMat);
-    this.sunSphere.add(coreMesh);
+    // 4. Glowing 3D Golden Sun Sphere (create once)
+    if (!this.sunSphere) {
+      this.sunSphere = new THREE.Group();
+      const coreGeom = new THREE.SphereGeometry(1.6, 24, 24);
+      const coreMat = new THREE.MeshBasicMaterial({
+        color: 0xfff1d6 // Intense warm white-gold core
+      });
+      const coreMesh = new THREE.Mesh(coreGeom, coreMat);
+      this.sunSphere.add(coreMesh);
 
-    const coronaGeom = new THREE.SphereGeometry(2.3, 16, 16);
-    const coronaMat = new THREE.MeshBasicMaterial({
-      color: 0xffb347, // Golden amber outer optical glow
-      transparent: true,
-      opacity: 0.45,
-      side: THREE.BackSide
-    });
-    const coronaMesh = new THREE.Mesh(coronaGeom, coronaMat);
-    this.sunSphere.add(coronaMesh);
+      const coronaGeom = new THREE.SphereGeometry(2.3, 16, 16);
+      const coronaMat = new THREE.MeshBasicMaterial({
+        color: 0xffb347, // Golden amber outer optical glow
+        transparent: true,
+        opacity: 0.45,
+        side: THREE.BackSide
+      });
+      const coronaMesh = new THREE.Mesh(coronaGeom, coronaMat);
+      this.sunSphere.add(coronaMesh);
 
-    this.sunSphere.renderOrder = 955;
-    this.masterGroup.add(this.sunSphere);
+      this.sunSphere.renderOrder = 955;
+      this.masterGroup.add(this.sunSphere);
+    }
 
-    // 5. Sun Ray Vector Line to Ground
-    const lineGeom = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 10, 0)
-    ]);
-    const lineMat = new THREE.LineBasicMaterial({
-      color: 0x00e5ff,
-      transparent: true,
-      opacity: 0.35,
-      depthTest: false
-    });
-    this.groundShadowVectorLine = new THREE.Line(lineGeom, lineMat);
-    this.groundShadowVectorLine.renderOrder = 945;
-    this.masterGroup.add(this.groundShadowVectorLine);
+    // 5. Sun Ray Vector Line to Ground (create once)
+    if (!this.groundShadowVectorLine) {
+      const lineGeom = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 10, 0)
+      ]);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: 0x00e5ff,
+        transparent: true,
+        opacity: 0.35,
+        depthTest: false
+      });
+      this.groundShadowVectorLine = new THREE.Line(lineGeom, lineMat);
+      this.groundShadowVectorLine.renderOrder = 945;
+      this.masterGroup.add(this.groundShadowVectorLine);
+    }
 
-    // Initial positioning at 16:15 WIB
-    this.updateTime(16.25);
+    // Initial position update
+    this.updateTime(16.25, undefined, dayOfYear);
   }
 
   public setCenter(pos: THREE.Vector3): void {
@@ -152,7 +202,7 @@ export class SunPathVisualizer {
     this.masterGroup.position.set(pos.x, 0, pos.z);
   }
 
-  public updateTime(timeOfDay: number, _lightingSystem?: LightingSystem): void {
+  public updateTime(timeOfDay: number, _lightingSystem?: LightingSystem, dayOfYear?: number): void {
     const isDay = timeOfDay >= 5.5 && timeOfDay <= 18.25;
     this.masterGroup.visible = this.isVisible;
 
@@ -165,19 +215,17 @@ export class SunPathVisualizer {
     this.sunSphere.visible = true;
     if (this.groundShadowVectorLine) this.groundShadowVectorLine.visible = true;
 
-    const progress = (timeOfDay - 5.5) / (18.25 - 5.5);
-    const theta = Math.max(0, Math.min(Math.PI, progress * Math.PI));
+    const currentDay = dayOfYear ?? this.currentDayOfYear;
+    const coords = calculateSolarPosition(timeOfDay, currentDay);
+    const pos = coords.direction.clone().multiplyScalar(this.radius);
+    pos.y = Math.max(0.6, pos.y);
 
-    const x = Math.cos(theta) * this.radius;
-    const y = Math.sin(theta) * this.radius * 0.92;
-    const z = -Math.sin(theta) * this.radius * 0.22;
-
-    this.sunSphere.position.set(x, Math.max(0.6, y), z);
+    this.sunSphere.position.copy(pos);
 
     if (this.groundShadowVectorLine) {
       const positions = (this.groundShadowVectorLine.geometry.attributes.position as THREE.BufferAttribute);
       positions.setXYZ(0, 0, 0.1, 0);
-      positions.setXYZ(1, x, Math.max(0.6, y), z);
+      positions.setXYZ(1, pos.x, pos.y, pos.z);
       positions.needsUpdate = true;
     }
   }
@@ -189,6 +237,37 @@ export class SunPathVisualizer {
 
   public dispose(): void {
     this.scene.remove(this.masterGroup);
+    if (this.primaryTubeMesh) {
+      this.primaryTubeMesh.geometry.dispose();
+      (this.primaryTubeMesh.material as THREE.Material).dispose();
+    }
+    if (this.dashedCompanionLine) {
+      this.dashedCompanionLine.geometry.dispose();
+      (this.dashedCompanionLine.material as THREE.Material).dispose();
+    }
+    if (this.groundShadowVectorLine) {
+      this.groundShadowVectorLine.geometry.dispose();
+      (this.groundShadowVectorLine.material as THREE.Material).dispose();
+    }
+    if (this.tickMarksGroup) {
+      this.tickMarksGroup.traverse((child) => {
+        if ((child as THREE.Line).isLine) {
+          (child as THREE.Line).geometry.dispose();
+          const mat = (child as THREE.Line).material;
+          if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+          else mat.dispose();
+        }
+      });
+    }
+    if (this.sunSphere) {
+      this.sunSphere.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          (child as THREE.Mesh).geometry.dispose();
+          const mat = (child as THREE.Mesh).material;
+          if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+          else mat.dispose();
+        }
+      });
+    }
   }
 }
-

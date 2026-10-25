@@ -16,12 +16,15 @@ import {
   HardDrive
 } from 'lucide-react';
 
+import { useModalA11y } from '../hooks/useModalA11y';
+
 interface SaveLoadModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose }) => {
+  const modalRef = useModalA11y(isOpen, onClose);
   const { engine } = useUIStore();
   const [slots, setSlots] = useState<SlotMetadata[]>([]);
   const [activeSlotId, setActiveSlotId] = useState<string>('slot_1');
@@ -115,8 +118,17 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
   };
 
   return (
-    <div className="modal-overlay interactive" role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay interactive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="saveload-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={modalRef}
         className="modal-sheet"
         style={{
           width: '740px',
@@ -142,7 +154,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
               <HardDrive size={20} color="#007AFF" strokeWidth={2.2} />
             </div>
             <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
+              <div id="saveload-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
                 Simpan & Muat Kota
               </div>
               <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>

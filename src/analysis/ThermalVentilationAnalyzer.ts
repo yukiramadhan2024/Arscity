@@ -5,6 +5,7 @@ import { LandscapeManager } from '../world/LandscapeManager';
 import type { LotManager } from '../zones/LotManager';
 import { BuildingCatalogRegistry } from '../buildings/BuildingCatalogRegistry';
 import { advancedBuildingCodeRegistry } from '../zones/AdvancedBuildingCode';
+import { InteriorInteractiveSystem } from '../buildings/InteriorInteractiveSystem';
 
 export interface ThermalComfortReport {
   buildingId: string;
@@ -136,14 +137,33 @@ export class ThermalVentilationAnalyzer {
     // 3. Proximity of shade trees & Neighborhood Diffusion within 25m radius
     let hasShadeTreesNearby = false;
     let neighborCoolingAssets = 0;
+    let specificAestheticCoolingC = 0.0;
     if (this.landscapeManager && this.landscapeManager.items) {
       for (const item of this.landscapeManager.items.values()) {
-        if (item.type === 'shade_tree') {
-          const dist = item.position.distanceTo(bld.position);
-          if (dist <= 16.0) {
+        const isTree = item.type === 'shade_tree' || item.type.startsWith('tree_');
+        const dist = item.position.distanceTo(bld.position);
+        if (isTree) {
+          if (dist <= 18.0) {
             hasShadeTreesNearby = true;
           } else if (dist <= 25.0) {
             neighborCoolingAssets++;
+          }
+        }
+
+        // Microclimate specific cooling within 25m:
+        if (dist <= 25.0) {
+          if (item.type === 'tree_tabebuya_pink' || item.type === 'tree_tabebuya_gold') {
+            specificAestheticCoolingC = Math.max(specificAestheticCoolingC, 2.0);
+          } else if (item.type === 'tree_flamboyan') {
+            specificAestheticCoolingC = Math.max(specificAestheticCoolingC, 2.4);
+          } else if (item.type === 'tree_banyan_kurung') {
+            specificAestheticCoolingC = Math.max(specificAestheticCoolingC, 3.2);
+          } else if (item.type === 'fountain_reflecting_pool' || item.type === 'flora_lotus_water') {
+            specificAestheticCoolingC = Math.max(specificAestheticCoolingC, 2.5);
+          } else if (item.type === 'tree_asam_jawa') {
+            specificAestheticCoolingC = Math.max(specificAestheticCoolingC, 2.8);
+          } else if (item.type === 'street_timber_pergola') {
+            specificAestheticCoolingC = Math.max(specificAestheticCoolingC, 1.5);
           }
         }
       }
@@ -182,9 +202,11 @@ export class ThermalVentilationAnalyzer {
 
     // 4. Indoor Temperature Estimation (Yogyakarta tropical afternoon baseline = 32.5°C)
     const outdoorTempC = 32.5;
-    const ventBenefit = hasCrossVentilation ? 2.4 : 0.0;
+    const doorOpenRatio = InteriorInteractiveSystem.getInstance().getBuildingDoorOpenFactor(bld.id);
+    const doorVentBonus = doorOpenRatio * 0.8; // Up to -0.8°C cooling breeze from physical door aperture
+    const ventBenefit = (hasCrossVentilation ? 2.4 : 0.0) + doorVentBonus;
     const overhangBenefit = overhangMeters >= 1.2 ? 1.6 : overhangMeters < 0.8 ? -1.0 : 0.5;
-    const treeBenefit = hasShadeTreesNearby ? 1.8 : 0.0;
+    const treeBenefit = Math.max(hasShadeTreesNearby ? 1.8 : 0.0, specificAestheticCoolingC);
 
     const riverBenefits = advancedBuildingCodeRegistry.checkRiverBufferBenefits(bld, this.landscapeManager);
     const riverCoolingBonus = riverBenefits.hasShadeTrees ? Math.abs(riverBenefits.microclimateBonusC) : 0.0;
@@ -404,7 +426,7 @@ export class ThermalVentilationAnalyzer {
    * Builds a 3D Extruded Curved Ribbon Arrow (#00B4D8 -> #48CAE4) that winds through
    * architectural openings with a glowing aerodynamic arrowhead.
    */
-  private create3DCurvedRibbonArrow(
+  protected create3DCurvedRibbonArrow(
     points: THREE.Vector3[],
     primaryColor: number = 0x00b4d8,
     glowColor: number = 0x48cae4,

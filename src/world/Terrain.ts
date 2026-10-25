@@ -217,6 +217,20 @@ export class Terrain {
     return { minH, maxH, deltaH: maxH - minH };
   }
 
+  public setSubsurfaceXRay(enabled: boolean): void {
+    if (enabled) {
+      this.material.transparent = true;
+      this.material.opacity = 0.32;
+      this.material.depthWrite = false;
+      this.material.needsUpdate = true;
+    } else {
+      this.material.transparent = false;
+      this.material.opacity = 1.0;
+      this.material.depthWrite = true;
+      this.material.needsUpdate = true;
+    }
+  }
+
   public dispose(): void {
     this.mesh.geometry.dispose();
     this.material.dispose();

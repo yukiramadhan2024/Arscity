@@ -67,6 +67,8 @@ export interface BuildingCatalogItem {
   defaultLength?: number; // Backward-compatible alias for defaultDepth
   defaultFloors: number;
   defaultFloorCount?: number; // Backward-compatible alias for defaultFloors
+  minFloors?: number;
+  maxFloors?: number;
   floorHeight: number;
   roofStyle: RoofStyle;
   defaultRoofType?: RoofType; // Backward-compatible alias for roofStyle
@@ -2464,13 +2466,185 @@ const CANONICAL_BUILDING_CATALOG: BuildingCatalogItem[] = [
     defaultWallMaterial: 'concrete',
     defaultWallColor: '#78716c',
     defaultRoofMaterial: 'clay_tile'
+  },
+  // =========================================================================
+  // 16. GEDUNG PENCAKAR LANGIT 18 LANTAI (High-Rise Skyscrapers)
+  // =========================================================================
+  {
+    id: 'skyscraper_office_tower',
+    name: 'Menara Perkantoran Kaca Nusantara (18 Lantai)',
+    category: 'perdagangan_jasa',
+    icon: 'Building2',
+    description: 'Podium lobi 3 lantai dengan menara curtain wall kaca ber-sirip peneduh matahari 15 lantai serta mahkota atap dan helipad.',
+    defaultWidth: 32,
+    defaultDepth: 32,
+    defaultFloors: 18,
+    minFloors: 1,
+    maxFloors: 18,
+    floorHeight: 4.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'podium_tower',
+    defaultOverhang: 0.6,
+    windowWallRatio: 0.72,
+    hasCrossVentilation: false,
+    isPublicAmenity: true,
+    baseCostPerSqm: 12_500_000,
+    recommendedZones: ['commercial', 'office'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#1e293b',
+    defaultRoofMaterial: 'concrete'
+  },
+  {
+    id: 'skyscraper_green_apartment',
+    name: 'Apartemen Menara Hijau Tropis (18 Lantai)',
+    category: 'hunian',
+    icon: 'Building',
+    description: 'Menara hunian vertikal dengan balkon tanaman gantung dan sky terrace hijau di setiap kelipatan 3 lantai.',
+    defaultWidth: 28,
+    defaultDepth: 28,
+    defaultFloors: 16,
+    minFloors: 1,
+    maxFloors: 18,
+    floorHeight: 4.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'podium_tower',
+    defaultOverhang: 1.0,
+    windowWallRatio: 0.55,
+    hasCrossVentilation: true,
+    isPublicAmenity: false,
+    baseCostPerSqm: 9_200_000,
+    recommendedZones: ['residential', 'mixed_use'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#f1f5f9',
+    defaultRoofMaterial: 'concrete'
+  },
+  {
+    id: 'skyscraper_grand_hotel',
+    name: 'Menara Hotel & Konvensi Bintang 5 (18 Lantai)',
+    category: 'budaya_hotel',
+    icon: 'Hotel',
+    description: 'Podium drop-off pendopo modern dengan menara kamar panorama dan fasilitas konvensi internasional.',
+    defaultWidth: 30,
+    defaultDepth: 30,
+    defaultFloors: 15,
+    minFloors: 1,
+    maxFloors: 18,
+    floorHeight: 4.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'podium_tower',
+    defaultOverhang: 0.8,
+    windowWallRatio: 0.65,
+    hasCrossVentilation: false,
+    isPublicAmenity: true,
+    baseCostPerSqm: 11_000_000,
+    recommendedZones: ['commercial', 'mixed_use'],
+    defaultWallMaterial: 'plaster',
+    defaultWallColor: '#ffffff',
+    defaultRoofMaterial: 'concrete'
+  },
+  {
+    id: 'skyscraper_mixed_use',
+    name: 'Menara Terpadu Ritel & Kantor (18 Lantai)',
+    category: 'mall_ritel',
+    icon: 'Building2',
+    description: 'Lantai 1-4 atrium mall perbelanjaan terpadu dan lantai 5-18 menara perkantoran modern.',
+    defaultWidth: 36,
+    defaultDepth: 36,
+    defaultFloors: 18,
+    minFloors: 1,
+    maxFloors: 18,
+    floorHeight: 4.0,
+    roofStyle: 'flat_parapet',
+    defaultRoofType: 'flat',
+    archetype: 'podium_tower',
+    defaultOverhang: 0.8,
+    windowWallRatio: 0.68,
+    hasCrossVentilation: false,
+    isPublicAmenity: true,
+    baseCostPerSqm: 13_000_000,
+    recommendedZones: ['commercial', 'mixed_use'],
+    defaultWallMaterial: 'concrete',
+    defaultWallColor: '#0f172a',
+    defaultRoofMaterial: 'concrete'
   }
 ];
 
-// Ensure defaultLength and defaultFloorCount are always populated
+// Ensure defaultLength, defaultFloorCount, minFloors, and maxFloors are always populated
 CANONICAL_BUILDING_CATALOG.forEach((item) => {
   item.defaultLength = item.defaultDepth;
   item.defaultFloorCount = item.defaultFloors;
+
+  // Architectural floor limits logic
+  if (item.minFloors === undefined || item.maxFloors === undefined) {
+    const id = item.id.toLowerCase();
+    const cat = item.category;
+
+    // a. Skyscrapers, apartments, hotels, offices, hospitals/clinics: 1 to 18 floors
+    if (
+      id.startsWith('skyscraper') ||
+      id.includes('tower') ||
+      id.includes('apartemen') ||
+      id.includes('apartment') ||
+      id.includes('hotel') ||
+      id.includes('kantor') ||
+      id.includes('office') ||
+      id.includes('rumah_sakit') ||
+      id.includes('hospital') ||
+      cat === 'kesehatan'
+    ) {
+      item.minFloors = item.minFloors ?? 1;
+      item.maxFloors = item.maxFloors ?? 18;
+    }
+    // b. Ruko, modern cafe, Resto Mie Gacoan, co-working, showroom: up to 4 - 6 floors
+    else if (
+      id.includes('ruko') ||
+      id.includes('cafe') ||
+      id.includes('kafe') ||
+      id.includes('gacoan') ||
+      id.includes('resto') ||
+      id.includes('burger') ||
+      id.includes('showroom') ||
+      id.includes('co_working') ||
+      id.includes('warmindo') ||
+      cat === 'kuliner_kafe'
+    ) {
+      item.minFloors = item.minFloors ?? 1;
+      item.maxFloors = item.maxFloors ?? 6;
+    }
+    // c. Campus, dorm, library, parking garage, exclusive boarding, mall: up to 10 - 12 floors
+    else if (
+      id.includes('kampus') ||
+      id.includes('asrama') ||
+      id.includes('perpustakaan') ||
+      id.includes('parkir') ||
+      id.includes('kos') ||
+      id.includes('mall') ||
+      cat === 'kampus_kos' ||
+      cat === 'mall_ritel' ||
+      cat === 'pendidikan'
+    ) {
+      item.minFloors = item.minFloors ?? 1;
+      item.maxFloors = item.maxFloors ?? 12;
+    }
+    // d. Pure vernacular (Joglo, angkringan, halte): 1 to 3 floors
+    else if (
+      id.includes('joglo') ||
+      id.includes('angkringan') ||
+      id.includes('halte') ||
+      id.includes('pendopo') ||
+      id.includes('pos_kamling')
+    ) {
+      item.minFloors = 1;
+      item.maxFloors = item.maxFloors ?? 3;
+    } else {
+      item.minFloors = item.minFloors ?? 1;
+      item.maxFloors = item.maxFloors ?? (item.defaultFloors >= 6 ? 18 : 8);
+    }
+  }
+
   if (!item.defaultRoofType) {
     if (item.roofStyle === 'flat_parapet') item.defaultRoofType = 'flat';
     else if (item.roofStyle === 'shed_industrial') item.defaultRoofType = 'shed_industrial';
@@ -2564,7 +2738,15 @@ const LEGACY_ALIASES: Record<string, string> = {
   stadion: 'stadion_olahraga_kota',
   gor: 'gor_bulutangkis',
   pusat_olahraga: 'pusat_olahraga_sportcenter',
-  pemakaman: 'pemakaman_taman_asri'
+  pemakaman: 'pemakaman_taman_asri',
+  // Gedung Pencakar Langit (Skyscrapers)
+  menara_kantor: 'skyscraper_office_tower',
+  menara_perkantoran: 'skyscraper_office_tower',
+  apartemen_menara: 'skyscraper_green_apartment',
+  apartemen_hijau: 'skyscraper_green_apartment',
+  hotel_bintang5: 'skyscraper_grand_hotel',
+  menara_hotel: 'skyscraper_grand_hotel',
+  menara_mixed_use: 'skyscraper_mixed_use'
 };
 
 const CATALOG_BY_ID = new Map<string, BuildingCatalogItem>();
@@ -2573,13 +2755,27 @@ CANONICAL_BUILDING_CATALOG.forEach((item) => {
 });
 
 export class BuildingCatalogRegistry {
-  public static readonly TOTAL_BUILDINGS = 97;
+  public static readonly TOTAL_BUILDINGS = 101;
 
   /**
-   * Returns all 97 buildings in the canonical catalog.
+   * Returns all 101 buildings in the canonical catalog.
    */
   public static getAllBuildings(): BuildingCatalogItem[] {
     return CANONICAL_BUILDING_CATALOG;
+  }
+
+  /**
+   * Retrieves reasonable minFloors and maxFloors based on building architectural archetype and category.
+   */
+  public static getFloorLimits(presetKey?: string): { minFloors: number; maxFloors: number } {
+    if (!presetKey) return { minFloors: 1, maxFloors: 18 };
+    const item = this.getBuilding(presetKey);
+    if (!item) return { minFloors: 1, maxFloors: 18 };
+
+    return {
+      minFloors: item.minFloors ?? 1,
+      maxFloors: item.maxFloors ?? 18
+    };
   }
 
   /**

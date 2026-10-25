@@ -3,6 +3,7 @@ import { ARCHITECTURAL_STYLES, ArchitecturalStyle } from '../../education/StyleL
 import { useUIStore } from '../state/useUIStore';
 import { PREFAB_CATALOG } from '../../buildings/PrefabTypes';
 import { X, Landmark, Sparkles, Check, ArrowRight } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface StyleLibraryModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface StyleLibraryModalProps {
 }
 
 export const StyleLibraryModal: React.FC<StyleLibraryModalProps> = ({ isOpen, onClose }) => {
+  const modalRef = useModalA11y(isOpen, onClose);
   const { engine, setActiveTool } = useUIStore();
   const [selectedStyle, setSelectedStyle] = useState<ArchitecturalStyle>(ARCHITECTURAL_STYLES[0]);
 
@@ -25,8 +27,17 @@ export const StyleLibraryModal: React.FC<StyleLibraryModalProps> = ({ isOpen, on
   };
 
   return (
-    <div className="modal-overlay interactive" role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay interactive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="style-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={modalRef}
         className="modal-sheet"
         style={{
           width: '820px',
@@ -39,7 +50,7 @@ export const StyleLibraryModal: React.FC<StyleLibraryModalProps> = ({ isOpen, on
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Landmark size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
+              <div id="style-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
                 Pustaka Gaya Arsitektur Nusantara
               </div>
               <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>

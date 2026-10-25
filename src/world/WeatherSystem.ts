@@ -102,6 +102,7 @@ export class WeatherSystem {
     });
 
     this.rainParticles = new THREE.Points(this.rainGeometry, rainMaterial);
+    this.rainParticles.visible = this.currentWeather === 'rain';
     this.scene.add(this.rainParticles);
   }
 
@@ -111,6 +112,10 @@ export class WeatherSystem {
     const wetnessSpeed = this.currentWeather === 'rain' ? 0.35 : 0.20;
     this.currentWetness = THREE.MathUtils.damp(this.currentWetness, targetWetness, wetnessSpeed, deltaTime);
     MaterialLibrary.getInstance().setWetness(this.currentWetness);
+
+    if (this.rainParticles) {
+      this.rainParticles.visible = this.currentWeather === 'rain';
+    }
 
     if (this.currentWeather === 'rain' && this.rainParticles && this.rainGeometry) {
       const positions = this.rainGeometry.attributes.position.array as Float32Array;

@@ -10,7 +10,56 @@ import * as THREE from 'three';
  * - Longitude correction (+21.48 minutes for Yogyakarta 110.37° E vs 105° E)
  * - Accurate True Solar Time (LST) from clock time (WIB)
  * - Zenith and azimuth directional vectors for Three.js lighting
+ * - Solar season classification (Equinox March, Solstice June, Solstice December)
  */
+export type SolarSeason = 'equinox_mar' | 'solstice_jun' | 'solstice_dec';
+
+export interface SolarSeasonInfo {
+  id: SolarSeason;
+  dayOfYear: number;
+  name: string;
+  shortLabel: string;
+  declinationDeg: number;
+  description: string;
+}
+
+export const SOLAR_SEASONS: Record<SolarSeason, SolarSeasonInfo> = {
+  equinox_mar: {
+    id: 'equinox_mar',
+    dayOfYear: 80, // ~21 March
+    name: 'Ekuinoks Maret (21 Mar)',
+    shortLabel: 'Mar',
+    declinationDeg: 0.0,
+    description: 'Matahari tepat di Khatulistiwa (Deklinasi 0°)'
+  },
+  solstice_jun: {
+    id: 'solstice_jun',
+    dayOfYear: 172, // ~21 June
+    name: 'Titik Balik Juni (21 Jun)',
+    shortLabel: 'Jun',
+    declinationDeg: 23.45,
+    description: 'Matahari di Utara 23.45° LU (Bayangan di Yogyakarta jatuh ke arah Selatan)'
+  },
+  solstice_dec: {
+    id: 'solstice_dec',
+    dayOfYear: 355, // ~22 December
+    name: 'Titik Balik Desember (22 Des)',
+    shortLabel: 'Des',
+    declinationDeg: -23.45,
+    description: 'Matahari di Selatan 23.45° LS (Matahari tepat di atas/selatan Yogyakarta)'
+  }
+};
+
+export function getSolarSeasonDayOfYear(season: SolarSeason): number {
+  return SOLAR_SEASONS[season]?.dayOfYear ?? 172;
+}
+
+export function getSolarSeasonFromDay(dayOfYear: number): SolarSeason {
+  if (dayOfYear <= 126) return 'equinox_mar';
+  if (dayOfYear <= 263) return 'solstice_jun';
+  return 'solstice_dec';
+}
+
 export interface SolarCoordinates {
   altitude: number; // in radians (-PI/2 to PI/2)
   azimuth: number;  // in radians (0 to 2PI, 0 = North, PI/2 = East, PI = South, 3PI/2 = West)
@@ -21,6 +70,7 @@ export interface SolarCoordinates {
   intensity: number; // 0 (night) to 1.0 (zenith solar brightness)
   solarTimeHours: number; // True solar time in decimal hours
   solarNoonWIBHours: number; // Time of solar noon in WIB
+  solarSeason: SolarSeason;
 }
 
 export const YOGYAKARTA_LATITUDE = -7.8; // degrees
@@ -98,7 +148,7 @@ export function calculateSolarPosition(
 
   const altitude = Math.asin(Math.max(-1, Math.min(1, sinAltitude)));
 
-  // Solar azimuth (angle from true North)
+  // Solar azimuth (angle from true North: 0 = North, PI/2 = East, PI = South, 3PI/2 = West)
   const cosAltitude = Math.cos(altitude);
   let azimuth: number;
 
@@ -106,12 +156,13 @@ export function calculateSolarPosition(
     azimuth = 0;
   } else {
     const cosAzimuth =
-      (Math.sin(altitude) * Math.sin(latRad) - Math.sin(declination)) /
+      (Math.sin(declination) - Math.sin(altitude) * Math.sin(latRad)) /
       (cosAltitude * Math.cos(latRad));
     const clampedCos = Math.max(-1, Math.min(1, cosAzimuth));
     const rawAzimuth = Math.acos(clampedCos);
 
-    // Morning (solarTimeHours < 12) = Sun is East, afternoon = Sun is West
+    // Morning (hourAngle < 0, solarTimeHours < 12) = Sun is East
+    // Afternoon (hourAngle > 0, solarTimeHours > 12) = Sun is West
     if (Math.sin(hourAngle) > 0) {
       azimuth = 2 * Math.PI - rawAzimuth;
     } else {
@@ -120,7 +171,7 @@ export function calculateSolarPosition(
   }
 
   // 3D vector pointing from origin towards the sun:
-  // Three.js coordinates: Y is UP, Z is SOUTH (positive Z), X is EAST (positive X)
+  // Three.js coordinates in Arscity: Y is UP, -Z is NORTH, +Z is SOUTH, +X is EAST, -X is WEST
   const dirX = Math.sin(azimuth) * cosAltitude;
   const dirY = Math.sin(altitude);
   const dirZ = -Math.cos(azimuth) * cosAltitude;
@@ -141,5 +192,6 @@ export function calculateSolarPosition(
     intensity,
     solarTimeHours,
     solarNoonWIBHours: solarNoonWIB,
+    solarSeason: getSolarSeasonFromDay(dayOfYear)
   };
 }

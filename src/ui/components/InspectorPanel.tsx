@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import * as THREE from 'three';
+import { motion } from 'framer-motion';
+import { SPRING_SHEET } from '../motion/appleSprings';
+import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { useUIStore } from '../state/useUIStore';
 import { ROAD_PROFILES, RoadType } from '../../roads/RoadTypes';
 import { RoofType, WallMaterialType } from '../../buildings/PrefabTypes';
+import { BuildingCatalogRegistry } from '../../buildings/BuildingCatalogRegistry';
 import { ZONE_RULES, ZoneType, BUILDING_CODE_DISCLAIMER } from '../../zones/ZoneTypes';
 import { getWhyPrincipleForContext, WhyPrinciple } from '../../education/WhyPrinciples';
 import { CustomSelect, SelectOption } from './CustomSelect';
@@ -11,7 +15,8 @@ import {
   RemoveRoadCommand,
   RemoveLotCommand,
   SetLotZoneCommand,
-  UpdateBuildingParamCommand
+  UpdateBuildingParamCommand,
+  UpdateRoadEdgeCommand
 } from '../../core/commands/CityCommands';
 import {
   X,
@@ -110,6 +115,7 @@ const WhyCard: React.FC<{ principle: WhyPrinciple; targetPos?: THREE.Vector3 }> 
 export const InspectorPanel: React.FC = () => {
   const { engine, inspectorVisible, setInspectorVisible } = useUIStore();
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [showAdvancedPhysics, setShowAdvancedPhysics] = useState<boolean>(false);
 
   const selectedEdgeId = engine?.roadManager?.selectedEdgeId;
   const selectedBuilding = engine?.buildingManager?.getSelectedBuilding();
@@ -159,9 +165,14 @@ export const InspectorPanel: React.FC = () => {
   // If not expanded, always display the 1:1 Slim Vertical Capsule with Laboratorium Analisis frame
   if (!isExpanded) {
     return (
-      <aside
+      <motion.aside
         className="inspector-panel interactive"
+        initial={{ opacity: 0, x: 28, scale: 0.96 }}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        exit={{ opacity: 0, x: 28, scale: 0.96 }}
+        transition={SPRING_SHEET}
         style={{
+          transformOrigin: 'right center',
           position: 'absolute',
           top: '16px',
           right: '16px',
@@ -171,7 +182,7 @@ export const InspectorPanel: React.FC = () => {
           WebkitBackdropFilter: 'blur(var(--glass-blur)) saturate(180%)',
           border: '1px solid var(--hairline)',
           borderRadius: '24px',
-          boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.35)',
+          boxShadow: '0 0 0 1px rgba(15, 23, 42, 0.09), 0 20px 50px rgba(15, 23, 42, 0.16)',
           padding: '16px',
           display: 'flex',
           flexDirection: 'column',
@@ -296,7 +307,7 @@ export const InspectorPanel: React.FC = () => {
         >
           <span>Detail Objek</span>
         </button>
-      </aside>
+      </motion.aside>
     );
   }
 
@@ -324,7 +335,14 @@ export const InspectorPanel: React.FC = () => {
     };
 
     return (
-      <aside className="inspector-panel interactive">
+      <motion.aside
+        className="inspector-panel interactive"
+        initial={{ opacity: 0, x: 28, scale: 0.96 }}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        exit={{ opacity: 0, x: 28, scale: 0.96 }}
+        transition={SPRING_SHEET}
+        style={{ transformOrigin: 'right center' }}
+      >
         {/* Thin Glass Header */}
         <div className="glass-surface inspector-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -631,7 +649,7 @@ export const InspectorPanel: React.FC = () => {
             {BUILDING_CODE_DISCLAIMER}
           </div>
         </div>
-      </aside>
+      </motion.aside>
     );
   }
 
@@ -691,7 +709,14 @@ export const InspectorPanel: React.FC = () => {
     const totalHeight = bld.floorCount * bld.floorHeight + 2.5;
 
     return (
-      <aside className="inspector-panel interactive">
+      <motion.aside
+        className="inspector-panel interactive"
+        initial={{ opacity: 0, x: 28, scale: 0.96 }}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        exit={{ opacity: 0, x: 28, scale: 0.96 }}
+        transition={SPRING_SHEET}
+        style={{ transformOrigin: 'right center' }}
+      >
         {/* Thin Glass Header */}
         <div className="glass-surface inspector-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -712,6 +737,81 @@ export const InspectorPanel: React.FC = () => {
 
         {/* Solid Inset Grouped Body */}
         <div className="inspector-body">
+          {/* Mode Gambar Kerja Ortografis (Fitur v3.1) */}
+          <div className="inset-header text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">GAMBAR KERJA ARSITEKTUR</div>
+          <div className="inset-group" style={{ padding: '6px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+              <button
+                onClick={() => engine?.setArchitecturalWorkMode('3d', bld)}
+                style={{
+                  padding: '5px 2px',
+                  borderRadius: '6px',
+                  background: 'var(--fill-control)',
+                  border: '1px solid var(--hairline-soft)',
+                  color: 'var(--label)',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'center'
+                }}
+                title="Tampilan Perspektif 3D Orbit Bebas"
+              >
+                3D
+              </button>
+              <button
+                onClick={() => engine?.setArchitecturalWorkMode('plan', bld)}
+                style={{
+                  padding: '5px 2px',
+                  borderRadius: '6px',
+                  background: 'var(--fill-control)',
+                  border: '1px solid var(--hairline-soft)',
+                  color: 'var(--label)',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'center'
+                }}
+                title="Denah Ortografis Datar (Top-down Plan View)"
+              >
+                Denah
+              </button>
+              <button
+                onClick={() => engine?.setArchitecturalWorkMode('section', bld)}
+                style={{
+                  padding: '5px 2px',
+                  borderRadius: '6px',
+                  background: 'var(--fill-control)',
+                  border: '1px solid var(--hairline-soft)',
+                  color: 'var(--label)',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'center'
+                }}
+                title="Potongan Melintang A-A Vertikal Datar"
+              >
+                Potongan
+              </button>
+              <button
+                onClick={() => engine?.setArchitecturalWorkMode('elevation', bld)}
+                style={{
+                  padding: '5px 2px',
+                  borderRadius: '6px',
+                  background: 'var(--fill-control)',
+                  border: '1px solid var(--hairline-soft)',
+                  color: 'var(--label)',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'center'
+                }}
+                title="Tampak Depan Ortografis Datar (Front Elevation)"
+              >
+                Tampak
+              </button>
+            </div>
+          </div>
+
           {/* Quick Metrics */}
           <div className="inset-header text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">METRIK BANGUNAN</div>
           <div className="inset-group">
@@ -754,7 +854,12 @@ export const InspectorPanel: React.FC = () => {
                 max="35"
                 step="1"
                 value={bld.width}
-                onChange={(e) => handleWidthChange(parseInt(e.target.value))}
+                onPointerDown={() => engine?.setUIInteractionActive(true)}
+                onPointerUp={() => engine?.setUIInteractionActive(false)}
+                onChange={(e) => {
+                  handleWidthChange(parseInt(e.target.value));
+                  proceduralAudio.playTaptic('selection');
+                }}
                 className="ios-slider"
                 aria-label="Lebar Bangunan"
               />
@@ -771,28 +876,43 @@ export const InspectorPanel: React.FC = () => {
                 max="40"
                 step="1"
                 value={bld.length}
-                onChange={(e) => handleLengthChange(parseInt(e.target.value))}
+                onPointerDown={() => engine?.setUIInteractionActive(true)}
+                onPointerUp={() => engine?.setUIInteractionActive(false)}
+                onChange={(e) => {
+                  handleLengthChange(parseInt(e.target.value));
+                  proceduralAudio.playTaptic('selection');
+                }}
                 className="ios-slider"
                 aria-label="Panjang Bangunan"
               />
             </div>
 
-            <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Jumlah Lantai</span>
-                <span className="text-sm font-mono tabular-nums font-medium">{bld.floorCount} Lantai</span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="8"
-                step="1"
-                value={bld.floorCount}
-                onChange={(e) => handleFloorCountChange(parseInt(e.target.value))}
-                className="ios-slider"
-                aria-label="Jumlah Lantai Bangunan"
-              />
-            </div>
+            {(() => {
+              const limits = BuildingCatalogRegistry.getFloorLimits(bld.presetKey);
+              return (
+                <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Jumlah Lantai</span>
+                    <span className="text-sm font-mono tabular-nums font-medium">{bld.floorCount} Lantai</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={limits.minFloors}
+                    max={limits.maxFloors}
+                    step="1"
+                    value={bld.floorCount}
+                    onPointerDown={() => engine?.setUIInteractionActive(true)}
+                    onPointerUp={() => engine?.setUIInteractionActive(false)}
+                    onChange={(e) => {
+                      handleFloorCountChange(parseInt(e.target.value));
+                      proceduralAudio.playTaptic('selection');
+                    }}
+                    className="ios-slider"
+                    aria-label="Jumlah Lantai Bangunan"
+                  />
+                </div>
+              );
+            })()}
           </div>
 
           {/* Materials & Roof */}
@@ -892,17 +1012,42 @@ export const InspectorPanel: React.FC = () => {
             )}
           </div>
 
-          {/* KETAHANAN STRUKTUR & SEISMIK GEMPA */}
-          {(() => {
-            const s = structuralChecker.evaluateBuilding(bld);
-            return (
-              <>
-                <div className="inset-header">KETAHANAN STRUKTUR & SEISMIK GEMPA</div>
-                <div className="inset-group">
-                  <div className="inset-row" style={{ justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <ShieldCheck size={16} strokeWidth={1.75} style={{ color: s.score >= 75 ? 'var(--good)' : s.score >= 50 ? 'var(--warn)' : 'var(--bad)' }} />
-                      <div>
+          {/* ANALISIS REKAYASA & FISIKA BANGUNAN (ACCORDION PROGRESSIVE DISCLOSURE) */}
+          <div className="inset-group" style={{ marginTop: '12px', marginBottom: '8px' }}>
+            <button
+              onClick={() => setShowAdvancedPhysics(!showAdvancedPhysics)}
+              className="inset-row inset-row-clickable"
+              style={{ width: '100%', border: 'none', textAlign: 'left', justifyContent: 'space-between', cursor: 'pointer' }}
+              aria-expanded={showAdvancedPhysics}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={15} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
+                  Analisis Rekayasa & Fisika
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                  {showAdvancedPhysics ? 'Sembunyikan' : 'Buka Detail (5)'}
+                </span>
+                {showAdvancedPhysics ? <ChevronUp size={15} strokeWidth={1.75} /> : <ChevronDown size={15} strokeWidth={1.75} />}
+              </div>
+            </button>
+          </div>
+
+          {showAdvancedPhysics && (
+            <>
+              {/* KETAHANAN STRUKTUR & SEISMIK GEMPA */}
+              {(() => {
+                const s = structuralChecker.evaluateBuilding(bld);
+                return (
+                  <>
+                    <div className="inset-header">KETAHANAN STRUKTUR & SEISMIK GEMPA</div>
+                    <div className="inset-group">
+                      <div className="inset-row" style={{ justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <ShieldCheck size={16} strokeWidth={1.75} style={{ color: s.score >= 75 ? 'var(--good)' : s.score >= 50 ? 'var(--warn)' : 'var(--bad)' }} />
+                          <div>
                         <div style={{ fontSize: '12px', fontWeight: 600 }}>Skor Ketahanan Seismik</div>
                         <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>Acuan SNI 1726 & SNI 2847</div>
                       </div>
@@ -924,6 +1069,21 @@ export const InspectorPanel: React.FC = () => {
                     <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
                       {s.aspectRatio}:1 {s.aspectRatio > 3 ? '(Pipih/Torsi Tinggi)' : '(Simetris Seimbang)'}
                     </span>
+                  </div>
+
+                  <div className="inset-row" style={{ justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 600 }}>Pondasi & Beban Gedung</div>
+                      <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>{s.foundationType}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="tabular-nums" style={{ fontSize: '12px', fontWeight: 700, color: s.isFoundationAdequate ? 'var(--good)' : 'var(--warn)' }}>
+                        -{s.foundationDepthM.toFixed(1)} m ({bld.floorCount} Lantai)
+                      </div>
+                      <div style={{ fontSize: '10px', color: s.isFoundationAdequate ? 'var(--good)' : 'var(--bad)', fontWeight: 600 }}>
+                        {s.isFoundationAdequate ? 'Aman (SNI 8460:2017)' : 'Pondasi Belum Memadai'}
+                      </div>
+                    </div>
                   </div>
 
                   {s.hasSoftStory && (
@@ -1293,6 +1453,8 @@ export const InspectorPanel: React.FC = () => {
               </>
             );
           })()}
+            </>
+          )}
 
           {/* Why Principle Card */}
           <WhyCard principle={getWhyPrincipleForContext({ isBuildingSelected: true, roofType: bld.roofType })} targetPos={bld.position} />
@@ -1337,7 +1499,7 @@ export const InspectorPanel: React.FC = () => {
             </button>
           </div>
         </div>
-      </aside>
+      </motion.aside>
     );
   }
 
@@ -1348,20 +1510,17 @@ export const InspectorPanel: React.FC = () => {
   const profile = { ...ROAD_PROFILES[edge.type], ...edge.customProfile };
 
   const handleTypeChange = (newType: RoadType) => {
-    edge.type = newType;
-    engine.roadManager.rebuildEdgeMesh(edge.id);
+    engine.executeCommand(new UpdateRoadEdgeCommand(engine, edge.id, { type: newType }));
   };
 
   const handleToggleTrees = () => {
     const cur = edge.customProfile?.hasTrees ?? profile.hasTrees;
-    edge.customProfile = { ...edge.customProfile, hasTrees: !cur };
-    engine.roadManager.rebuildEdgeMesh(edge.id);
+    engine.executeCommand(new UpdateRoadEdgeCommand(engine, edge.id, { customProfile: { hasTrees: !cur } }));
   };
 
   const handleToggleLights = () => {
     const cur = edge.customProfile?.hasStreetLights ?? profile.hasStreetLights;
-    edge.customProfile = { ...edge.customProfile, hasStreetLights: !cur };
-    engine.roadManager.rebuildEdgeMesh(edge.id);
+    engine.executeCommand(new UpdateRoadEdgeCommand(engine, edge.id, { customProfile: { hasStreetLights: !cur } }));
   };
 
   const handleDeleteRoad = () => {
@@ -1374,7 +1533,14 @@ export const InspectorPanel: React.FC = () => {
   };
 
   return (
-    <aside className="inspector-panel interactive">
+    <motion.aside
+      className="inspector-panel interactive"
+      initial={{ opacity: 0, x: 28, scale: 0.96 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 28, scale: 0.96 }}
+      transition={SPRING_SHEET}
+      style={{ transformOrigin: 'right center' }}
+    >
       {/* Thin Glass Header */}
       <div className="glass-surface inspector-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1412,6 +1578,18 @@ export const InspectorPanel: React.FC = () => {
 
         <div className="inset-header">SPESIFIKASI TEKNIS</div>
         <div className="inset-group">
+          <div className="inset-row">
+            <span style={{ fontSize: '13px', color: 'var(--label-secondary)' }}>Lebar Badan Jalan</span>
+            <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
+              {profile.width} m ({profile.laneCount} Lajur)
+            </span>
+          </div>
+          <div className="inset-row">
+            <span style={{ fontSize: '13px', color: 'var(--label-secondary)' }}>Lebar Trotoar</span>
+            <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
+              {profile.sidewalkWidth > 0 ? `${profile.sidewalkWidth} m (Kiri & Kanan)` : 'Tanpa Trotoar'}
+            </span>
+          </div>
           <div className="inset-row">
             <span style={{ fontSize: '13px', color: 'var(--label-secondary)' }}>Panjang Ruas</span>
             <span className="tabular-nums" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
@@ -1461,6 +1639,6 @@ export const InspectorPanel: React.FC = () => {
           </button>
         </div>
       </div>
-    </aside>
+    </motion.aside>
   );
 };

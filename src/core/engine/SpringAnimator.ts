@@ -51,29 +51,35 @@ export class SpringAnimator {
     const now = performance.now();
     const completedIds: number[] = [];
 
+    // Apple Tactile Physics parameters (k: 520, c: 32, m: 0.7)
+    // omega0 = sqrt(520 / 0.7) ~= 27.25 rad/s
+    // zeta = 32 / (2 * sqrt(520 * 0.7)) ~= 0.8386
+    // gamma = zeta * omega0 ~= 22.85
+    // omegaD = omega0 * sqrt(1 - zeta^2) ~= 14.85 rad/s
+    const gamma = 22.85;
+    const omegaD = 14.85;
+
     for (const [id, spring] of this.activeSprings.entries()) {
-      const elapsed = now - spring.startTime;
-      const progress = Math.min(1.0, elapsed / spring.durationMs);
+      const elapsedSec = (now - spring.startTime) / 1000;
+      const progress = Math.min(1.0, (now - spring.startTime) / spring.durationMs);
 
       if (spring.isReducedMotion) {
-        // Linear ease-out for reduced motion
+        // Smooth ease-out for accessibility reduced motion
         const t = 1 - Math.pow(1 - progress, 2);
         spring.object.scale.lerpVectors(spring.initialScale, spring.targetScale, t);
       } else {
-        // Damped harmonic spring curve: 0.72 -> 1.04 -> 1.0
-        // f(t) = 1 - e^(-6t) * cos(10t)
-        const decay = Math.exp(-6.5 * progress);
-        const osc = Math.cos(9.0 * progress);
-        const factor = 1 - decay * osc;
+        // Pure Apple Second-Order Harmonic Spring:
+        // x(t) = 1 - e^(-gamma * t) * (cos(omegaD * t) + (gamma / omegaD) * sin(omegaD * t))
+        const envelope = Math.exp(-gamma * elapsedSec);
+        const osc = Math.cos(omegaD * elapsedSec) + (gamma / omegaD) * Math.sin(omegaD * elapsedSec);
+        // Factor represents displacement from initial (0) to target (1)
+        const factor = Math.max(0, 1 - envelope * osc);
 
-        spring.object.scale.set(
-          spring.targetScale.x * factor,
-          spring.targetScale.y * factor,
-          spring.targetScale.z * factor
-        );
+        spring.object.scale.lerpVectors(spring.initialScale, spring.targetScale, factor);
       }
 
-      if (progress >= 1.0) {
+      // Settling condition: envelope under threshold or duration met
+      if (progress >= 1.0 || (!spring.isReducedMotion && elapsedSec > 0.18 && Math.exp(-gamma * elapsedSec) < 0.01)) {
         spring.object.scale.copy(spring.targetScale);
         completedIds.push(id);
       }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoadGraph } from './RoadGraph';
-import { RoadEdge, RoadType } from './RoadTypes';
+import { RoadEdge, RoadType, RoadProfile } from './RoadTypes';
 import { RoadGeometryBuilder } from './RoadGeometryBuilder';
 import { IntersectionBuilder } from './IntersectionBuilder';
 
@@ -112,6 +112,61 @@ export class RoadManager {
     if (newMesh) {
       this.masterGroup.add(newMesh);
       this.intersectionMeshes.set(nodeId, newMesh);
+    }
+  }
+
+  public findNearestRoadEdge(point: THREE.Vector3): { edge: RoadEdge; dist: number; closestPt: THREE.Vector3 } | null {
+    let best: { edge: RoadEdge; dist: number; closestPt: THREE.Vector3 } | null = null;
+    let minDistSq = Infinity;
+
+    for (const edge of this.graph.edges.values()) {
+      if (!edge.controlPoints || edge.controlPoints.length === 0) continue;
+      const p1 = edge.controlPoints[0];
+      const p2 = edge.controlPoints[edge.controlPoints.length - 1];
+      const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+      const distSq = point.distanceToSquared(mid);
+      if (distSq < minDistSq) {
+        minDistSq = distSq;
+        best = { edge, dist: Math.sqrt(distSq), closestPt: mid };
+      }
+    }
+    return best;
+  }
+
+  public getEdge(edgeId: string): RoadEdge | undefined {
+    return this.graph.edges.get(edgeId);
+  }
+
+  public updateRoad(
+    edgeId: string,
+    newType?: RoadType,
+    customProfile?: Partial<RoadProfile>
+  ): RoadEdge | null {
+    const edge = this.graph.edges.get(edgeId);
+    if (!edge) return null;
+
+    if (newType !== undefined) edge.type = newType;
+    if (customProfile !== undefined) {
+      edge.customProfile = { ...edge.customProfile, ...customProfile };
+    }
+
+    this.rebuildEdgeMesh(edgeId);
+    this.rebuildNodeIntersections(edge.startNodeId);
+    this.rebuildNodeIntersections(edge.endNodeId);
+
+    if (this.onGraphChanged) {
+      this.onGraphChanged(this.graph.getTotalLengthKm());
+    }
+
+    return edge;
+  }
+
+  public setSubsurfaceDrainageVisible(visible: boolean): void {
+    for (const group of this.edgeGroups.values()) {
+      const drainage = group.getObjectByName('SubsurfaceDrainage') || group.userData.subsurfaceDrainage;
+      if (drainage) {
+        drainage.visible = visible;
+      }
     }
   }
 

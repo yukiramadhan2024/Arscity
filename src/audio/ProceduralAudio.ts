@@ -367,6 +367,209 @@ export class ProceduralAudio {
     this.earthquakeGain = null;
     this.isEarthquakePlaying = false;
   }
+
+  /**
+   * Procedural sound for door opening (hinge creak or sliding whoosh)
+   */
+  public playDoorOpen(type: 'swing' | 'sliding'): void {
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    if (type === 'swing') {
+      // Gentle wooden hinge creak (modulated sine + high harmonic)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + 0.18);
+      osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.35);
+
+      gain.gain.setValueAtTime(0.04 * this.volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.08 * this.volume, ctx.currentTime + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } else {
+      // Modern smooth sliding door whoosh (filtered noise)
+      const bufferSize = Math.floor(ctx.sampleRate * 0.28);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(650, ctx.currentTime);
+      filter.frequency.linearRampToValueAtTime(850, ctx.currentTime + 0.28);
+      filter.Q.value = 3.0;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.01, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.06 * this.volume, ctx.currentTime + 0.1);
+      gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      noise.start();
+    }
+  }
+
+  /**
+   * Procedural sound for door closing (soft latch click)
+   */
+  public playDoorClose(type: 'swing' | 'sliding'): void {
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(type === 'swing' ? 220 : 380, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.08);
+
+    gain.gain.setValueAtTime(0.09 * this.volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.08);
+  }
+
+  /**
+   * Procedural sound for sitting down (soft fabric cushion compression)
+   */
+  public playSitDown(): void {
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(110, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(55, ctx.currentTime + 0.15);
+
+    gain.gain.setValueAtTime(0.12 * this.volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  }
+
+  /**
+   * Procedural sound for standing up (soft rustle)
+   */
+  public playStandUp(): void {
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(85, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(160, ctx.currentTime + 0.12);
+
+    gain.gain.setValueAtTime(0.07 * this.volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+  }
+
+  /**
+   * Apple Taptic Engine Simulation
+   * Pure Web Audio API low-frequency sine waves (65Hz–140Hz) with ultra-short
+   * exponential envelopes (6ms–12ms) that emulate Apple's linear resonant actuator (LRA).
+   * Also triggers physical hardware vibration (navigator.vibrate) if available on mobile/tablet.
+   */
+  public playTaptic(type: 'light' | 'medium' | 'selection' | 'boundary' = 'light'): void {
+    // 1. Mobile haptic motor trigger
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try {
+        const vibDuration = type === 'boundary' ? 8 : type === 'medium' ? 6 : type === 'selection' ? 3 : 5;
+        navigator.vibrate(vibDuration);
+      } catch {}
+    }
+
+    // 2. Synthesized acoustic physical tap
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    let baseFreq: number;
+    let endFreq: number;
+    let durationSec: number;
+    let amplitude: number;
+
+    switch (type) {
+      case 'selection':
+        // Crisp high-resolution tick (135Hz -> 100Hz in 6ms)
+        baseFreq = 135;
+        endFreq = 95;
+        durationSec = 0.006;
+        amplitude = 0.10;
+        break;
+      case 'light':
+        // Gentle tactile button compression (115Hz -> 75Hz in 8ms)
+        baseFreq = 115;
+        endFreq = 75;
+        durationSec = 0.008;
+        amplitude = 0.14;
+        break;
+      case 'medium':
+        // Solid toggle / sheet action (90Hz -> 55Hz in 10ms)
+        baseFreq = 90;
+        endFreq = 55;
+        durationSec = 0.010;
+        amplitude = 0.20;
+        break;
+      case 'boundary':
+        // Deep rubber-band limit bump (68Hz -> 38Hz in 12ms)
+        baseFreq = 68;
+        endFreq = 38;
+        durationSec = 0.012;
+        amplitude = 0.26;
+        break;
+    }
+
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), ctx.currentTime + durationSec);
+
+      gain.gain.setValueAtTime(amplitude * this.volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + durationSec);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + durationSec);
+    } catch {}
+  }
 }
 
 export const proceduralAudio = new ProceduralAudio();

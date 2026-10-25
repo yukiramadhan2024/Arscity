@@ -5,6 +5,7 @@ import { RoadManager } from '../roads/RoadManager';
 import { LandscapeManager } from '../world/LandscapeManager';
 import { LotManager } from '../zones/LotManager';
 import { BuildingCatalogRegistry } from '../buildings/BuildingCatalogRegistry';
+import { InteriorInteractiveSystem } from '../buildings/InteriorInteractiveSystem';
 
 export interface BuildingAcousticReport {
   buildingId: string;
@@ -186,15 +187,21 @@ export class AcousticAnalyzer {
     // 4. Shade Tree / Vegetation Acoustic Buffering
     let treeBufferDba = 0.0;
     let nearbyTreeCount = 0;
+    let denseAcousticBufferDba = 0.0;
     for (const item of landscapeManager.items.values()) {
-      if (item.type === 'shade_tree') {
-        const dist = Math.hypot(item.position.x - bld.position.x, item.position.z - bld.position.z);
+      const dist = Math.hypot(item.position.x - bld.position.x, item.position.z - bld.position.z);
+      if (item.type === 'flora_yellow_bamboo' || item.type === 'tree_banyan_kurung') {
+        if (dist <= 22.0) {
+          denseAcousticBufferDba = Math.max(denseAcousticBufferDba, 5.0);
+        }
+      }
+      if (item.type === 'shade_tree' || item.type.startsWith('tree_')) {
         if (dist <= 18.0) {
           nearbyTreeCount++;
         }
       }
     }
-    treeBufferDba = Math.min(6.5, nearbyTreeCount * 2.2);
+    treeBufferDba = Math.max(denseAcousticBufferDba, Math.min(6.5, nearbyTreeCount * 2.2));
 
     // Total received outdoor noise at building facade
     const totalRawOutdoorDba = this.addDecibels([maxRoadNoise, activityNoiseContributionDba]);
@@ -221,6 +228,12 @@ export class AcousticAnalyzer {
       } else {
         facadeDampingDba = 12.0;
       }
+    }
+
+    // Dynamic door state: physical open doors allow noise to infiltrate inside
+    const doorOpenRatio = InteriorInteractiveSystem.getInstance().getBuildingDoorOpenFactor(bld.id);
+    if (doorOpenRatio > 0.05) {
+      facadeDampingDba = Math.max(5.0, facadeDampingDba - doorOpenRatio * 9.0);
     }
 
     const indoorNoiseDba = Math.max(28.0, Math.round((receivedNoiseDba - facadeDampingDba) * 10) / 10);

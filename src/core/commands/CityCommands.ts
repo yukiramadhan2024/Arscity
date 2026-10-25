@@ -386,3 +386,161 @@ export class RemoveLandscapeCommand implements ICommand {
 
 export const AddLandscapeItemCommand = AddLandscapeCommand;
 
+
+/**
+ * SwapInteriorVariantCommand: Cycles / switches 3D interior furniture layout variant
+ * ('variant_a' | 'variant_b' | 'variant_c') for a building, with full Undo/Redo.
+ */
+export class SwapInteriorVariantCommand implements ICommand {
+  public description: string;
+  private engine: Engine;
+  private buildingId: string;
+  private newVariant: 'variant_a' | 'variant_b' | 'variant_c';
+  private previousVariant: 'variant_a' | 'variant_b' | 'variant_c';
+
+  constructor(
+    engine: Engine,
+    buildingId: string,
+    newVariant: 'variant_a' | 'variant_b' | 'variant_c'
+  ) {
+    this.engine = engine;
+    this.buildingId = buildingId;
+    this.newVariant = newVariant;
+    const bld = engine.buildingManager.buildings.get(buildingId);
+    this.previousVariant = (bld?.interiorVariant as any) || 'variant_a';
+    this.description = `Ganti Varian Interior: ${newVariant}`;
+  }
+
+  public execute(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+    bld.interiorVariant = this.newVariant;
+    this.engine.buildingManager.updateBuilding(bld);
+  }
+
+  public undo(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+    bld.interiorVariant = this.previousVariant;
+    this.engine.buildingManager.updateBuilding(bld);
+  }
+
+  public redo(): void {
+    this.execute();
+  }
+}
+
+/**
+ * UpdateRoadEdgeCommand: Upgrades road type and/or toggles trees/streetlights with Undo/Redo.
+ */
+export class UpdateRoadEdgeCommand implements ICommand {
+  public description: string;
+  private engine: Engine;
+  private edgeId: string;
+  private newType?: RoadType;
+  private newProfile?: Partial<RoadProfile>;
+  private prevType: RoadType;
+  private prevProfile?: Partial<RoadProfile>;
+
+  constructor(
+    engine: Engine,
+    edgeId: string,
+    updates: { type?: RoadType; customProfile?: Partial<RoadProfile> }
+  ) {
+    this.engine = engine;
+    this.edgeId = edgeId;
+    this.newType = updates.type;
+    this.newProfile = updates.customProfile;
+
+    const edge = engine.roadManager.graph.edges.get(edgeId);
+    this.prevType = edge ? edge.type : 'local';
+    this.prevProfile = edge?.customProfile ? { ...edge.customProfile } : undefined;
+    this.description = `Upgrade Ruas Jalan #${edgeId.slice(-4)}`;
+  }
+
+  public execute(): void {
+    const edge = this.engine.roadManager.graph.edges.get(this.edgeId);
+    if (!edge) return;
+    if (this.newType !== undefined) edge.type = this.newType;
+    if (this.newProfile !== undefined) {
+      edge.customProfile = { ...edge.customProfile, ...this.newProfile };
+    }
+    this.engine.roadManager.rebuildEdgeMesh(this.edgeId);
+    if (this.engine.roadManager.onGraphChanged) {
+      this.engine.roadManager.onGraphChanged(this.engine.roadManager.graph.getTotalLengthKm());
+    }
+  }
+
+  public undo(): void {
+    const edge = this.engine.roadManager.graph.edges.get(this.edgeId);
+    if (!edge) return;
+    edge.type = this.prevType;
+    edge.customProfile = this.prevProfile ? { ...this.prevProfile } : undefined;
+    this.engine.roadManager.rebuildEdgeMesh(this.edgeId);
+    if (this.engine.roadManager.onGraphChanged) {
+      this.engine.roadManager.onGraphChanged(this.engine.roadManager.graph.getTotalLengthKm());
+    }
+  }
+
+  public redo(): void {
+    this.execute();
+  }
+}
+
+/**
+ * SubdivideBlockCommand: Smart Block Subdivider into uniform parcels facing the road,
+ * with full composite Undo/Redo capability.
+ */
+export class SubdivideBlockCommand implements ICommand {
+  public description: string;
+  private engine: Engine;
+  private center: THREE.Vector3;
+  private blockW: number;
+  private blockL: number;
+  private parcelW: number;
+  private parcelL: number;
+  private zone: ZoneType;
+  private createdLotIds: string[] = [];
+
+  constructor(
+    engine: Engine,
+    center: THREE.Vector3,
+    blockW: number,
+    blockL: number,
+    parcelW: number = 10,
+    parcelL: number = 20,
+    zone: ZoneType = 'residential'
+  ) {
+    this.engine = engine;
+    this.center = center.clone();
+    this.blockW = blockW;
+    this.blockL = blockL;
+    this.parcelW = parcelW;
+    this.parcelL = parcelL;
+    this.zone = zone;
+    this.description = `Bagi Blok Kavling Otomatis (${parcelW}x${parcelL}m)`;
+  }
+
+  public execute(): void {
+    const lots = this.engine.lotManager.subdivideBlock(
+      this.center,
+      this.blockW,
+      this.blockL,
+      this.parcelW,
+      this.parcelL,
+      this.zone
+    );
+    this.createdLotIds = lots.map((l) => l.id);
+  }
+
+  public undo(): void {
+    for (const id of this.createdLotIds) {
+      this.engine.lotManager.removeLot(id);
+    }
+    this.createdLotIds = [];
+  }
+
+  public redo(): void {
+    this.execute();
+  }
+}

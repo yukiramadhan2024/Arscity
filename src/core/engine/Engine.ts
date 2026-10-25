@@ -26,7 +26,9 @@ import {
   RemoveBuildingCommand,
   RemoveRoadCommand,
   RemoveLotCommand,
+  SwapInteriorVariantCommand,
 } from '../commands/CityCommands';
+import { BuildingInstance } from '../../buildings/PrefabTypes';
 import { LandscapeManager } from '../../world/LandscapeManager';
 import { LandscapeTool } from '../../tools/LandscapeTool';
 import { MaterialLibrary } from '../../materials/MaterialLibrary';
@@ -48,6 +50,7 @@ import { FirstPersonController, FirstPersonState } from './FirstPersonController
 import { CinematicDroneController, DroneTourState } from './CinematicDroneController';
 import { spatialAudio } from '../../audio/SpatialAudioSystem';
 import { acousticAnalyzer } from '../../analysis/AcousticAnalyzer';
+import { InteriorInteractiveSystem } from '../../buildings/InteriorInteractiveSystem';
 
 export type MaquetteDataLensType = 'none' | 'kdb_gsb' | 'solar_vent' | 'runoff' | 'walkability' | 'acoustic';
 
@@ -106,6 +109,11 @@ export class Engine {
   public onCameraModeChanged?: (mode: 'orbit' | 'first_person' | 'cinematic_drone') => void;
 
   public activeToolName: string = 'select';
+  public isLowPowerMode: boolean = false;
+  public isSubsurfaceLensActive: boolean = false;
+  public isUIInteractionActive: boolean = false;
+  private uiInteractionDebounceTimer: number | null = null;
+  private lodFrameCount: number = 0;
 
   private isRunning: boolean = false;
   private animationFrameId: number | null = null;
@@ -158,6 +166,9 @@ export class Engine {
     this.cameraController = new CameraController(this.renderer.domElement);
     this.lightingSystem = new LightingSystem(this.scene);
     this.lightingSystem.initEnvironment(this.renderer);
+    this.lightingSystem.setRenderer(this.renderer);
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
     this.terrain = new Terrain(this.scene, 1600);
     this.gridSystem = new GridSystem(this.scene, 1600, 1);
     this.weatherSystem = new WeatherSystem(this.scene);
@@ -271,6 +282,9 @@ export class Engine {
     );
     this.firstPersonController.onExit = () => {
       this.setCameraMode('orbit');
+    };
+    this.firstPersonController.onCycleInteriorVariant = () => {
+      this.cycleInsideBuildingInteriorVariant();
     };
 
     this.cinematicDroneController = new CinematicDroneController(
@@ -506,20 +520,23 @@ export class Engine {
 
   public executeCommand(command: ICommand): void {
     this.commandManager.execute(command);
+    this.lightingSystem.markShadowsDirty();
   }
 
   public undo(): boolean {
     const success = this.commandManager.undo();
-    if (success && this.onSelectionChanged) {
-      this.onSelectionChanged();
+    if (success) {
+      this.lightingSystem.markShadowsDirty();
+      if (this.onSelectionChanged) this.onSelectionChanged();
     }
     return success;
   }
 
   public redo(): boolean {
     const success = this.commandManager.redo();
-    if (success && this.onSelectionChanged) {
-      this.onSelectionChanged();
+    if (success) {
+      this.lightingSystem.markShadowsDirty();
+      if (this.onSelectionChanged) this.onSelectionChanged();
     }
     return success;
   }
@@ -580,6 +597,11 @@ export class Engine {
 
     // Setup new mode
     if (mode === 'first_person') {
+      this.buildingManager.selectBuilding(null);
+      this.lotManager.selectLot(null);
+      this.roadManager.selectEdge(null);
+      if (this.onSelectionChanged) this.onSelectionChanged();
+
       const startPos = this.cameraController.target.clone();
       this.cameraController.enabled = false;
       this.firstPersonController.enter(startPos, this.cameraController.azimuth + Math.PI);
@@ -620,6 +642,12 @@ export class Engine {
 
     this.animationFrameId = requestAnimationFrame(this.loop);
 
+    // Low power mode when secondary canvas is active (e.g. custom building studio)
+    if (this.isLowPowerMode && this.frameCount % 4 !== 0) {
+      this.frameCount++;
+      return;
+    }
+
     const deltaTime = Math.min(this.clock.getDelta(), 0.1);
     const now = performance.now();
 
@@ -635,12 +663,22 @@ export class Engine {
     // Camera, Audio & Raycast
     if (this.currentCameraMode === 'first_person') {
       this.firstPersonController.update(deltaTime);
+      InteriorInteractiveSystem.getInstance().update(
+        deltaTime,
+        this.cameraController.camera.position,
+        true
+      );
       spatialAudio.update(
         this.cameraController.camera.position,
         this.weatherSystem.currentWeather,
         this.firstPersonController.isUnderRoof
       );
     } else if (this.currentCameraMode === 'cinematic_drone') {
+      InteriorInteractiveSystem.getInstance().update(
+        deltaTime,
+        this.cameraController.camera.position,
+        false
+      );
       if (this.cinematicDroneController.isActive) {
         this.cinematicDroneController.update(deltaTime);
       } else {
@@ -688,6 +726,22 @@ export class Engine {
 
     // Spring animations & Interactive 3D Handles
     this.springAnimator.update();
+
+    // Lapis 1: Smart Hierarchical LOD (executed every 6 frames)
+    this.lodFrameCount++;
+    if (this.lodFrameCount % 6 === 0) {
+      const isSection = this.sectionCutManager.currentMode !== 'none';
+      const preset = GRAPHICS_PRESETS[this.currentQuality];
+      const cutoff = preset ? Math.min(preset.propDrawDistance, 60) : 60;
+      this.buildingManager.updateLOD(
+        this.cameraController.camera.position,
+        this.currentCameraMode,
+        isSection,
+        this.isSubsurfaceLensActive,
+        cutoff
+      );
+    }
+
     this.buildingGizmoManager.setCamera(this.cameraController.activeCamera);
     this.buildingGizmoManager.update();
     this.sunPathVisualizer.updateTime(this.lightingSystem.currentHour, this.lightingSystem);
@@ -715,7 +769,7 @@ export class Engine {
     }
 
     // Lighting, Weather & Vegetation Wind
-    this.lightingSystem.updateCenter(this.cameraController.target);
+    this.lightingSystem.updateCenter(this.cameraController.target, this.isUIInteractionActive);
     this.weatherSystem.update(deltaTime, this.cameraController.camera.position);
     updateWindTime(deltaTime);
 
@@ -728,8 +782,105 @@ export class Engine {
     }
   };
 
+  /**
+   * Prioritas Utama Input Sentuhan & Kursor (Low Touch Latency)
+   * Mengatur mode interaksi aktif saat pengguna menggeser slider waktu matahari atau slider ukuran bangunan.
+   * Menunda perhitungan ulang shadow map 4K dan kalkulasi analisis berat hingga 80ms setelah interaksi selesai (onPointerUp).
+   */
+  public setUIInteractionActive(active: boolean): void {
+    this.isUIInteractionActive = active;
+    if (this.uiInteractionDebounceTimer !== null) {
+      window.clearTimeout(this.uiInteractionDebounceTimer);
+      this.uiInteractionDebounceTimer = null;
+    }
+
+    if (!active) {
+      // Tunda recalculation shadow map 4K & heavy analysis 80ms setelah jari/kursor dilepas
+      this.uiInteractionDebounceTimer = window.setTimeout(() => {
+        this.lightingSystem.markShadowsDirty();
+        if (this.solarAnalyzer && this.solarAnalyzer.isHeatmapActive) {
+          this.solarAnalyzer.setHeatmapVisible(true, this.lightingSystem.currentHour, this.lightingSystem.currentDayOfYear);
+        }
+        this.uiInteractionDebounceTimer = null;
+      }, 80);
+    }
+  }
+
   public setTimeOfDay(hour: number, dayOfYear: number = 172): void {
-    this.lightingSystem.setTime(hour, dayOfYear, this.cameraController.target);
+    if (this.sunPathVisualizer && this.sunPathVisualizer.currentDayOfYear !== dayOfYear) {
+      this.sunPathVisualizer.rebuildArc(dayOfYear);
+    }
+    this.lightingSystem.setTime(hour, dayOfYear, this.cameraController.target, this.isUIInteractionActive);
+    this.sunPathVisualizer?.updateTime(hour, this.lightingSystem, dayOfYear);
+  }
+
+  public setSubsurfaceXRay(enabled: boolean): void {
+    this.isSubsurfaceLensActive = enabled;
+    this.terrain.setSubsurfaceXRay(enabled);
+    this.roadManager.setSubsurfaceDrainageVisible(enabled);
+    this.buildingManager.updateLOD(
+      this.cameraController.camera.position,
+      this.currentCameraMode,
+      this.sectionCutManager.currentMode !== 'none',
+      enabled
+    );
+  }
+
+  public setLowPowerMode(lowPower: boolean): void {
+    this.isLowPowerMode = lowPower;
+  }
+
+  public setArchitecturalWorkMode(
+    mode: '3d' | 'plan' | 'section' | 'elevation',
+    building?: BuildingInstance
+  ): void {
+    const targetBld =
+      building ||
+      (this.buildingManager.selectedBuildingId
+        ? this.buildingManager.buildings.get(this.buildingManager.selectedBuildingId)
+        : undefined);
+
+    const center = targetBld ? targetBld.position.clone() : this.cameraController.target;
+    if (targetBld) center.y = (targetBld.floorCount * (targetBld.floorHeight || 3.2)) / 2;
+
+    if (mode === '3d') {
+      this.cameraController.setOrthographicMode(false);
+      this.sectionCutManager.setCutMode('none');
+      this.floorPlanAnnotationOverlay.setVisible(false);
+    } else if (mode === 'plan') {
+      this.cameraController.setOrthographicMode(true, 'top', center, targetBld ? targetBld.length * 2.5 : 45);
+      this.sectionCutManager.setCutMode('floor_plan');
+      this.floorPlanAnnotationOverlay.setVisible(true);
+    } else if (mode === 'section') {
+      this.cameraController.setOrthographicMode(true, 'section', center, targetBld ? targetBld.length * 2.8 : 55);
+      this.sectionCutManager.setVerticalSectionCut(center);
+      if (targetBld) {
+        this.floorPlanAnnotationOverlay.renderElevationAnnotations(targetBld, 'section');
+      }
+    } else if (mode === 'elevation') {
+      this.cameraController.setOrthographicMode(true, 'front', center, targetBld ? targetBld.length * 2.8 : 55);
+      this.sectionCutManager.setCutMode('none');
+      if (targetBld) {
+        this.floorPlanAnnotationOverlay.renderElevationAnnotations(targetBld, 'elevation');
+      }
+    }
+  }
+
+  public cycleInsideBuildingInteriorVariant(): void {
+    const bldId = this.firstPersonController.insideBuildingId;
+    if (!bldId) return;
+    const bld = this.buildingManager.buildings.get(bldId);
+    if (!bld) return;
+
+    const currentVariant = bld.interiorVariant || 'variant_a';
+    const nextVariant: 'variant_a' | 'variant_b' | 'variant_c' =
+      currentVariant === 'variant_a'
+        ? 'variant_b'
+        : currentVariant === 'variant_b'
+        ? 'variant_c'
+        : 'variant_a';
+
+    this.executeCommand(new SwapInteriorVariantCommand(this, bldId, nextVariant));
   }
 
   public setWeather(weather: WeatherType): void {

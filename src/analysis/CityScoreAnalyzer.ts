@@ -21,6 +21,7 @@ export interface CityUrbanScore {
   surfaceHeatIslandIndex: number;    // Surface heat index (°C relative delta)
   roadConnectivityRatio: number;     // Ratio of connected junctions vs cul-de-sacs
   overallSustainabilityScore: number; // 0 to 100
+  aestheticScoreBonus?: number;       // Bonus up to +15 poin for placemaking elements
   facilities: PublicFacilityCoverage[];
   isolatedBuildingIds: string[];    // Buildings with no road access within 50m
   isolatedLotIds: string[];         // Lots with no road access within 50m
@@ -155,14 +156,37 @@ export class CityScoreAnalyzer {
     }
 
     let greenAreaM2 = 0;
+    let aestheticScoreBonus = 0;
     for (const item of landscapeManager.items.values()) {
-      if (item.type === 'grass_garden') {
+      if (item.type === 'grass_garden' || item.type === 'bioswale_channel' || item.type === 'river_segment') {
         greenAreaM2 += (item.width || 4) * (item.length || 4);
-      } else if (item.type === 'shade_tree') {
-        const r = item.radius || 2.5;
+      } else if (item.type === 'shade_tree' || item.type.startsWith('tree_') || item.type.startsWith('flora_')) {
+        const r = item.radius || 3.0;
         greenAreaM2 += Math.PI * r * r;
+      } else if (item.type === 'retention_pond' || item.type === 'fountain_reflecting_pool' || item.type === 'waterfront_wood_deck' || item.type === 'pavilion_garden_gazebo') {
+        greenAreaM2 += (item.width || 6) * (item.length || 6) * 0.5;
+      }
+
+      // Placemaking & Visual Quality bonus (Statues, Tugu, Amphitheater, Malioboro bollards/benches, Pergolas, etc.)
+      if (
+        item.type === 'monument_tugu_jogja' ||
+        item.type === 'sculpture_kinetic_steel' ||
+        item.type === 'sculpture_candi_stone' ||
+        item.type === 'sculpture_wayang_corten' ||
+        item.type === 'fountain_reflecting_pool' ||
+        item.type === 'monument_clock_tower' ||
+        item.type === 'plaza_mini_amphitheater' ||
+        item.type === 'street_malioboro_bollards' ||
+        item.type === 'street_timber_pergola' ||
+        item.type === 'gate_candi_bentar' ||
+        item.type === 'bridge_green_pedestrian' ||
+        item.type === 'street_festoon_lights' ||
+        item.type === 'waterfront_wood_deck'
+      ) {
+        aestheticScoreBonus += 2.5;
       }
     }
+    aestheticScoreBonus = Math.min(15, Math.round(aestheticScoreBonus));
 
     const totalDevelopedAreaM2 = Math.max(1000, totalBuiltFootprintM2 + roadAreaM2 + greenAreaM2);
     const greenSpaceRatioPercent = Math.min(100, Math.round((greenAreaM2 / totalDevelopedAreaM2) * 100));
@@ -189,7 +213,8 @@ export class CityScoreAnalyzer {
     let score = Math.round(
       (walkabilityPercent * 0.35) +
       (Math.min(100, (greenSpaceRatioPercent / this.settings.targetGreenSpacePercent) * 100) * 0.40) +
-      (Math.min(100, roadConnectivityRatio * 100) * 0.25)
+      (Math.min(100, roadConnectivityRatio * 100) * 0.25) +
+      aestheticScoreBonus
     );
     score = Math.max(10, Math.min(100, score));
 
@@ -200,6 +225,7 @@ export class CityScoreAnalyzer {
       surfaceHeatIslandIndex,
       roadConnectivityRatio,
       overallSustainabilityScore: score,
+      aestheticScoreBonus,
       facilities,
       isolatedBuildingIds,
       isolatedLotIds,

@@ -49,6 +49,11 @@ export interface SerializedBuilding {
   footprintPolygon?: [number, number][]; // optional polygon for non-rectangular prefabs
   floors?: any[];
   customRoof?: any;
+  archetype?: string;
+  hasSolarPV?: boolean;
+  customColor?: string;
+  wallTexture?: string;
+  interiorVariant?: string;
 }
 
 export interface SerializedCustomBuilding {
@@ -98,10 +103,13 @@ export interface SerializedLot {
 
 export interface SerializedLandscapeItem {
   id: string;
-  type: 'tree' | 'grass_patch' | 'paving_patch' | 'well' | 'biopore';
+  type: string;
   position: [number, number, number];
   scale?: number;
+  width?: number;
+  length?: number;
   radius?: number;
+  rotationY?: number;
 }
 
 export interface SerializedDisplaySettings {
@@ -337,6 +345,10 @@ export class CitySerializer {
           walls: fl.walls,
         })),
         customRoof: building.customRoof as any,
+        archetype: building.archetype,
+        hasSolarPV: building.hasSolarPV,
+        customColor: building.customColor,
+        wallTexture: building.wallTexture,
       });
     });
 
@@ -351,7 +363,10 @@ export class CitySerializer {
           type: item.type as any,
           position: [item.position.x, item.position.y, item.position.z],
           scale: item.width,
+          width: item.width,
+          length: item.length,
           radius: item.radius,
+          rotationY: item.rotationY,
         });
       });
     }
@@ -535,6 +550,10 @@ export class CitySerializer {
             walls: fl.walls || [],
           })),
           customRoof: b.customRoof,
+          archetype: b.archetype,
+          hasSolarPV: b.hasSolarPV,
+          customColor: b.customColor,
+          wallTexture: b.wallTexture,
         };
         engine.buildingManager.addBuilding(instance);
       });
@@ -581,9 +600,10 @@ export class CitySerializer {
             id: item.id,
             type: item.type as any,
             position: new THREE.Vector3(item.position[0], item.position[1], item.position[2]),
-            width: item.scale,
-            length: item.scale,
+            width: item.width ?? item.scale,
+            length: item.length ?? item.scale,
             radius: item.radius,
+            rotationY: item.rotationY,
           });
         });
       }

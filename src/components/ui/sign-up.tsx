@@ -1,6 +1,9 @@
 /**
- * sign-up.tsx
- * Re-exports from canonical unified authentication gateway (LoginPage.tsx).
+ * sign-up.tsx - Barrel Alias & Backward-Compatibility Gateway
+ *
+ * Komponen ini berfungsi sebagai barrel alias untuk komponen autentikasi utama (LoginPage.tsx).
+ * Dipertahankan untuk kompatibilitas dependensi historis tanpa menduplikasi logika internal.
+ * Seluruh impor internal baru sebaiknya langsung merujuk ke `src/ui/components/LoginPage.tsx`.
  */
 export {
   AuthComponent,

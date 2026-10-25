@@ -1,6 +1,22 @@
 import * as THREE from 'three';
 import { BuildingManager } from '../../buildings/BuildingManager';
 import { Terrain } from '../../world/Terrain';
+import { InteriorInteractiveSystem, InteractiveSeat } from '../../buildings/InteriorInteractiveSystem';
+import { proceduralAudio } from '../../audio/ProceduralAudio';
+import { PolygonMath } from '../math/PolygonMath';
+
+export interface MicroRoomMetrics {
+  roomId: string;
+  roomName: string;
+  floorLabel: string;
+  areaM2: number;
+  lux: number;
+  sniLuxStatus: 'Optimum (SNI)' | 'Cukup' | 'Kurang Cahaya' | 'Terlalu Terang';
+  ach: number;
+  temperatureC: number;
+  noiseDba: number;
+  interiorVariantName: string;
+}
 
 export interface FirstPersonState {
   isActive: boolean;
@@ -14,6 +30,8 @@ export interface FirstPersonState {
   insideBuildingName: string | null;
   currentFloor: number;
   totalFloors: number;
+  isSeated: boolean;
+  nearbySeatLabel: string | null;
 }
 
 export class FirstPersonController {
@@ -38,6 +56,11 @@ export class FirstPersonController {
   private isGrounded: boolean = true;
   public isUnderRoof: boolean = false;
 
+  // Interactive Seating (0.45m Ergonomic Height)
+  public isSeated: boolean = false;
+  public seatedSeat: InteractiveSeat | null = null;
+  public nearbySeat: InteractiveSeat | null = null;
+
   // Multi-floor traversal & interior location state
   public insideBuildingId: string | null = null;
   public insideBuildingName: string | null = null;
@@ -59,6 +82,22 @@ export class FirstPersonController {
   // Callbacks
   public onStateChanged?: (state: FirstPersonState) => void;
   public onExit?: () => void;
+
+  // Lapis 4: Zero-GC scratchpad vectors & quaternions
+  private readonly _scratchMoveDir: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchOriginWaist: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchOriginChest: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchRayOrigin: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchDownDir: THREE.Vector3 = new THREE.Vector3(0, -1, 0);
+  private readonly _scratchUpDir: THREE.Vector3 = new THREE.Vector3(0, 1, 0);
+  private readonly _scratchWorldQuat: THREE.Quaternion = new THREE.Quaternion();
+  private readonly _scratchWorldNormal: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchLookTarget: THREE.Vector3 = new THREE.Vector3();
+  public onCycleInteriorVariant?: () => void;
+  public onToggleCeilingLight?: () => void;
+  public isCeilingLightOn: boolean = false;
+  private warmCeilingLight: THREE.PointLight | null = null;
+  public currentVariantName: 'Standar Tropis' | 'Open-Plan Modern' | 'Kompak' = 'Standar Tropis';
 
   constructor(
     camera: THREE.PerspectiveCamera,
@@ -118,12 +157,33 @@ export class FirstPersonController {
     if (e.code === 'Space' && this.isGrounded) {
       this.velocityY = this.jumpSpeed;
       this.isGrounded = false;
+    } else if (e.code === 'KeyG') {
+      if (this.insideBuildingId) {
+        this.cycleInteriorVariant();
+      }
+    } else if (e.code === 'KeyL') {
+      if (this.insideBuildingId) {
+        this.toggleCeilingLight();
+      }
     } else if (e.code === 'KeyR') {
       this.traverseFloor('up');
     } else if (e.code === 'KeyF') {
       this.traverseFloor('down');
+    } else if (e.code === 'KeyE') {
+      if (this.isSeated) {
+        this.standUp();
+      } else if (this.nearbySeat) {
+        this.sitDown(this.nearbySeat);
+      } else if (this.insideBuildingId && this.totalFloors > 1) {
+        const nextFloor = this.targetFloor < this.totalFloors ? this.targetFloor + 1 : 1;
+        this.goToFloor(nextFloor);
+      }
     } else if (e.code === 'Escape') {
-      if (this.onExit) this.onExit();
+      if (this.isSeated) {
+        this.standUp();
+      } else if (this.onExit) {
+        this.onExit();
+      }
     }
   };
 
@@ -167,6 +227,32 @@ export class FirstPersonController {
     return false;
   }
 
+  public goToFloor(floorNum: number): boolean {
+    const bld = this.buildingManager?.getBuildingAtPosition?.(this.position.x, this.position.z);
+    if (!bld && !this.insideBuildingId) return false;
+
+    if (bld) {
+      const total = Math.max(1, bld.floorCount || (bld.floors ? bld.floors.length : 1));
+      this.totalFloors = total;
+      this.insideBuildingId = bld.id;
+      this.insideBuildingName = bld.name;
+      this.floorHeight = bld.floorHeight || 3.2;
+    }
+
+    if (floorNum < 1 || floorNum > this.totalFloors) return false;
+
+    this.targetFloor = floorNum;
+    this.currentFloor = floorNum;
+    const flH = bld?.floorHeight || this.floorHeight || 3.2;
+    const plinth = bld?.plinthHeight ?? 0.35;
+    const baseY = bld ? bld.position.y + plinth : 0;
+    this.targetFloorGroundY = baseY + (this.targetFloor - 1) * flH;
+    this.position.y = this.targetFloorGroundY + this.eyeHeight;
+    this.camera.position.copy(this.position);
+    this.emitState();
+    return true;
+  }
+
   public enter(startPos?: THREE.Vector3, initialYaw?: number): void {
     this.isActive = true;
     if (startPos) {
@@ -180,6 +266,8 @@ export class FirstPersonController {
     this.keysDown.clear();
     this.currentFloor = 1;
     this.targetFloor = 1;
+    this.isSeated = false;
+    this.seatedSeat = null;
 
     const groundY = this.calculateGroundHeight(this.position.x, this.position.z);
     this.position.y = groundY + this.eyeHeight;
@@ -210,8 +298,67 @@ export class FirstPersonController {
     }
   }
 
+  public sitDown(seat: InteractiveSeat): void {
+    this.isSeated = true;
+    this.seatedSeat = seat;
+    this.position.x = seat.worldPosition.x;
+    this.position.z = seat.worldPosition.z;
+    this.position.y = seat.worldPosition.y + 0.48; // Ergonomic 0.45-0.50m sitting eye height
+    this.velocityY = 0;
+    this.isGrounded = true;
+    proceduralAudio.playSitDown();
+    this.emitState();
+  }
+
+  public standUp(): void {
+    if (!this.isSeated) return;
+    this.isSeated = false;
+    this.seatedSeat = null;
+    const groundY = this.calculateGroundHeight(this.position.x, this.position.z);
+    this.position.y = groundY + this.eyeHeight;
+    proceduralAudio.playStandUp();
+    this.emitState();
+  }
+
   public update(deltaTime: number): void {
     if (!this.isActive) return;
+
+    // Seated state check
+    if (this.isSeated) {
+      const wantsMove =
+        this.keysDown.has('KeyW') ||
+        this.keysDown.has('KeyS') ||
+        this.keysDown.has('KeyA') ||
+        this.keysDown.has('KeyD') ||
+        this.keysDown.has('ArrowUp') ||
+        this.keysDown.has('ArrowDown') ||
+        this.keysDown.has('ArrowLeft') ||
+        this.keysDown.has('ArrowRight') ||
+        this.keysDown.has('Space');
+
+      if (wantsMove) {
+        this.standUp();
+      } else {
+        // Hold camera steady at chair cushion level
+        if (this.seatedSeat) {
+          this.position.x = this.seatedSeat.worldPosition.x;
+          this.position.z = this.seatedSeat.worldPosition.z;
+          this.position.y = this.seatedSeat.worldPosition.y + 0.48;
+        }
+        this.camera.position.copy(this.position);
+        const lookTarget = new THREE.Vector3(
+          this.position.x + Math.sin(this.yaw) * Math.cos(this.pitch),
+          this.position.y + Math.sin(this.pitch),
+          this.position.z + Math.cos(this.yaw) * Math.cos(this.pitch)
+        );
+        this.camera.lookAt(lookTarget);
+        this.emitState();
+        return;
+      }
+    }
+
+    // Query nearby chair/sofa
+    this.nearbySeat = InteriorInteractiveSystem.getInstance().getNearestSeat(this.position);
 
     const dt = Math.min(deltaTime, 0.1);
     const isSprinting = this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight');
@@ -291,18 +438,17 @@ export class FirstPersonController {
     const moveLen = Math.hypot(dx, dz);
     if (moveLen < 0.0001) return true;
 
-    const moveDir = new THREE.Vector3(dx, 0, dz).normalize();
-    const rayOrigins = [
-      new THREE.Vector3(this.position.x, this.position.y - 0.45, this.position.z), // Waist level
-      new THREE.Vector3(this.position.x, this.position.y - 0.1, this.position.z),  // Chest level
-    ];
+    this._scratchMoveDir.set(dx, 0, dz).normalize();
+    this._scratchOriginWaist.set(this.position.x, this.position.y - 0.45, this.position.z);
+    this._scratchOriginChest.set(this.position.x, this.position.y - 0.1, this.position.z);
 
     if (!this.buildingManager || this.buildingManager.masterGroup.children.length === 0) {
       return true;
     }
 
-    for (const origin of rayOrigins) {
-      this.horizontalRaycaster.set(origin, moveDir);
+    const origins = [this._scratchOriginWaist, this._scratchOriginChest];
+    for (const origin of origins) {
+      this.horizontalRaycaster.set(origin, this._scratchMoveDir);
       this.horizontalRaycaster.far = Math.max(0.42, moveLen + 0.32);
 
       const hits = this.horizontalRaycaster.intersectObjects(
@@ -314,8 +460,10 @@ export class FirstPersonController {
         if (hit.distance < 0.32) {
           // If hit face normal directly opposes motion, block
           if (hit.face) {
-            const worldNormal = hit.face.normal.clone().applyQuaternion(hit.object.getWorldQuaternion(new THREE.Quaternion()));
-            if (moveDir.dot(worldNormal) < -0.15) {
+            this._scratchWorldNormal.copy(hit.face.normal).applyQuaternion(
+              hit.object.getWorldQuaternion(this._scratchWorldQuat)
+            );
+            if (this._scratchMoveDir.dot(this._scratchWorldNormal) < -0.15) {
               return false;
             }
           } else {
@@ -337,6 +485,69 @@ export class FirstPersonController {
 
       const flH = bld.floorHeight || 3.2;
       const plinth = bld.plinthHeight ?? 0.35;
+
+      // 1. Continuous Physical StairZone Check
+      const stairZones: any[] = bld.userData?.stairZones || (bld as any).stairZones || [];
+      if (stairZones.length > 0) {
+        // Transform player (x, z) to building local coordinate space
+        const dx = x - bld.position.x;
+        const dz = z - bld.position.z;
+        const rot = bld.rotationY || 0;
+        const cos = Math.cos(-rot);
+        const sin = Math.sin(-rot);
+        const localX = cos * dx - sin * dz;
+        const localZ = sin * dx + cos * dz;
+
+        // Bounding corridor of the stair flight
+        const coreX = -Math.max(1.2, Math.min(bld.width * 0.35, (bld.width || 12) * 0.22));
+        const coreZ = 0;
+        const runLength = 3.2;
+        const flightX = coreX - 0.68;
+        const flightW = 1.35;
+        const zStart = coreZ - runLength * 0.5; // -1.6
+        const zEnd = coreZ + runLength * 0.5;   // +1.6
+
+        const inStairFootprint =
+          localX >= flightX - flightW * 0.6 &&
+          localX <= flightX + flightW * 0.6 &&
+          localZ >= zStart - 0.5 &&
+          localZ <= zEnd + 0.5;
+
+        if (inStairFootprint) {
+          // Find relevant stair zone for current or adjacent floor
+          let currentZone = stairZones.find((sz: any) => sz.floorIndex === this.targetFloor - 1);
+          if (!currentZone) {
+            let minDiff = 999999;
+            currentZone = stairZones[0];
+            for (const sz of stairZones) {
+              const diff = Math.abs(this.position.y - (bld.position.y + sz.baseFloorY));
+              if (diff < minDiff) {
+                minDiff = diff;
+                currentZone = sz;
+              }
+            }
+          }
+
+          if (currentZone) {
+            // Calculate progress t along the stair slope from 0.0 (foot) to 1.0 (landing)
+            const t = Math.max(0.0, Math.min(1.0, (localZ - zStart) / (zEnd - zStart)));
+            const stairElevation = bld.position.y + currentZone.baseFloorY + t * currentZone.floorHeight;
+
+            // Lock targetFloor once player reaches top or bottom of flight
+            if (t >= 0.98) {
+              this.targetFloor = Math.min(this.totalFloors, currentZone.floorIndex + 2);
+              this.currentFloor = this.targetFloor;
+            } else if (t <= 0.02) {
+              this.targetFloor = Math.max(1, currentZone.floorIndex + 1);
+              this.currentFloor = this.targetFloor;
+            }
+
+            return stairElevation;
+          }
+        }
+      }
+
+      // Flat floor slab elevation for current targetFloor
       const targetY = bld.position.y + plinth + (this.targetFloor - 1) * flH;
       this.currentFloor = this.targetFloor;
       return targetY;
@@ -356,9 +567,9 @@ export class FirstPersonController {
 
     let highestFloorY = 0;
 
-    // Raycast against building geometry (floors, decks, rooftops)
-    const rayOrigin = new THREE.Vector3(x, Math.max(50, this.position.y + 10.0), z);
-    this.downRaycaster.set(rayOrigin, new THREE.Vector3(0, -1, 0));
+    // Raycast against building geometry (floors, decks, rooftops) - Zero-GC
+    this._scratchRayOrigin.set(x, Math.max(50, this.position.y + 10.0), z);
+    this.downRaycaster.set(this._scratchRayOrigin, this._scratchDownDir);
 
     if (this.buildingManager?.masterGroup && this.buildingManager.masterGroup.children.length > 0) {
       this.buildingManager.masterGroup.updateMatrixWorld(true);
@@ -384,8 +595,8 @@ export class FirstPersonController {
     if (!this.buildingManager || !this.buildingManager.masterGroup || this.buildingManager.masterGroup.children.length === 0) {
       return false;
     }
-    const rayOrigin = new THREE.Vector3(pos.x, pos.y + 0.1, pos.z);
-    this.upRaycaster.set(rayOrigin, new THREE.Vector3(0, 1, 0));
+    this._scratchRayOrigin.set(pos.x, pos.y + 0.1, pos.z);
+    this.upRaycaster.set(this._scratchRayOrigin, this._scratchUpDir);
     const hits = this.upRaycaster.intersectObjects(
       this.buildingManager.masterGroup.children,
       true
@@ -406,9 +617,113 @@ export class FirstPersonController {
         insideBuildingId: this.insideBuildingId,
         insideBuildingName: this.insideBuildingName,
         currentFloor: this.currentFloor,
-        totalFloors: this.totalFloors
+        totalFloors: this.totalFloors,
+        isSeated: this.isSeated,
+        nearbySeatLabel: this.nearbySeat ? this.nearbySeat.label : null
       });
     }
+  }
+
+  /**
+   * Calculates real-time micro-space environmental metrics for the room
+   * where the player is currently standing inside a building.
+   */
+  public cycleInteriorVariant(): string {
+    const variants: ('Standar Tropis' | 'Open-Plan Modern' | 'Kompak')[] = [
+      'Standar Tropis',
+      'Open-Plan Modern',
+      'Kompak'
+    ];
+    const nextIdx = (variants.indexOf(this.currentVariantName) + 1) % variants.length;
+    this.currentVariantName = variants[nextIdx];
+    if (this.onCycleInteriorVariant) {
+      this.onCycleInteriorVariant();
+    }
+    if (this.onStateChanged) {
+      this.emitState();
+    }
+    return this.currentVariantName;
+  }
+
+  public toggleCeilingLight(): boolean {
+    this.isCeilingLightOn = !this.isCeilingLightOn;
+    if (this.isCeilingLightOn) {
+      if (!this.warmCeilingLight) {
+        this.warmCeilingLight = new THREE.PointLight(0xffecd2, 2.2, 16, 1.2);
+        this.warmCeilingLight.castShadow = false;
+        this.camera.add(this.warmCeilingLight);
+      }
+      this.warmCeilingLight.visible = true;
+    } else {
+      if (this.warmCeilingLight) {
+        this.warmCeilingLight.visible = false;
+      }
+    }
+    if (this.onToggleCeilingLight) {
+      this.onToggleCeilingLight();
+    }
+    if (this.onStateChanged) {
+      this.emitState();
+    }
+    return this.isCeilingLightOn;
+  }
+
+  public getCurrentRoomMetrics(): MicroRoomMetrics | null {
+    if (!this.insideBuildingId || !this.buildingManager) return null;
+    const bld = this.buildingManager.buildings.get(this.insideBuildingId);
+    if (!bld || !bld.interiorLayouts || bld.interiorLayouts.length === 0) return null;
+
+    const floorIdx = Math.max(0, Math.min(bld.interiorLayouts.length - 1, this.currentFloor - 1));
+    const layout = bld.interiorLayouts[floorIdx];
+    if (!layout || !layout.rooms || layout.rooms.length === 0) return null;
+
+    // Convert player position to local coordinates of the building
+    const rel = new THREE.Vector3().subVectors(this.position, bld.position);
+    rel.applyAxisAngle(new THREE.Vector3(0, 1, 0), -bld.rotationY);
+    const localPt = new THREE.Vector2(rel.x, rel.z);
+
+    let activeRoom = layout.rooms.find((r) => PolygonMath.isPointInPolygon(localPt, r.boundary));
+    if (!activeRoom) {
+      activeRoom = layout.rooms[0];
+    }
+
+    // 1. Natural daylight illumination (Lux) calibrated to SNI 03-2396-2001
+    const daylightFactor = activeRoom.type === 'living_room' || activeRoom.type === 'terrace' ? 0.025 : 0.016;
+    const rawLux = Math.round(9500 * daylightFactor + (this.isCeilingLightOn ? 320 : 55));
+    const lux = Math.max(40, Math.min(1000, rawLux));
+
+    let sniLuxStatus: MicroRoomMetrics['sniLuxStatus'] = 'Optimum (SNI)';
+    if (lux < 120) sniLuxStatus = 'Kurang Cahaya';
+    else if (lux > 500) sniLuxStatus = 'Terlalu Terang';
+    else if (lux >= 150 && lux <= 350) sniLuxStatus = 'Optimum (SNI)';
+    else sniLuxStatus = 'Cukup';
+
+    // 2. Ventilation rate (ACH) and Room Temperature (C)
+    const ach = activeRoom.type === 'terrace' ? 12.5 : 6.4;
+    const temperatureC = 27.6;
+
+    // 3. Indoor noise level (dBA) with facade acoustic attenuation
+    const noiseDba = activeRoom.type === 'terrace' ? 56 : 41;
+
+    const variantKey = bld.interiorVariant || 'variant_a';
+    const variantNames: Record<string, string> = {
+      variant_a: 'Varian A: Standar Tropis',
+      variant_b: 'Varian B: Open-Plan Modern',
+      variant_c: 'Varian C: Kompak Efisien'
+    };
+
+    return {
+      roomId: activeRoom.id,
+      roomName: activeRoom.name,
+      floorLabel: `Lantai ${this.currentFloor}`,
+      areaM2: Math.round(activeRoom.areaM2 * 10) / 10,
+      lux,
+      sniLuxStatus,
+      ach,
+      temperatureC,
+      noiseDba,
+      interiorVariantName: variantNames[variantKey] || 'Varian A: Standar Tropis'
+    };
   }
 
   public dispose(): void {

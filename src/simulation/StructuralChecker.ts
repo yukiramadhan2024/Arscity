@@ -3,7 +3,7 @@ import { BuildingInstance } from '../buildings/PrefabTypes';
 import { proceduralAudio } from '../audio/ProceduralAudio';
 
 export interface StructuralIssue {
-  type: 'excessive_span' | 'irregular_plan' | 'soft_story' | 'extreme_slenderness' | 'excessive_cantilever';
+  type: 'excessive_span' | 'irregular_plan' | 'soft_story' | 'extreme_slenderness' | 'excessive_cantilever' | 'inadequate_foundation_depth' | 'groundwater_saturation_risk';
   title: string;
   description: string;
   penalty: number;
@@ -21,6 +21,9 @@ export interface StructuralReport {
   aspectRatio: number;
   slendernessRatio: number;
   cantileverOverhangM: number;
+  foundationDepthM: number;
+  foundationType: string;
+  isFoundationAdequate: boolean;
 }
 
 export interface StructuralStandardsConfig {
@@ -46,6 +49,7 @@ export class StructuralChecker {
     softStory: 'SNI 1726-2019 Pasal 7.3 (Ketidakteraturan Tingkat Lunak Seismik)',
     slenderness: 'SNI 1726-2019 (Stabilitas Guling Struktur Tinggi)',
     cantilever: 'Pedoman Teknis Bangunan Tahan Gempa Kementerian PUPR',
+    geotechnical: 'SNI 8460:2017 (Persyaratan Perancangan Geoteknik)',
     earthquakeHistoricalContext: 'Pelajaran Gempa Yogyakarta 27 Mei 2006 (Mw 6.3)'
   };
 
@@ -131,6 +135,53 @@ export class StructuralChecker {
       });
     }
 
+    // 5. Subsurface Foundation Depth & Geotechnical Groundwater Saturation Check (SNI 8460:2017)
+    let foundationDepthM: number;
+    let foundationType: string;
+    let isFoundationAdequate = true;
+
+    if (bld.floorCount <= 2) {
+      foundationType = 'Pondasi Menerus Batu Kali & Umpak';
+      foundationDepthM = 1.2;
+    } else if (bld.floorCount <= 5) {
+      foundationType = 'Pondasi Telapak Beton Bertulang (Footplat)';
+      foundationDepthM = 2.5;
+    } else {
+      foundationType = 'Pondasi Tiang Pancang Dalam (Deep Bore Piles & Pile Caps)';
+      foundationDepthM = Math.min(12.0, 6.0 + (bld.floorCount - 6) * 0.5);
+    }
+
+    // Required minimum depth based on floor count
+    const minRequiredDepth = bld.floorCount <= 2 ? 1.0 : bld.floorCount <= 5 ? 2.5 : 6.0;
+    if (foundationDepthM < minRequiredDepth) {
+      isFoundationAdequate = false;
+      const penalty = 20;
+      score -= penalty;
+      issues.push({
+        type: 'inadequate_foundation_depth',
+        title: `Kedalaman Pondasi Belum Memenuhi Beban Gedung (${foundationDepthM.toFixed(1)} m < ${minRequiredDepth.toFixed(1)} m)`,
+        description: 'Pondasi dangkal tidak memadai menahan beban aksial masif dan momen guling struktur bertingkat.',
+        penalty,
+        remedy: 'Terapkan tiang pancang dalam (bored pile) berkedalaman minimal 6.0m hingga mencapai lapisan tanah keras.',
+        standardRef: (this.standardsSources as any).geotechnical || 'SNI 8460:2017'
+      });
+    }
+
+    // Groundwater saturation risk check: buildings near high moisture / rivers with shallow foundations
+    const isNearWaterOrSaturated = (bld as any).isWaterlogged || ((bld as any).soilSaturation && (bld as any).soilSaturation > 0.7);
+    if (isNearWaterOrSaturated && foundationDepthM < 2.0) {
+      const penalty = 15;
+      score -= penalty;
+      issues.push({
+        type: 'groundwater_saturation_risk',
+        title: 'Risiko Penurunan Pondasi Akibat Kejenuhan Air Tanah',
+        description: 'Tingginya muka air tanah jenuh dapat melunakkan tanah lempung dasar dan memicu penurunan diferensial (differential settlement).',
+        penalty,
+        remedy: 'Tingkatkan kedalaman pondasi menjadi footplat min 2.5m atau pasang sumur resapan perimeter untuk drainase.',
+        standardRef: (this.standardsSources as any).geotechnical || 'SNI 8460:2017'
+      });
+    }
+
     // 5. Excessive Cantilever Overhang
     const overhang = bld.roofOverhang || 1.2;
     if (overhang > this.config.maxCantileverOverhangM) {
@@ -166,7 +217,10 @@ export class StructuralChecker {
       maxSpanM: maxDim,
       aspectRatio: Math.round(aspectRatio * 10) / 10,
       slendernessRatio: Math.round(slendernessRatio * 10) / 10,
-      cantileverOverhangM: overhang
+      cantileverOverhangM: overhang,
+      foundationDepthM,
+      foundationType,
+      isFoundationAdequate
     };
   }
 

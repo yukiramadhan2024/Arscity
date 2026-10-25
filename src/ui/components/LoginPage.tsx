@@ -1,27 +1,17 @@
 import React, { useState, useRef, useEffect, createContext } from "react";
 import { ArrowRight, Mail, Lock, Eye, EyeOff, ArrowLeft, X, AlertCircle, CheckCircle2, Loader, Compass } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import confetti from "canvas-confetti";
 import { useUIStore } from '../state/useUIStore';
 import { ArscityLogo } from './ArscityLogo';
 
-// --- CONFETTI HELPER & CONTEXT ---
+// --- CONFETTI HELPER & CONTEXT (Clean No-Op, Zero External Dependencies) ---
 export type ConfettiRef = { fire: () => void } | null;
 export const ConfettiContext = createContext<{ fire: () => void }>({ fire: () => {} });
 export const Confetti = React.forwardRef<ConfettiRef, React.HTMLAttributes<HTMLDivElement>>((_props, _ref) => null);
 Confetti.displayName = "Confetti";
 
 export const fireConfetti = () => {
-  try {
-    confetti({
-      particleCount: 90,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#0A84FF', '#34C759', '#FF9500', '#FF2D55', '#AF52DE']
-    });
-  } catch (_e) {
-    // Graceful fallback for non-browser environments
-  }
+  // Pure no-op for zero external dependencies
 };
 
 // --- BRANDED SVG ICONS ---
@@ -720,10 +710,7 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
         <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
           {/* Top Logo Badge */}
           <div className="auth-logo-badge">
-            <ArscityLogo size={36} />
-            <span className="auth-logo-text" style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
-              {brandName || "Arscity"}
-            </span>
+            <ArscityLogo size={36} showText={true} badge="STUDIO" textColor="#0F172A" />
           </div>
 
           {/* Dynamic Heading & Subtitle */}

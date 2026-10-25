@@ -4,8 +4,10 @@ import { MaterialLibrary } from '../materials/MaterialLibrary';
 import { PolygonMath, Vec2D } from '../core/math/PolygonMath';
 import { LotParcel } from '../zones/ZoneTypes';
 import { applyFoliageSubsurfaceShader } from '../materials/WindShader';
+import { AestheticLandscapeBuilder } from './AestheticLandscapeBuilder';
 
 export type LandscapeType =
+  // Standard Ecological & Hydrological Elements
   | 'grass_garden'
   | 'grass_patch'
   | 'paving_block'
@@ -18,22 +20,58 @@ export type LandscapeType =
   | 'biopore'
   | 'river_segment'
   | 'retention_pond'
-  | 'bioswale_channel';
-
+  | 'bioswale_channel'
+  // Kategori 1: Pohon & Flora Estetik Nusantara
+  | 'tree_tabebuya_pink'
+  | 'tree_tabebuya_gold'
+  | 'tree_flamboyan'
+  | 'tree_frangipani'
+  | 'tree_banyan_kurung'
+  | 'flora_bougainvillea_arch'
+  | 'flora_yellow_bamboo'
+  | 'flora_lotus_water'
+  | 'tree_asam_jawa'
+  // Kategori 2: Patung, Monumen, & Tetenger Kota
+  | 'monument_tugu_jogja'
+  | 'sculpture_kinetic_steel'
+  | 'sculpture_candi_stone'
+  | 'sculpture_wayang_corten'
+  | 'fountain_reflecting_pool'
+  | 'monument_clock_tower'
+  // Kategori 3: Furnitur Jalan & Estetika Malam
+  | 'street_malioboro_bollards'
+  | 'street_festoon_lights'
+  | 'street_timber_pergola'
+  | 'gate_candi_bentar'
+  | 'street_garden_lanterns'
+  // Kategori 4: Ruang Publik & Tepian Air
+  | 'plaza_mini_amphitheater'
+  | 'waterfront_wood_deck'
+  | 'bridge_green_pedestrian'
+  | 'pavilion_garden_gazebo';
 
 export interface LandscapeItem {
   id: string;
   type: LandscapeType;
   position: THREE.Vector3;
-  width?: number; // for rectangular patches (garden/paving/river/swale)
+  rotationY?: number;
+  width?: number; // for rectangular patches (garden/paving/river/swale/deck/bridge)
   length?: number;
-  radius?: number; // for circular items (trees: 3m canopy, wells, biopore, pond)
+  radius?: number; // for circular items (trees: 3m canopy, wells, biopore, pond, fountain)
   lotId?: string;
 }
 
 import { springAnimator } from '../core/engine/SpringAnimator';
 
 export class LandscapeManager {
+  private static activeManagers: Set<LandscapeManager> = new Set();
+
+  public static setNightGlow(factor: number): void {
+    for (const mgr of LandscapeManager.activeManagers) {
+      mgr.updateNightGlow(factor);
+    }
+  }
+
   public items: Map<string, LandscapeItem> = new Map();
   public masterGroup: THREE.Group;
   private scene: THREE.Scene;
@@ -51,6 +89,7 @@ export class LandscapeManager {
     this.masterGroup = new THREE.Group();
     this.masterGroup.name = 'LandscapeMasterGroup';
     scene.add(this.masterGroup);
+    LandscapeManager.activeManagers.add(this);
   }
 
   public addItem(item: LandscapeItem): LandscapeItem {
@@ -65,6 +104,10 @@ export class LandscapeManager {
 
     if (this.onLandscapeUpdated) this.onLandscapeUpdated();
     return item;
+  }
+
+  public getItemMesh(id: string): THREE.Group | undefined {
+    return this.itemGroups.get(id);
   }
 
   public createItem(
@@ -90,12 +133,72 @@ export class LandscapeManager {
     } else if (type === 'bioswale_channel') {
       defaultWidth = 3;
       defaultLength = 12;
-    } else if (type === 'shade_tree') {
+    } else if (type === 'shade_tree' || type === 'tree') {
       defaultRadius = 2.5;
     } else if (type === 'well') {
       defaultRadius = 0.8;
     } else if (type === 'biopore') {
       defaultRadius = 0.25;
+    } else if (type === 'tree_tabebuya_pink' || type === 'tree_tabebuya_gold') {
+      defaultRadius = 3.0;
+    } else if (type === 'tree_flamboyan') {
+      defaultRadius = 3.8;
+    } else if (type === 'tree_frangipani') {
+      defaultRadius = 2.0;
+    } else if (type === 'tree_banyan_kurung') {
+      defaultRadius = 6.5;
+    } else if (type === 'flora_bougainvillea_arch') {
+      defaultWidth = 3.0;
+      defaultLength = 1.8;
+    } else if (type === 'flora_yellow_bamboo') {
+      defaultWidth = 1.6;
+      defaultLength = 0.9;
+    } else if (type === 'flora_lotus_water') {
+      defaultRadius = 2.4;
+    } else if (type === 'tree_asam_jawa') {
+      defaultRadius = 3.4;
+    } else if (type === 'monument_tugu_jogja') {
+      defaultWidth = 4.6;
+      defaultLength = 4.6;
+    } else if (type === 'sculpture_kinetic_steel') {
+      defaultRadius = 1.6;
+    } else if (type === 'sculpture_candi_stone') {
+      defaultWidth = 2.4;
+      defaultLength = 2.4;
+    } else if (type === 'sculpture_wayang_corten') {
+      defaultWidth = 2.6;
+      defaultLength = 1.0;
+    } else if (type === 'fountain_reflecting_pool') {
+      defaultRadius = 4.2;
+    } else if (type === 'monument_clock_tower') {
+      defaultWidth = 3.2;
+      defaultLength = 3.2;
+    } else if (type === 'street_malioboro_bollards') {
+      defaultWidth = 1.4;
+      defaultLength = 3.8;
+    } else if (type === 'street_festoon_lights') {
+      defaultWidth = 1.0;
+      defaultLength = 8.0;
+    } else if (type === 'street_timber_pergola') {
+      defaultWidth = 4.0;
+      defaultLength = 2.4;
+    } else if (type === 'gate_candi_bentar') {
+      defaultWidth = 6.0;
+      defaultLength = 2.0;
+    } else if (type === 'street_garden_lanterns') {
+      defaultWidth = 1.0;
+      defaultLength = 4.2;
+    } else if (type === 'plaza_mini_amphitheater') {
+      defaultRadius = 7.5;
+    } else if (type === 'waterfront_wood_deck') {
+      defaultWidth = 8.0;
+      defaultLength = 4.2;
+    } else if (type === 'bridge_green_pedestrian') {
+      defaultWidth = 3.2;
+      defaultLength = 14.0;
+    } else if (type === 'pavilion_garden_gazebo') {
+      defaultWidth = 3.6;
+      defaultLength = 3.6;
     }
 
     const item: LandscapeItem = {
@@ -126,12 +229,33 @@ export class LandscapeManager {
   }
 
   private buildMeshForItem(item: LandscapeItem): THREE.Group {
+    const matLib = MaterialLibrary.getInstance();
+
+    const isAesthetic =
+      item.type.startsWith('tree_tabebuya') ||
+      item.type === 'tree_flamboyan' ||
+      item.type === 'tree_frangipani' ||
+      item.type === 'tree_banyan_kurung' ||
+      item.type === 'tree_asam_jawa' ||
+      item.type.startsWith('flora_') ||
+      item.type.startsWith('monument_') ||
+      item.type.startsWith('sculpture_') ||
+      item.type === 'fountain_reflecting_pool' ||
+      item.type.startsWith('street_') ||
+      item.type === 'gate_candi_bentar' ||
+      item.type.startsWith('plaza_') ||
+      item.type.startsWith('waterfront_') ||
+      item.type.startsWith('bridge_') ||
+      item.type.startsWith('pavilion_');
+
+    if (isAesthetic) {
+      return AestheticLandscapeBuilder.buildMesh(item, matLib);
+    }
+
     const group = new THREE.Group();
     group.name = `Landscape_${item.id}`;
     group.position.copy(item.position);
     group.userData = { landscapeId: item.id, type: 'landscape' };
-
-    const matLib = MaterialLibrary.getInstance();
 
     switch (item.type) {
       case 'grass_garden':
@@ -263,24 +387,66 @@ export class LandscapeManager {
       }
 
       case 'well': {
-        // Sumur resapan circular ring
+        // Sumur resapan circular surface ring + subterranean infiltration shaft (-3.0m)
         const r = item.radius || 0.8;
         const wellGeom = new THREE.CylinderGeometry(r, r, 0.4, 16);
         const wellMat = matLib.getMaterial('concrete');
         const wellMesh = new THREE.Mesh(wellGeom, wellMat);
         wellMesh.position.y = 0.2;
         group.add(wellMesh);
+
+        // Subterranean concrete percolation well shaft down to -3.0m
+        const shaftGeom = new THREE.CylinderGeometry(r * 0.95, r * 0.95, 3.0, 16);
+        const shaftMat = matLib.getMaterial('concrete');
+        const shaftMesh = new THREE.Mesh(shaftGeom, shaftMat);
+        shaftMesh.position.y = -1.5;
+        shaftMesh.userData = { isSubsurface: true };
+        group.add(shaftMesh);
+
+        // Cyan water infiltration diffusion sphere at bottom of well (-3.0m)
+        const bubbleGeom = new THREE.SphereGeometry(r * 2.2, 16, 16);
+        const bubbleMat = new THREE.MeshBasicMaterial({
+          color: 0x00e5ff,
+          transparent: true,
+          opacity: 0.45,
+          wireframe: false
+        });
+        const bubbleMesh = new THREE.Mesh(bubbleGeom, bubbleMat);
+        bubbleMesh.position.y = -3.0;
+        bubbleMesh.userData = { isSubsurface: true };
+        group.add(bubbleMesh);
         break;
       }
 
       case 'biopore': {
-        // Lubang biopori cap
+        // Lubang biopori cap + subterranean percolation shaft (-1.2m)
         const r = item.radius || 0.25;
         const bioGeom = new THREE.CylinderGeometry(r, r, 0.1, 12);
         const bioMat = matLib.getMaterial('dark_metal');
         const bioMesh = new THREE.Mesh(bioGeom, bioMat);
         bioMesh.position.y = 0.05;
         group.add(bioMesh);
+
+        // Subterranean pipe shaft down to -1.2m
+        const pipeGeom = new THREE.CylinderGeometry(r * 0.85, r * 0.85, 1.2, 12);
+        const pipeMat = matLib.getMaterial('concrete');
+        const pipeMesh = new THREE.Mesh(pipeGeom, pipeMat);
+        pipeMesh.position.y = -0.6;
+        pipeMesh.userData = { isSubsurface: true };
+        group.add(pipeMesh);
+
+        // Cyan soil moisture dispersion sphere at bottom (-1.2m)
+        const moistGeom = new THREE.SphereGeometry(0.65, 12, 12);
+        const moistMat = new THREE.MeshBasicMaterial({
+          color: 0x00b4d8,
+          transparent: true,
+          opacity: 0.4,
+          wireframe: false
+        });
+        const moistMesh = new THREE.Mesh(moistGeom, moistMat);
+        moistMesh.position.y = -1.2;
+        moistMesh.userData = { isSubsurface: true };
+        group.add(moistMesh);
         break;
       }
 
@@ -436,16 +602,33 @@ export class LandscapeManager {
       const dz = Math.abs(item.position.z - lot.position.z);
 
       if (dx <= halfW && dz <= halfL) {
-        if (item.type === 'grass_garden') {
+        if (item.type === 'grass_garden' || item.type === 'grass_patch') {
           greenArea += (item.width || 4) * (item.length || 4);
-        } else if (item.type === 'shade_tree') {
-          // Canopy area projection = PI * r^2
+        } else if (item.type === 'shade_tree' || item.type === 'tree') {
           const r = item.radius || 2.5;
           greenArea += Math.PI * r * r;
+        } else if (item.type.startsWith('tree_')) {
+          const r = item.radius || 3.0;
+          greenArea += Math.PI * r * r;
+        } else if (item.type === 'flora_bougainvillea_arch') {
+          greenArea += (item.width || 3) * (item.length || 1.8) * 0.8;
+        } else if (item.type === 'flora_yellow_bamboo') {
+          greenArea += (item.width || 1.6) * (item.length || 0.9);
+        } else if (item.type === 'flora_lotus_water') {
+          const r = item.radius || 2.4;
+          greenArea += Math.PI * r * r * 0.7;
         } else if (item.type === 'bioswale_channel') {
           greenArea += (item.width || 3) * (item.length || 12) * 0.85;
         } else if (item.type === 'retention_pond') {
           greenArea += (item.width || 16) * (item.length || 16) * 0.5;
+        } else if (item.type === 'fountain_reflecting_pool') {
+          const r = item.radius || 4.2;
+          greenArea += Math.PI * r * r * 0.4;
+        } else if (item.type === 'plaza_mini_amphitheater') {
+          const r = item.radius || 7.5;
+          greenArea += Math.PI * r * r * 0.35;
+        } else if (item.type === 'pavilion_garden_gazebo') {
+          greenArea += (item.width || 3.6) * (item.length || 3.6) * 0.5;
         }
       }
     }
@@ -453,11 +636,38 @@ export class LandscapeManager {
     return Math.min(lot.areaM2, Math.round(greenArea * 10) / 10);
   }
 
+  public updateNightGlow(factor: number): void {
+    const clamped = THREE.MathUtils.clamp(factor, 0, 1);
+    for (const group of this.itemGroups.values()) {
+      group.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const m = child as THREE.Mesh;
+          const mat = m.material as THREE.MeshStandardMaterial;
+          if (mat && (mat.userData?.isNightGlow || m.userData?.isNightGlow)) {
+            const hexColor = mat.userData?.nightColor || m.userData?.nightColor || 0xffb347;
+            mat.emissive.setHex(hexColor);
+            mat.emissiveIntensity = clamped * 1.8;
+            mat.needsUpdate = true;
+          }
+        }
+      });
+    }
+  }
+
   private disposeGroup(group: THREE.Group): void {
     group.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
         mesh.geometry?.dispose();
+        if (mesh.material) {
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((m) => {
+              if (m.userData?.isInstanceMaterial) m.dispose();
+            });
+          } else if (mesh.material.userData?.isInstanceMaterial) {
+            mesh.material.dispose();
+          }
+        }
       }
     });
   }
@@ -488,6 +698,7 @@ export class LandscapeManager {
   }
 
   public dispose(): void {
+    LandscapeManager.activeManagers.delete(this);
     for (const grp of this.itemGroups.values()) {
       this.disposeGroup(grp);
     }

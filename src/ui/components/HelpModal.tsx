@@ -57,6 +57,24 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
       <div className="inset-header">PINTASAN EDITING</div>
       <div className="inset-group">
         <div className="inset-row">
+          <span style={{ fontSize: '13px', color: 'var(--label)' }}>Pilih Alat Cepat</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'monospace' }}>
+            1 - 6
+          </span>
+        </div>
+        <div className="inset-row">
+          <span style={{ fontSize: '13px', color: 'var(--label)' }}>Rotasi Bangunan</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'monospace' }}>
+            R
+          </span>
+        </div>
+        <div className="inset-row">
+          <span style={{ fontSize: '13px', color: 'var(--label)' }}>Hapus Objek Terpilih</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'monospace' }}>
+            Delete / Backspace
+          </span>
+        </div>
+        <div className="inset-row">
           <span style={{ fontSize: '13px', color: 'var(--label)' }}>Undo (Batalkan)</span>
           <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'monospace' }}>
             Ctrl + Z

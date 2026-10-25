@@ -12,6 +12,7 @@ import {
   Sparkles,
   Rotate3d
 } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface Building3DLivePreviewProps {
   width: number;
@@ -55,19 +56,20 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
   const [sceneReady, setSceneReady] = useState<boolean>(false);
 
   // Helper to recursively dispose geometries and materials of an Object3D hierarchy
-  const disposeHierarchy = (node: THREE.Object3D) => {
-    node.traverse((child) => {
+  const disposeObject3D = (obj: THREE.Object3D) => {
+    obj.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
         if (mesh.geometry) {
           mesh.geometry.dispose();
         }
         if (mesh.material) {
-          if (Array.isArray(mesh.material)) {
-            mesh.material.forEach((mat) => mat?.dispose());
-          } else {
-            mesh.material?.dispose();
-          }
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach((mat) => {
+            if (mat) {
+              mat.dispose();
+            }
+          });
         }
       }
     });
@@ -184,11 +186,7 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
     return () => {
       cancelAnimationFrame(animId);
       if (resizeObserver) resizeObserver.disconnect();
-      disposeHierarchy(buildingGroup);
-      grid.geometry.dispose();
-      gridMat.dispose();
-      shadowGeo.dispose();
-      shadowMat.dispose();
+      disposeObject3D(scene);
       renderer.dispose();
       renderer.forceContextLoss();
       buildingGroupRef.current = null;
@@ -201,7 +199,7 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
     if (!sceneReady || !buildingGroup) return;
 
     // Explicitly dispose all BufferGeometry and Material on old preview meshes before adding new meshes
-    disposeHierarchy(buildingGroup);
+    disposeObject3D(buildingGroup);
     while (buildingGroup.children.length > 0) {
       buildingGroup.remove(buildingGroup.children[0]);
     }
@@ -507,7 +505,18 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
   isOpen,
   onClose
 }) => {
-  const { engine, setActiveTool } = useUIStore();
+  const modalRef = useModalA11y(isOpen, onClose);
+  const engine = useUIStore((s) => s.engine);
+  const setActiveTool = useUIStore((s) => s.setActiveTool);
+
+  useEffect(() => {
+    if (isOpen && engine) {
+      engine.setLowPowerMode(true);
+      return () => {
+        engine.setLowPowerMode(false);
+      };
+    }
+  }, [isOpen, engine]);
 
   const [buildingName, setBuildingName] = useState<string>('Villa Tropis Kustom');
   const [width, setWidth] = useState<number>(10);
@@ -574,8 +583,17 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
   };
 
   return (
-    <div className="modal-overlay interactive" role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay interactive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="custom-bld-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={modalRef}
         className="modal-sheet"
         style={{
           width: '580px',
@@ -601,7 +619,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               <Building2 size={20} strokeWidth={2} />
             </div>
             <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)' }}>
+              <div id="custom-bld-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)' }}>
                 Studio Bangunan & Tekstur Kustom
               </div>
               <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)' }}>
@@ -734,7 +752,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               <input
                 type="range"
                 min="1"
-                max="8"
+                max="18"
                 step="1"
                 value={floorCount}
                 onChange={(e) => setFloorCount(parseInt(e.target.value))}

@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import * as THREE from 'three';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SPRING_TACTILE, SPRING_SHEET, APPLE_PRESS, APPLE_HOVER } from '../motion/appleSprings';
+import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { useUIStore, MainToolType } from '../state/useUIStore';
 import {
   MousePointer,
@@ -47,6 +50,7 @@ import { ROAD_PROFILES, RoadType } from '../../roads/RoadTypes';
 import { ZONE_RULES, ZoneType } from '../../zones/ZoneTypes';
 import { AutoZoningService } from '../../zones/AutoZoningService';
 import { LandscapeType } from '../../world/LandscapeManager';
+import { LandscapeSubToolbar } from './LandscapeSubToolbar';
 
 interface ToolItem {
   id: MainToolType;
@@ -77,15 +81,13 @@ const LANDSCAPE_ITEMS: Array<{ type: LandscapeType; label: string; icon: LucideI
   { type: 'biopore', label: 'Biopori', icon: CircleDot }
 ];
 
-export const BottomToolbar: React.FC = () => {
-  const {
-    engine,
-    activeTool,
-    setActiveTool,
-    canUndo,
-    canRedo,
-    setShowCustomBuildingStudio
-  } = useUIStore();
+export const BottomToolbar: React.FC = React.memo(() => {
+  const engine = useUIStore((s) => s.engine);
+  const activeTool = useUIStore((s) => s.activeTool);
+  const setActiveTool = useUIStore((s) => s.setActiveTool);
+  const canUndo = useUIStore((s) => s.canUndo);
+  const canRedo = useUIStore((s) => s.canRedo);
+  const setShowCustomBuildingStudio = useUIStore((s) => s.setShowCustomBuildingStudio);
 
   // Building Catalog Sub-tier state
   const [activeCategory, setActiveCategory] = useState<'all' | BuildingCategory>('all');
@@ -181,7 +183,7 @@ export const BottomToolbar: React.FC = () => {
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'column-reverse',
         alignItems: 'center',
         gap: '10px',
         zIndex: 'var(--z-hud)' as any,
@@ -210,8 +212,11 @@ export const BottomToolbar: React.FC = () => {
           const isActive = activeTool === tool.id;
 
           return (
-            <button
+            <motion.button
               key={tool.id}
+              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              onPointerDown={() => proceduralAudio.playTaptic('light')}
               onClick={() => {
                 if (activeTool === tool.id && tool.id !== 'select') {
                   setActiveTool('select');
@@ -220,6 +225,7 @@ export const BottomToolbar: React.FC = () => {
                 }
               }}
               style={{
+                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -227,23 +233,31 @@ export const BottomToolbar: React.FC = () => {
                 gap: '3px',
                 padding: '6px 16px',
                 borderRadius: '9999px',
-                border: isActive
-                  ? '1px solid var(--accent)'
-                  : '1px solid transparent',
-                background: isActive
-                  ? 'var(--accent-subtle)'
-                  : 'transparent',
-                boxShadow: isActive
-                  ? '0 0 16px rgba(var(--accent-rgb, 10, 132, 255), 0.35)'
-                  : 'none',
+                border: 'none',
+                background: 'transparent',
                 color: isActive ? 'var(--accent)' : 'var(--label)',
                 cursor: 'pointer',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                minWidth: '58px'
+                minWidth: '58px',
+                zIndex: 1
               }}
               title={`${tool.label} (${tool.hotkey})`}
               aria-label={tool.label}
             >
+              {isActive && (
+                <motion.div
+                  layoutId="activeBottomToolPill"
+                  transition={SPRING_TACTILE}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '9999px',
+                    border: '1px solid var(--accent)',
+                    background: 'var(--accent-subtle)',
+                    boxShadow: '0 0 16px rgba(var(--accent-rgb, 10, 132, 255), 0.35)',
+                    zIndex: -1
+                  }}
+                />
+              )}
               <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? 'var(--accent)' : 'var(--label)' }} />
               <span
                 style={{
@@ -256,7 +270,7 @@ export const BottomToolbar: React.FC = () => {
               >
                 {tool.label}
               </span>
-            </button>
+            </motion.button>
           );
         })}
 
@@ -264,7 +278,12 @@ export const BottomToolbar: React.FC = () => {
 
         {/* Undo / Redo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-          <button
+          <motion.button
+            whileTap={canUndo ? { scale: 0.92 } : undefined}
+            whileHover={canUndo ? { scale: 1.08 } : undefined}
+            onPointerDown={() => {
+              if (canUndo) proceduralAudio.playTaptic('light');
+            }}
             disabled={!canUndo}
             onClick={handleUndo}
             style={{
@@ -284,8 +303,13 @@ export const BottomToolbar: React.FC = () => {
             aria-label="Batal"
           >
             <Undo2 size={15} strokeWidth={2} />
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileTap={canRedo ? { scale: 0.92 } : undefined}
+            whileHover={canRedo ? { scale: 1.08 } : undefined}
+            onPointerDown={() => {
+              if (canRedo) proceduralAudio.playTaptic('light');
+            }}
             disabled={!canRedo}
             onClick={handleRedo}
             style={{
@@ -305,500 +329,563 @@ export const BottomToolbar: React.FC = () => {
             aria-label="Ulangi"
           >
             <Redo2 size={15} strokeWidth={2} />
-          </button>
+          </motion.button>
         </div>
       </div>
 
 
 
-      {/* 2B. 'build' Mode: Full Building Catalog with Category Tabs & Search */}
-      {activeTool === 'build' && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            padding: '10px 14px',
-            background: 'var(--surface)',
-            backdropFilter: 'blur(var(--glass-blur))',
-            WebkitBackdropFilter: 'blur(var(--glass-blur))',
-            border: '1px solid var(--hairline)',
-            borderRadius: 'var(--radius-panel)',
-            boxShadow: 'var(--shadow-glass)',
-            zIndex: 'var(--z-hud)' as any,
-            width: '100%'
-          }}
-        >
-          {/* Controls Bar: Tabs, Search, Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-            {/* Category Tabs */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
-              {categories.map((cat) => {
-                const Icon = cat.icon;
-                const isCatActive = activeCategory === cat.id;
-
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '4px 10px',
-                      borderRadius: '9999px',
-                      border: isCatActive ? '1px solid var(--accent)' : '1px solid var(--hairline)',
-                      background: isCatActive ? 'var(--accent-subtle)' : 'var(--fill-control)',
-                      color: isCatActive ? 'var(--accent)' : 'var(--label)',
-                      fontSize: '11px',
-                      fontWeight: isCatActive ? 600 : 500,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    <Icon size={12} strokeWidth={1.8} style={{ color: isCatActive ? 'var(--accent)' : 'var(--label-secondary)' }} />
-                    <span>{cat.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Search Input & Action Buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'var(--fill-control)',
-                  border: '1px solid var(--hairline)',
-                  borderRadius: '9999px',
-                  padding: '3px 10px'
-                }}
-              >
-                <Search size={13} style={{ color: 'var(--label-secondary)' }} />
-                <input
-                  type="text"
-                  placeholder="Cari gedung..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    color: 'var(--label)',
-                    fontSize: '11px',
-                    width: '100px'
-                  }}
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--label-secondary)', cursor: 'pointer', padding: 0 }}
-                  >
-                    <X size={11} />
-                  </button>
-                )}
-              </div>
-
-              <button
-                onClick={handleRotateBuilding}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 10px',
-                  borderRadius: '9999px',
-                  background: 'var(--fill-control)',
-                  border: '1px solid var(--hairline)',
-                  color: 'var(--label)',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-                title="Putar Orientasi Bangunan (R)"
-              >
-                <RotateCw size={12} />
-                <span>Putar (R)</span>
-              </button>
-
-              <button
-                onClick={() => setShowCustomBuildingStudio(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 10px',
-                  borderRadius: '9999px',
-                  background: 'var(--accent-subtle)',
-                  border: '1px solid var(--accent)',
-                  color: 'var(--accent)',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-                title="Rancang Gedung Sendiri"
-              >
-                <PenTool size={12} />
-                <span>+ Rancang</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTool('select')}
-                style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '50%',
-                  background: 'var(--fill-control)',
-                  border: 'none',
-                  color: 'var(--label-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer'
-                }}
-                title="Tutup Katalog"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          </div>
-
-          {/* Buildings Horizontal Card Carousel */}
-          <div
+      {/* Sub-toolbars with Apple interruptible spring transitions & bottom origin morphing */}
+      <AnimatePresence mode="popLayout">
+        {/* 2B. 'build' Mode: Full Building Catalog with Category Tabs & Search */}
+        {activeTool === 'build' && (
+          <motion.div
+            key="subtoolbar-build"
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={SPRING_SHEET}
             style={{
+              transformOrigin: 'bottom center',
               display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              overflowX: 'auto',
-              padding: '4px 2px',
-              maxHeight: '145px',
-              scrollbarWidth: 'thin'
+              flexDirection: 'column',
+              gap: '8px',
+              padding: '10px 14px',
+              background: 'var(--surface)',
+              backdropFilter: 'blur(var(--glass-blur))',
+              WebkitBackdropFilter: 'blur(var(--glass-blur))',
+              border: '1px solid var(--hairline)',
+              borderRadius: 'var(--radius-panel)',
+              boxShadow: 'var(--shadow-glass)',
+              zIndex: 'var(--z-hud)' as any,
+              width: '100%'
             }}
           >
-            {filteredBuildings.slice(0, 36).map((item) => {
-              const isSelected = selectedBuildingKey === item.id;
-              const thumb = ProceduralTextureGen.getBuildingThumbnail(item.id, item.category, item.name);
+            {/* Controls Bar: Tabs, Search, Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+              {/* Category Tabs */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
+                {categories.map((cat) => {
+                  const Icon = cat.icon;
+                  const isCatActive = activeCategory === cat.id;
 
-              return (
+                  return (
+                    <motion.button
+                      key={cat.id}
+                      whileTap={{ scale: 0.95 }}
+                      onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                      onClick={() => setActiveCategory(cat.id)}
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '4px 10px',
+                        borderRadius: '9999px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: isCatActive ? 'var(--accent)' : 'var(--label)',
+                        fontSize: '11px',
+                        fontWeight: isCatActive ? 600 : 500,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        zIndex: 1
+                      }}
+                    >
+                      {isCatActive && (
+                        <motion.div
+                          layoutId="activeBuildingCategoryPill"
+                          transition={SPRING_TACTILE}
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            borderRadius: '9999px',
+                            border: '1px solid var(--accent)',
+                            background: 'var(--accent-subtle)',
+                            zIndex: -1
+                          }}
+                        />
+                      )}
+                      <Icon size={12} strokeWidth={1.8} style={{ color: isCatActive ? 'var(--accent)' : 'var(--label-secondary)' }} />
+                      <span>{cat.label}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              {/* Search Input & Action Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div
-                  key={item.id}
-                  onClick={() => handleSelectBuildingItem(item)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    flexShrink: 0,
-                    width: '130px',
-                    padding: '6px',
-                    borderRadius: '14px',
-                    background: isSelected
-                      ? 'var(--accent-subtle)'
-                      : 'var(--fill-control)',
-                    border: isSelected
-                      ? '1px solid var(--accent)'
-                      : '1px solid var(--hairline)',
-                    boxShadow: isSelected ? '0 0 12px rgba(var(--accent-rgb, 10, 132, 255), 0.3)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  title={item.description}
-                >
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '56px',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      marginBottom: '5px',
-                      background: '#090d16'
-                    }}
-                  >
-                    <img src={thumb} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {item.name}
-                  </div>
-                  <div className="font-mono tabular-nums" style={{ fontSize: '9px', color: 'var(--label-secondary)' }}>
-                    {item.defaultWidth}×{item.defaultDepth}m • {item.defaultFloors} Lt
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* 2C. 'road' Mode: Integrated Road Profiles & Draw Mode */}
-      {activeTool === 'road' && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 14px',
-            background: 'var(--surface)',
-            backdropFilter: 'blur(var(--glass-blur))',
-            WebkitBackdropFilter: 'blur(var(--glass-blur))',
-            border: '1px solid var(--hairline)',
-            borderRadius: 'var(--radius-panel)',
-            boxShadow: 'var(--shadow-glass)',
-            zIndex: 'var(--z-hud)' as any
-          }}
-        >
-          {/* Straight vs Bezier */}
-          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--fill-control)', borderRadius: '9999px', padding: '2px' }}>
-            <button
-              onClick={() => handleRoadDrawModeSelect('straight')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '4px 10px',
-                borderRadius: '9999px',
-                border: 'none',
-                background: roadDrawMode === 'straight' ? 'var(--accent-subtle)' : 'transparent',
-                color: roadDrawMode === 'straight' ? 'var(--accent)' : 'var(--label)',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              <Minus size={13} />
-              <span>Lurus</span>
-            </button>
-            <button
-              onClick={() => handleRoadDrawModeSelect('bezier')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '4px 10px',
-                borderRadius: '9999px',
-                border: 'none',
-                background: roadDrawMode === 'bezier' ? 'var(--accent-subtle)' : 'transparent',
-                color: roadDrawMode === 'bezier' ? 'var(--accent)' : 'var(--label)',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              <Spline size={13} />
-              <span>Lengkung</span>
-            </button>
-          </div>
-
-          <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
-
-          {/* Road Profiles */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto' }}>
-            {(Object.keys(ROAD_PROFILES) as RoadType[]).map((rt) => {
-              const prof = ROAD_PROFILES[rt];
-              const isSel = roadType === rt;
-
-              return (
-                <button
-                  key={rt}
-                  onClick={() => handleRoadTypeSelect(rt)}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '9999px',
-                    border: isSel ? '1px solid var(--accent)' : '1px solid var(--hairline)',
-                    background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
-                    color: isSel ? 'var(--accent)' : 'var(--label)',
-                    fontSize: '11px',
-                    fontWeight: isSel ? 600 : 500,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {prof.name.split(' (')[0]}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => setActiveTool('select')}
-            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
-
-      {/* 2D. 'zone' Mode: Integrated Zoning Palette */}
-      {activeTool === 'zone' && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 14px',
-            background: 'var(--surface)',
-            backdropFilter: 'blur(var(--glass-blur))',
-            WebkitBackdropFilter: 'blur(var(--glass-blur))',
-            border: '1px solid var(--hairline)',
-            borderRadius: 'var(--radius-panel)',
-            boxShadow: 'var(--shadow-glass)',
-            zIndex: 'var(--z-hud)' as any
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {(Object.keys(ZONE_RULES) as ZoneType[]).map((zt) => {
-              const rule = ZONE_RULES[zt];
-              const isSel = activeZone === zt;
-
-              return (
-                <button
-                  key={zt}
-                  onClick={() => handleZoneSelect(zt)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    padding: '4px 10px',
+                    background: 'var(--fill-control)',
+                    border: '1px solid var(--hairline)',
                     borderRadius: '9999px',
-                    border: isSel ? '1px solid var(--accent)' : '1px solid transparent',
-                    background: isSel ? 'var(--fill-control-active)' : 'transparent',
-                    color: isSel ? 'var(--label)' : 'var(--label-secondary)',
-                    fontSize: '11px',
-                    fontWeight: isSel ? 600 : 500,
-                    cursor: 'pointer'
+                    padding: '3px 10px'
                   }}
                 >
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: rule.color }} />
-                  <span>{rule.name.split(' (')[0]}</span>
-                </button>
-              );
-            })}
-          </div>
+                  <Search size={13} style={{ color: 'var(--label-secondary)' }} />
+                  <input
+                    type="text"
+                    placeholder="Cari gedung..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      color: 'var(--label)',
+                      fontSize: '11px',
+                      width: '100px'
+                    }}
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--label-secondary)', cursor: 'pointer', padding: 0 }}
+                    >
+                      <X size={11} />
+                    </button>
+                  )}
+                </div>
 
-          <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
-
-          {/* Lot Size Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>Kavling:</span>
-            {[
-              { w: 12, l: 15, label: '12×15m' },
-              { w: 15, l: 20, label: '15×20m' },
-              { w: 20, l: 30, label: '20×30m' }
-            ].map((sz) => {
-              const isSel = activeLotSize === sz.label;
-              return (
-                <button
-                  key={sz.label}
-                  onClick={() => handleLotSizeChange(sz.w, sz.l, sz.label)}
-                  style={{
-                    padding: '3px 8px',
-                    borderRadius: '9999px',
-                    border: isSel ? '1px solid var(--accent)' : '1px solid var(--hairline)',
-                    background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
-                    color: isSel ? 'var(--accent)' : 'var(--label)',
-                    fontSize: '11px',
-                    fontWeight: isSel ? 600 : 500,
-                    cursor: 'pointer'
-                  }}
-                >
-                  <span className="font-mono tabular-nums">{sz.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
-
-          <button
-            onClick={() => {
-              if (!engine) return;
-              const cmd = AutoZoningService.createAutoDevelopAllLotsCommand(engine);
-              if (cmd) engine.executeCommand(cmd);
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 10px',
-              borderRadius: '9999px',
-              background: 'rgba(52, 199, 89, 0.16)',
-              border: '1px solid rgba(52, 199, 89, 0.4)',
-              color: '#34c759',
-              fontSize: '11px',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-            title="Bangun Seluruh Kavling Kosong Secara Otomatis"
-          >
-            <Sparkles size={12} />
-            <span>Bangun Otomatis</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTool('select')}
-            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
-
-      {/* 2E. 'nature' Mode: Integrated Landscape Palette */}
-      {activeTool === 'nature' && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 14px',
-            background: 'var(--surface)',
-            backdropFilter: 'blur(var(--glass-blur))',
-            WebkitBackdropFilter: 'blur(var(--glass-blur))',
-            border: '1px solid var(--hairline)',
-            borderRadius: 'var(--radius-panel)',
-            boxShadow: 'var(--shadow-glass)',
-            zIndex: 'var(--z-hud)' as any
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto' }}>
-            {LANDSCAPE_ITEMS.map((item) => {
-              const Icon = item.icon;
-              const isSel = activeLandscape === item.type;
-
-              return (
-                <button
-                  key={item.type}
-                  onClick={() => handleLandscapeSelect(item.type)}
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onPointerDown={() => proceduralAudio.playTaptic('light')}
+                  onClick={handleRotateBuilding}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '5px',
+                    gap: '4px',
                     padding: '4px 10px',
                     borderRadius: '9999px',
-                    border: isSel ? '1px solid var(--accent)' : '1px solid var(--hairline)',
-                    background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
-                    color: isSel ? 'var(--accent)' : 'var(--label)',
+                    background: 'var(--fill-control)',
+                    border: '1px solid var(--hairline)',
+                    color: 'var(--label)',
                     fontSize: '11px',
-                    fontWeight: isSel ? 600 : 500,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
+                    fontWeight: 600,
+                    cursor: 'pointer'
                   }}
+                  title="Putar Orientasi Bangunan (R)"
                 >
-                  <Icon size={13} strokeWidth={1.8} style={{ color: isSel ? 'var(--accent)' : 'var(--label-secondary)' }} />
-                  <span>{item.label}</span>
+                  <RotateCw size={12} />
+                  <span>Putar (R)</span>
+                </motion.button>
+
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onPointerDown={() => proceduralAudio.playTaptic('light')}
+                  onClick={() => setShowCustomBuildingStudio(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 10px',
+                    borderRadius: '9999px',
+                    background: 'var(--accent-subtle)',
+                    border: '1px solid var(--accent)',
+                    color: 'var(--accent)',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                  title="Rancang Gedung Sendiri"
+                >
+                  <PenTool size={12} />
+                  <span>+ Rancang</span>
+                </motion.button>
+
+                <button
+                  onClick={() => setActiveTool('select')}
+                  onPointerDown={() => proceduralAudio.playTaptic('light')}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: 'var(--fill-control)',
+                    border: 'none',
+                    color: 'var(--label-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                  title="Tutup Katalog"
+                >
+                  <X size={13} />
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            </div>
 
-          <button
-            onClick={() => setActiveTool('select')}
-            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            {/* Buildings Horizontal Card Carousel */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                overflowX: 'auto',
+                padding: '4px 2px',
+                maxHeight: '145px',
+                scrollbarWidth: 'thin'
+              }}
+            >
+              {filteredBuildings.slice(0, 36).map((item) => {
+                const isSelected = selectedBuildingKey === item.id;
+                const thumb = ProceduralTextureGen.getBuildingThumbnail(item.id, item.category, item.name);
+
+                return (
+                  <motion.div
+                    key={item.id}
+                    whileTap={{ scale: 0.96 }}
+                    whileHover={{ scale: 1.02 }}
+                    onPointerDown={() => proceduralAudio.playTaptic('light')}
+                    onClick={() => handleSelectBuildingItem(item)}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      flexShrink: 0,
+                      width: '130px',
+                      padding: '6px',
+                      borderRadius: '14px',
+                      background: isSelected
+                        ? 'var(--accent-subtle)'
+                        : 'var(--fill-control)',
+                      border: isSelected
+                        ? '1px solid var(--accent)'
+                        : '1px solid var(--hairline)',
+                      boxShadow: isSelected ? '0 0 12px rgba(var(--accent-rgb, 10, 132, 255), 0.3)' : 'none',
+                      cursor: 'pointer'
+                    }}
+                    title={item.description}
+                  >
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '56px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        marginBottom: '5px',
+                        background: '#090d16'
+                      }}
+                    >
+                      <img src={thumb} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.name}
+                    </div>
+                    <div className="font-mono tabular-nums" style={{ fontSize: '9px', color: 'var(--label-secondary)' }}>
+                      {item.defaultWidth}×{item.defaultDepth}m • {item.defaultFloors} Lt
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* 2C. 'road' Mode: Integrated Road Profiles & Draw Mode */}
+        {activeTool === 'road' && (
+          <motion.div
+            key="subtoolbar-road"
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={SPRING_SHEET}
+            style={{
+              transformOrigin: 'bottom center',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 14px',
+              background: 'var(--surface)',
+              backdropFilter: 'blur(var(--glass-blur))',
+              WebkitBackdropFilter: 'blur(var(--glass-blur))',
+              border: '1px solid var(--hairline)',
+              borderRadius: 'var(--radius-panel)',
+              boxShadow: 'var(--shadow-glass)',
+              zIndex: 'var(--z-hud)' as any
+            }}
           >
-            <X size={12} />
-          </button>
-        </div>
-      )}
+            {/* Straight vs Bezier with layoutId spring indicator */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', background: 'var(--fill-control)', borderRadius: '9999px', padding: '2px' }}>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                onClick={() => handleRoadDrawModeSelect('straight')}
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '9999px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: roadDrawMode === 'straight' ? 'var(--accent)' : 'var(--label)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  zIndex: 1
+                }}
+              >
+                {roadDrawMode === 'straight' && (
+                  <motion.div
+                    layoutId="activeRoadDrawModePill"
+                    transition={SPRING_TACTILE}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '9999px',
+                      background: 'var(--accent-subtle)',
+                      border: '1px solid var(--accent)',
+                      zIndex: -1
+                    }}
+                  />
+                )}
+                <Minus size={13} />
+                <span>Lurus</span>
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                onClick={() => handleRoadDrawModeSelect('bezier')}
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '9999px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: roadDrawMode === 'bezier' ? 'var(--accent)' : 'var(--label)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  zIndex: 1
+                }}
+              >
+                {roadDrawMode === 'bezier' && (
+                  <motion.div
+                    layoutId="activeRoadDrawModePill"
+                    transition={SPRING_TACTILE}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '9999px',
+                      background: 'var(--accent-subtle)',
+                      border: '1px solid var(--accent)',
+                      zIndex: -1
+                    }}
+                  />
+                )}
+                <Spline size={13} />
+                <span>Lengkung</span>
+              </motion.button>
+            </div>
 
+            <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
 
+            {/* Road Profiles */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto' }}>
+              {(Object.keys(ROAD_PROFILES) as RoadType[]).map((rt) => {
+                const prof = ROAD_PROFILES[rt];
+                const isSel = roadType === rt;
+
+                return (
+                  <motion.button
+                    key={rt}
+                    whileTap={{ scale: 0.95 }}
+                    onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                    onClick={() => handleRoadTypeSelect(rt)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '9999px',
+                      border: isSel ? '1px solid var(--accent)' : '1px solid var(--hairline)',
+                      background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                      color: isSel ? 'var(--accent)' : 'var(--label)',
+                      fontSize: '11px',
+                      fontWeight: isSel ? 600 : 500,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {prof.name.split(' (')[0]}
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setActiveTool('select')}
+              onPointerDown={() => proceduralAudio.playTaptic('light')}
+              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <X size={12} />
+            </button>
+          </motion.div>
+        )}
+
+        {/* 2D. 'zone' Mode: Integrated Zoning Palette */}
+        {activeTool === 'zone' && (
+          <motion.div
+            key="subtoolbar-zone"
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={SPRING_SHEET}
+            style={{
+              transformOrigin: 'bottom center',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 14px',
+              background: 'var(--surface)',
+              backdropFilter: 'blur(var(--glass-blur))',
+              WebkitBackdropFilter: 'blur(var(--glass-blur))',
+              border: '1px solid var(--hairline)',
+              borderRadius: 'var(--radius-panel)',
+              boxShadow: 'var(--shadow-glass)',
+              zIndex: 'var(--z-hud)' as any
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {(Object.keys(ZONE_RULES) as ZoneType[]).map((zt) => {
+                const rule = ZONE_RULES[zt];
+                const isSel = activeZone === zt;
+
+                return (
+                  <motion.button
+                    key={zt}
+                    whileTap={{ scale: 0.95 }}
+                    onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                    onClick={() => handleZoneSelect(zt)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 10px',
+                      borderRadius: '9999px',
+                      border: isSel ? '1px solid var(--accent)' : '1px solid transparent',
+                      background: isSel ? 'var(--fill-control-active)' : 'transparent',
+                      color: isSel ? 'var(--label)' : 'var(--label-secondary)',
+                      fontSize: '11px',
+                      fontWeight: isSel ? 600 : 500,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: rule.color }} />
+                    <span>{rule.name.split(' (')[0]}</span>
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
+
+            {/* Lot Size Selector with layoutId indicator */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>Kavling:</span>
+              {[
+                { w: 12, l: 15, label: '12×15m' },
+                { w: 15, l: 20, label: '15×20m' },
+                { w: 20, l: 30, label: '20×30m' }
+              ].map((sz) => {
+                const isSel = activeLotSize === sz.label;
+                return (
+                  <motion.button
+                    key={sz.label}
+                    whileTap={{ scale: 0.95 }}
+                    onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                    onClick={() => handleLotSizeChange(sz.w, sz.l, sz.label)}
+                    style={{
+                      position: 'relative',
+                      padding: '3px 8px',
+                      borderRadius: '9999px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: isSel ? 'var(--accent)' : 'var(--label)',
+                      fontSize: '11px',
+                      fontWeight: isSel ? 600 : 500,
+                      cursor: 'pointer',
+                      zIndex: 1
+                    }}
+                  >
+                    {isSel && (
+                      <motion.div
+                        layoutId="activeLotSizePill"
+                        transition={SPRING_TACTILE}
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          borderRadius: '9999px',
+                          border: '1px solid var(--accent)',
+                          background: 'var(--accent-subtle)',
+                          zIndex: -1
+                        }}
+                      />
+                    )}
+                    <span className="font-mono tabular-nums">{sz.label}</span>
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
+
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onPointerDown={() => proceduralAudio.playTaptic('medium')}
+              onClick={() => {
+                if (!engine) return;
+                const cmd = AutoZoningService.createAutoDevelopAllLotsCommand(engine);
+                if (cmd) engine.executeCommand(cmd);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 10px',
+                borderRadius: '9999px',
+                background: 'rgba(52, 199, 89, 0.16)',
+                border: '1px solid rgba(52, 199, 89, 0.4)',
+                color: '#34c759',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              title="Bangun Seluruh Kavling Kosong Secara Otomatis"
+            >
+              <Sparkles size={12} />
+              <span>Bangun Otomatis</span>
+            </motion.button>
+
+            <button
+              onClick={() => setActiveTool('select')}
+              onPointerDown={() => proceduralAudio.playTaptic('light')}
+              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <X size={12} />
+            </button>
+          </motion.div>
+        )}
+
+        {/* 2E. 'nature' Mode: Tabbed 24-Item Aesthetic Landscape Palette */}
+        {activeTool === 'nature' && (
+          <motion.div
+            key="subtoolbar-nature"
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={SPRING_SHEET}
+            style={{ transformOrigin: 'bottom center', width: '100%' }}
+          >
+            <LandscapeSubToolbar />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
-};
+});

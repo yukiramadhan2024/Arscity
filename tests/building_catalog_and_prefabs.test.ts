@@ -12,13 +12,13 @@ import { LandscapeManager } from '../src/world/LandscapeManager';
 import { RoadManager } from '../src/roads/RoadManager';
 import { BuildingInstance } from '../src/buildings/PrefabTypes';
 
-describe('Data-Driven Building Catalog & Parametric Procedural Architect (97 Buildings)', () => {
+describe('Data-Driven Building Catalog & Parametric Procedural Architect (101 Buildings)', () => {
   const allBuildings = BuildingCatalogRegistry.getAllBuildings();
 
-  it('contains exactly 97 buildings with zero duplicate IDs', () => {
-    expect(allBuildings).toHaveLength(97);
+  it('contains exactly 101 buildings with zero duplicate IDs', () => {
+    expect(allBuildings).toHaveLength(101);
     const idSet = new Set(allBuildings.map((b) => b.id));
-    expect(idSet.size).toBe(97);
+    expect(idSet.size).toBe(101);
   });
 
   it('strictly adheres to anti-AI-slop rule: 0 Unicode emojis in names, descriptions, or categories', () => {
@@ -33,19 +33,19 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (97 Bui
     }
   });
 
-  it('correctly maps all 15 categories with expected counts summing to 97', () => {
+  it('correctly maps all 15 categories with expected counts summing to 101', () => {
     const counts = BuildingCatalogRegistry.getCategoryCounts();
-    expect(counts.all).toBe(97);
-    expect(counts.hunian).toBe(6);
+    expect(counts.all).toBe(101);
+    expect(counts.hunian).toBe(7);
     expect(counts.kuliner_kafe).toBe(12);
-    expect(counts.mall_ritel).toBe(12);
+    expect(counts.mall_ritel).toBe(13);
     expect(counts.kampus_kos).toBe(9);
-    expect(counts.budaya_hotel).toBe(11);
+    expect(counts.budaya_hotel).toBe(12);
     expect(counts.publik_hijau).toBe(10);
     expect(counts.pemerintahan_keamanan).toBe(6);
     expect(counts.pendidikan).toBe(1);
     expect(counts.kesehatan).toBe(2);
-    expect(counts.perdagangan_jasa).toBe(1);
+    expect(counts.perdagangan_jasa).toBe(2);
     expect(counts.industri_logistik).toBe(4);
     expect(counts.transportasi).toBe(5);
     expect(counts.utilitas).toBe(6);
@@ -67,7 +67,7 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (97 Bui
         counts.utilitas +
         counts.ibadah_budaya +
         counts.rekreasi_terbuka
-    ).toBe(97);
+    ).toBe(101);
   });
 
   it('includes all 48 newly requested Indonesian building types', () => {
@@ -482,7 +482,7 @@ describe('Data-Driven Building Catalog & Parametric Procedural Architect (97 Bui
       const val = CitySerializer.validateCityData(rawData);
       expect(val.valid).toBe(true);
       expect(val.errors).toHaveLength(0);
-      expect(rawData.buildings).toHaveLength(97);
+      expect(rawData.buildings).toHaveLength(101);
     });
   });
 });

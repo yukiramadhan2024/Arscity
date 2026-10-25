@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { SPRING_SHEET, SPRING_TACTILE } from '../motion/appleSprings';
+import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { useUIStore } from '../state/useUIStore';
 import {
   Sun,
@@ -41,6 +44,7 @@ export const AnalysisOverlay: React.FC = () => {
   const [runoffOn, setRunoffOn] = useState<boolean>(false);
   const [isExtremeStorm, setIsExtremeStorm] = useState<boolean>(false);
   const [isShakingSim, setIsShakingSim] = useState<boolean>(false);
+  const [isSubsurfaceXRay, setIsSubsurfaceXRay] = useState<boolean>(false);
   const [runoffReport, setRunoffReport] = useState<CityRunoffReport | null>(null);
   const [acousticReport, setAcousticReport] = useState<CityAcousticReport | null>(null);
   const [hasBaseline, setHasBaseline] = useState<boolean>(scenarioComparator.hasBaseline());
@@ -55,6 +59,7 @@ export const AnalysisOverlay: React.FC = () => {
   useEffect(() => {
     return () => {
       engine?.setMaquetteDataLens('none');
+      engine?.setSubsurfaceXRay(false);
     };
   }, [engine]);
 
@@ -209,9 +214,14 @@ export const AnalysisOverlay: React.FC = () => {
   };
 
   return (
-    <aside
+    <motion.aside
       className="interactive glass-surface"
+      initial={{ opacity: 0, y: 32, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 32, scale: 0.95 }}
+      transition={SPRING_SHEET}
       style={{
+        transformOrigin: 'bottom center',
         position: 'absolute',
         top: '76px',
         left: '72px',
@@ -358,22 +368,46 @@ export const AnalysisOverlay: React.FC = () => {
           const isSel = activeTab === tab.id;
 
           return (
-            <button
+            <motion.button
               key={tab.id}
+              whileTap={{ scale: 0.95 }}
+              onPointerDown={() => proceduralAudio.playTaptic('selection')}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`segmented-item ${isSel ? 'active' : ''}`}
               style={{
+                position: 'relative',
                 flex: '1 0 auto',
-                padding: '5px 4px',
+                padding: '5px 8px',
                 fontSize: '10px',
                 gap: '2px',
-                minWidth: 'max-content'
+                minWidth: 'max-content',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                color: isSel ? 'var(--label)' : 'var(--label-secondary)',
+                fontWeight: isSel ? 600 : 500,
+                zIndex: 1
               }}
               title={tab.label}
             >
+              {isSel && (
+                <motion.div
+                  layoutId="activeAnalysisTabPill"
+                  transition={SPRING_TACTILE}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '6px',
+                    background: 'var(--fill-control-active, rgba(255, 255, 255, 0.15))',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                    zIndex: -1
+                  }}
+                />
+              )}
               <Icon size={12} strokeWidth={1.75} />
               <span>{tab.label}</span>
-            </button>
+            </motion.button>
           );
         })}
       </div>
@@ -587,6 +621,34 @@ export const AnalysisOverlay: React.FC = () => {
                 {buildings.length} Bangunan
               </span>
             </div>
+
+            {/* Lensa X-Ray Bawah Tanah (Fitur v3.1) */}
+            <button
+              onClick={() => {
+                const next = !isSubsurfaceXRay;
+                setIsSubsurfaceXRay(next);
+                engine?.setSubsurfaceXRay(next);
+              }}
+              style={{
+                width: '100%',
+                padding: '6px 10px',
+                borderRadius: '6px',
+                background: isSubsurfaceXRay ? 'rgba(0, 229, 255, 0.18)' : 'var(--fill-control)',
+                border: isSubsurfaceXRay ? '1px solid #00e5ff' : '1px solid var(--hairline-soft)',
+                color: isSubsurfaceXRay ? '#00e5ff' : 'var(--label)',
+                fontSize: '11px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                margin: '6px 0'
+              }}
+            >
+              <Layers size={13} strokeWidth={2} />
+              <span>{isSubsurfaceXRay ? 'X-Ray Bawah Tanah Aktif' : 'X-Ray Struktur & Bawah Tanah'}</span>
+            </button>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', margin: '6px 0' }}>
               <div style={{ background: 'rgba(52, 199, 89, 0.12)', border: '1px solid rgba(52, 199, 89, 0.3)', borderRadius: '6px', padding: '6px', textAlign: 'center' }}>
@@ -880,6 +942,39 @@ export const AnalysisOverlay: React.FC = () => {
               />
             </div>
           )}
+
+          {/* Quick Architectural Drawing Views (3D | Denah | Potongan A-A | Tampak) */}
+          <div className="inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '5px', marginTop: '6px' }}>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--label-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
+              Proyeksi Kerja Ortografis
+            </span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+              <button
+                onClick={() => engine?.setArchitecturalWorkMode('3d')}
+                style={{ padding: '5px 2px', borderRadius: '5px', background: 'var(--fill-control)', border: '1px solid var(--hairline-soft)', fontSize: '10px', fontWeight: 600, cursor: 'pointer', textAlign: 'center', color: 'var(--label)' }}
+              >
+                3D
+              </button>
+              <button
+                onClick={() => engine?.setArchitecturalWorkMode('plan')}
+                style={{ padding: '5px 2px', borderRadius: '5px', background: 'var(--fill-control)', border: '1px solid var(--hairline-soft)', fontSize: '10px', fontWeight: 600, cursor: 'pointer', textAlign: 'center', color: 'var(--label)' }}
+              >
+                Denah
+              </button>
+              <button
+                onClick={() => engine?.setArchitecturalWorkMode('section')}
+                style={{ padding: '5px 2px', borderRadius: '5px', background: 'var(--fill-control)', border: '1px solid var(--hairline-soft)', fontSize: '10px', fontWeight: 600, cursor: 'pointer', textAlign: 'center', color: 'var(--label)' }}
+              >
+                Potongan A-A
+              </button>
+              <button
+                onClick={() => engine?.setArchitecturalWorkMode('elevation')}
+                style={{ padding: '5px 2px', borderRadius: '5px', background: 'var(--fill-control)', border: '1px solid var(--hairline-soft)', fontSize: '10px', fontWeight: 600, cursor: 'pointer', textAlign: 'center', color: 'var(--label)' }}
+              >
+                Tampak
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1057,6 +1152,6 @@ export const AnalysisOverlay: React.FC = () => {
           )}
         </div>
       )}
-    </aside>
+    </motion.aside>
   );
 };

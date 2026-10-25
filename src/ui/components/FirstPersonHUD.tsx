@@ -1,7 +1,7 @@
 import React from 'react';
 import { useUIStore } from '../state/useUIStore';
 import { DSLR_LENS_MAP, DslrLensType } from '../../core/engine/CinematicDroneController';
-import { Camera, Video, Square, X, Compass, Footprints, Play, Pause, Sparkles, Building2, ChevronUp, ChevronDown, Film, Plus, Trash2 } from 'lucide-react';
+import { Camera, Video, Square, X, Compass, Footprints, Play, Pause, Sparkles, Building2, ChevronUp, ChevronDown, Film, Plus, Trash2, Armchair, Sun, Wind, Volume2, Thermometer, RefreshCw } from 'lucide-react';
 
 export const FirstPersonHUD: React.FC = () => {
   const {
@@ -64,6 +64,10 @@ export const FirstPersonHUD: React.FC = () => {
   );
   const currentFloor = engine?.firstPersonController?.currentFloor ?? 1;
   const totalFloors = engine?.firstPersonController?.totalFloors ?? 1;
+  const insideBuildingName = engine?.firstPersonController?.insideBuildingName ?? '';
+  const roomMetrics = isInsideBuilding ? engine?.firstPersonController?.getCurrentRoomMetrics() : null;
+  const isSeated = engine?.firstPersonController?.isSeated ?? false;
+  const nearbySeat = engine?.firstPersonController?.nearbySeat ?? null;
 
   return (
     <div
@@ -306,8 +310,37 @@ export const FirstPersonHUD: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--label)' }}>
             <Footprints size={15} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
-            <span>WASD: Jalan • Shift: Lari • Space: Lompat</span>
+            <span>
+              {isSeated
+                ? 'Sedang Duduk (0.45m) • Tekan WASD / Space / E untuk Berdiri'
+                : 'WASD: Jalan • Shift: Lari • Space: Lompat'}
+            </span>
           </div>
+
+          {nearbySeat && !isSeated && (
+            <button
+              onClick={() => {
+                if (engine?.firstPersonController && nearbySeat) {
+                  engine.firstPersonController.sitDown(nearbySeat);
+                }
+              }}
+              className="ios-btn ios-btn-primary"
+              style={{
+                padding: '3px 10px',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'rgba(56, 189, 248, 0.2)',
+                border: '1px solid var(--accent)',
+                color: 'var(--accent)'
+              }}
+              title="Duduk di Kursi (Tombol E)"
+            >
+              <Armchair size={13} strokeWidth={2} />
+              <span>Duduk [E] — {nearbySeat.label}</span>
+            </button>
+          )}
 
           {isInsideBuilding && (
             <div
@@ -326,26 +359,59 @@ export const FirstPersonHUD: React.FC = () => {
             >
               <Building2 size={13} strokeWidth={2} />
               <span>
-                Di Dalam Gedung: Lantai {currentFloor} / {totalFloors}
+                Lantai {currentFloor} / {totalFloors}{insideBuildingName ? ` — ${insideBuildingName}` : ''}
               </span>
               {totalFloors > 1 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginLeft: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px' }}>
                   <button
                     onClick={() => engine?.firstPersonController.traverseFloor('up')}
                     className="icon-btn"
-                    style={{ padding: '2px', height: 'auto', color: 'var(--accent)' }}
-                    title="Naik Lantai (Tombol R)"
+                    style={{ padding: '2px 4px', height: 'auto', color: 'var(--accent)' }}
+                    title="Naik Tangga / Lantai (Tombol R)"
                   >
                     <ChevronUp size={12} strokeWidth={2.5} />
                   </button>
                   <button
                     onClick={() => engine?.firstPersonController.traverseFloor('down')}
                     className="icon-btn"
-                    style={{ padding: '2px', height: 'auto', color: 'var(--accent)' }}
-                    title="Turun Lantai (Tombol F)"
+                    style={{ padding: '2px 4px', height: 'auto', color: 'var(--accent)' }}
+                    title="Turun Tangga / Lantai (Tombol F)"
                   >
                     <ChevronDown size={12} strokeWidth={2.5} />
                   </button>
+                  <button
+                    onClick={() => {
+                      const next = currentFloor < totalFloors ? currentFloor + 1 : 1;
+                      engine?.firstPersonController.goToFloor(next);
+                    }}
+                    className="ios-btn ios-btn-primary"
+                    style={{ padding: '2px 7px', fontSize: '10px', height: 'auto', display: 'flex', alignItems: 'center', gap: '3px' }}
+                    title="Inti Lift Cepat (Tombol E)"
+                  >
+                    Lift [E]
+                  </button>
+                  {totalFloors > 2 && (
+                    <select
+                      value={currentFloor}
+                      onChange={(e) => engine?.firstPersonController.goToFloor(Number(e.target.value))}
+                      style={{
+                        background: 'transparent',
+                        color: 'var(--accent)',
+                        border: '1px solid var(--accent)',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        padding: '1px 3px',
+                        fontFamily: '"JetBrains Mono", monospace'
+                      }}
+                      title="Pilih Lantai Langsung"
+                    >
+                      {Array.from({ length: totalFloors }, (_, i) => i + 1).map((fl) => (
+                        <option key={fl} value={fl} style={{ background: '#1e293b', color: '#fff' }}>
+                          Lt {fl}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
             </div>
@@ -379,11 +445,18 @@ export const FirstPersonHUD: React.FC = () => {
           )}
 
           <button
-            onClick={() => setCameraMode('orbit')}
-            className="icon-btn"
-            title="Kembali ke Mode Orbit Arsitek"
+            onClick={() => {
+              if (document.pointerLockElement) {
+                document.exitPointerLock();
+              }
+              setCameraMode('orbit');
+            }}
+            className="ios-btn ios-btn-primary"
+            style={{ padding: '4px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            title="Kembali ke Mode Orbit Arsitek (God-Eye)"
           >
-            <X size={15} strokeWidth={2} />
+            <X size={13} strokeWidth={2} />
+            <span>Keluar ke God-Eye</span>
           </button>
         </div>
       )}
@@ -461,6 +534,142 @@ export const FirstPersonHUD: React.FC = () => {
             </button>
           </div>
         </>
+      )}
+      {/* 5. Indoor Micro-Room Telemetry Card (Laboratory Glass Card) */}
+      {isFirstPerson && !isPhotoMode && isInsideBuilding && roomMetrics && (
+        <div
+          className="glass-surface interactive"
+          style={{
+            position: 'absolute',
+            top: '80px',
+            left: '24px',
+            width: '280px',
+            borderRadius: '12px',
+            padding: '12px 14px',
+            pointerEvents: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+            border: '1px solid var(--hairline-soft)'
+          }}
+        >
+          {/* Header: Building & Floor & Room */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--hairline)', paddingBottom: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Building2 size={15} strokeWidth={2} style={{ color: 'var(--accent)' }} />
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
+                  {insideBuildingName || 'Bangunan'}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--label-secondary)', fontFamily: 'var(--font-mono)' }}>
+                  Lantai {currentFloor} dari {totalFloors} ? {roomMetrics.roomName}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Environmental Telemetry Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '11px' }}>
+            {/* Lux */}
+            <div style={{ background: 'var(--fill-control)', padding: '6px 8px', borderRadius: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--label-secondary)', fontSize: '10px' }}>
+                <Sun size={12} strokeWidth={1.75} style={{ color: '#f59e0b' }} />
+                <span>Cahaya Alami</span>
+              </div>
+              <div className="tabular-nums font-mono" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)', marginTop: '2px' }}>
+                {roomMetrics.lux} Lux
+              </div>
+              <div style={{ fontSize: '9px', color: roomMetrics.sniLuxStatus === 'Optimum (SNI)' ? 'var(--good)' : 'var(--warn)' }}>
+                {roomMetrics.sniLuxStatus}
+              </div>
+            </div>
+
+            {/* Thermal & ACH */}
+            <div style={{ background: 'var(--fill-control)', padding: '6px 8px', borderRadius: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--label-secondary)', fontSize: '10px' }}>
+                <Wind size={12} strokeWidth={1.75} style={{ color: '#06b6d4' }} />
+                <span>Suhu & Udara</span>
+              </div>
+              <div className="tabular-nums font-mono" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)', marginTop: '2px' }}>
+                {roomMetrics.temperatureC.toFixed(1)} ?C
+              </div>
+              <div style={{ fontSize: '9px', color: 'var(--label-secondary)' }}>
+                {roomMetrics.ach.toFixed(1)} ACH (Sirkulasi)
+              </div>
+            </div>
+
+            {/* Noise Level */}
+            <div style={{ gridColumn: 'span 2', background: 'var(--fill-control)', padding: '6px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--label-secondary)', fontSize: '10px' }}>
+                <Volume2 size={12} strokeWidth={1.75} />
+                <span>Akustik Interior:</span>
+              </div>
+              <span className="tabular-nums font-mono" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--good)' }}>
+                {roomMetrics.noiseDba} dBA (Tenang)
+              </span>
+            </div>
+          </div>
+
+          {/* Interactive Variant & Lighting Controls */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid var(--hairline)', paddingTop: '6px' }}>
+            <button
+              onClick={() => {
+                if (engine?.firstPersonController) {
+                  engine.firstPersonController.cycleInteriorVariant();
+                  triggerRefresh();
+                }
+              }}
+              className="ios-btn"
+              style={{
+                width: '100%',
+                padding: '5px 8px',
+                fontSize: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'var(--fill-control)',
+                borderRadius: '6px',
+                border: '1px solid var(--hairline-soft)',
+                color: 'var(--label)'
+              }}
+              title="Ganti tata letak furnitur ruangan [Pintasan: G]"
+            >
+              <span>[G] Tata Letak:</span>
+              <span style={{ fontWeight: 600, color: 'var(--accent)' }}>
+                {roomMetrics.interiorVariantName.split(': ')[1] || roomMetrics.interiorVariantName}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (engine?.firstPersonController) {
+                  engine.firstPersonController.toggleCeilingLight();
+                  triggerRefresh();
+                }
+              }}
+              className="ios-btn"
+              style={{
+                width: '100%',
+                padding: '5px 8px',
+                fontSize: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: engine?.firstPersonController?.isCeilingLightOn ? 'rgba(245, 158, 11, 0.2)' : 'var(--fill-control)',
+                borderRadius: '6px',
+                border: engine?.firstPersonController?.isCeilingLightOn ? '1px solid #f59e0b' : '1px solid var(--hairline-soft)',
+                color: engine?.firstPersonController?.isCeilingLightOn ? '#f59e0b' : 'var(--label)'
+              }}
+              title="Saklar lampu plafon hangat 2700K [Pintasan: L]"
+            >
+              <span>[L] Lampu 2700K:</span>
+              <span style={{ fontWeight: 700 }}>
+                {engine?.firstPersonController?.isCeilingLightOn ? 'MENYALA' : 'PADAM'}
+              </span>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { calculateSolarPosition, SolarCoordinates } from '../math/SolarPosition'
 import { GraphicsQuality } from './GraphicsPresets';
 import { MaterialLibrary } from '../../materials/MaterialLibrary';
 import { RoadPropPlacer } from '../../roads/RoadPropPlacer';
+import { LandscapeManager } from '../../world/LandscapeManager';
 
 export class LightingSystem {
   public sunLight: THREE.DirectionalLight;
@@ -16,6 +17,9 @@ export class LightingSystem {
   public currentDayOfYear: number = 172;
   private pmremGenerator: THREE.PMREMGenerator | null = null;
   private envMapRenderTarget: THREE.WebGLRenderTarget | null = null;
+  public renderer: THREE.WebGLRenderer | null = null;
+  public lastShadowCenter: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+  public isShadowDirty: boolean = true;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -120,7 +124,24 @@ export class LightingSystem {
     }
   }
 
-  public setTime(hour: number, dayOfYear: number = 172, targetCenter: THREE.Vector3 = new THREE.Vector3(0, 0, 0)): void {
+  public setRenderer(renderer: THREE.WebGLRenderer): void {
+    this.renderer = renderer;
+  }
+
+  public markShadowsDirty(): void {
+    this.isShadowDirty = true;
+    this.sunLight.shadow.needsUpdate = true;
+    if (this.renderer) {
+      this.renderer.shadowMap.needsUpdate = true;
+    }
+  }
+
+  public setTime(
+    hour: number,
+    dayOfYear: number = 172,
+    targetCenter: THREE.Vector3 = new THREE.Vector3(0, 0, 0),
+    skipShadowDirty: boolean = false
+  ): void {
     this.currentHour = hour;
     this.currentDayOfYear = dayOfYear;
     const coords = calculateSolarPosition(hour, dayOfYear);
@@ -211,21 +232,34 @@ export class LightingSystem {
     }
 
     MaterialLibrary.getInstance().setNightGlow(nightGlowFactor);
+    MaterialLibrary.getInstance().setSunDirection(coords.direction);
     RoadPropPlacer.setNightGlow(nightGlowFactor);
+    LandscapeManager.setNightGlow(nightGlowFactor);
+
+    if (!skipShadowDirty) {
+      this.markShadowsDirty();
+    }
   }
 
-  public updateCenter(targetCenter: THREE.Vector3): void {
-    const sunDistance = 220;
-    const coords = this.currentSolarCoords;
-    const sunX = targetCenter.x + coords.direction.x * sunDistance;
-    const sunY = Math.max(2, targetCenter.y + coords.direction.y * sunDistance);
-    const sunZ = targetCenter.z + coords.direction.z * sunDistance;
+  public updateCenter(targetCenter: THREE.Vector3, skipShadowDirty: boolean = false): void {
+    const distSq = this.lastShadowCenter.distanceToSquared(targetCenter);
+    if (distSq > 4.0) { // > 2.0 meters shift threshold
+      this.lastShadowCenter.copy(targetCenter);
+      const sunDistance = 220;
+      const coords = this.currentSolarCoords;
+      const sunX = targetCenter.x + coords.direction.x * sunDistance;
+      const sunY = Math.max(2, targetCenter.y + coords.direction.y * sunDistance);
+      const sunZ = targetCenter.z + coords.direction.z * sunDistance;
 
-    this.sunLight.position.set(sunX, sunY, sunZ);
-    this.sunLight.target.position.copy(targetCenter);
-    this.sunLight.target.updateMatrixWorld();
+      this.sunLight.position.set(sunX, sunY, sunZ);
+      this.sunLight.target.position.copy(targetCenter);
+      this.sunLight.target.updateMatrixWorld();
 
-    this.sunHelperMesh.position.set(sunX, sunY, sunZ);
+      this.sunHelperMesh.position.set(sunX, sunY, sunZ);
+      if (!skipShadowDirty) {
+        this.markShadowsDirty();
+      }
+    }
   }
 
   public setGraphicsQuality(preset: GraphicsQuality): void {

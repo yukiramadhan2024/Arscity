@@ -51,10 +51,24 @@ export class RaycastManager {
     this.camera = camera;
   }
 
+  private rafPending: boolean = false;
+  private pendingClientX: number = 0;
+  private pendingClientY: number = 0;
+
   private onMouseMove = (e: MouseEvent): void => {
-    const rect = this.domElement.getBoundingClientRect();
-    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    this.pendingClientX = e.clientX;
+    this.pendingClientY = e.clientY;
+    if (!this.rafPending) {
+      this.rafPending = true;
+      requestAnimationFrame(() => {
+        if (!this.domElement) return;
+        const rect = this.domElement.getBoundingClientRect();
+        this.mouse.x = ((this.pendingClientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((this.pendingClientY - rect.top) / rect.height) * 2 + 1;
+        this.update();
+        this.rafPending = false;
+      });
+    }
   };
 
   private onMouseLeave = (): void => {
@@ -126,7 +140,9 @@ export class RaycastManager {
             // Check direct children
             for (const child of obj.children) {
               if (candidateSet.has(child)) {
-                filteredTargets.push(child);
+                // If candidate has an ExteriorShell sub-group, raycast only against exterior
+                const ext = child.getObjectByName('ExteriorShell');
+                filteredTargets.push(ext || child);
               }
             }
           }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MISSIONS, Mission, MissionProgress } from '../../education/MissionManager';
 import { useUIStore } from '../state/useUIStore';
 import { X, Award, Star, CheckCircle2, Circle, AlertCircle, Sparkles } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface MissionModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface MissionModalProps {
 }
 
 export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) => {
+  const modalRef = useModalA11y(isOpen, onClose);
   const { engine, setTimeOfDay } = useUIStore();
   const [selectedMissionId, setSelectedMissionId] = useState<string>(
     engine?.missionManager.currentMissionId || MISSIONS[0].id
@@ -34,11 +36,20 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
   };
 
   return (
-    <div className="modal-overlay interactive" role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay interactive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mission-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={modalRef}
         className="modal-sheet"
         style={{
-          width: '820px',
+          width: '760px',
           maxWidth: '92vw',
           maxHeight: '85vh'
         }}
@@ -61,7 +72,7 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
               <Award size={20} color="#007AFF" strokeWidth={2.2} />
             </div>
             <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
+              <div id="mission-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
                 Misi & Tantangan Tata Kota Tropis
               </div>
               <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>

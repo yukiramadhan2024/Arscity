@@ -3,12 +3,15 @@ import { useUIStore, GraphicsQuality, ThemeMode } from '../state/useUIStore';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { X, Settings, Activity, Sun, Moon, Laptop } from 'lucide-react';
 
+import { useModalA11y } from '../hooks/useModalA11y';
+
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+  const modalRef = useModalA11y(isOpen, onClose);
   const {
     themeMode,
     setThemeMode,
@@ -73,8 +76,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const gpuName = gpuInfo?.renderer || 'Akselerator Grafis WebGL';
 
   return (
-    <div className="modal-overlay interactive" role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay interactive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={modalRef}
         className="modal-sheet"
         style={{
           width: '560px',
@@ -101,7 +113,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <Settings size={20} color="#0A84FF" strokeWidth={2.2} />
             </div>
             <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
+              <div id="settings-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
                 Pengaturan Kota
               </div>
               <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>

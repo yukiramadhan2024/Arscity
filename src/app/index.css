@@ -300,9 +300,11 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.50);
 }
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+@supports (scrollbar-width: thin) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+  }
 }
 
 html, body, #root {
@@ -866,8 +868,13 @@ input[type="range"].ios-slider:focus-visible {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.35);
   max-height: calc(100vh - 180px);
   overflow-y: auto;
-  scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+@supports (scrollbar-width: none) {
+  .side-dock-container {
+    scrollbar-width: none;
+  }
 }
 
 .side-dock-container::-webkit-scrollbar {
@@ -900,6 +907,18 @@ input[type="range"].ios-slider:focus-visible {
 
 .side-dock-btn:active {
   transform: scale(0.94);
+}
+
+/* Apple HIG: Invisible hit-slop padding (8px) for compact touch & cursor targets */
+.side-dock-btn::after,
+.modal-close-btn::after,
+.hit-slop-8::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+  pointer-events: auto;
+  z-index: 1;
 }
 
 .side-dock-tooltip {
@@ -1050,7 +1069,7 @@ input[type="range"].ios-slider:focus-visible {
 .inspector-panel,
 .top-header,
 .top-header-capsule {
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 20px 50px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.09), 0 20px 50px rgba(15, 23, 42, 0.16) !important;
 }
 
 /* ====================================================
@@ -1163,6 +1182,72 @@ input[type="range"].ios-slider:focus-visible {
 }
 
 /* ====================================================
+   ACCESSIBILITY: SYSTEM PREFERENCES SUPPORT
+   (prefers-reduced-transparency & prefers-contrast)
+   ==================================================== */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-blur: 0px !important;
+    --glass-opacity: 0.98 !important;
+    --surface: #0f172a !important;
+    --surface-raised: #1e293b !important;
+    --dock-bg: #0f172a !important;
+    --inspector-bg: #0f172a !important;
+  }
+  [data-theme="light"] {
+    --surface: #ffffff !important;
+    --surface-raised: #f1f5f9 !important;
+    --dock-bg: #ffffff !important;
+    --inspector-bg: #ffffff !important;
+  }
+  .modal-overlay {
+    background: rgba(0, 0, 0, 0.88) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .modal-sheet,
+  .dock-container,
+  .inspector-panel,
+  .top-header-glass,
+  .side-dock-container {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --hairline: rgba(255, 255, 255, 0.55) !important;
+    --label: #ffffff !important;
+    --label-secondary: #e2e8f0 !important;
+    --separator: rgba(255, 255, 255, 0.4) !important;
+  }
+  [data-theme="light"] {
+    --hairline: rgba(0, 0, 0, 0.55) !important;
+    --label: #000000 !important;
+    --label-secondary: #0f172a !important;
+    --separator: rgba(0, 0, 0, 0.4) !important;
+  }
+  button, input, select, .ios-btn {
+    border-width: 1.5px !important;
+  }
+}
+
+/* Explicit high-contrast attribute toggle */
+[data-high-contrast="true"] {
+  --hairline: rgba(255, 255, 255, 0.55) !important;
+  --label: #ffffff !important;
+  --label-secondary: #e2e8f0 !important;
+  --separator: rgba(255, 255, 255, 0.4) !important;
+}
+[data-high-contrast="true"][data-theme="light"] {
+  --hairline: rgba(0, 0, 0, 0.55) !important;
+  --label: #000000 !important;
+  --label-secondary: #0f172a !important;
+  --separator: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ====================================================
    CUSTOM SELECT LIQUID GLASS STYLES
    ==================================================== */
 .custom-select-trigger:hover {
@@ -1182,37 +1267,41 @@ input[type="range"].ios-slider:focus-visible {
    RESPONSIVE DESIGN BREAKPOINTS (DESKTOP & MOBILE)
    ==================================================== */
 @media (max-width: 768px) {
+  #hud-zone-rail {
+    display: none !important;
+  }
+
+  #hud-zone-bottom-left {
+    transform: scale(0.72);
+    transform-origin: bottom left;
+    bottom: 84px !important;
+    left: 8px !important;
+  }
+
   .inspector-panel {
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    max-height: 55vh;
-    border-radius: 20px 20px 0 0;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-height: 48vh !important;
+    border-radius: 20px 20px 0 0 !important;
   }
 
   .dock-container {
-    padding: 4px 8px;
-    gap: 4px;
-    max-width: 96vw;
-    overflow-x: auto;
+    padding: 4px 6px !important;
+    gap: 3px !important;
+    max-width: 98vw !important;
+    overflow-x: auto !important;
   }
 
   .dock-item {
-    padding: 6px 10px;
-    font-size: 11px;
-  }
-
-  .minimap-wrapper {
-    left: 12px;
-    bottom: 86px;
-    transform: scale(0.85);
-    transform-origin: bottom left;
+    padding: 5px 8px !important;
+    font-size: 11px !important;
   }
 
   .sub-dock-wrapper {
-    bottom: 74px;
+    bottom: 74px !important;
   }
 }
 

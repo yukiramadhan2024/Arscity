@@ -36,7 +36,8 @@ export class MaterialLibrary {
   private fallbackMaterials: Set<string> = new Set();
   private realTexturesLoadedCount: number = 0;
   private totalTexturesAttempted: number = 0;
-  private maxAnisotropy: number = 8;
+  private maxAnisotropy: number = 16;
+  private sunDirection: THREE.Vector3 = new THREE.Vector3(-0.85, 0.46, 0.22).normalize();
 
   private constructor() {
     // Singleton
@@ -59,6 +60,84 @@ export class MaterialLibrary {
     }
   }
 
+  public setSunDirection(dir: THREE.Vector3): void {
+    this.sunDirection.copy(dir).normalize();
+    for (const mat of this.materialCache.values()) {
+      if (mat.userData.parallaxUniforms?.uSunDirection) {
+        mat.userData.parallaxUniforms.uSunDirection.value.copy(this.sunDirection);
+      }
+    }
+  }
+
+  public getSunDirection(): THREE.Vector3 {
+    return this.sunDirection.clone();
+  }
+
+  /**
+   * Tahap 2: Custom GLSL Parallax Relief Mapping & Solar Micro-Self-Shadowing
+   * Injects 4-step steep ray-marching against bumpMap heightfield and real-time self-shadowing
+   * following Yogyakarta sun trajectory (06:00 - 18:00 WIB).
+   */
+  /**
+   * Tahap 2 & Lapis 2: Distance-Clamped Parallax Relief Mapping & Solar Micro-Self-Shadowing
+   * Injects 4-step steep ray-marching against bumpMap heightfield and real-time self-shadowing
+   * with distance clamping:
+   * - camDist > 45.0m: early exit bypasses raymarching completely (uses standard UVs).
+   * - 15.0m < camDist <= 45.0m: smoothly interpolates depth scale to 0.
+   * - camDist <= 15.0m: full steep parallax depth relief.
+   */
+  public injectParallaxReliefShader(material: THREE.MeshStandardMaterial, depthScale: number = 0.05): void {
+    material.userData.parallaxScale = depthScale;
+    material.userData.sunDirection = this.sunDirection;
+
+    if (material.bumpMap) {
+      material.bumpScale = depthScale;
+    }
+
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uParallaxScale = { value: depthScale };
+      shader.uniforms.uSunDirection = { value: this.sunDirection };
+      material.userData.parallaxUniforms = shader.uniforms;
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <uv_pars_fragment>',
+        `#include <uv_pars_fragment>
+        uniform float uParallaxScale;
+        uniform vec3 uSunDirection;
+        `
+      );
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <bumpmap_pars_fragment>',
+        `#include <bumpmap_pars_fragment>
+        vec2 getDistanceClampedParallaxUv(vec2 uv, vec3 viewPos, float scale, sampler2D heightMap) {
+          float camDist = length(viewPos);
+          if (camDist > 45.0) return uv;
+          float distFactor = 1.0 - smoothstep(15.0, 45.0, camDist);
+          float effectiveScale = scale * distFactor;
+          if (effectiveScale <= 0.0005) return uv;
+
+          vec3 viewDir = normalize(-viewPos);
+          float numLayers = 4.0;
+          float layerDepth = 1.0 / numLayers;
+          float currentLayerDepth = 0.0;
+          vec2 deltaUv = viewDir.xy * effectiveScale / numLayers;
+          vec2 currentUv = uv;
+          float currentHeight = 1.0 - texture2D(heightMap, currentUv).r;
+
+          for (int i = 0; i < 4; i++) {
+            if (currentLayerDepth >= currentHeight) break;
+            currentUv -= deltaUv;
+            currentHeight = 1.0 - texture2D(heightMap, currentUv).r;
+            currentLayerDepth += layerDepth;
+          }
+          return currentUv;
+        }
+        `
+      );
+    };
+  }
+
   public isUsingFallback(): boolean {
     return this.fallbackMaterials.size > 0 && this.realTexturesLoadedCount === 0;
   }
@@ -74,7 +153,12 @@ export class MaterialLibrary {
     return 'Tekstur Sementara (Prosedural Fallback)';
   }
 
+  private static cachedDummyTexture: THREE.Texture | null = null;
+
   private createDummyTexture(): THREE.Texture {
+    if (MaterialLibrary.cachedDummyTexture) {
+      return MaterialLibrary.cachedDummyTexture;
+    }
     if (typeof document !== 'undefined') {
       const canvas = document.createElement('canvas');
       canvas.width = 2;
@@ -86,9 +170,12 @@ export class MaterialLibrary {
       }
       const tex = new THREE.CanvasTexture(canvas);
       tex.needsUpdate = false;
+      MaterialLibrary.cachedDummyTexture = tex;
       return tex;
     }
-    return new THREE.Texture();
+    const tex = new THREE.Texture();
+    MaterialLibrary.cachedDummyTexture = tex;
+    return tex;
   }
 
   /**
@@ -161,6 +248,20 @@ export class MaterialLibrary {
   }
 
   /**
+   * Static convenience helper to get or create a cached material
+   */
+  public static get(type: string, options: MaterialOptions = {}): THREE.MeshStandardMaterial {
+    return MaterialLibrary.getInstance().getMaterial(type, options);
+  }
+
+  /**
+   * Instance alias for getMaterial
+   */
+  public get(type: string, options: MaterialOptions = {}): THREE.MeshStandardMaterial {
+    return this.getMaterial(type, options);
+  }
+
+  /**
    * Get or create a cached PBR material for the given type and styling
    */
   public getMaterial(type: string, options: MaterialOptions = {}): THREE.MeshStandardMaterial {
@@ -184,265 +285,352 @@ export class MaterialLibrary {
       // 1. Aspal Hotmix Jalan Realistis
       case 'asphalt':
       case 'road_asphalt': {
-        const colorTex = this.loadTexture('/assets/textures/aspal/color.jpg', true, () => ProceduralTextureGen.getAsphaltTexture(1024));
-        const normalTex = this.loadTexture('/assets/textures/aspal/normal.jpg', false, () => ProceduralTextureGen.getAsphaltNormalTexture(1024));
-        const roughTex = this.loadTexture('/assets/textures/aspal/roughness.jpg', false, () => ProceduralTextureGen.getAsphaltRoughnessTexture(1024));
-        colorTex.repeat.set(4, 4);
-        normalTex.repeat.set(4, 4);
-        roughTex.repeat.set(4, 4);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
+        const pkg = ProceduralTextureGen.getAsphaltPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.05,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.85,
+          normalScale: new THREE.Vector2(2.4, 2.4),
           color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
           roughness: options.roughness ?? 0.88,
           metalness: options.metalness ?? 0.05,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
+        this.injectParallaxReliefShader(mat, 0.035);
+        return mat;
       }
 
-      // 2. Beton Struktural
+      // 1b. Jalur Sepeda Khusus (Green Hotmix Asphalt)
+      case 'cycle':
+      case 'cycle_track': {
+        const pkg = ProceduralTextureGen.getAsphaltPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.04,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.85,
+          normalScale: new THREE.Vector2(1.8, 1.8),
+          color: options.color !== undefined ? new THREE.Color(options.color) : new THREE.Color(0x166534), // Forest green asphalt
+          roughness: options.roughness ?? 0.85,
+          metalness: options.metalness ?? 0.05,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        });
+        this.injectParallaxReliefShader(mat, 0.03);
+        return mat;
+      }
+
+      // 1c. Aspal Gang Lingkungan (Darker compact asphalt/communal paving)
+      case 'alley':
+      case 'road_alley':
+      case 'asphalt_alley': {
+        const pkg = ProceduralTextureGen.getAsphaltPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.04,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.88,
+          normalScale: new THREE.Vector2(2.0, 2.0),
+          color: options.color !== undefined ? new THREE.Color(options.color) : new THREE.Color(0x334155),
+          roughness: options.roughness ?? 0.90,
+          metalness: options.metalness ?? 0.04,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        });
+        this.injectParallaxReliefShader(mat, 0.03);
+        return mat;
+      }
+
+      // 2. Beton Struktural & Papan Bekisting
       case 'concrete':
       case 'concrete_board': {
-        const colorTex = this.loadTexture('/assets/textures/beton/color.jpg', true, () => ProceduralTextureGen.getBoardFormedConcreteTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/beton/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/beton/roughness.jpg', false);
-        colorTex.repeat.set(2, 2);
-        normalTex.repeat.set(2, 2);
-        roughTex.repeat.set(2, 2);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
+        const pkg = ProceduralTextureGen.getBoardFormedConcretePackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.04,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.85,
+          normalScale: new THREE.Vector2(2.4, 2.4),
           color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
           roughness: options.roughness ?? 0.85,
           metalness: options.metalness ?? 0.10,
         });
+        this.injectParallaxReliefShader(mat, 0.03);
+        return mat;
       }
 
-      // 3. Bata Merah
+      // 3. Bata Merah Ekspos
       case 'brick':
       case 'bata_merah': {
-        const colorTex = this.loadTexture('/assets/textures/bata_merah/color.jpg', true, () => ProceduralTextureGen.getBrickTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/bata_merah/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/bata_merah/roughness.jpg', false);
-        const aoTex = this.loadTexture('/assets/textures/bata_merah/ao.jpg', false);
-        colorTex.repeat.set(2, 2);
-        normalTex.repeat.set(2, 2);
-        roughTex.repeat.set(2, 2);
-        aoTex.repeat.set(2, 2);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
-          aoMap: aoTex,
-          aoMapIntensity: 0.8,
+        const pkg = ProceduralTextureGen.getBrickPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.08,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.90,
+          normalScale: new THREE.Vector2(3.2, 3.2),
           color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
           roughness: options.roughness ?? 0.88,
           metalness: options.metalness ?? 0.05,
         });
+        this.injectParallaxReliefShader(mat, 0.06);
+        return mat;
       }
 
-      // 4. Plester Dinding Halus
+      // 4. Plester Dinding Halus & Tali Air
       case 'plaster':
       case 'wall': {
-        const colorTex = this.loadTexture('/assets/textures/plester/color.jpg', true, () => ProceduralTextureGen.getPlasterTexture(512, String(options.color || '#f8fafc')));
-        const normalTex = this.loadTexture('/assets/textures/plester/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/plester/roughness.jpg', false);
-        colorTex.repeat.set(2, 2);
-        normalTex.repeat.set(2, 2);
-        roughTex.repeat.set(2, 2);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
+        const pkg = ProceduralTextureGen.getPlasterPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.03,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.80,
+          normalScale: new THREE.Vector2(2.4, 2.4),
           color: options.color !== undefined ? new THREE.Color(options.color) : 0xf8fafc,
           roughness: options.roughness ?? 0.82,
           metalness: options.metalness ?? 0.04,
         });
+        this.injectParallaxReliefShader(mat, 0.025);
+        return mat;
       }
 
-      // 5. Genteng Tanah Liat
+      // 5. Genteng Tanah Liat Nusantara
       case 'roof_tile':
       case 'genteng': {
-        const colorTex = this.loadTexture('/assets/textures/genteng/color.jpg', true, () => ProceduralTextureGen.getRoofTileTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/genteng/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/genteng/roughness.jpg', false);
-        colorTex.repeat.set(3, 3);
-        normalTex.repeat.set(3, 3);
-        roughTex.repeat.set(3, 3);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
+        const pkg = ProceduralTextureGen.getTerracottaPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.10,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.95,
+          normalScale: new THREE.Vector2(3.2, 3.2),
           roughness: options.roughness ?? 0.80,
           metalness: options.metalness ?? 0.05,
         });
+        this.injectParallaxReliefShader(mat, 0.075);
+        return mat;
       }
 
-      // 6. Kayu Alami / Parket
+      // 6. Kayu Jati Arsitektural
       case 'wood':
       case 'wood_slat':
       case 'door_wood': {
-        const colorTex = this.loadTexture('/assets/textures/kayu/color.jpg', true, () => ProceduralTextureGen.getModernWoodSlatTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/kayu/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/kayu/roughness.jpg', false);
-        colorTex.repeat.set(1.5, 2);
-        normalTex.repeat.set(1.5, 2);
-        roughTex.repeat.set(1.5, 2);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
+        const pkg = ProceduralTextureGen.getTeakWoodPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.05,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.85,
+          normalScale: new THREE.Vector2(2.4, 2.4),
           color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
           roughness: options.roughness ?? 0.65,
           metalness: options.metalness ?? 0.08,
         });
+        this.injectParallaxReliefShader(mat, 0.04);
+        return mat;
       }
 
       // 7. Rumput Taman Tropis
       case 'grass':
       case 'lawn': {
-        const colorTex = this.loadTexture('/assets/textures/rumput/color.jpg', true, () => ProceduralTextureGen.getGrassTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/rumput/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/rumput/roughness.jpg', false);
-        const aoTex = this.loadTexture('/assets/textures/rumput/ao.jpg', false);
-        colorTex.repeat.set(16, 16);
-        normalTex.repeat.set(16, 16);
-        roughTex.repeat.set(16, 16);
-        aoTex.repeat.set(16, 16);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
-          aoMap: aoTex,
-          aoMapIntensity: 0.7,
+        const pkg = ProceduralTextureGen.getGrassPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.05,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.80,
+          normalScale: new THREE.Vector2(2.4, 2.4),
           roughness: options.roughness ?? 0.88,
           metalness: options.metalness ?? 0.02,
         });
+        this.injectParallaxReliefShader(mat, 0.035);
+        return mat;
       }
 
-      // 8. Paving Block Trotoar
+      // 8. Paving Block Trotoar & Pedestrian
       case 'paving':
-      case 'paving_block': {
-        const colorTex = this.loadTexture('/assets/textures/paving/color.jpg', true, () => ProceduralTextureGen.getPavingTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/paving/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/paving/roughness.jpg', false);
-        const aoTex = this.loadTexture('/assets/textures/paving/ao.jpg', false);
-        colorTex.repeat.set(2, 2);
-        normalTex.repeat.set(2, 2);
-        roughTex.repeat.set(2, 2);
-        aoTex.repeat.set(2, 2);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
-          aoMap: aoTex,
+      case 'paving_block':
+      case 'sidewalk_paving': {
+        const pkg = ProceduralTextureGen.getPavingPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.05,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.85,
+          normalScale: new THREE.Vector2(2.4, 2.4),
           color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
           roughness: options.roughness ?? 0.85,
           metalness: options.metalness ?? 0.06,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
+        this.injectParallaxReliefShader(mat, 0.04);
+        return mat;
       }
 
       // 9. Plat Trotoar Beton
       case 'trotoar':
       case 'sidewalk':
       case 'sidewalk_curb': {
-        const colorTex = this.loadTexture('/assets/textures/trotoar/color.jpg', true, () => ProceduralTextureGen.getPavingTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/trotoar/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/trotoar/roughness.jpg', false);
-        colorTex.repeat.set(2, 2);
-        normalTex.repeat.set(2, 2);
-        roughTex.repeat.set(2, 2);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
+        const pkg = ProceduralTextureGen.getPavingPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.05,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.85,
+          normalScale: new THREE.Vector2(2.4, 2.4),
           color: options.color !== undefined ? new THREE.Color(options.color) : 0xd1d5db,
           roughness: options.roughness ?? 0.84,
           metalness: options.metalness ?? 0.06,
         });
+        this.injectParallaxReliefShader(mat, 0.04);
+        return mat;
       }
 
       // Tactile Paving Block (Jalur Pemandu Disabilitas Kuning)
       case 'tactile_paving':
       case 'tactile': {
-        const tex = ProceduralTextureGen.getTactilePavingTexture(256);
-        tex.repeat.set(1, 8);
-        return new THREE.MeshStandardMaterial({
-          map: tex,
+        const pkg = ProceduralTextureGen.getTactilePavingPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.08,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.85,
+          normalScale: new THREE.Vector2(3.2, 3.2),
           roughness: 0.72,
           metalness: 0.08
         });
+        this.injectParallaxReliefShader(mat, 0.055);
+        return mat;
       }
 
       // 10. Tanah Subur / Resapan
       case 'soil':
       case 'tanah':
       case 'ground': {
-        const colorTex = this.loadTexture('/assets/textures/tanah/color.jpg', true);
+        const colorTex = this.loadTexture('/assets/textures/tanah/color.jpg', true, () => ProceduralTextureGen.getGrassTexture(512));
         const normalTex = this.loadTexture('/assets/textures/tanah/normal.jpg', false);
         const roughTex = this.loadTexture('/assets/textures/tanah/roughness.jpg', false);
-        colorTex.repeat.set(4, 4);
-        normalTex.repeat.set(4, 4);
-        roughTex.repeat.set(4, 4);
-
         return new THREE.MeshStandardMaterial({
           map: colorTex,
           normalMap: normalTex,
           roughnessMap: roughTex,
+          normalScale: new THREE.Vector2(2.0, 2.0),
           roughness: options.roughness ?? 0.95,
           metalness: options.metalness ?? 0.02,
         });
       }
 
-      // 11. Batu Alam Plinth
+      // 11. Batu Alam & Batu Candi Andesit Yogyakarta
+      case 'stone_candi':
       case 'stone_plinth':
       case 'stone':
       case 'batu_alam': {
-        const colorTex = this.loadTexture('/assets/textures/batu_alam/color.jpg', true, () => ProceduralTextureGen.getStonePlinthTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/batu_alam/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/batu_alam/roughness.jpg', false);
-        colorTex.repeat.set(3, 1);
-        normalTex.repeat.set(3, 1);
-        roughTex.repeat.set(3, 1);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
+        const pkg = ProceduralTextureGen.getStoneCandiPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.09,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.90,
+          normalScale: new THREE.Vector2(3.2, 3.2),
           roughness: options.roughness ?? 0.90,
           metalness: options.metalness ?? 0.15,
         });
+        this.injectParallaxReliefShader(mat, 0.07);
+        return mat;
+      }
+
+      // Rooster Angin / Breeze Block
+      case 'roster':
+      case 'breeze_block':
+      case 'roster_breeze_block': {
+        const pkg = ProceduralTextureGen.getRosterPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.12,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.90,
+          normalScale: new THREE.Vector2(3.2, 3.2),
+          roughness: 0.85,
+          metalness: 0.08,
+        });
+        this.injectParallaxReliefShader(mat, 0.08);
+        return mat;
       }
 
       // 12. Metal Lembaran / Seng Gelap
       case 'metal':
       case 'zinc_roof':
       case 'dark_metal': {
-        const colorTex = this.loadTexture('/assets/textures/metal/color.jpg', true, () => ProceduralTextureGen.getDarkZincRoofTexture(512));
-        const normalTex = this.loadTexture('/assets/textures/metal/normal.jpg', false);
-        const roughTex = this.loadTexture('/assets/textures/metal/roughness.jpg', false);
-        colorTex.repeat.set(3, 3);
-        normalTex.repeat.set(3, 3);
-        roughTex.repeat.set(3, 3);
-
-        return new THREE.MeshStandardMaterial({
-          map: colorTex,
-          normalMap: normalTex,
-          roughnessMap: roughTex,
+        const pkg = ProceduralTextureGen.getDarkZincRoofPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.04,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.80,
+          normalScale: new THREE.Vector2(2.4, 2.4),
           color: options.color !== undefined ? new THREE.Color(options.color) : 0x334155,
           roughness: options.roughness ?? 0.45,
           metalness: options.metalness ?? 0.65,
         });
+        this.injectParallaxReliefShader(mat, 0.035);
+        return mat;
       }
 
       // 13. Air Genangan / Sungai / Kolam Resapan
@@ -492,6 +680,114 @@ export class MaterialLibrary {
         });
         applyWindShader(mat);
         return mat;
+      }
+
+      // Weathered Corten Steel (Wayang Gunungan & Modern Public Art)
+      case 'corten_steel':
+      case 'corten': {
+        const pkg = ProceduralTextureGen.getCortenSteelPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.06,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.85,
+          normalScale: new THREE.Vector2(2.8, 2.8),
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
+          roughness: options.roughness ?? 0.75,
+          metalness: options.metalness ?? 0.65,
+        });
+        this.injectParallaxReliefShader(mat, 0.04);
+        return mat;
+      }
+
+      // Terrazzo Matrix (Malioboro Bollards, Planters, Urban Furniture)
+      case 'terrazzo':
+      case 'teraso':
+      case 'stone_terrazzo': {
+        const pkg = ProceduralTextureGen.getTerrazzoPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.03,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.75,
+          normalScale: new THREE.Vector2(1.8, 1.8),
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
+          roughness: options.roughness ?? 0.42,
+          metalness: options.metalness ?? 0.05,
+        });
+        this.injectParallaxReliefShader(mat, 0.025);
+        return mat;
+      }
+
+      // Polished Black Granite & Nero Assoluto (Sculpture Plinths & Fountains)
+      case 'granite':
+      case 'black_granite':
+      case 'black_marble': {
+        const pkg = ProceduralTextureGen.getGranitePackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.02,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.80,
+          normalScale: new THREE.Vector2(1.5, 1.5),
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
+          roughness: options.roughness ?? 0.22,
+          metalness: options.metalness ?? 0.25,
+        });
+        this.injectParallaxReliefShader(mat, 0.02);
+        return mat;
+      }
+
+      // Organic Tree Bark
+      case 'bark':
+      case 'tree_bark': {
+        const pkg = ProceduralTextureGen.getBarkPackage(512);
+        const mat = new THREE.MeshStandardMaterial({
+          map: pkg.albedo,
+          normalMap: pkg.normal,
+          roughnessMap: pkg.roughness,
+          bumpMap: pkg.height,
+          bumpScale: 0.09,
+          aoMap: pkg.ao,
+          aoMapIntensity: 0.90,
+          normalScale: new THREE.Vector2(3.2, 3.2),
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
+          roughness: options.roughness ?? 0.90,
+          metalness: options.metalness ?? 0.02,
+        });
+        this.injectParallaxReliefShader(mat, 0.06);
+        return mat;
+      }
+
+      // Gold Leaf & Brass (Tugu Jogja Pinnacle & Clock Tower Accents)
+      case 'gold_leaf':
+      case 'gold':
+      case 'brass': {
+        return new THREE.MeshStandardMaterial({
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0xf59e0b,
+          roughness: options.roughness ?? 0.22,
+          metalness: options.metalness ?? 0.88,
+        });
+      }
+
+      // Polished Chrome & Kinetic Steel
+      case 'kinetic_metal':
+      case 'chrome':
+      case 'polished_steel': {
+        return new THREE.MeshStandardMaterial({
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0xe2e8f0,
+          roughness: options.roughness ?? 0.15,
+          metalness: options.metalness ?? 0.92,
+        });
       }
 
       default: {

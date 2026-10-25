@@ -10,6 +10,7 @@ import { TectonicComponents } from './TectonicComponents';
 export interface CachedMeshTemplate {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
+  layer?: 'exterior' | 'interior' | 'subsurface';
 }
 
 /**
@@ -66,7 +67,10 @@ export class PrefabMeshBuilder {
   /**
    * Consolidates all static child meshes sharing the same material into unified geometries.
    */
-  public static optimizeBuildingGroup(group: THREE.Group): CachedMeshTemplate[] {
+  public static optimizeBuildingGroup(
+    group: THREE.Group,
+    layer: 'exterior' | 'interior' | 'subsurface' = 'exterior'
+  ): CachedMeshTemplate[] {
     group.updateMatrixWorld(true);
     const rootInv = group.matrixWorld.clone().invert();
 
@@ -104,7 +108,7 @@ export class PrefabMeshBuilder {
         const transformedGeo = items[0].geo.clone();
         transformedGeo.applyMatrix4(items[0].matrix);
         items[0].geo.dispose();
-        templates.push({ geometry: transformedGeo, material: mat });
+        templates.push({ geometry: transformedGeo, material: mat, layer });
       } else {
         const transformedGeos: THREE.BufferGeometry[] = [];
         for (const item of items) {
@@ -133,11 +137,11 @@ export class PrefabMeshBuilder {
         }
 
         if (merged) {
-          templates.push({ geometry: merged, material: mat });
+          templates.push({ geometry: merged, material: mat, layer });
         } else {
           for (const item of items) {
             const fallbackGeo = item.geo.clone().applyMatrix4(item.matrix);
-            templates.push({ geometry: fallbackGeo, material: mat });
+            templates.push({ geometry: fallbackGeo, material: mat, layer });
           }
         }
       }
@@ -157,100 +161,128 @@ export class PrefabMeshBuilder {
     group.rotation.y = building.rotationY;
     group.userData = { buildingId: building.id, type: 'building' };
 
-    // Generate interior architectural room layouts if not present
-    if (!building.interiorLayouts) {
+    // Generate interior architectural room layouts if not present or if floorCount has changed
+    const currentFloors = Math.max(1, building.floorCount || 1);
+    if (!building.interiorLayouts || building.interiorLayouts.length !== currentFloors) {
       building.interiorLayouts = InteriorLayoutFactory.getLayoutForBuilding(
         building.presetKey,
         building.width,
         building.length,
         building.floorHeight || 3.2,
-        building.floorCount || 1
+        currentFloors
       );
     }
 
     if (this.geometryCache.has(cacheKey)) {
       const templates = this.geometryCache.get(cacheKey)!;
-      for (const item of templates) {
-        const mesh = new THREE.Mesh(item.geometry, item.material);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        mesh.userData = { isSharedGeometry: true };
-        group.add(mesh);
-      }
+      this.instantiateFromTemplates(group, templates);
       return group;
     }
 
-    // Build raw group
-    const rawGroup = new THREE.Group();
+    // 1. Build raw exterior shell
+    const rawExterior = new THREE.Group();
 
     const item = BuildingCatalogRegistry.getBuilding(building.presetKey);
 
     switch (building.presetKey) {
+      case 'skyscraper_office_tower':
+        this.buildSkyscraperOfficeTower(rawExterior, building);
+        break;
+      case 'skyscraper_green_apartment':
+        this.buildSkyscraperGreenApartment(rawExterior, building);
+        break;
+      case 'skyscraper_grand_hotel':
+        this.buildSkyscraperGrandHotel(rawExterior, building);
+        break;
+      case 'skyscraper_mixed_use':
+        this.buildSkyscraperMixedUse(rawExterior, building);
+        break;
       case 'house_36':
-        this.buildModernHouse36(rawGroup, building);
+        this.buildModernHouse36(rawExterior, building);
         break;
       case 'house_54':
-        this.buildModernHouse54(rawGroup, building);
+        this.buildModernHouse54(rawExterior, building);
         break;
       case 'house_2fl':
-        this.buildModernVilla2Story(rawGroup, building);
+        this.buildModernVilla2Story(rawExterior, building);
         break;
       case 'joglo':
-        this.buildNeoVernacularJoglo(rawGroup, building);
+        this.buildNeoVernacularJoglo(rawExterior, building);
         break;
       case 'cafe_minimalis_kaca':
       case 'cafe_kopi_rasa':
       case 'tropical_cafe':
-        this.buildTropicalCafeKopiRasa(rawGroup, building);
+        this.buildTropicalCafeKopiRasa(rawExterior, building);
         break;
       case 'resto_mie_gacoan':
       case 'resto_mie_nusantara':
       case 'mie_nusantara':
-        this.buildMieNusantaraRestaurant(rawGroup, building);
+        this.buildMieNusantaraRestaurant(rawExterior, building);
         break;
       case 'ruko_3fl':
-        this.buildModernShophouse(rawGroup, building);
+        this.buildModernShophouse(rawExterior, building);
         break;
       case 'minimarket':
-        this.buildModernRetail(rawGroup, building);
+        this.buildModernRetail(rawExterior, building);
         break;
       case 'office_tower':
-        this.buildModernOfficeTower(rawGroup, building);
+        this.buildModernOfficeTower(rawExterior, building);
         break;
       case 'apartment':
-        this.buildModernApartment(rawGroup, building);
+        this.buildModernApartment(rawExterior, building);
         break;
       case 'mosque':
-        this.buildModernMosque(rawGroup, building);
+        this.buildModernMosque(rawExterior, building);
         break;
       case 'school':
-        this.buildModernSchool(rawGroup, building);
+        this.buildModernSchool(rawExterior, building);
         break;
       case 'puskesmas':
-        this.buildModernPuskesmas(rawGroup, building);
+        this.buildModernPuskesmas(rawExterior, building);
         break;
       case 'community_hall':
-        this.buildModernCommunityHall(rawGroup, building);
+        this.buildModernCommunityHall(rawExterior, building);
         break;
       default:
-        this.buildByArchetype(rawGroup, building, item);
+        this.buildByArchetype(rawExterior, building, item);
         break;
     }
 
-    // Build real 3D interior architecture (walls with 15cm thickness, doors, floors, stairs)
+    // Foundation skirt belongs to exterior shell
+    const foundationSkirt = this.buildFoundationSkirt(
+      building.width,
+      building.length,
+      2.0,
+      building.wallMaterial === 'brick' ? 'brick' : 'concrete'
+    );
+    rawExterior.add(foundationSkirt);
+
+    // 2. Build raw interior details
+    const rawInterior = new THREE.Group();
+    const plinthH = 0.35;
     if (building.interiorLayouts) {
-      const plinthH = 0.35;
       for (let fl = 0; fl < building.interiorLayouts.length; fl++) {
         const layout = building.interiorLayouts[fl];
         const floorBaseY = plinthH + fl * (building.floorHeight || 4.2);
         const interiorGroup = InteriorMeshBuilder.buildFloorInterior(
           layout,
           floorBaseY,
-          building.floorHeight || 4.2
+          building.floorHeight || 4.2,
+          building.id,
+          building.archetype || building.presetKey || building.category || 'residential',
+          building.position
         );
-        rawGroup.add(interiorGroup);
+        rawInterior.add(interiorGroup);
       }
     }
+
+    // Build real 3D continuous flight of stairs with landings, handrails & elevator shaft
+    const { stairGroup, stairZones } = InteriorMeshBuilder.buildBuildingStairwell(building, plinthH);
+    rawInterior.add(stairGroup);
+    group.userData.stairZones = stairZones;
+    building.userData = building.userData || {};
+    building.userData.stairZones = stairZones;
+    building.stairZones = stairZones;
 
     // Add 100% procedural permanent interior furniture set per archetype
     const archetype = item?.archetype || 'standard';
@@ -258,33 +290,69 @@ export class PrefabMeshBuilder {
       archetype,
       building.width,
       building.length,
-      building.floorHeight || 4.2
+      building.floorHeight || 4.2,
+      building.interiorVariant || 'variant_a'
     );
-    rawGroup.add(furnitureSet);
+    rawInterior.add(furnitureSet);
 
-    // Build solid foundation skirt / batu talud underneath building base (prevents floating on sloping ground)
-    const foundationSkirt = this.buildFoundationSkirt(
+    // 3. Build raw subterranean foundation below ground level (Y < 0)
+    const rawSubsurface = new THREE.Group();
+    const subsurfaceFoundation = TectonicComponents.buildSubsurfaceFoundation(
+      currentFloors,
       building.width,
-      building.length,
-      2.0,
-      building.wallMaterial === 'brick' ? 'brick' : 'concrete'
+      building.length
     );
-    rawGroup.add(foundationSkirt);
+    rawSubsurface.add(subsurfaceFoundation);
 
-    // Merge meshes sharing the same material
-    const templates = this.optimizeBuildingGroup(rawGroup);
-    this.geometryCache.set(cacheKey, templates);
+    // Consolidate geometries per layer
+    const extTemplates = this.optimizeBuildingGroup(rawExterior, 'exterior');
+    const intTemplates = this.optimizeBuildingGroup(rawInterior, 'interior');
+    const subTemplates = this.optimizeBuildingGroup(rawSubsurface, 'subsurface');
+    const allTemplates = [...extTemplates, ...intTemplates, ...subTemplates];
+    this.geometryCache.set(cacheKey, allTemplates);
+
+    this.instantiateFromTemplates(group, allTemplates);
+    return group;
+  }
+
+  public static instantiateFromTemplates(group: THREE.Group, templates: CachedMeshTemplate[]): void {
+    const exteriorShell = new THREE.Group();
+    exteriorShell.name = 'ExteriorShell';
+
+    const interiorDetails = new THREE.Group();
+    interiorDetails.name = 'InteriorDetails';
+
+    const subsurfaceFoundation = new THREE.Group();
+    subsurfaceFoundation.name = 'SubsurfaceFoundation';
+    subsurfaceFoundation.visible = false; // Hidden underground by default until lens/section cut active
 
     for (const it of templates) {
       const mesh = new THREE.Mesh(it.geometry, it.material);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.userData = { isSharedGeometry: true };
-      group.add(mesh);
+      mesh.userData = { isSharedGeometry: true, layerType: it.layer || 'exterior' };
+
+      if (it.layer === 'interior') {
+        mesh.castShadow = false; // Zero shadow map overdraw for indoor furniture
+        mesh.receiveShadow = true;
+        interiorDetails.add(mesh);
+      } else if (it.layer === 'subsurface') {
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        subsurfaceFoundation.add(mesh);
+      } else {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        exteriorShell.add(mesh);
+      }
     }
 
-    return group;
+    group.add(exteriorShell);
+    group.add(interiorDetails);
+    group.add(subsurfaceFoundation);
+    group.userData.exteriorShell = exteriorShell;
+    group.userData.interiorDetails = interiorDetails;
+    group.userData.subsurfaceFoundation = subsurfaceFoundation;
   }
+
 
   /**
    * Builds an automatic foundation skirt (talud batu candi / beton) beneath the building.
@@ -667,6 +735,33 @@ export class PrefabMeshBuilder {
 
     // Golden Terracotta Ridge Crown Finial (Wuwungan mahkota)
     this.addBox(group, 0.45, 0.45, 1.4, 0, roofBaseY + t1H + t2H + 0.28, 0, this.getMaterial('plaster', '#d97706'));
+
+    // Nusantara Podium-Tower: When floors > 3, the Joglo remains the grand front entrance podium
+    // while behind it rises a modern multi-story tower with reinforced structure and crown
+    const floors = Math.max(1, bld.floorCount || 1);
+    if (floors > 3) {
+      const towerFloors = floors - 2;
+      const towerW = w * 0.75;
+      const towerL = l * 0.75;
+      const towerH = h * towerFloors;
+      const towerBaseY = plinthH + h * 1.5;
+      const concreteMat = this.getMaterial('concrete');
+
+      this.buildHollowPerimeterShell(group, towerW, towerH, towerL, towerBaseY, concreteMat, false, 3.0, 3.0, towerFloors, h);
+
+      for (let tf = 0; tf < towerFloors; tf++) {
+        const tfY = towerBaseY + tf * h;
+        const curtain = TectonicComponents.buildMullionCurtainWall(towerW * 0.8, h * 0.7, 4, 2);
+        curtain.position.set(0, tfY, towerL * 0.5 + 0.04);
+        group.add(curtain);
+      }
+
+      const crownY = towerBaseY + towerH;
+      const coneCrown = new THREE.ConeGeometry(towerW * 0.35, 2.8, 4);
+      coneCrown.rotateY(Math.PI * 0.25);
+      coneCrown.translate(0, crownY + 1.4, 0);
+      group.add(new THREE.Mesh(coneCrown, roofTileMat));
+    }
   }
 
   // ==========================================================================
@@ -1151,6 +1246,328 @@ export class PrefabMeshBuilder {
   }
 
   // ==========================================================================
+  // SKYSCRAPERS (Up to 18 Floors High-Rise Architecture)
+  // ==========================================================================
+
+  /**
+   * 1. Menara Perkantoran Kaca Nusantara (18 Lantai)
+   * Podium lobi 3 lantai + menara curtain wall kaca ber-sirip peneduh matahari + mahkota atap & helipad
+   */
+  private static buildSkyscraperOfficeTower(group: THREE.Group, bld: BuildingInstance): void {
+    const w = bld.width;
+    const l = bld.length;
+    const flH = bld.floorHeight || 3.8;
+    const floors = Math.max(3, bld.floorCount || 18);
+
+    const darkMat = this.getMaterial('concrete', '#0f172a');
+    const concreteMat = this.getMaterial('concrete', '#334155');
+    const frameMat = this.getMaterial('frame');
+    const plinthMat = this.getMaterial('stone_plinth');
+    const goldMat = this.getMaterial('brand_gold');
+    const whiteMat = this.getMaterial('plaster', '#f8fafc');
+
+    const plinthH = 0.4;
+    this.addBox(group, w + 0.8, plinthH, l + 0.8, 0, plinthH * 0.5, 0, plinthMat);
+
+    // 1. Grand 3-Floor Podium Lobby with 5.0m Open Portal
+    const podiumFloors = Math.min(3, Math.max(1, Math.floor(floors * 0.2)));
+    const podiumH = flH * podiumFloors;
+    this.buildHollowPerimeterShell(group, w, podiumH, l, plinthH, darkMat, true, 5.0, 4.5, podiumFloors, flH);
+
+    // Grand Entrance Cantilever Canopy with Soffit
+    const canopy = TectonicComponents.buildCantileverCanopyWithSoffit(w * 0.6, 3.8, 0.3);
+    canopy.position.set(0, plinthH + 4.2, l * 0.5 + 1.9);
+    group.add(canopy);
+
+    // 2. Tower Body with 0.8m Setback and Curtain Wall
+    const towerFloors = floors - podiumFloors;
+    if (towerFloors > 0) {
+      const setback = 0.8;
+      const towerW = Math.max(8, w - setback * 2);
+      const towerL = Math.max(8, l - setback * 2);
+      const towerH = flH * towerFloors;
+      const towerBaseY = plinthH + podiumH;
+
+      this.buildHollowPerimeterShell(group, towerW, towerH, towerL, towerBaseY, concreteMat, false, 3.0, 3.0, towerFloors, flH);
+
+      // Ribbon Curtain Walls & Sun Louvers on facades
+      for (let tf = 0; tf < towerFloors; tf++) {
+        const tfY = towerBaseY + tf * flH;
+        const curtainFront = TectonicComponents.buildMullionCurtainWall(towerW * 0.85, flH * 0.75, 6, 2);
+        curtainFront.position.set(0, tfY, towerL * 0.5 + 0.04);
+        group.add(curtainFront);
+
+        const curtainRear = TectonicComponents.buildMullionCurtainWall(towerW * 0.85, flH * 0.75, 6, 2);
+        curtainRear.position.set(0, tfY, -towerL * 0.5 - 0.04);
+        curtainRear.rotation.y = Math.PI;
+        group.add(curtainRear);
+
+        // Vertical Sun Shading Fins (every 2 floors)
+        if (tf % 2 === 0) {
+          const finCount = 5;
+          const finSpacing = towerW / (finCount + 1);
+          for (let f = 1; f <= finCount; f++) {
+            const fx = -towerW * 0.5 + f * finSpacing;
+            this.addBox(group, 0.08, flH * 0.85, 0.45, fx, tfY + flH * 0.425, towerL * 0.5 + 0.25, goldMat);
+            this.addBox(group, 0.08, flH * 0.85, 0.45, fx, tfY + flH * 0.425, -towerL * 0.5 - 0.25, goldMat);
+          }
+        }
+      }
+
+      // 3. Roof Crown Penthouse & Helipad
+      const roofY = towerBaseY + towerH;
+      this.buildModernFlatRoofWithOverhang(group, towerW + 0.6, towerL + 0.6, roofY, frameMat, darkMat);
+
+      // Elevator Penthouse Core
+      const pentW = towerW * 0.35;
+      const pentL = towerL * 0.35;
+      const pentH = 3.6;
+      this.addBox(group, pentW, pentH, pentL, 0, roofY + pentH * 0.5, 0, darkMat);
+
+      // Helipad Landing Platform
+      const heliSize = Math.min(towerW * 0.6, 14.0);
+      const heliBase = new THREE.Mesh(new THREE.CylinderGeometry(heliSize * 0.5, heliSize * 0.5, 0.25, 32), concreteMat);
+      heliBase.position.set(0, roofY + 0.15, 0);
+      group.add(heliBase);
+
+      // Helipad Ring & "H" Marking
+      const heliRing = new THREE.Mesh(new THREE.RingGeometry(heliSize * 0.42, heliSize * 0.46, 32), whiteMat);
+      heliRing.rotation.x = -Math.PI * 0.5;
+      heliRing.position.set(0, roofY + 0.29, 0);
+      group.add(heliRing);
+
+      this.addBox(group, 0.4, 0.02, 3.2, -1.2, roofY + 0.29, 0, whiteMat);
+      this.addBox(group, 0.4, 0.02, 3.2, 1.2, roofY + 0.29, 0, whiteMat);
+      this.addBox(group, 2.0, 0.02, 0.4, 0, roofY + 0.29, 0, whiteMat);
+
+      // Perimeter safety beacons
+      const beaconMat = this.getMaterial('warm_light');
+      for (let b = 0; b < 8; b++) {
+        const ang = (b / 8) * Math.PI * 2;
+        const bx = Math.cos(ang) * (heliSize * 0.46);
+        const bz = Math.sin(ang) * (heliSize * 0.46);
+        this.addBox(group, 0.15, 0.25, 0.15, bx, roofY + 0.35, bz, beaconMat);
+      }
+    }
+  }
+
+  /**
+   * 2. Apartemen Menara Hijau Tropis (18 Lantai)
+   * Menara hunian vertikal dengan balkon tanaman gantung dan sky terrace hijau di setiap kelipatan 3 lantai
+   */
+  private static buildSkyscraperGreenApartment(group: THREE.Group, bld: BuildingInstance): void {
+    const w = bld.width;
+    const l = bld.length;
+    const flH = bld.floorHeight || 3.4;
+    const floors = Math.max(3, bld.floorCount || 16);
+
+    const whiteMat = this.getMaterial('plaster', '#f8fafc');
+    const woodMat = this.getMaterial('wood_slat', '#78350f');
+    const frameMat = this.getMaterial('frame');
+    const plinthMat = this.getMaterial('stone_plinth');
+    const foliageMat = this.getMaterial('foliage');
+
+    const plinthH = 0.4;
+    this.addBox(group, w + 0.8, plinthH, l + 0.8, 0, plinthH * 0.5, 0, plinthMat);
+
+    // 2-Floor Podium with Open Portal
+    const podiumFloors = 2;
+    const podiumH = flH * podiumFloors;
+    this.buildHollowPerimeterShell(group, w, podiumH, l, plinthH, whiteMat, true, 4.2, 4.0, podiumFloors, flH);
+
+    const canopy = TectonicComponents.buildCantileverCanopyWithSoffit(w * 0.5, 3.0, 0.25);
+    canopy.position.set(0, plinthH + 3.8, l * 0.5 + 1.5);
+    group.add(canopy);
+
+    // Residential Tower
+    const towerFloors = floors - podiumFloors;
+    if (towerFloors > 0) {
+      const setback = 0.8;
+      const towerW = Math.max(8, w - setback * 2);
+      const towerL = Math.max(8, l - setback * 2);
+      const towerH = flH * towerFloors;
+      const towerBaseY = plinthH + podiumH;
+
+      this.buildHollowPerimeterShell(group, towerW, towerH, towerL, towerBaseY, whiteMat, false, 3.0, 3.0, towerFloors, flH);
+
+      for (let tf = 0; tf < towerFloors; tf++) {
+        const tfY = towerBaseY + tf * flH;
+        const isSkyTerrace = (tf + 1) % 3 === 0;
+        const balcDepth = isSkyTerrace ? 2.4 : 1.4;
+        const balcW = towerW * 0.75;
+
+        const balc = TectonicComponents.buildGlassBalconyWithPlanter(balcW, balcDepth);
+        balc.position.set(0, tfY, towerL * 0.5 + balcDepth * 0.5);
+        group.add(balc);
+
+        if (isSkyTerrace) {
+          const planterBox = new THREE.Mesh(new THREE.BoxGeometry(balcW * 0.9, 0.6, 0.6), woodMat);
+          planterBox.position.set(0, tfY + 0.3, towerL * 0.5 + balcDepth * 0.8);
+          group.add(planterBox);
+
+          const shrub = new THREE.Mesh(new THREE.BoxGeometry(balcW * 0.85, 0.7, 0.5), foliageMat);
+          shrub.position.set(0, tfY + 0.8, towerL * 0.5 + balcDepth * 0.8);
+          group.add(shrub);
+        }
+      }
+
+      // Rooftop Penthouse & Garden Terrace
+      const roofY = towerBaseY + towerH;
+      this.buildModernFlatRoofWithOverhang(group, towerW + 0.6, towerL + 0.6, roofY, frameMat, whiteMat);
+
+      const coreW = towerW * 0.35;
+      const coreL = towerL * 0.35;
+      this.addBox(group, coreW, 3.2, coreL, 0, roofY + 1.6, 0, whiteMat);
+
+      const pergola = TectonicComponents.buildTimberLouverScreen(towerW * 0.4, 2.8, 6, 0.15);
+      pergola.position.set(towerW * 0.25, roofY, 0);
+      group.add(pergola);
+    }
+  }
+
+  /**
+   * 3. Menara Hotel & Konvensi Bintang 5 (18 Lantai)
+   * Podium drop-off pendopo modern dengan menara kamar panorama dan fasilitas konvensi internasional
+   */
+  private static buildSkyscraperGrandHotel(group: THREE.Group, bld: BuildingInstance): void {
+    const w = bld.width;
+    const l = bld.length;
+    const flH = bld.floorHeight || 3.6;
+    const floors = Math.max(3, bld.floorCount || 15);
+
+    const ivoryMat = this.getMaterial('plaster', '#ffffff');
+    const darkWoodMat = this.getMaterial('wood_slat', '#451a03');
+    const frameMat = this.getMaterial('frame');
+    const plinthMat = this.getMaterial('stone_plinth');
+    const waterMat = this.getMaterial('water');
+    const goldMat = this.getMaterial('brand_gold');
+
+    const plinthH = 0.4;
+    this.addBox(group, w + 0.8, plinthH, l + 0.8, 0, plinthH * 0.5, 0, plinthMat);
+
+    // Grand Modern Pendopo Drop-off Podium
+    const podiumFloors = 2;
+    const podiumH = flH * podiumFloors;
+    this.buildHollowPerimeterShell(group, w, podiumH, l, plinthH, ivoryMat, true, 5.5, 4.5, podiumFloors, flH);
+
+    const canopy = TectonicComponents.buildCantileverCanopyWithSoffit(w * 0.65, 4.5, 0.35);
+    canopy.position.set(0, plinthH + 4.5, l * 0.5 + 2.2);
+    group.add(canopy);
+
+    for (let c = -1; c <= 1; c += 2) {
+      this.addBox(group, 0.5, 0.2, 0.5, c * (w * 0.25), plinthH + 0.1, l * 0.5 + 4.0, plinthMat);
+      this.addCylinder(group, 0.2, 0.2, 4.2, c * (w * 0.25), plinthH + 2.3, l * 0.5 + 4.0, darkWoodMat);
+    }
+
+    // Panoramic Tower
+    const towerFloors = floors - podiumFloors;
+    if (towerFloors > 0) {
+      const setback = 0.8;
+      const towerW = Math.max(8, w - setback * 2);
+      const towerL = Math.max(8, l - setback * 2);
+      const towerH = flH * towerFloors;
+      const towerBaseY = plinthH + podiumH;
+
+      this.buildHollowPerimeterShell(group, towerW, towerH, towerL, towerBaseY, ivoryMat, false, 3.0, 3.0, towerFloors, flH);
+
+      for (let tf = 0; tf < towerFloors; tf++) {
+        const tfY = towerBaseY + tf * flH;
+        const balcFront = TectonicComponents.buildGlassBalconyWithPlanter(towerW * 0.8, 1.2);
+        balcFront.position.set(0, tfY, towerL * 0.5 + 0.6);
+        group.add(balcFront);
+
+        const balcRear = TectonicComponents.buildGlassBalconyWithPlanter(towerW * 0.8, 1.2);
+        balcRear.position.set(0, tfY, -towerL * 0.5 - 0.6);
+        balcRear.rotation.y = Math.PI;
+        group.add(balcRear);
+      }
+
+      // Rooftop Crown with Infinity Pool Lounge
+      const roofY = towerBaseY + towerH;
+      this.buildModernFlatRoofWithOverhang(group, towerW + 0.8, towerL + 0.8, roofY, frameMat, ivoryMat);
+
+      const poolW = towerW * 0.45;
+      const poolL = towerL * 0.35;
+      this.addBox(group, poolW, 0.5, poolL, -towerW * 0.2, roofY + 0.25, 0, plinthMat);
+      const poolWater = new THREE.Mesh(new THREE.BoxGeometry(poolW - 0.2, 0.05, poolL - 0.2), waterMat);
+      poolWater.position.set(-towerW * 0.2, roofY + 0.48, 0);
+      group.add(poolWater);
+
+      const pentW = towerW * 0.3;
+      const pentL = towerL * 0.3;
+      this.addBox(group, pentW, 3.4, pentL, towerW * 0.25, roofY + 1.7, 0, ivoryMat);
+      this.addBox(group, towerW * 0.85, 0.15, towerL * 0.85, 0, roofY + 3.4, 0, goldMat);
+    }
+  }
+
+  /**
+   * 4. Menara Terpadu Ritel & Kantor (18 Lantai)
+   * Lantai 1-4 atrium mall perbelanjaan terpadu dan lantai 5-18 menara perkantoran modern
+   */
+  private static buildSkyscraperMixedUse(group: THREE.Group, bld: BuildingInstance): void {
+    const w = bld.width;
+    const l = bld.length;
+    const flH = bld.floorHeight || 4.0;
+    const floors = Math.max(4, bld.floorCount || 18);
+
+    const darkMat = this.getMaterial('concrete', '#0f172a');
+    const lightMat = this.getMaterial('concrete', '#e2e8f0');
+    const frameMat = this.getMaterial('frame');
+    const plinthMat = this.getMaterial('stone_plinth');
+
+    const plinthH = 0.4;
+    this.addBox(group, w + 0.8, plinthH, l + 0.8, 0, plinthH * 0.5, 0, plinthMat);
+
+    // Floors 1-4: Grand Mall Atrium Podium with Retail Vitrines
+    const podiumFloors = Math.min(4, Math.max(2, Math.floor(floors * 0.25)));
+    const podiumH = flH * podiumFloors;
+    this.buildHollowPerimeterShell(group, w, podiumH, l, plinthH, darkMat, true, 6.0, 4.8, podiumFloors, flH);
+
+    const canopy = TectonicComponents.buildCantileverCanopyWithSoffit(w * 0.65, 4.0, 0.35);
+    canopy.position.set(0, plinthH + 4.8, l * 0.5 + 2.0);
+    group.add(canopy);
+
+    for (let pf = 1; pf < podiumFloors; pf++) {
+      const pfY = plinthH + pf * flH;
+      const vitrine = TectonicComponents.buildMullionCurtainWall(w * 0.8, flH * 0.8, 8, 2);
+      vitrine.position.set(0, pfY, l * 0.5 + 0.05);
+      group.add(vitrine);
+    }
+
+    // Floors 5-18: Sleek Commercial Office Tower
+    const towerFloors = floors - podiumFloors;
+    if (towerFloors > 0) {
+      const setback = 1.0;
+      const towerW = Math.max(8, w - setback * 2);
+      const towerL = Math.max(8, l - setback * 2);
+      const towerH = flH * towerFloors;
+      const towerBaseY = plinthH + podiumH;
+
+      this.buildHollowPerimeterShell(group, towerW, towerH, towerL, towerBaseY, lightMat, false, 3.0, 3.0, towerFloors, flH);
+
+      for (let tf = 0; tf < towerFloors; tf++) {
+        const tfY = towerBaseY + tf * flH;
+        const curtain = TectonicComponents.buildMullionCurtainWall(towerW * 0.85, flH * 0.72, 6, 2);
+        curtain.position.set(0, tfY, towerL * 0.5 + 0.05);
+        group.add(curtain);
+
+        const curtainRear = TectonicComponents.buildMullionCurtainWall(towerW * 0.85, flH * 0.72, 6, 2);
+        curtainRear.position.set(0, tfY, -towerL * 0.5 - 0.05);
+        curtainRear.rotation.y = Math.PI;
+        group.add(curtainRear);
+      }
+
+      const roofY = towerBaseY + towerH;
+      this.buildModernFlatRoofWithOverhang(group, towerW + 0.8, towerL + 0.8, roofY, frameMat, darkMat);
+
+      const coreW = towerW * 0.35;
+      const coreL = towerL * 0.35;
+      this.addBox(group, coreW, 3.8, coreL, 0, roofY + 1.9, 0, darkMat);
+      this.addBox(group, towerW * 0.9, 0.2, towerL * 0.9, 0, roofY + 3.8, 0, frameMat);
+    }
+  }
+
+  // ==========================================================================
   // 8. APARTEMEN MENENGAH (Modern Urban Vertical Residence)
   // Articulated modular facade, individual recessed balconies, timber accents
   // ==========================================================================
@@ -1429,31 +1846,52 @@ export class PrefabMeshBuilder {
     isFloorToCeiling: boolean = false,
     hasLouvers: boolean = false
   ): void {
-    const frameThickness = 0.06;
-    const frameDepth = 0.08;
+    const frameThickness = 0.05;
+    const recess = 0.18; // 18cm architectural window reveal depth
+    const dirZ = posZ >= 0 ? 1 : -1;
+    const glassZ = posZ - dirZ * recess;
 
-    // Outer Frame Top/Bottom
-    this.addBox(group, w, frameThickness, frameDepth, posX, posY + h * 0.5 - frameThickness * 0.5, posZ, frameMat);
-    this.addBox(group, w, frameThickness, frameDepth, posX, posY - h * 0.5 + frameThickness * 0.5, posZ, frameMat);
-    // Outer Frame Left/Right
-    this.addBox(group, frameThickness, h, frameDepth, posX - w * 0.5 + frameThickness * 0.5, posY, posZ, frameMat);
-    this.addBox(group, frameThickness, h, frameDepth, posX + w * 0.5 - frameThickness * 0.5, posY, posZ, frameMat);
+    // 1. 3D Architectural Window Reveal Jambs and Head (Ceruk Dinding 18cm)
+    // Reveal Head (Ambang Atas)
+    this.addBox(group, w, frameThickness, recess, posX, posY + h * 0.5 - frameThickness * 0.5, posZ - dirZ * recess * 0.5, frameMat);
+    // Reveal Left & Right Jambs (Kusen Sisi Kiri & Kanan)
+    this.addBox(group, frameThickness, h - frameThickness * 2, recess, posX - w * 0.5 + frameThickness * 0.5, posY, posZ - dirZ * recess * 0.5, frameMat);
+    this.addBox(group, frameThickness, h - frameThickness * 2, recess, posX + w * 0.5 - frameThickness * 0.5, posY, posZ - dirZ * recess * 0.5, frameMat);
+
+    // 2. Projecting Stone/Concrete Window Sill (Ambang Bawah Timbul 0.06m keluar dari dinding)
+    if (!isFloorToCeiling) {
+      const sillProjection = 0.06;
+      const sillDepth = recess + sillProjection;
+      const sillH = 0.07;
+      const sillZ = posZ - dirZ * (recess - sillProjection) * 0.5;
+      const sillMat = this.getMaterial('concrete', '#94a3b8');
+      this.addBox(group, w + 0.12, sillH, sillDepth, posX, posY - h * 0.5 + sillH * 0.5, sillZ, sillMat);
+    } else {
+      this.addBox(group, w, frameThickness, recess, posX, posY - h * 0.5 + frameThickness * 0.5, posZ - dirZ * recess * 0.5, frameMat);
+    }
+
+    // 3. Recessed Inner Window Frame (Bingkai Kaca di Kedalaman 18cm)
+    const innerDepth = 0.05;
+    this.addBox(group, w - frameThickness * 2, frameThickness, innerDepth, posX, posY + h * 0.5 - frameThickness * 1.5, glassZ, frameMat);
+    this.addBox(group, w - frameThickness * 2, frameThickness, innerDepth, posX, posY - h * 0.5 + frameThickness * 1.5, glassZ, frameMat);
+    this.addBox(group, frameThickness, h - frameThickness * 2, innerDepth, posX - w * 0.5 + frameThickness * 1.5, posY, glassZ, frameMat);
+    this.addBox(group, frameThickness, h - frameThickness * 2, innerDepth, posX + w * 0.5 - frameThickness * 1.5, posY, glassZ, frameMat);
 
     // Center Mullion for wide windows
     if (w > 1.8) {
-      this.addBox(group, frameThickness, h, frameDepth, posX, posY, posZ, frameMat);
+      this.addBox(group, frameThickness, h - frameThickness * 2, innerDepth, posX, posY, glassZ, frameMat);
     }
 
-    // Glass Pane
-    this.addBox(group, w - frameThickness * 2, h - frameThickness * 2, 0.02, posX, posY, posZ, glassMat);
+    // 4. Recessed Glass Pane (Mundur 18cm ke dalam dinding)
+    this.addBox(group, Math.max(0.1, w - frameThickness * 4), Math.max(0.1, h - frameThickness * 4), 0.02, posX, posY, glassZ, glassMat);
 
-    // Architectural Sun Louvers (Brise-Soleil slats)
+    // 5. Architectural Sun Louvers (Brise-Soleil slats)
     if (hasLouvers) {
       const slatCount = 5;
       const slatSpacing = h / (slatCount + 1);
       for (let s = 1; s <= slatCount; s++) {
         const sy = posY - h * 0.5 + s * slatSpacing;
-        this.addBox(group, w * 1.05, 0.04, 0.25, posX, sy, posZ + 0.12, frameMat);
+        this.addBox(group, w * 1.05, 0.04, 0.22, posX, sy, posZ + dirZ * 0.08, frameMat);
       }
     }
   }
@@ -1510,7 +1948,7 @@ export class PrefabMeshBuilder {
   }
 
   /**
-   * Modern Crisp Gable Roof (Pelana) with Minimalist Rakes & Overhangs
+   * Modern Crisp Gable Roof (Pelana) with 3D Ridge Caps, Fascia Boards & World-Scale UVs
    */
   private static buildModernGableRoof(
     group: THREE.Group,
@@ -1522,6 +1960,7 @@ export class PrefabMeshBuilder {
   ): void {
     const halfW = rw * 0.5;
     const halfL = rl * 0.5;
+    const slopeLen = Math.hypot(halfW, roofH);
 
     const geom = new THREE.BufferGeometry();
     const verts = new Float32Array([
@@ -1554,11 +1993,26 @@ export class PrefabMeshBuilder {
       halfW, baseY, -halfL
     ]);
 
-    // UVs for texture tiling
+    // Tahap 4: World-Space UV Scaling (1 unit UV = 1.5 meters)
+    const uScaleL = rl / 1.5;
+    const vScaleS = slopeLen / 1.5;
+    const uScaleW = rw / 1.5;
+    const vScaleH = roofH / 1.5;
+
     const uvs = new Float32Array([
-      0, 0, 1, 0, 1, 1,   0, 0, 1, 1, 0, 1,
-      0, 1, 1, 1, 1, 0,   0, 1, 1, 0, 0, 0,
-      0, 0, 1, 0, 0.5, 1, 0, 0, 0.5, 1, 1, 0
+      // Left slope
+      0, 0,  uScaleL, 0,  uScaleL, vScaleS,
+      0, 0,  uScaleL, vScaleS,  0, vScaleS,
+
+      // Right slope
+      0, vScaleS,  uScaleL, vScaleS,  uScaleL, 0,
+      0, vScaleS,  uScaleL, 0,  0, 0,
+
+      // Front gable
+      0, 0,  uScaleW, 0,  uScaleW * 0.5, vScaleH,
+
+      // Back gable
+      0, 0,  uScaleW * 0.5, vScaleH,  uScaleW, 0
     ]);
 
     geom.setAttribute('position', new THREE.BufferAttribute(verts, 3));
@@ -1569,10 +2023,18 @@ export class PrefabMeshBuilder {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
+
+    // 3D Ridge Cap (Bumbungan Nok Atap 3D setebal 0.16m)
+    this.addBox(group, 0.22, 0.16, rl + 0.16, 0, baseY + roofH + 0.08, 0, roofMat);
+
+    // Papan Lisplang (Fascia Board) berprofil tebal di sekeliling tepi bawah atap
+    const lisplangMat = this.getMaterial('wood_slat', '#451a03');
+    this.addBox(group, 0.06, 0.18, rl + 0.1, -halfW, baseY - 0.04, 0, lisplangMat);
+    this.addBox(group, 0.06, 0.18, rl + 0.1, halfW, baseY - 0.04, 0, lisplangMat);
   }
 
   /**
-   * Modern Tropical Hip Roof (Limasan) with Crisp Geometry
+   * Modern Tropical Hip Roof (Limasan) with 3D Ridge Caps, Hip Caps, Fascia Boards & World-Scale UVs
    */
   private static buildModernHipRoof(
     group: THREE.Group,
@@ -1586,6 +2048,8 @@ export class PrefabMeshBuilder {
     const halfL = rl * 0.5;
     const ridgeLen = Math.max(0.5, rl - rw * 0.75);
     const halfR = ridgeLen * 0.5;
+    const slopeLenSide = Math.hypot(halfW, roofH);
+    const slopeLenEnd = Math.hypot(halfL - halfR, roofH);
 
     const geom = new THREE.BufferGeometry();
     const verts = new Float32Array([
@@ -1618,10 +2082,26 @@ export class PrefabMeshBuilder {
       halfW, baseY, -halfL
     ]);
 
+    // Tahap 4: World-Space UV Scaling (1 unit UV = 1.5 meters)
+    const uScaleL = rl / 1.5;
+    const vScaleSide = slopeLenSide / 1.5;
+    const uScaleW = rw / 1.5;
+    const vScaleEnd = slopeLenEnd / 1.5;
+
     const uvs = new Float32Array([
-      0, 0, 1, 0, 1, 1,   0, 0, 1, 1, 0, 1,
-      0, 1, 1, 1, 1, 0,   0, 1, 1, 0, 0, 0,
-      0, 0, 1, 0, 0.5, 1, 0, 0, 0.5, 1, 1, 0
+      // Left slope
+      0, 0,  uScaleL, 0,  uScaleL * 0.75, vScaleSide,
+      0, 0,  uScaleL * 0.75, vScaleSide,  uScaleL * 0.25, vScaleSide,
+
+      // Right slope
+      0, 0,  uScaleL * 0.25, vScaleSide,  uScaleL * 0.75, vScaleSide,
+      0, 0,  uScaleL * 0.75, vScaleSide,  uScaleL, 0,
+
+      // Front slope
+      0, 0,  uScaleW, 0,  uScaleW * 0.5, vScaleEnd,
+
+      // Back slope
+      0, 0,  uScaleW * 0.5, vScaleEnd,  uScaleW, 0
     ]);
 
     geom.setAttribute('position', new THREE.BufferAttribute(verts, 3));
@@ -1632,6 +2112,38 @@ export class PrefabMeshBuilder {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
+
+    // 3D Ridge Cap (Bumbungan Nok Atap 3D setebal 0.16m)
+    this.addBox(group, 0.22, 0.16, ridgeLen + 0.16, 0, baseY + roofH + 0.08, 0, roofMat);
+
+    // 3D Hip Diagonal Ridge Caps (Nok Jurai 3D ke 4 sudut atap)
+    const hipCorners = [
+      { sx: 0, sy: baseY + roofH, sz: halfR, ex: -halfW, ey: baseY, ez: halfL },
+      { sx: 0, sy: baseY + roofH, sz: halfR, ex: halfW, ey: baseY, ez: halfL },
+      { sx: 0, sy: baseY + roofH, sz: -halfR, ex: -halfW, ey: baseY, ez: -halfL },
+      { sx: 0, sy: baseY + roofH, sz: -halfR, ex: halfW, ey: baseY, ez: -halfL },
+    ];
+
+    for (const c of hipCorners) {
+      const midX = (c.sx + c.ex) * 0.5;
+      const midY = (c.sy + c.ey) * 0.5 + 0.06;
+      const midZ = (c.sz + c.ez) * 0.5;
+      const dx = c.ex - c.sx;
+      const dy = c.ey - c.sy;
+      const dz = c.ez - c.sz;
+      const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const rotY = Math.atan2(dx, dz);
+      const rotX = -Math.atan2(dy, Math.hypot(dx, dz));
+
+      this.addBox(group, 0.18, 0.14, len, midX, midY, midZ, roofMat, rotX, rotY, 0);
+    }
+
+    // Papan Lisplang (Fascia Board) berprofil tebal di sekeliling 4 tepi bawah atap
+    const lisplangMat = this.getMaterial('wood_slat', '#451a03');
+    this.addBox(group, rw + 0.1, 0.18, 0.06, 0, baseY - 0.04, halfL, lisplangMat);
+    this.addBox(group, rw + 0.1, 0.18, 0.06, 0, baseY - 0.04, -halfL, lisplangMat);
+    this.addBox(group, 0.06, 0.18, rl + 0.1, -halfW, baseY - 0.04, 0, lisplangMat);
+    this.addBox(group, 0.06, 0.18, rl + 0.1, halfW, baseY - 0.04, 0, lisplangMat);
   }
 
   // ==========================================================================
@@ -2497,6 +3009,47 @@ export class PrefabMeshBuilder {
     const plinthH = 0.35;
     this.addBox(group, w + 0.5, plinthH, l + 0.5, 0, plinthH * 0.5, 0, plinthMat);
 
+    if (floors >= 6) {
+      // High-Rise Articulation: Podium (fl 1-2) + Tower with setback (fl 3..N) + Penthouse Crown
+      const podiumFloors = 2;
+      const podiumH = flH * podiumFloors;
+      this.buildHollowPerimeterShell(group, w, podiumH, l, plinthH, plasterMat, true, 4.5, 4.0, podiumFloors, flH);
+
+      const canopy = TectonicComponents.buildCantileverCanopyWithSoffit(Math.min(w * 0.6, 5.0), 2.8, 0.22);
+      canopy.position.set(0, plinthH + 3.8, l * 0.5 + 1.4);
+      group.add(canopy);
+
+      const towerFloors = floors - podiumFloors;
+      const setback = 0.8;
+      const towerW = Math.max(6, w - setback * 2);
+      const towerL = Math.max(6, l - setback * 2);
+      const towerH = flH * towerFloors;
+      const towerBaseY = plinthH + podiumH;
+
+      this.buildHollowPerimeterShell(group, towerW, towerH, towerL, towerBaseY, plasterMat, false, 3.0, 3.0, towerFloors, flH);
+
+      for (let tf = 0; tf < towerFloors; tf++) {
+        const tfY = towerBaseY + tf * flH;
+        const curtain = TectonicComponents.buildMullionCurtainWall(towerW * 0.8, flH * 0.65, 4, 2);
+        curtain.position.set(0, tfY, towerL * 0.5 + 0.04);
+        group.add(curtain);
+
+        const balc = TectonicComponents.buildGlassBalconyWithPlanter(towerW * 0.6, 1.2);
+        balc.position.set(0, tfY, towerL * 0.5 + 0.6);
+        group.add(balc);
+      }
+
+      // Roof Penthouse Core & Crown
+      const roofY = towerBaseY + towerH;
+      this.buildModernFlatRoofWithOverhang(group, towerW + 0.6, towerL + 0.6, roofY, frameMat, concreteMat);
+
+      const pentW = Math.min(towerW * 0.4, 5.0);
+      const pentL = Math.min(towerL * 0.4, 5.0);
+      this.addBox(group, pentW, 3.2, pentL, 0, roofY + 1.6, 0, concreteMat);
+      this.addBox(group, towerW * 0.85, 0.2, towerL * 0.85, 0, roofY + 3.2, 0, frameMat);
+      return;
+    }
+
     // 1. Hollow Walkable Shell with 3.6m Open Entrance Portal
     this.buildHollowPerimeterShell(group, w, totalH, l, plinthH, plasterMat, true, 3.6, 3.6, floors, flH);
 
@@ -3160,6 +3713,12 @@ export class PrefabMeshBuilder {
     const slopeLen = Math.hypot(rl, roofH);
     const angle = Math.atan2(roofH, rl);
     this.addBox(group, rw, 0.15, slopeLen, 0, baseY + roofH * 0.5 + 0.1, 0, roofMat, -angle);
+
+    // 3D Ridge Cap at upper eave
+    this.addBox(group, rw + 0.1, 0.16, 0.18, 0, baseY + roofH + 0.1, -rl * 0.5, roofMat);
+    // Papan Lisplang (Fascia Board) at lower eave
+    const lisplangMat = this.getMaterial('wood_slat', '#451a03');
+    this.addBox(group, rw + 0.1, 0.18, 0.08, 0, baseY + 0.09, rl * 0.5, lisplangMat);
   }
 
   private static buildSawtoothRoof(
@@ -3220,6 +3779,11 @@ export class PrefabMeshBuilder {
 
     this.addBox(group, slopeLen, 0.14, rl, -halfW * 0.5, baseY + roofH * 0.5, 0, roofMat, 0, 0, angle);
     this.addBox(group, slopeLen, 0.14, rl, halfW * 0.5, baseY + roofH * 0.5, 0, roofMat, 0, 0, -angle);
+
+    // Eave fascia boards
+    const lisplangMat = this.getMaterial('wood_slat', '#451a03');
+    this.addBox(group, 0.08, 0.18, rl + 0.1, -halfW, baseY + roofH + 0.09, 0, lisplangMat);
+    this.addBox(group, 0.08, 0.18, rl + 0.1, halfW, baseY + roofH + 0.09, 0, lisplangMat);
   }
 
   // Primitive helpers
@@ -3237,6 +3801,31 @@ export class PrefabMeshBuilder {
     rotZ: number = 0
   ): THREE.Mesh {
     const geom = new THREE.BoxGeometry(w, h, d);
+
+    // Tahap 4: World-Space UV Scaling (1 unit UV = 1.5 meters)
+    const uv = geom.attributes.uv;
+    if (uv) {
+      const uvScale = 1.5;
+      const dims = [
+        [d, h], // +X
+        [d, h], // -X
+        [w, d], // +Y
+        [w, d], // -Y
+        [w, h], // +Z
+        [w, h]  // -Z
+      ];
+      for (let f = 0; f < 6; f++) {
+        const [fw, fh] = dims[f];
+        const su = Math.max(0.02, fw / uvScale);
+        const sv = Math.max(0.02, fh / uvScale);
+        for (let v = 0; v < 4; v++) {
+          const idx = f * 4 + v;
+          uv.setXY(idx, uv.getX(idx) * su, uv.getY(idx) * sv);
+        }
+      }
+      uv.needsUpdate = true;
+    }
+
     if (rotX || rotY || rotZ) {
       geom.rotateX(rotX);
       geom.rotateY(rotY);

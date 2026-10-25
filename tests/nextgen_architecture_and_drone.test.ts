@@ -221,9 +221,9 @@ describe('Next-Gen Architectural Scale Overhaul & Camera Tests', () => {
   });
 
   describe('3. True 1:1 Scale & Hollow Walkable Architectural Shells', () => {
-    it('ensures all 97 catalog items meet true 1:1 scale standards (floorHeight >= 4.0m)', () => {
+    it('ensures all 101 catalog items meet true 1:1 scale standards (floorHeight >= 4.0m)', () => {
       const buildings = BuildingCatalogRegistry.getAllBuildings();
-      expect(buildings.length).toBe(97);
+      expect(buildings.length).toBe(101);
 
       for (const b of buildings) {
         expect(b.floorHeight).toBeGreaterThanOrEqual(4.0);

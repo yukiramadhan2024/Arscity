@@ -1,5 +1,5 @@
 // Arscity Offline Service Worker (MIT License)
-const CACHE_NAME = 'arscity-v2.0.0';
+const CACHE_NAME = 'arscity-v3.0.0';
 
 const PRECACHE_ASSETS = [
   './',
@@ -38,6 +38,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Hanya layani request GET
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+  // Bypass caching on local development server
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {

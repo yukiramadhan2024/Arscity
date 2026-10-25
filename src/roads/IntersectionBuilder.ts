@@ -2,22 +2,9 @@ import * as THREE from 'three';
 import earcut from 'earcut';
 import { RoadGraph } from './RoadGraph';
 import { RoadNode, ROAD_PROFILES } from './RoadTypes';
-import { MaterialLibrary } from '../materials/MaterialLibrary';
+import { RoadMaterialHelper } from './RoadMaterialHelper';
 
 export class IntersectionBuilder {
-  private static asphaltMaterial: THREE.MeshStandardMaterial | null = null;
-
-  private static getMaterial(): THREE.MeshStandardMaterial {
-    if (!this.asphaltMaterial) {
-      this.asphaltMaterial = MaterialLibrary.getInstance().getMaterial('asphalt', {
-        roughness: 0.85,
-        metalness: 0.1,
-        color: 0xdddddd
-      });
-    }
-    return this.asphaltMaterial;
-  }
-
   public static buildIntersectionMesh(node: RoadNode, graph: RoadGraph): THREE.Mesh | null {
     if (node.connectedEdgeIds.length < 2) return null;
 
@@ -81,16 +68,38 @@ export class IntersectionBuilder {
     const indices = earcut(flatCoords);
     if (!indices || indices.length === 0) return null;
 
+    // Pastikan seluruh segitiga poligon persimpangan menghadap ke atas (+Y)
+    for (let i = 0; i < indices.length; i += 3) {
+      const i0 = indices[i];
+      const i1 = indices[i + 1];
+      const i2 = indices[i + 2];
+
+      const x0 = polyPoints[i0].x;
+      const z0 = polyPoints[i0].z;
+      const x1 = polyPoints[i1].x;
+      const z1 = polyPoints[i1].z;
+      const x2 = polyPoints[i2].x;
+      const z2 = polyPoints[i2].z;
+
+      // Cross product (v1 - v0) x (v2 - v0) pada bidang XZ
+      const ny = (z1 - z0) * (x2 - x0) - (x1 - x0) * (z2 - z0);
+      if (ny < 0) {
+        indices[i + 1] = i2;
+        indices[i + 2] = i1;
+      }
+    }
+
     const positions = new Float32Array(polyPoints.length * 3);
     const uvs = new Float32Array(polyPoints.length * 2);
 
     for (let i = 0; i < polyPoints.length; i++) {
       positions[i * 3] = polyPoints[i].x;
-      positions[i * 3 + 1] = 0.05; // Slightly above terrain
+      positions[i * 3 + 1] = 0.06; // Elevasi Y = 0.06m di atas Terrain
       positions[i * 3 + 2] = polyPoints[i].z;
 
-      uvs[i * 2] = (polyPoints[i].x - node.position.x) * 0.2;
-      uvs[i * 2 + 1] = (polyPoints[i].z - node.position.z) * 0.2;
+      // Planar UV projection based on world coordinates (u = worldX / 4.0, v = worldZ / 4.0)
+      uvs[i * 2] = polyPoints[i].x / 4.0;
+      uvs[i * 2 + 1] = polyPoints[i].z / 4.0;
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -98,8 +107,15 @@ export class IntersectionBuilder {
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
+    geometry.computeTangents();
 
-    const mesh = new THREE.Mesh(geometry, this.getMaterial());
+    const mat = RoadMaterialHelper.getIntersectionMaterial(node, graph);
+    mat.side = THREE.DoubleSide;
+    mat.polygonOffset = true;
+    mat.polygonOffsetFactor = -1;
+    mat.polygonOffsetUnits = -1;
+
+    const mesh = new THREE.Mesh(geometry, mat);
     mesh.receiveShadow = true;
     mesh.name = `Intersection_${node.id}`;
     mesh.userData = { nodeId: node.id, type: 'intersection' };

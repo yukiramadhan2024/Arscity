@@ -41,6 +41,62 @@ export class LotManager {
     this.evaluateAllLots();
   }
 
+  /**
+   * Smart Block Subdivider: Subdivides a rectangular area into a regular grid
+   * of uniform parcels, each automatically calibrated to face the nearest road.
+   */
+  public subdivideBlock(
+    center: THREE.Vector3,
+    blockWidth: number,
+    blockLength: number,
+    parcelWidth: number = 10,
+    parcelLength: number = 20,
+    zone: ZoneType = 'residential'
+  ): LotParcel[] {
+    const createdParcels: LotParcel[] = [];
+    const safeBlockW = Math.max(1, Math.abs(blockWidth));
+    const safeBlockL = Math.max(1, Math.abs(blockLength));
+    const safeParcelW = Math.max(1, Math.abs(parcelWidth));
+    const safeParcelL = Math.max(1, Math.abs(parcelLength));
+
+    const cols = Math.max(1, Math.floor(safeBlockW / safeParcelW));
+    const rows = Math.max(1, Math.floor(safeBlockL / safeParcelL));
+
+    const actualW = safeBlockW / cols;
+    const actualL = safeBlockL / rows;
+
+    const startX = center.x - safeBlockW / 2 + actualW / 2;
+    const startZ = center.z - safeBlockL / 2 + actualL / 2;
+
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const px = startX + c * actualW;
+        const pz = startZ + r * actualL;
+        const pos = new THREE.Vector3(px, center.y, pz);
+
+        const parcel = this.createLot(pos, actualW, actualL, zone);
+
+        if (this.roadManager) {
+          const nearest = this.roadManager.findNearestRoadEdge(pos);
+          if (nearest) {
+            const dx = nearest.closestPt.x - pos.x;
+            const dz = nearest.closestPt.z - pos.z;
+            if (Math.abs(dz) >= Math.abs(dx)) {
+              parcel.frontEdgeIndex = dz > 0 ? 0 : 2;
+            } else {
+              parcel.frontEdgeIndex = dx > 0 ? 1 : 3;
+            }
+          }
+        }
+
+        createdParcels.push(parcel);
+      }
+    }
+
+    if (this.onLotsUpdated) this.onLotsUpdated();
+    return createdParcels;
+  }
+
   public createLot(
     position: THREE.Vector3,
     width: number,

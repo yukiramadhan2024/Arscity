@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GLOSSARY_DATA, GlossaryEntry } from '../../education/GlossaryData';
 import { Search, X, BookOpen, Compass, Sparkles, Ruler } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface GlossaryModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface GlossaryModalProps {
 }
 
 export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, initialTermId }) => {
+  const modalRef = useModalA11y(isOpen, onClose);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [activeEntry, setActiveEntry] = useState<GlossaryEntry>(
@@ -171,8 +173,17 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
   };
 
   return (
-    <div className="modal-overlay interactive" role="dialog" aria-modal="true">
+    <div
+      className="modal-overlay interactive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="glossary-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={modalRef}
         className="modal-sheet"
         style={{
           width: '820px',
@@ -198,7 +209,7 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
               <BookOpen size={20} color="#007AFF" strokeWidth={2.2} />
             </div>
             <div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
+              <div id="glossary-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
                 Glosarium Arsitektur & Tata Kota
               </div>
               <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>
