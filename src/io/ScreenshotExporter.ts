@@ -75,8 +75,8 @@ export class ScreenshotExporter {
     .road { stroke: #334155; fill: none; stroke-linecap: round; }
     .road-center { stroke: #f8fafc; stroke-width: 1.5; stroke-dasharray: 6 6; fill: none; }
     .building { fill: #0284c7; stroke: #38bdf8; stroke-width: 1.5; }
-    .label { font-family: sans-serif; font-size: 10px; fill: #94a3b8; }
-    .title { font-family: sans-serif; font-size: 18px; font-weight: bold; fill: #f8fafc; }
+    .label { font-family: 'Inter', sans-serif; font-size: 10px; fill: #94a3b8; }
+    .title { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: bold; fill: #f8fafc; }
   </style>
   <rect width="${svgSize}" height="${svgSize}" class="bg" />
 `;

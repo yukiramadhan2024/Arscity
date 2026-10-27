@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BuildingInstance } from '../../buildings/PrefabTypes';
 import { BuildingManager } from '../../buildings/BuildingManager';
-import { LotParcel } from '../../zones/ZoneTypes';
+import { LotParcel, ZONE_RULES } from '../../zones/ZoneTypes';
 import { PolygonMath } from '../math/PolygonMath';
 import type { Engine } from './Engine';
 
@@ -220,6 +220,91 @@ export class SpatialHighlighter {
     this.masterGroup.add(group);
   }
 
+  private gsbGuidelineGroup: THREE.Group | null = null;
+  private lastGsbStatus: boolean | null = null;
+
+  public showGsbGuideline(lot: LotParcel, isCompliant: boolean): void {
+    const color = isCompliant ? 0x34c759 : 0xff3b30;
+
+    if (!this.gsbGuidelineGroup) {
+      this.gsbGuidelineGroup = new THREE.Group();
+      this.gsbGuidelineGroup.name = 'GSB_Guideline';
+      this.masterGroup.add(this.gsbGuidelineGroup);
+    } else {
+      // Clear previous children
+      while (this.gsbGuidelineGroup.children.length > 0) {
+        const child = this.gsbGuidelineGroup.children[0];
+        this.gsbGuidelineGroup.remove(child);
+        if ((child as any).geometry) (child as any).geometry.dispose();
+        if ((child as any).material) {
+          if (Array.isArray((child as any).material)) (child as any).material.forEach((m: any) => m.dispose());
+          else (child as any).material.dispose();
+        }
+      }
+    }
+
+    const zoneRule = ZONE_RULES[lot.zone];
+    const minSide = zoneRule?.minGSBSide ?? 1.5;
+    const minFront = zoneRule?.minGSBFront ?? 3.0;
+    const minRear = zoneRule?.minGSBRear ?? 2.0;
+
+    const safeW = Math.max(1, lot.width - minSide * 2);
+    const safeL = Math.max(1, lot.length - minFront - minRear);
+    const hw = safeW / 2;
+    const hl = safeL / 2;
+    const offsetZ = (minFront - minRear) / 2;
+
+    const cx = lot.position.x;
+    const cz = lot.position.z;
+
+    const localCorners = [
+      new THREE.Vector3(-hw, 0.08, -hl + offsetZ),
+      new THREE.Vector3(hw, 0.08, -hl + offsetZ),
+      new THREE.Vector3(hw, 0.08, hl + offsetZ),
+      new THREE.Vector3(-hw, 0.08, hl + offsetZ),
+      new THREE.Vector3(-hw, 0.08, -hl + offsetZ)
+    ];
+
+    const worldPts = localCorners.map((pt) => {
+      const rx = pt.x + cx;
+      const rz = pt.z + cz;
+      const gy = this.engine.terrain ? this.engine.terrain.getHeightAt(rx, rz) : 0;
+      return new THREE.Vector3(rx, gy + 0.08, rz);
+    });
+
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(worldPts);
+    const lineMat = new THREE.LineDashedMaterial({
+      color,
+      dashSize: 0.8,
+      gapSize: 0.4,
+      linewidth: 3,
+      depthTest: false
+    });
+    const line = new THREE.Line(lineGeom, lineMat);
+    line.computeLineDistances();
+    line.renderOrder = 925;
+    this.gsbGuidelineGroup.add(line);
+    this.gsbGuidelineGroup.visible = true;
+    this.lastGsbStatus = isCompliant;
+  }
+
+  public hideGsbGuideline(): void {
+    if (this.gsbGuidelineGroup) {
+      while (this.gsbGuidelineGroup.children.length > 0) {
+        const child = this.gsbGuidelineGroup.children[0];
+        this.gsbGuidelineGroup.remove(child);
+        if ((child as any).geometry) (child as any).geometry.dispose();
+        if ((child as any).material) {
+          if (Array.isArray((child as any).material)) (child as any).material.forEach((m: any) => m.dispose());
+          else (child as any).material.dispose();
+        }
+      }
+      this.masterGroup.remove(this.gsbGuidelineGroup);
+      this.gsbGuidelineGroup = null;
+      this.lastGsbStatus = null;
+    }
+  }
+
   public clearHighlight(): void {
     if (this.currentHighlightMesh) {
       this.masterGroup.remove(this.currentHighlightMesh);
@@ -237,6 +322,7 @@ export class SpatialHighlighter {
 
   public dispose(): void {
     this.clearHighlight();
+    this.hideGsbGuideline();
     if (this.hoverRingMesh) {
       this.hoverRingMesh.geometry.dispose();
       (this.hoverRingMesh.material as THREE.Material).dispose();

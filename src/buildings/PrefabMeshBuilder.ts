@@ -6,6 +6,10 @@ import { InteriorLayoutFactory } from './InteriorLayoutFactory';
 import { InteriorMeshBuilder } from './InteriorMeshBuilder';
 import { BuildingCatalogRegistry, BuildingCatalogItem } from './BuildingCatalogRegistry';
 import { TectonicComponents } from './TectonicComponents';
+import { RoofMeshBuilder } from './builders/RoofMeshBuilder';
+import { FacadeMeshBuilder } from './builders/FacadeMeshBuilder';
+import { FirstPersonFurnitureBuilder, FIRST_PERSON_FURNITURE_CATALOG } from './FirstPersonFurnitureCatalog';
+import { InteriorInteractiveSystem } from './InteriorInteractiveSystem';
 
 export interface CachedMeshTemplate {
   geometry: THREE.BufferGeometry;
@@ -176,6 +180,7 @@ export class PrefabMeshBuilder {
     if (this.geometryCache.has(cacheKey)) {
       const templates = this.geometryCache.get(cacheKey)!;
       this.instantiateFromTemplates(group, templates);
+      this.attachPlacedFurniture(group, building);
       return group;
     }
 
@@ -248,32 +253,32 @@ export class PrefabMeshBuilder {
         break;
     }
 
-    // Foundation skirt belongs to exterior shell
+    // Foundation skirt belongs to exterior shell (Adaptive Terrain Plinth: 1.5m depth)
     const foundationSkirt = this.buildFoundationSkirt(
       building.width,
       building.length,
-      2.0,
+      1.5,
       building.wallMaterial === 'brick' ? 'brick' : 'concrete'
     );
     rawExterior.add(foundationSkirt);
 
-    // 2. Build raw interior details
+    // 2. Build raw interior details (Only for Floor 1 / Ground Floor to prevent duplicating furniture across upper floors)
     const rawInterior = new THREE.Group();
     const plinthH = 0.35;
-    if (building.interiorLayouts) {
-      for (let fl = 0; fl < building.interiorLayouts.length; fl++) {
-        const layout = building.interiorLayouts[fl];
-        const floorBaseY = plinthH + fl * (building.floorHeight || 4.2);
-        const interiorGroup = InteriorMeshBuilder.buildFloorInterior(
-          layout,
-          floorBaseY,
-          building.floorHeight || 4.2,
-          building.id,
-          building.archetype || building.presetKey || building.category || 'residential',
-          building.position
-        );
-        rawInterior.add(interiorGroup);
-      }
+    if (building.interiorLayouts && building.interiorLayouts.length > 0) {
+      const layout = building.interiorLayouts[0];
+      const floorBaseY = plinthH;
+      const interiorGroup = InteriorMeshBuilder.buildFloorInterior(
+        layout,
+        floorBaseY,
+        building.floorHeight || 4.2,
+        building.id,
+        building.archetype || building.presetKey || building.category || 'residential',
+        building.position,
+        building.userData?.floorMaterial,
+        building.userData?.floorColor
+      );
+      rawInterior.add(interiorGroup);
     }
 
     // Build real 3D continuous flight of stairs with landings, handrails & elevator shaft
@@ -284,25 +289,20 @@ export class PrefabMeshBuilder {
     building.userData.stairZones = stairZones;
     building.stairZones = stairZones;
 
-    // Add 100% procedural permanent interior furniture set per archetype
-    const archetype = item?.archetype || 'standard';
-    const furnitureSet = TectonicComponents.buildInteriorFurnitureSet(
-      archetype,
-      building.width,
-      building.length,
-      building.floorHeight || 4.2,
-      building.interiorVariant || 'variant_a'
-    );
-    rawInterior.add(furnitureSet);
+    if (building.userData?.autoFurnish) {
+      const archetype = item?.archetype || 'standard';
+      const furnitureSet = TectonicComponents.buildInteriorFurnitureSet(
+        archetype,
+        building.width,
+        building.length,
+        building.floorHeight || 4.2,
+        building.interiorVariant || 'variant_a'
+      );
+      rawInterior.add(furnitureSet);
+    }
 
-    // 3. Build raw subterranean foundation below ground level (Y < 0)
+    // 3. Subsurface foundation group: 0 polygons underground, 0 GPU draw calls
     const rawSubsurface = new THREE.Group();
-    const subsurfaceFoundation = TectonicComponents.buildSubsurfaceFoundation(
-      currentFloors,
-      building.width,
-      building.length
-    );
-    rawSubsurface.add(subsurfaceFoundation);
 
     // Consolidate geometries per layer
     const extTemplates = this.optimizeBuildingGroup(rawExterior, 'exterior');
@@ -312,6 +312,7 @@ export class PrefabMeshBuilder {
     this.geometryCache.set(cacheKey, allTemplates);
 
     this.instantiateFromTemplates(group, allTemplates);
+    this.attachPlacedFurniture(group, building);
     return group;
   }
 
@@ -353,6 +354,59 @@ export class PrefabMeshBuilder {
     group.userData.subsurfaceFoundation = subsurfaceFoundation;
   }
 
+  /**
+   * Dynamically attaches user-placed furniture into the building instance group.
+   * This is separated from geometry caching and geometry merging so that placed
+   * furniture is always rendered immediately, retains its individual userData/materials,
+   * supports raycast hovering and deletion, and registers interactive seats.
+   */
+  public static attachPlacedFurniture(group: THREE.Group, building: BuildingInstance | any): void {
+    const placed = building.userData?.placedFurniture;
+    if (!placed || !Array.isArray(placed) || placed.length === 0) return;
+
+    const interiorDetails = group.userData.interiorDetails || group;
+    const plinthH = building.plinthHeight ?? 0.35;
+
+    for (const fur of placed) {
+      const furMesh = FirstPersonFurnitureBuilder.buildFurniture(fur.type);
+      furMesh.position.set(fur.position[0], fur.position[1] + plinthH, fur.position[2]);
+      furMesh.rotation.y = fur.rotationY || 0;
+      furMesh.userData = {
+        furnitureId: fur.id,
+        type: fur.type,
+        buildingId: building.id
+      };
+      furMesh.traverse((child) => {
+        child.userData = {
+          furnitureId: fur.id,
+          type: fur.type,
+          buildingId: building.id
+        };
+      });
+      interiorDetails.add(furMesh);
+
+      // Register interactive seats if applicable
+      const furItem = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === fur.type);
+      if (furItem?.isSeat) {
+        const rot = building.rotationY || 0;
+        const bldPos = building.position || new THREE.Vector3();
+        const worldX = bldPos.x + (fur.position[0] * Math.cos(rot) - fur.position[2] * Math.sin(rot));
+        const worldZ = bldPos.z + (fur.position[0] * Math.sin(rot) + fur.position[2] * Math.cos(rot));
+        const worldY = bldPos.y + plinthH + fur.position[1];
+
+        InteriorInteractiveSystem.getInstance().registerSeat({
+          id: `seat_${fur.id}`,
+          type: (fur.type.includes('sofa') ? 'sofa' : 'chair') as any,
+          buildingId: building.id,
+          label: furItem.name,
+          worldPosition: new THREE.Vector3(worldX, worldY, worldZ),
+          facingAngle: (fur.rotationY || 0) + rot,
+          floorIndex: fur.floorIndex || 1
+        });
+      }
+    }
+  }
+
 
   /**
    * Builds an automatic foundation skirt (talud batu candi / beton) beneath the building.
@@ -362,18 +416,10 @@ export class PrefabMeshBuilder {
   public static buildFoundationSkirt(
     width: number,
     length: number,
-    depth: number = 2.0,
+    depth: number = 1.5,
     materialName: string = 'concrete'
   ): THREE.Mesh {
-    const skirtGeo = new THREE.BoxGeometry(width + 0.12, depth, length + 0.12);
-    const skirtMat = this.getMaterial(materialName);
-    const skirtMesh = new THREE.Mesh(skirtGeo, skirtMat);
-    skirtMesh.name = 'FoundationSkirt';
-    // Positioned directly below building plinth (penetrates ground)
-    skirtMesh.position.set(0, -depth / 2 + 0.15, 0);
-    skirtMesh.castShadow = true;
-    skirtMesh.receiveShadow = true;
-    return skirtMesh;
+    return FacadeMeshBuilder.buildFoundationSkirt(width, length, depth, materialName);
   }
 
   /**
@@ -394,85 +440,7 @@ export class PrefabMeshBuilder {
     floors: number = 1,
     flH: number = 4.2
   ): void {
-    const t = 0.25; // 0.25m real double-sided wall thickness
-    const frameMat = this.getMaterial('frame');
-    const slabMat = this.getMaterial('concrete_board');
-    const warmLightMat = this.getMaterial('warm_light');
-
-    // 1. Back wall (-Z)
-    this.addBox(group, w, totalH, t, 0, baseY + totalH * 0.5, -l * 0.5 + t * 0.5, wallMat);
-
-    // 2. Left wall (-X)
-    const sideL = Math.max(0.1, l - t * 2);
-    this.addBox(group, t, totalH, sideL, -w * 0.5 + t * 0.5, baseY + totalH * 0.5, 0, wallMat);
-
-    // 3. Right wall (+X)
-    this.addBox(group, t, totalH, sideL, w * 0.5 - t * 0.5, baseY + totalH * 0.5, 0, wallMat);
-
-    // Architectural horizontal shadow grooves (tali air) along side walls
-    for (let f = 1; f < floors; f++) {
-      const grooveY = baseY + f * flH;
-      this.addBox(group, 0.05, 0.08, sideL * 0.95, -w * 0.5 - 0.02, grooveY, 0, frameMat);
-      this.addBox(group, 0.05, 0.08, sideL * 0.95, w * 0.5 + 0.02, grooveY, 0, frameMat);
-    }
-
-    // 4. Front wall (+Z)
-    if (openPortalFront) {
-      const pw = Math.min(w - 1.6, Math.max(2.8, portalW));
-      const ph = Math.min(totalH - 0.4, Math.max(3.0, portalH));
-      const sideWallW = (w - pw) * 0.5;
-
-      // Left front wall
-      if (sideWallW > 0.1) {
-        this.addBox(group, sideWallW, totalH, t, -w * 0.5 + sideWallW * 0.5, baseY + totalH * 0.5, l * 0.5 - t * 0.5, wallMat);
-      }
-      // Right front wall
-      if (sideWallW > 0.1) {
-        this.addBox(group, sideWallW, totalH, t, w * 0.5 - sideWallW * 0.5, baseY + totalH * 0.5, l * 0.5 - t * 0.5, wallMat);
-      }
-      // Lintel over portal
-      if (totalH > ph + 0.1) {
-        const lintelH = totalH - ph;
-        this.addBox(group, pw, lintelH, t, 0, baseY + ph + lintelH * 0.5, l * 0.5 - t * 0.5, wallMat);
-      }
-
-      // Open entrance portal: Swung open glass door leaves to the sides
-      const leafW = pw * 0.35;
-      const leafH = ph * 0.95;
-      const leafThick = 0.04;
-      // Left swung open door panel (facing inwards along jamb)
-      this.addBox(group, leafThick, leafH, leafW, -pw * 0.5 + leafThick * 0.5, baseY + leafH * 0.5, l * 0.5 - leafW * 0.5, frameMat);
-      // Right swung open door panel (facing inwards along jamb)
-      this.addBox(group, leafThick, leafH, leafW, pw * 0.5 - leafThick * 0.5, baseY + leafH * 0.5, l * 0.5 - leafW * 0.5, frameMat);
-      // Portal top header trim
-      this.addBox(group, pw + 0.1, 0.08, t + 0.06, 0, baseY + ph - 0.04, l * 0.5 - t * 0.5, frameMat);
-    } else {
-      this.addBox(group, w, totalH, t, 0, baseY + totalH * 0.5, l * 0.5 - t * 0.5, wallMat);
-    }
-
-    // 5. Intermediate Floor Slabs with Stair/Atrium Void Cutout
-    for (let f = 1; f < floors; f++) {
-      const slabY = baseY + f * flH;
-      const slabThick = 0.25;
-      // Front half slab
-      const halfL = (l - t * 2) * 0.35;
-      this.addBox(group, w - t * 2, slabThick, halfL, 0, slabY + slabThick * 0.5, l * 0.5 - t - halfL * 0.5, slabMat);
-      // Rear half slab
-      this.addBox(group, w - t * 2, slabThick, halfL, 0, slabY + slabThick * 0.5, -l * 0.5 + t + halfL * 0.5, slabMat);
-      // Side walkway connecting front and rear (leaving center void open for flight/stairs)
-      const walkW = (w - t * 2) * 0.25;
-      const voidL = (l - t * 2) - halfL * 2;
-      this.addBox(group, walkW, slabThick, voidL, -w * 0.5 + t + walkW * 0.5, slabY + slabThick * 0.5, 0, slabMat);
-      this.addBox(group, walkW, slabThick, voidL, w * 0.5 - t - walkW * 0.5, slabY + slabThick * 0.5, 0, slabMat);
-    }
-
-    // 6. Warm Ceiling Emissive Light Panels
-    for (let f = 0; f < floors; f++) {
-      const ceilY = baseY + (f + 1) * flH - 0.06;
-      const lightW = Math.min(3.0, (w - t * 2) * 0.5);
-      const lightL = Math.min(3.0, (l - t * 2) * 0.5);
-      this.addBox(group, lightW, 0.04, lightL, 0, ceilY, 0, warmLightMat);
-    }
+    FacadeMeshBuilder.buildHollowPerimeterShell(group, w, totalH, l, baseY, wallMat, openPortalFront, portalW, portalH, floors, flH);
   }
 
   // ==========================================================================
@@ -692,49 +660,11 @@ export class PrefabMeshBuilder {
       group.add(periUplight);
     }
 
-    // True Tiered Joglo Roof: Broad lower Emper + Soaring center Brunjung
+    // True Tiered Joglo Roof: Broad lower Emper + Soaring center Brunjung (Modularized RoofMeshBuilder)
     const roofBaseY = plinthH + h * 0.8;
     const rw = w + 2.4;
     const rl = l + 2.4;
-
-    // Dark Carved Lisplang Fascia Board Trim around lower eave
-    const lisplangH = 0.22;
-    const lisplangThick = 0.08;
-    const carvedTeakMat = this.getMaterial('wood_slat', '#451a03');
-    this.addBox(group, rw + 0.1, lisplangH, lisplangThick, 0, roofBaseY + lisplangH * 0.5, rl * 0.5, carvedTeakMat);
-    this.addBox(group, rw + 0.1, lisplangH, lisplangThick, 0, roofBaseY + lisplangH * 0.5, -rl * 0.5, carvedTeakMat);
-    this.addBox(group, lisplangThick, lisplangH, rl + 0.1, rw * 0.5, roofBaseY + lisplangH * 0.5, 0, carvedTeakMat);
-    this.addBox(group, lisplangThick, lisplangH, rl + 0.1, -rw * 0.5, roofBaseY + lisplangH * 0.5, 0, carvedTeakMat);
-
-    // Tier 1: Lower broad eave (Atap Emper, landai & lebar)
-    const t1H = 1.1;
-    const t1TopW = rw * 0.52;
-    const t1TopL = rl * 0.52;
-    const cone1 = new THREE.CylinderGeometry(t1TopW * 0.5, rw * 0.5, t1H, 4);
-    cone1.rotateY(Math.PI * 0.25);
-    cone1.translate(0, roofBaseY + t1H * 0.5, 0);
-    const m1 = new THREE.Mesh(cone1, roofTileMat);
-    m1.castShadow = true;
-    group.add(m1);
-
-    // Tier 2: Soaring Steep Brunjung Roof (curam & menjulang)
-    const t2H = 3.2;
-    const cone2 = new THREE.ConeGeometry(t1TopW * 0.55, t2H, 4);
-    cone2.rotateY(Math.PI * 0.25);
-    cone2.translate(0, roofBaseY + t1H + t2H * 0.5, 0);
-    const m2 = new THREE.Mesh(cone2, roofTileMat);
-    m2.castShadow = true;
-    group.add(m2);
-
-    // 3D Terracotta Ridge Caps (Bumbungan wuwungan bertingkat tegas)
-    const ridgeCapMat = this.getMaterial('roof_tile', '#9a3412');
-    const peakRidge = new THREE.Mesh(new THREE.BoxGeometry(t1TopW * 0.45, 0.28, 0.35), ridgeCapMat);
-    peakRidge.position.set(0, roofBaseY + t1H + t2H + 0.1, 0);
-    peakRidge.castShadow = true;
-    group.add(peakRidge);
-
-    // Golden Terracotta Ridge Crown Finial (Wuwungan mahkota)
-    this.addBox(group, 0.45, 0.45, 1.4, 0, roofBaseY + t1H + t2H + 0.28, 0, this.getMaterial('plaster', '#d97706'));
+    RoofMeshBuilder.buildJogloRoof(group, rw, rl, roofBaseY, roofTileMat);
 
     // Nusantara Podium-Tower: When floors > 3, the Joglo remains the grand front entrance podium
     // while behind it rises a modern multi-story tower with reinforced structure and crown
@@ -1846,54 +1776,7 @@ export class PrefabMeshBuilder {
     isFloorToCeiling: boolean = false,
     hasLouvers: boolean = false
   ): void {
-    const frameThickness = 0.05;
-    const recess = 0.18; // 18cm architectural window reveal depth
-    const dirZ = posZ >= 0 ? 1 : -1;
-    const glassZ = posZ - dirZ * recess;
-
-    // 1. 3D Architectural Window Reveal Jambs and Head (Ceruk Dinding 18cm)
-    // Reveal Head (Ambang Atas)
-    this.addBox(group, w, frameThickness, recess, posX, posY + h * 0.5 - frameThickness * 0.5, posZ - dirZ * recess * 0.5, frameMat);
-    // Reveal Left & Right Jambs (Kusen Sisi Kiri & Kanan)
-    this.addBox(group, frameThickness, h - frameThickness * 2, recess, posX - w * 0.5 + frameThickness * 0.5, posY, posZ - dirZ * recess * 0.5, frameMat);
-    this.addBox(group, frameThickness, h - frameThickness * 2, recess, posX + w * 0.5 - frameThickness * 0.5, posY, posZ - dirZ * recess * 0.5, frameMat);
-
-    // 2. Projecting Stone/Concrete Window Sill (Ambang Bawah Timbul 0.06m keluar dari dinding)
-    if (!isFloorToCeiling) {
-      const sillProjection = 0.06;
-      const sillDepth = recess + sillProjection;
-      const sillH = 0.07;
-      const sillZ = posZ - dirZ * (recess - sillProjection) * 0.5;
-      const sillMat = this.getMaterial('concrete', '#94a3b8');
-      this.addBox(group, w + 0.12, sillH, sillDepth, posX, posY - h * 0.5 + sillH * 0.5, sillZ, sillMat);
-    } else {
-      this.addBox(group, w, frameThickness, recess, posX, posY - h * 0.5 + frameThickness * 0.5, posZ - dirZ * recess * 0.5, frameMat);
-    }
-
-    // 3. Recessed Inner Window Frame (Bingkai Kaca di Kedalaman 18cm)
-    const innerDepth = 0.05;
-    this.addBox(group, w - frameThickness * 2, frameThickness, innerDepth, posX, posY + h * 0.5 - frameThickness * 1.5, glassZ, frameMat);
-    this.addBox(group, w - frameThickness * 2, frameThickness, innerDepth, posX, posY - h * 0.5 + frameThickness * 1.5, glassZ, frameMat);
-    this.addBox(group, frameThickness, h - frameThickness * 2, innerDepth, posX - w * 0.5 + frameThickness * 1.5, posY, glassZ, frameMat);
-    this.addBox(group, frameThickness, h - frameThickness * 2, innerDepth, posX + w * 0.5 - frameThickness * 1.5, posY, glassZ, frameMat);
-
-    // Center Mullion for wide windows
-    if (w > 1.8) {
-      this.addBox(group, frameThickness, h - frameThickness * 2, innerDepth, posX, posY, glassZ, frameMat);
-    }
-
-    // 4. Recessed Glass Pane (Mundur 18cm ke dalam dinding)
-    this.addBox(group, Math.max(0.1, w - frameThickness * 4), Math.max(0.1, h - frameThickness * 4), 0.02, posX, posY, glassZ, glassMat);
-
-    // 5. Architectural Sun Louvers (Brise-Soleil slats)
-    if (hasLouvers) {
-      const slatCount = 5;
-      const slatSpacing = h / (slatCount + 1);
-      for (let s = 1; s <= slatCount; s++) {
-        const sy = posY - h * 0.5 + s * slatSpacing;
-        this.addBox(group, w * 1.05, 0.04, 0.22, posX, sy, posZ + dirZ * 0.08, frameMat);
-      }
-    }
+    FacadeMeshBuilder.createWindowAssembly(group, w, h, posX, posY, posZ, frameMat, glassMat, isFloorToCeiling, hasLouvers);
   }
 
   /**
@@ -1934,17 +1817,7 @@ export class PrefabMeshBuilder {
     fasciaMat: THREE.Material,
     slabMat: THREE.Material
   ): void {
-    // Main roof slab
-    this.addBox(group, rw, 0.22, rl, 0, baseY + 0.11, 0, slabMat);
-
-    // Dark crisp perimeter fascia drip edge
-    const fasciaH = 0.4;
-    // Front & Back
-    this.addBox(group, rw + 0.05, fasciaH, 0.12, 0, baseY + 0.2, rl * 0.5, fasciaMat);
-    this.addBox(group, rw + 0.05, fasciaH, 0.12, 0, baseY + 0.2, -rl * 0.5, fasciaMat);
-    // Left & Right
-    this.addBox(group, 0.12, fasciaH, rl + 0.05, rw * 0.5, baseY + 0.2, 0, fasciaMat);
-    this.addBox(group, 0.12, fasciaH, rl + 0.05, -rw * 0.5, baseY + 0.2, 0, fasciaMat);
+    RoofMeshBuilder.buildFlatRoofWithOverhang(group, rw, rl, baseY, fasciaMat, slabMat);
   }
 
   /**
@@ -1958,79 +1831,7 @@ export class PrefabMeshBuilder {
     roofH: number,
     roofMat: THREE.Material
   ): void {
-    const halfW = rw * 0.5;
-    const halfL = rl * 0.5;
-    const slopeLen = Math.hypot(halfW, roofH);
-
-    const geom = new THREE.BufferGeometry();
-    const verts = new Float32Array([
-      // Left slope
-      -halfW, baseY, -halfL,
-      -halfW, baseY, halfL,
-      0, baseY + roofH, halfL,
-
-      -halfW, baseY, -halfL,
-      0, baseY + roofH, halfL,
-      0, baseY + roofH, -halfL,
-
-      // Right slope
-      0, baseY + roofH, -halfL,
-      0, baseY + roofH, halfL,
-      halfW, baseY, halfL,
-
-      0, baseY + roofH, -halfL,
-      halfW, baseY, halfL,
-      halfW, baseY, -halfL,
-
-      // Front gable
-      -halfW, baseY, halfL,
-      halfW, baseY, halfL,
-      0, baseY + roofH, halfL,
-
-      // Back gable
-      -halfW, baseY, -halfL,
-      0, baseY + roofH, -halfL,
-      halfW, baseY, -halfL
-    ]);
-
-    // Tahap 4: World-Space UV Scaling (1 unit UV = 1.5 meters)
-    const uScaleL = rl / 1.5;
-    const vScaleS = slopeLen / 1.5;
-    const uScaleW = rw / 1.5;
-    const vScaleH = roofH / 1.5;
-
-    const uvs = new Float32Array([
-      // Left slope
-      0, 0,  uScaleL, 0,  uScaleL, vScaleS,
-      0, 0,  uScaleL, vScaleS,  0, vScaleS,
-
-      // Right slope
-      0, vScaleS,  uScaleL, vScaleS,  uScaleL, 0,
-      0, vScaleS,  uScaleL, 0,  0, 0,
-
-      // Front gable
-      0, 0,  uScaleW, 0,  uScaleW * 0.5, vScaleH,
-
-      // Back gable
-      0, 0,  uScaleW * 0.5, vScaleH,  uScaleW, 0
-    ]);
-
-    geom.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-    geom.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-    geom.computeVertexNormals();
-
-    const mesh = new THREE.Mesh(geom, roofMat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-
-    // 3D Ridge Cap (Bumbungan Nok Atap 3D setebal 0.16m)
-    this.addBox(group, 0.22, 0.16, rl + 0.16, 0, baseY + roofH + 0.08, 0, roofMat);
-
-    // Papan Lisplang (Fascia Board) berprofil tebal di sekeliling tepi bawah atap
-    const lisplangMat = this.getMaterial('wood_slat', '#451a03');
-    this.addBox(group, 0.06, 0.18, rl + 0.1, -halfW, baseY - 0.04, 0, lisplangMat);
-    this.addBox(group, 0.06, 0.18, rl + 0.1, halfW, baseY - 0.04, 0, lisplangMat);
+    RoofMeshBuilder.buildGableRoof(group, rw, rl, baseY, roofH, roofMat);
   }
 
   /**
@@ -2044,106 +1845,7 @@ export class PrefabMeshBuilder {
     roofH: number,
     roofMat: THREE.Material
   ): void {
-    const halfW = rw * 0.5;
-    const halfL = rl * 0.5;
-    const ridgeLen = Math.max(0.5, rl - rw * 0.75);
-    const halfR = ridgeLen * 0.5;
-    const slopeLenSide = Math.hypot(halfW, roofH);
-    const slopeLenEnd = Math.hypot(halfL - halfR, roofH);
-
-    const geom = new THREE.BufferGeometry();
-    const verts = new Float32Array([
-      // Left slope
-      -halfW, baseY, -halfL,
-      -halfW, baseY, halfL,
-      0, baseY + roofH, halfR,
-
-      -halfW, baseY, -halfL,
-      0, baseY + roofH, halfR,
-      0, baseY + roofH, -halfR,
-
-      // Right slope
-      halfW, baseY, -halfL,
-      0, baseY + roofH, -halfR,
-      0, baseY + roofH, halfR,
-
-      halfW, baseY, -halfL,
-      0, baseY + roofH, halfR,
-      halfW, baseY, halfL,
-
-      // Front slope
-      -halfW, baseY, halfL,
-      halfW, baseY, halfL,
-      0, baseY + roofH, halfR,
-
-      // Back slope
-      -halfW, baseY, -halfL,
-      0, baseY + roofH, -halfR,
-      halfW, baseY, -halfL
-    ]);
-
-    // Tahap 4: World-Space UV Scaling (1 unit UV = 1.5 meters)
-    const uScaleL = rl / 1.5;
-    const vScaleSide = slopeLenSide / 1.5;
-    const uScaleW = rw / 1.5;
-    const vScaleEnd = slopeLenEnd / 1.5;
-
-    const uvs = new Float32Array([
-      // Left slope
-      0, 0,  uScaleL, 0,  uScaleL * 0.75, vScaleSide,
-      0, 0,  uScaleL * 0.75, vScaleSide,  uScaleL * 0.25, vScaleSide,
-
-      // Right slope
-      0, 0,  uScaleL * 0.25, vScaleSide,  uScaleL * 0.75, vScaleSide,
-      0, 0,  uScaleL * 0.75, vScaleSide,  uScaleL, 0,
-
-      // Front slope
-      0, 0,  uScaleW, 0,  uScaleW * 0.5, vScaleEnd,
-
-      // Back slope
-      0, 0,  uScaleW * 0.5, vScaleEnd,  uScaleW, 0
-    ]);
-
-    geom.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-    geom.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-    geom.computeVertexNormals();
-
-    const mesh = new THREE.Mesh(geom, roofMat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-
-    // 3D Ridge Cap (Bumbungan Nok Atap 3D setebal 0.16m)
-    this.addBox(group, 0.22, 0.16, ridgeLen + 0.16, 0, baseY + roofH + 0.08, 0, roofMat);
-
-    // 3D Hip Diagonal Ridge Caps (Nok Jurai 3D ke 4 sudut atap)
-    const hipCorners = [
-      { sx: 0, sy: baseY + roofH, sz: halfR, ex: -halfW, ey: baseY, ez: halfL },
-      { sx: 0, sy: baseY + roofH, sz: halfR, ex: halfW, ey: baseY, ez: halfL },
-      { sx: 0, sy: baseY + roofH, sz: -halfR, ex: -halfW, ey: baseY, ez: -halfL },
-      { sx: 0, sy: baseY + roofH, sz: -halfR, ex: halfW, ey: baseY, ez: -halfL },
-    ];
-
-    for (const c of hipCorners) {
-      const midX = (c.sx + c.ex) * 0.5;
-      const midY = (c.sy + c.ey) * 0.5 + 0.06;
-      const midZ = (c.sz + c.ez) * 0.5;
-      const dx = c.ex - c.sx;
-      const dy = c.ey - c.sy;
-      const dz = c.ez - c.sz;
-      const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const rotY = Math.atan2(dx, dz);
-      const rotX = -Math.atan2(dy, Math.hypot(dx, dz));
-
-      this.addBox(group, 0.18, 0.14, len, midX, midY, midZ, roofMat, rotX, rotY, 0);
-    }
-
-    // Papan Lisplang (Fascia Board) berprofil tebal di sekeliling 4 tepi bawah atap
-    const lisplangMat = this.getMaterial('wood_slat', '#451a03');
-    this.addBox(group, rw + 0.1, 0.18, 0.06, 0, baseY - 0.04, halfL, lisplangMat);
-    this.addBox(group, rw + 0.1, 0.18, 0.06, 0, baseY - 0.04, -halfL, lisplangMat);
-    this.addBox(group, 0.06, 0.18, rl + 0.1, -halfW, baseY - 0.04, 0, lisplangMat);
-    this.addBox(group, 0.06, 0.18, rl + 0.1, halfW, baseY - 0.04, 0, lisplangMat);
+    RoofMeshBuilder.buildLimasanRoof(group, rw, rl, baseY, roofH, roofMat);
   }
 
   // ==========================================================================
@@ -3701,7 +3403,7 @@ export class PrefabMeshBuilder {
     }
   }
 
-  // Roof Builders
+  // Roof Builders (Modularized to RoofMeshBuilder)
   private static buildShedRoof(
     group: THREE.Group,
     rw: number,
@@ -3710,15 +3412,7 @@ export class PrefabMeshBuilder {
     roofH: number,
     roofMat: THREE.Material
   ): void {
-    const slopeLen = Math.hypot(rl, roofH);
-    const angle = Math.atan2(roofH, rl);
-    this.addBox(group, rw, 0.15, slopeLen, 0, baseY + roofH * 0.5 + 0.1, 0, roofMat, -angle);
-
-    // 3D Ridge Cap at upper eave
-    this.addBox(group, rw + 0.1, 0.16, 0.18, 0, baseY + roofH + 0.1, -rl * 0.5, roofMat);
-    // Papan Lisplang (Fascia Board) at lower eave
-    const lisplangMat = this.getMaterial('wood_slat', '#451a03');
-    this.addBox(group, rw + 0.1, 0.18, 0.08, 0, baseY + 0.09, rl * 0.5, lisplangMat);
+    RoofMeshBuilder.buildShedRoof(group, rw, rl, baseY, roofH, roofMat);
   }
 
   private static buildSawtoothRoof(
@@ -3731,15 +3425,7 @@ export class PrefabMeshBuilder {
     roofMat: THREE.Material,
     glassMat: THREE.Material
   ): void {
-    const toothLen = rl / teethCount;
-    const slopeLen = Math.hypot(toothLen, roofH);
-    const angle = Math.atan2(roofH, toothLen);
-
-    for (let t = 0; t < teethCount; t++) {
-      const toothCenterZ = -rl * 0.5 + (t + 0.5) * toothLen;
-      this.addBox(group, rw, 0.12, slopeLen, 0, baseY + roofH * 0.5, toothCenterZ, roofMat, -angle);
-      this.addBox(group, rw * 0.95, roofH, 0.05, 0, baseY + roofH * 0.5, toothCenterZ + toothLen * 0.5, glassMat);
-    }
+    RoofMeshBuilder.buildSawtoothRoof(group, rw, rl, baseY, roofH, teethCount, roofMat, glassMat);
   }
 
   private static buildArchedVaultRoof(
@@ -3750,19 +3436,7 @@ export class PrefabMeshBuilder {
     vaultH: number,
     roofMat: THREE.Material
   ): void {
-    const segs = 8;
-    const radius = rw * 0.55;
-    const totalAngle = Math.PI * 0.7;
-    const angleStep = totalAngle / segs;
-    const startAngle = -totalAngle * 0.5;
-
-    for (let i = 0; i < segs; i++) {
-      const a = startAngle + (i + 0.5) * angleStep;
-      const segW = (rw * 1.1) / segs;
-      const px = Math.sin(a) * radius;
-      const py = baseY + Math.cos(a) * vaultH;
-      this.addBox(group, segW, 0.14, rl, px, py, 0, roofMat, 0, 0, -a);
-    }
+    RoofMeshBuilder.buildArchedVaultRoof(group, rw, rl, baseY, vaultH, roofMat);
   }
 
   private static buildButterflyRoof(
@@ -3773,17 +3447,7 @@ export class PrefabMeshBuilder {
     roofH: number,
     roofMat: THREE.Material
   ): void {
-    const halfW = rw * 0.5;
-    const slopeLen = Math.hypot(halfW, roofH);
-    const angle = Math.atan2(roofH, halfW);
-
-    this.addBox(group, slopeLen, 0.14, rl, -halfW * 0.5, baseY + roofH * 0.5, 0, roofMat, 0, 0, angle);
-    this.addBox(group, slopeLen, 0.14, rl, halfW * 0.5, baseY + roofH * 0.5, 0, roofMat, 0, 0, -angle);
-
-    // Eave fascia boards
-    const lisplangMat = this.getMaterial('wood_slat', '#451a03');
-    this.addBox(group, 0.08, 0.18, rl + 0.1, -halfW, baseY + roofH + 0.09, 0, lisplangMat);
-    this.addBox(group, 0.08, 0.18, rl + 0.1, halfW, baseY + roofH + 0.09, 0, lisplangMat);
+    RoofMeshBuilder.buildButterflyRoof(group, rw, rl, baseY, roofH, roofMat);
   }
 
   // Primitive helpers

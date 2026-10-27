@@ -22,7 +22,8 @@ import {
   GitCompare,
   Bookmark,
   Check,
-  ShieldCheck
+  ShieldCheck,
+  X
 } from 'lucide-react';
 import { CutMode } from '../../analysis/SectionCutManager';
 import { RunoffSimulator, CityRunoffReport } from '../../simulation/RunoffSimulator';
@@ -215,7 +216,7 @@ export const AnalysisOverlay: React.FC = () => {
 
   return (
     <motion.aside
-      className="interactive glass-surface"
+      className="interactive"
       initial={{ opacity: 0, y: 32, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 32, scale: 0.95 }}
@@ -230,46 +231,76 @@ export const AnalysisOverlay: React.FC = () => {
         overflowY: 'auto',
         padding: '14px',
         zIndex: 'var(--z-hud)' as any,
-        borderRadius: 'var(--radius-panel)'
+        borderRadius: '24px',
+        background: 'rgba(244, 247, 251, 0.95)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        border: '1px solid rgba(255, 255, 255, 0.95)',
+        boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)'
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-        <div
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              background: 'rgba(0, 122, 255, 0.12)',
+              border: '1px solid rgba(0, 122, 255, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#007AFF'
+            }}
+          >
+            <Activity size={16} strokeWidth={2} />
+          </div>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
+              Laboratorium Analisis
+            </div>
+            <div style={{ fontSize: '11px', color: '#475569' }}>
+              Simulasi Iklim &amp; Tata Ruang Tropis
+            </div>
+          </div>
+        </div>
+
+        {/* D3: Tombol Tutup Header */}
+        <button
+          onClick={() => useUIStore.getState().setActiveTool('select')}
           style={{
             width: '28px',
             height: '28px',
             borderRadius: '50%',
-            background: 'var(--fill-control-hover)',
+            background: '#FFFFFF',
+            border: '1px solid #CBD5E1',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--accent)'
+            color: '#334155',
+            cursor: 'pointer',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)'
           }}
+          title="Tutup Laboratorium Analisis"
+          aria-label="Tutup Laboratorium Analisis"
         >
-          <Activity size={16} strokeWidth={1.75} />
-        </div>
-        <div>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
-            Laboratorium Analisis
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-            Simulasi Iklim & Tata Ruang Tropis
-          </div>
-        </div>
+          <X size={14} strokeWidth={2} />
+        </button>
       </div>
 
       {/* SimCity Architectural Maquette Mode & Data Lens Selector */}
-      <div className="inset-group" style={{ marginBottom: '12px' }}>
+      <div className="inset-group" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px', marginBottom: '12px', overflow: 'hidden' }}>
         <div className="inset-row" style={{ justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Layers size={15} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+            <Layers size={15} strokeWidth={2} style={{ color: '#007AFF' }} />
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)' }}>
-                Mode Maket Putih (Data Lens)
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
+                Mode Maket Putih
               </div>
-              <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
-                Visualisasi Studio Arsitektur 3D
+              <div style={{ fontSize: '10px', color: '#475569' }}>
+                Visualisasi monokrom arsitektur &amp; data tematik
               </div>
             </div>
           </div>
@@ -284,30 +315,43 @@ export const AnalysisOverlay: React.FC = () => {
         </div>
 
         {maquetteLensOn && (
-          <div style={{ padding: '8px 10px', background: 'var(--surface)', borderTop: '1px solid var(--separator)' }}>
-            <div style={{ fontSize: '10px', color: 'var(--label-secondary)', marginBottom: '6px' }}>
+          <div style={{ padding: '8px 10px', background: '#F8FAFC', borderTop: '1px solid #E2E8F0' }}>
+            <div style={{ fontSize: '10px', color: '#475569', marginBottom: '6px', fontWeight: 600 }}>
               PILIH LAPISAN LENSA DATA:
             </div>
-            <div className="segmented-control" style={{ width: '100%' }}>
+            <div className="segmented-control" style={{ width: '100%', background: '#E2E8F0', border: '1px solid #CBD5E1', padding: '2px', borderRadius: '8px' }}>
               {[
                 { id: 'kdb_gsb', label: 'KDB/GSB' },
                 { id: 'solar_vent', label: 'Iklim' },
                 { id: 'acoustic', label: 'Akustik' },
                 { id: 'runoff', label: 'Banjir' },
                 { id: 'walkability', label: 'Walk' }
-              ].map((lens) => (
-                <button
-                  key={lens.id}
-                  onClick={() => handleSelectLens(lens.id as any)}
-                  className={`segmented-item ${selectedLens === lens.id ? 'active' : ''}`}
-                  style={{ flex: 1, padding: '3px 2px', fontSize: '10px' }}
-                >
-                  <span>{lens.label}</span>
-                </button>
-              ))}
+              ].map((lens) => {
+                const isSel = selectedLens === lens.id;
+                return (
+                  <button
+                    key={lens.id}
+                    onClick={() => handleSelectLens(lens.id as any)}
+                    style={{
+                      flex: 1,
+                      padding: '4px 2px',
+                      fontSize: '10px',
+                      fontWeight: isSel ? 700 : 500,
+                      background: isSel ? '#FFFFFF' : 'transparent',
+                      color: isSel ? '#007AFF' : '#334155',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      boxShadow: isSel ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none'
+                    }}
+                  >
+                    <span>{lens.label}</span>
+                  </button>
+                );
+              })}
             </div>
             {selectedLens === 'acoustic' ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '10px', color: 'var(--label-secondary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '10px', color: '#475569' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                   <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--good)' }} />
                   <span>≤55 Tenang</span>
@@ -322,7 +366,7 @@ export const AnalysisOverlay: React.FC = () => {
                 </span>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '10px', color: 'var(--label-secondary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '10px', color: '#475569' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                   <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--good)' }} />
                   <span>Ideal</span>
@@ -341,17 +385,18 @@ export const AnalysisOverlay: React.FC = () => {
         )}
       </div>
 
-      {/* Tabs as Segmented Control */}
+      {/* D2: 2-Baris Grid Tabs Tanpa Terpotong */}
       <div
-        className="segmented-control"
         style={{
           width: '100%',
           marginBottom: '12px',
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          display: 'flex',
-          flexWrap: 'nowrap'
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '4px',
+          background: '#E2E8F0',
+          border: '1px solid #CBD5E1',
+          borderRadius: '14px',
+          padding: '4px'
         }}
       >
         {[
@@ -360,66 +405,54 @@ export const AnalysisOverlay: React.FC = () => {
           { id: 'runoff', label: 'Banjir', icon: Droplets },
           { id: 'structure', label: 'Struktur', icon: ShieldCheck },
           { id: 'acoustic', label: 'Akustik', icon: Volume2 },
-          { id: 'compare', label: 'A/B', icon: GitCompare },
-          { id: 'city', label: 'Kota', icon: Building },
+          { id: 'compare', label: 'Banding', icon: GitCompare },
+          { id: 'city', label: 'Skor Kota', icon: Building },
           { id: 'section', label: 'Denah', icon: Scissors }
         ].map((tab) => {
           const Icon = tab.icon;
           const isSel = activeTab === tab.id;
 
           return (
-            <motion.button
+            <button
               key={tab.id}
-              whileTap={{ scale: 0.95 }}
-              onPointerDown={() => proceduralAudio.playTaptic('selection')}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => {
+                proceduralAudio.playTaptic('selection');
+                setActiveTab(tab.id as any);
+              }}
               style={{
                 position: 'relative',
-                flex: '1 0 auto',
-                padding: '5px 8px',
-                fontSize: '10px',
-                gap: '2px',
-                minWidth: 'max-content',
-                background: 'transparent',
-                border: 'none',
+                padding: '6px 4px',
+                fontSize: '10.5px',
+                gap: '4px',
+                background: isSel ? '#FFFFFF' : 'transparent',
+                borderRadius: '8px',
+                border: isSel ? '1px solid rgba(0, 122, 255, 0.25)' : 'none',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                color: isSel ? 'var(--label)' : 'var(--label-secondary)',
-                fontWeight: isSel ? 600 : 500,
-                zIndex: 1
+                justifyContent: 'center',
+                color: isSel ? '#007AFF' : '#334155',
+                fontWeight: isSel ? 700 : 500,
+                boxShadow: isSel ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none',
+                transition: 'all 0.12s ease'
               }}
               title={tab.label}
             >
-              {isSel && (
-                <motion.div
-                  layoutId="activeAnalysisTabPill"
-                  transition={SPRING_TACTILE}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    borderRadius: '6px',
-                    background: 'var(--fill-control-active, rgba(255, 255, 255, 0.15))',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
-                    zIndex: -1
-                  }}
-                />
-              )}
-              <Icon size={12} strokeWidth={1.75} />
-              <span>{tab.label}</span>
-            </motion.button>
+              <Icon size={12} strokeWidth={2} style={{ color: isSel ? '#007AFF' : '#475569', flexShrink: 0 }} />
+              <span style={{ whiteSpace: 'nowrap' }}>{tab.label}</span>
+            </button>
           );
         })}
       </div>
 
       {/* Tab 1: Solar Analysis */}
       {activeTab === 'solar' && (
-        <div className="inset-group" style={{ marginBottom: 0 }}>
-          <div className="inset-row">
+        <div className="inset-group" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px', marginBottom: 0 }}>
+          <div className="inset-row" style={{ borderBottom: '1px solid #E2E8F0' }}>
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 500 }}>Peta Panas (Heatmap)</div>
-              <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                Radiasi surya Yogyakarta (-7.8° LS)
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>Peta Panas Radiasi Matahari</div>
+              <div style={{ fontSize: '11px', color: '#475569' }}>
+                Radiasi surya lintang 7,8° Selatan
               </div>
             </div>
             <label className="ios-switch">
@@ -431,8 +464,8 @@ export const AnalysisOverlay: React.FC = () => {
               <span className="ios-switch-slider" />
             </label>
           </div>
-          <div className="inset-footer">
-            Sisi fasad menghadap Barat dan Timur menerima radiasi panas tertinggi. Berikan teritisan minimal 1.2m untuk mereduksi beban termal pendinginan.
+          <div className="inset-footer" style={{ color: '#475569' }}>
+            Sisi fasad menghadap barat dan timur menerima radiasi panas tertinggi. Berikan teritisan atap minimal 1,2 m untuk mereduksi panas tropis secara alami.
           </div>
         </div>
       )}
@@ -464,19 +497,19 @@ export const AnalysisOverlay: React.FC = () => {
                 <div className="inset-row" style={{ justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '12px', color: 'var(--label-secondary)' }}>Suhu Udara Luar (Baseline)</span>
                   <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600 }}>
-                    {ventSummary.outdoorBaselineTempC.toFixed(1)}°C
+                    {ventSummary.outdoorBaselineTempC.toFixed(1).replace('.', ',')}°C
                   </span>
                 </div>
                 <div className="inset-row" style={{ justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '12px', color: 'var(--label-secondary)' }}>Estimasi Suhu Ruang Rata-Rata</span>
                   <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: ventSummary.averageIndoorTempC <= 28.5 ? 'var(--good)' : 'var(--warn)' }}>
-                    {ventSummary.averageIndoorTempC.toFixed(1)}°C
+                    {ventSummary.averageIndoorTempC.toFixed(1).replace('.', ',')}°C
                   </span>
                 </div>
                 <div className="inset-row" style={{ justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '12px', color: 'var(--label-secondary)' }}>Rasio Bangunan Ventilasi Silang</span>
                   <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 600, color: ventSummary.crossVentilationRatioPercent >= 60 ? 'var(--good)' : 'var(--warn)' }}>
-                    {ventSummary.crossVentilationRatioPercent.toFixed(1)}% ({ventSummary.crossVentilatedCount}/{ventSummary.totalBuildings})
+                    {ventSummary.crossVentilationRatioPercent.toFixed(1).replace('.', ',')}% ({ventSummary.crossVentilatedCount}/{ventSummary.totalBuildings})
                   </span>
                 </div>
                 <div className="inset-row" style={{ justifyContent: 'space-between' }}>
@@ -489,7 +522,7 @@ export const AnalysisOverlay: React.FC = () => {
             )}
 
             <div className="inset-footer">
-              Sesuai SNI 03-6572-2001, ventilasi silang alami dan pembayangan pohon mampu menurunkan suhu ruang hingga 4.5°C tanpa konsumsi daya AC aktif.
+              Sesuai SNI 03-6572-2001, ventilasi silang alami dan pembayangan pohon mampu menurunkan suhu ruang hingga 4,5°C tanpa konsumsi daya pendingin aktif.
             </div>
           </div>
         );

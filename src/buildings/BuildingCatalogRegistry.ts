@@ -2790,10 +2790,40 @@ export class BuildingCatalogRegistry {
     return undefined;
   }
 
+  public static readonly ESSENTIAL_BUILDING_IDS: string[] = [
+    'house_36',
+    'house_54',
+    'house_2fl',
+    'joglo',
+    'pendopo_agung_budaya',
+    'ruko_3fl',
+    'toko_roti_heritage',
+    'cafe_industrial_tropis',
+    'cafe_joglo_kopi',
+    'resto_mie_gacoan',
+    'kos_eksklusif_courtyard',
+    'kos_tropis_balkon',
+    'school',
+    'taman_kota_terbuka',
+    'office_tower',
+    'apartment',
+    'boutique_hotel_jogja',
+    'skyscraper_office_tower'
+  ];
+
+  public static getEssentialBuildings(): BuildingCatalogItem[] {
+    return this.ESSENTIAL_BUILDING_IDS
+      .map((id) => this.getBuilding(id))
+      .filter((b): b is BuildingCatalogItem => b !== undefined);
+  }
+
   /**
    * Retrieves all buildings matching a given category with functional cross-sector support.
    */
-  public static getBuildingsByCategory(category: BuildingCategory | 'all'): BuildingCatalogItem[] {
+  public static getBuildingsByCategory(category: BuildingCategory | 'all' | 'essential'): BuildingCatalogItem[] {
+    if (category === 'essential') {
+      return this.getEssentialBuildings();
+    }
     if (category === 'all') {
       return CANONICAL_BUILDING_CATALOG;
     }

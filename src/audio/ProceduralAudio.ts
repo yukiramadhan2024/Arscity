@@ -11,6 +11,13 @@ export class ProceduralAudio {
     return !this.enabled;
   }
 
+  public setMuted(muted: boolean): void {
+    this.enabled = !muted;
+    if (!this.enabled && this.isRainPlaying) {
+      this.stopRainAmbience();
+    }
+  }
+
   public isMuted(): boolean {
     return !this.enabled;
   }

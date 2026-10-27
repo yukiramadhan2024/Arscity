@@ -34,19 +34,13 @@ export const RoadSubToolbar: React.FC = () => {
   return (
     <div className="sub-dock-wrapper" style={{ pointerEvents: 'none' }}>
       <div
-        className="glass-surface sub-dock-container interactive"
+        className="glass-surface sub-dock-container interactive arscity-glass-bar"
         style={{
-          background: 'rgba(15, 23, 42, 0.86)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.14)',
           borderRadius: '24px',
-          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-          color: '#F8FAFC'
         }}
       >
         {/* Draw Mode Segmented Control */}
-        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.06)', borderRadius: '9999px', padding: '2px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
           <button
             onClick={() => handleModeChange('straight')}
             style={{
@@ -56,10 +50,11 @@ export const RoadSubToolbar: React.FC = () => {
               padding: '4px 10px',
               borderRadius: '9999px',
               border: 'none',
-              background: drawMode === 'straight' ? 'rgba(56, 189, 248, 0.3)' : 'transparent',
-              color: drawMode === 'straight' ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+              background: drawMode === 'straight' ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
+              color: drawMode === 'straight' ? '#007AFF' : '#475569',
+              boxShadow: drawMode === 'straight' ? '0 1px 4px rgba(15, 23, 42, 0.12)' : 'none',
               fontSize: '11px',
-              fontWeight: 600,
+              fontWeight: drawMode === 'straight' ? 700 : 500,
               cursor: 'pointer'
             }}
             title="Mode Garis Lurus"
@@ -77,10 +72,11 @@ export const RoadSubToolbar: React.FC = () => {
               padding: '4px 10px',
               borderRadius: '9999px',
               border: 'none',
-              background: drawMode === 'bezier' ? 'rgba(56, 189, 248, 0.3)' : 'transparent',
-              color: drawMode === 'bezier' ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+              background: drawMode === 'bezier' ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
+              color: drawMode === 'bezier' ? '#007AFF' : '#475569',
+              boxShadow: drawMode === 'bezier' ? '0 1px 4px rgba(15, 23, 42, 0.12)' : 'none',
               fontSize: '11px',
-              fontWeight: 600,
+              fontWeight: drawMode === 'bezier' ? 700 : 500,
               cursor: 'pointer'
             }}
             title="Mode Kurva Lengkung (Bezier)"
@@ -91,7 +87,7 @@ export const RoadSubToolbar: React.FC = () => {
           </button>
         </div>
 
-        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.15)' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
 
         {/* Road Type Chips */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -110,11 +106,11 @@ export const RoadSubToolbar: React.FC = () => {
                   gap: '4px',
                   padding: '4px 10px',
                   borderRadius: '9999px',
-                  border: isSel ? '1px solid rgba(56, 189, 248, 0.55)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: isSel ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.04)',
-                  color: isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                  border: isSel ? '1.5px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.08)',
+                  background: isSel ? 'rgba(10, 132, 255, 0.14)' : 'rgba(255, 255, 255, 0.85)',
+                  color: isSel ? '#007AFF' : '#475569',
                   fontSize: '11px',
-                  fontWeight: isSel ? 600 : 500,
+                  fontWeight: isSel ? 700 : 500,
                   cursor: 'pointer'
                 }}
                 title={`${profile.name} (${profile.width}m) - ${profile.description}`}

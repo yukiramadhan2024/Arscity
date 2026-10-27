@@ -4,6 +4,7 @@ import { BuildingCatalogRegistry, BuildingCategory, BuildingCatalogItem } from '
 import { UpdateBuildingParamCommand } from '../../core/commands/CityCommands';
 import {
   RotateCw,
+  Sparkles,
   Home,
   Building2,
   Landmark,
@@ -103,9 +104,9 @@ function renderCatalogIcon(iconName: string, size = 14) {
 }
 
 export const BuildingCatalogBar: React.FC = () => {
-  const { activeTool, engine, setShowCustomBuildingStudio } = useUIStore();
+  const { activeTool, engine, setCustomBuildingModalOpen, setShowCustomBuildingStudio } = useUIStore();
   const [mode, setMode] = useState<'prefab' | 'custom'>('prefab');
-  const [activeCategory, setActiveCategory] = useState<'all' | BuildingCategory>('all');
+  const [activeCategory, setActiveCategory] = useState<'essential' | 'all' | BuildingCategory>('essential');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedKey, setSelectedKey] = useState<string>('house_36');
   const [isDrawingFootprint, setIsDrawingFootprint] = useState<boolean>(false);
@@ -115,8 +116,9 @@ export const BuildingCatalogBar: React.FC = () => {
   const allBuildings = BuildingCatalogRegistry.getAllBuildings();
   const totalCount = allBuildings.length;
 
-  const categories: Array<{ id: 'all' | BuildingCategory; label: string; icon: React.ElementType }> = [
-    { id: 'all', label: `Semua (${totalCount})`, icon: LayoutGrid },
+  const categories: Array<{ id: 'essential' | 'all' | BuildingCategory; label: string; icon: React.ElementType }> = [
+    { id: 'essential', label: 'Esensial', icon: Sparkles },
+    { id: 'all', label: 'Semua', icon: LayoutGrid },
     { id: 'hunian', label: 'Hunian', icon: Home },
     { id: 'pemerintahan_keamanan', label: 'Pemerintahan', icon: ShieldCheck },
     { id: 'pendidikan', label: 'Pendidikan', icon: GraduationCap },
@@ -175,7 +177,7 @@ export const BuildingCatalogBar: React.FC = () => {
   return (
     <div className="sub-dock-wrapper">
       <div
-        className="glass-surface interactive"
+        className="glass-surface interactive arscity-glass-bar"
         style={{
           borderRadius: '24px',
           padding: '10px 16px',
@@ -184,23 +186,31 @@ export const BuildingCatalogBar: React.FC = () => {
           gap: '8px',
           maxWidth: '860px',
           width: '94%',
-          background: 'rgba(15, 23, 42, 0.86)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.14)',
-          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-          color: '#F8FAFC'
         }}
       >
         {/* Top Switcher: Prefab vs Desainer Kustom */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="segmented-control">
+          <div className="segmented-control" style={{ background: '#E2E8F0', padding: '2px', borderRadius: '9999px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
             <button
               onClick={() => {
                 setMode('prefab');
                 handleCancelFootprint();
               }}
               className={`segmented-item ${mode === 'prefab' ? 'active' : ''}`}
+              style={{
+                borderRadius: '9999px',
+                padding: '4px 12px',
+                border: 'none',
+                background: mode === 'prefab' ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
+                color: mode === 'prefab' ? '#007AFF' : '#475569',
+                boxShadow: mode === 'prefab' ? '0 1px 4px rgba(15, 23, 42, 0.12)' : 'none',
+                fontWeight: mode === 'prefab' ? 700 : 500,
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
             >
               <Building2 size={14} strokeWidth={1.75} />
               <span>Katalog Prefab</span>
@@ -208,6 +218,20 @@ export const BuildingCatalogBar: React.FC = () => {
             <button
               onClick={() => setMode('custom')}
               className={`segmented-item ${mode === 'custom' ? 'active' : ''}`}
+              style={{
+                borderRadius: '9999px',
+                padding: '4px 12px',
+                border: 'none',
+                background: mode === 'custom' ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
+                color: mode === 'custom' ? '#007AFF' : '#475569',
+                boxShadow: mode === 'custom' ? '0 1px 4px rgba(15, 23, 42, 0.12)' : 'none',
+                fontWeight: mode === 'custom' ? 700 : 500,
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
             >
               <PenTool size={14} strokeWidth={1.75} />
               <span>Desainer Denah</span>
@@ -216,25 +240,43 @@ export const BuildingCatalogBar: React.FC = () => {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
-              onClick={() => setShowCustomBuildingStudio(true)}
+              onClick={() => {
+                if (setCustomBuildingModalOpen) setCustomBuildingModalOpen(true);
+                else setShowCustomBuildingStudio(true);
+              }}
               className="ios-btn"
               style={{
-                padding: '4px 10px',
+                padding: '4px 12px',
                 fontSize: '12px',
-                background: 'var(--accent-subtle)',
-                color: 'var(--accent)',
-                borderColor: 'var(--accent)'
+                fontWeight: 600,
+                background: 'rgba(10, 132, 255, 0.14)',
+                color: '#007AFF',
+                border: '1.5px solid rgba(10, 132, 255, 0.35)',
+                borderRadius: '9999px',
+                cursor: 'pointer'
               }}
-              title="Buka Studio Bangunan & Tekstur Kustom"
+              title="Studio Rancang Bangunan (Studio CAD)"
             >
-              <span>+ Rancang Gedung Sendiri</span>
+              <span>Studio Rancang Bangunan (Studio CAD)</span>
             </button>
 
             {mode === 'prefab' && (
               <button
                 onClick={handleRotate}
                 className="ios-btn"
-                style={{ padding: '4px 10px', fontSize: '12px' }}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  background: 'rgba(255, 255, 255, 0.85)',
+                  color: '#0F172A',
+                  border: '1px solid rgba(15, 23, 42, 0.1)',
+                  borderRadius: '9999px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
                 title="Putar Arah Bangunan 90° (R)"
                 aria-label="Putar Bangunan"
               >
@@ -281,13 +323,18 @@ export const BuildingCatalogBar: React.FC = () => {
                       className={`segmented-item ${isSel ? 'active' : ''}`}
                       style={{
                         fontSize: '11px',
-                        padding: '3px 8px',
+                        padding: '4px 10px',
                         whiteSpace: 'nowrap',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '4px',
                         flexShrink: 0,
-                        color: isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.85)'
+                        borderRadius: '9999px',
+                        border: isSel ? '1.5px solid rgba(10, 132, 255, 0.4)' : '1px solid rgba(15, 23, 42, 0.08)',
+                        background: isSel ? 'rgba(10, 132, 255, 0.14)' : 'rgba(255, 255, 255, 0.85)',
+                        color: isSel ? '#007AFF' : '#475569',
+                        fontWeight: isSel ? 700 : 500,
+                        cursor: 'pointer'
                       }}
                     >
                       <Icon size={12} strokeWidth={1.75} />
@@ -313,7 +360,7 @@ export const BuildingCatalogBar: React.FC = () => {
                   style={{
                     position: 'absolute',
                     left: '8px',
-                    color: 'var(--label-secondary)',
+                    color: '#64748B',
                     pointerEvents: 'none'
                   }}
                 />
@@ -327,9 +374,9 @@ export const BuildingCatalogBar: React.FC = () => {
                     fontSize: '11px',
                     borderRadius: '8px',
                     width: '100%',
-                    background: 'var(--surface)',
-                    border: '0.5px solid var(--separator)',
-                    color: 'var(--label)',
+                    background: '#FFFFFF',
+                    border: '1px solid #CBD5E1',
+                    color: '#0F172A',
                     outline: 'none'
                   }}
                 />
@@ -433,9 +480,10 @@ export const BuildingCatalogBar: React.FC = () => {
                         cursor: 'pointer',
                         textAlign: 'left',
                         borderRadius: '12px',
-                        border: isSel ? '1.5px solid var(--accent)' : '0.5px solid var(--separator)',
-                        background: isSel ? 'var(--fill-control-active)' : 'var(--surface)',
-                        color: 'var(--label)',
+                        border: isSel ? '1.5px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.08)',
+                        background: isSel ? 'rgba(10, 132, 255, 0.12)' : 'rgba(255, 255, 255, 0.85)',
+                        boxShadow: isSel ? '0 2px 8px rgba(10, 132, 255, 0.15)' : 'none',
+                        color: '#0F172A',
                         transition: 'all 120ms ease-out',
                         outline: 'none',
                         display: 'flex',
@@ -453,7 +501,7 @@ export const BuildingCatalogBar: React.FC = () => {
                       >
                         <span
                           style={{
-                            color: isSel ? 'var(--accent)' : 'var(--label-secondary)',
+                            color: isSel ? '#007AFF' : '#64748B',
                             display: 'inline-flex',
                             flexShrink: 0
                           }}
@@ -464,6 +512,7 @@ export const BuildingCatalogBar: React.FC = () => {
                           style={{
                             fontSize: '12px',
                             fontWeight: 600,
+                            color: '#0F172A',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap'
@@ -476,8 +525,9 @@ export const BuildingCatalogBar: React.FC = () => {
                         className="tabular-nums"
                         style={{
                           fontSize: '11px',
-                          color: 'var(--label-secondary)',
-                          paddingLeft: '19px'
+                          color: '#64748B',
+                          paddingLeft: '19px',
+                          fontWeight: 500
                         }}
                       >
                         {p.defaultWidth}×{p.defaultDepth}m • {p.defaultFloors} Lt

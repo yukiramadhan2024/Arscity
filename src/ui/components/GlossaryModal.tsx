@@ -209,10 +209,10 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
               <BookOpen size={20} color="#007AFF" strokeWidth={2.2} />
             </div>
             <div>
-              <div id="glossary-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
+              <div id="glossary-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.01em' }}>
                 Glosarium Arsitektur & Tata Kota
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>
+              <div style={{ fontSize: '13px', color: '#475569', marginTop: '2px' }}>
                 Standar dan regulasi tata ruang tropis Indonesia
               </div>
             </div>
@@ -225,13 +225,13 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              background: 'var(--fill-control)',
-              border: '1px solid var(--hairline)',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: 'var(--label-secondary)',
+              color: '#334155',
               transition: 'all 0.15s ease'
             }}
           >
@@ -240,9 +240,9 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
         </div>
 
         {/* Search & Categories Bar */}
-        <div style={{ padding: '12px 18px', borderBottom: '0.5px solid var(--separator)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ padding: '12px 18px', borderBottom: '1px solid #CBD5E1', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ position: 'relative', width: '100%' }}>
-            <Search size={14} strokeWidth={1.75} style={{ position: 'absolute', left: '10px', top: '9px', color: 'var(--label-secondary)' }} />
+            <Search size={14} strokeWidth={1.75} style={{ position: 'absolute', left: '10px', top: '9px', color: '#64748B' }} />
             <input
               type="text"
               placeholder="Cari istilah (KDB, KLB, GSB, Teritisan)..."
@@ -250,11 +250,11 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
                 width: '100%',
-                background: 'var(--fill-control)',
-                border: '0.5px solid var(--separator)',
+                background: '#FFFFFF',
+                border: '1px solid #CBD5E1',
                 borderRadius: '8px',
                 padding: '7px 10px 7px 32px',
-                color: 'var(--label)',
+                color: '#0F172A',
                 fontSize: '12px',
                 outline: 'none'
               }}
@@ -278,7 +278,7 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
         {/* Master - Detail Panes */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Master List */}
-          <div style={{ width: '270px', borderRight: '0.5px solid var(--separator)', overflowY: 'auto', padding: '10px' }}>
+          <div style={{ width: '270px', borderRight: '1px solid #CBD5E1', overflowY: 'auto', padding: '10px' }}>
             <div className="inset-group" style={{ marginBottom: 0 }}>
               {filteredEntries.map((entry) => {
                 const isSelected = activeEntry.id === entry.id;
@@ -288,15 +288,15 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
                     onClick={() => setActiveEntry(entry)}
                     className="inset-row inset-row-clickable"
                     style={{
-                      background: isSelected ? 'var(--fill-control-active)' : undefined,
+                      background: isSelected ? 'rgba(0, 122, 255, 0.12)' : '#FFFFFF',
                       padding: '8px 12px'
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '12px', fontWeight: isSelected ? 600 : 500, color: 'var(--label)' }}>
+                      <div style={{ fontSize: '12px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#007AFF' : '#0F172A' }}>
                         {entry.term}
                       </div>
-                      <div style={{ fontSize: '10px', color: 'var(--label-secondary)' }}>
+                      <div style={{ fontSize: '10px', color: '#64748B' }}>
                         {entry.category}
                       </div>
                     </div>
@@ -307,10 +307,10 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
           </div>
 
           {/* Detail Pane */}
-          <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', background: 'var(--surface)' }}>
+          <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', background: 'transparent' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '17px', fontWeight: 600, color: 'var(--label)' }}>
+                <span style={{ fontSize: '17px', fontWeight: 600, color: '#0F172A' }}>
                   {activeEntry.term}
                 </span>
                 {activeEntry.abbreviation && (
@@ -320,7 +320,7 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
                       background: 'rgba(0, 122, 255, 0.12)',
                       borderRadius: '6px',
                       fontSize: '11px',
-                      color: 'var(--accent)',
+                      color: '#007AFF',
                       fontWeight: 600
                     }}
                   >
@@ -328,7 +328,7 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
                   </span>
                 )}
               </div>
-              <span style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>{activeEntry.category}</span>
+              <span style={{ fontSize: '11px', color: '#64748B' }}>{activeEntry.category}</span>
             </div>
 
             {/* Illustration */}
@@ -341,18 +341,19 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
               <div
                 style={{
                   padding: '8px 12px',
-                  background: 'var(--fill-control)',
+                  background: '#FFFFFF',
+                  border: '1px solid #CBD5E1',
                   borderRadius: '8px',
                   marginBottom: '12px',
                   fontSize: '12px',
-                  color: 'var(--label)',
+                  color: '#0F172A',
                   fontFamily: 'monospace',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px'
                 }}
               >
-                <Ruler size={13} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+                <Ruler size={13} strokeWidth={1.75} style={{ color: '#007AFF' }} />
                 <span>{activeEntry.formula}</span>
               </div>
             )}
@@ -360,17 +361,17 @@ export const GlossaryModal: React.FC<GlossaryModalProps> = ({ isOpen, onClose, i
             {/* Definition */}
             <div style={{ marginBottom: '14px' }}>
               <div className="inset-header" style={{ padding: '0 0 4px 0' }}>DEFINISI</div>
-              <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--label)' }}>
+              <p style={{ fontSize: '13px', lineHeight: 1.5, color: '#0F172A' }}>
                 {activeEntry.definition}
               </p>
             </div>
 
             {/* Tropical Context */}
             <div>
-              <div className="inset-header" style={{ padding: '0 0 4px 0', color: 'var(--accent)' }}>
+              <div className="inset-header" style={{ padding: '0 0 4px 0', color: '#007AFF' }}>
                 PENERAPAN DI IKLIM TROPIS
               </div>
-              <p style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--label-secondary)' }}>
+              <p style={{ fontSize: '12px', lineHeight: 1.5, color: '#475569' }}>
                 {activeEntry.tropicalContext}
               </p>
             </div>

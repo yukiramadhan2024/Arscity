@@ -1,10 +1,70 @@
 import * as THREE from 'three';
 import { Engine } from '../engine/Engine';
 import { ICommand } from './CommandManager';
-import { RoadType, RoadEdge, RoadProfile } from '../../roads/RoadTypes';
+import { RoadType, RoadEdge, RoadProfile, ROAD_PROFILES } from '../../roads/RoadTypes';
 import { BuildingInstance } from '../../buildings/PrefabTypes';
 import { LotParcel, ZoneType } from '../../zones/ZoneTypes';
 import { LandscapeItem } from '../../world/LandscapeManager';
+import { showSnackbar } from '../../ui/state/useSnackbarStore';
+import { proceduralAudio } from '../../audio/ProceduralAudio';
+
+function formatLandscapeTitle(type: string): string {
+  const titles: Record<string, string> = {
+    tree_tabebuya_pink: 'Pohon Tabebuya Pink',
+    tree_tabebuya_gold: 'Pohon Tabebuya Emas',
+    tree_flamboyan: 'Pohon Flamboyan',
+    tree_frangipani: 'Pohon Kamboja',
+    tree_banyan_kurung: 'Beringin Kurung',
+    tree_asam_jawa: 'Pohon Asam Jawa',
+    shade_tree: 'Pohon Peneduh',
+    tree: 'Pohon Tropis',
+    grass_garden: 'Taman Rumput',
+    paving_block: 'Paving Block',
+    river_segment: 'Alur Sungai',
+    retention_pond: 'Kolam Retensi Banjir',
+    bioswale_channel: 'Bioswale Alami',
+    biopore: 'Lubang Biopori',
+    well: 'Sumur Resapan',
+    flora_bougainvillea_arch: 'Lengkung Bugenvil',
+    flora_yellow_bamboo: 'Bambu Kuning',
+    flora_lotus_water: 'Kolam Teratai',
+    monument_tugu_jogja: 'Monumen Tugu',
+    sculpture_kinetic_steel: 'Patung Kinetik',
+    sculpture_candi_stone: 'Patung Batu Candi',
+    sculpture_wayang_corten: 'Seni Wayang Corten',
+    fountain_reflecting_pool: 'Kolam Refleksi',
+    monument_clock_tower: 'Menara Jam Kota',
+    street_malioboro_bollards: 'Bollard Malioboro',
+    street_festoon_lights: 'Lampu Gantung Hias',
+    street_timber_pergola: 'Pergola Kayu',
+    gate_candi_bentar: 'Gapura Candi Bentar',
+    street_garden_lanterns: 'Lentera Taman',
+    plaza_mini_amphitheater: 'Mini Amfiteater',
+    waterfront_wood_deck: 'Dermaga Kayu',
+    bridge_green_pedestrian: 'Jembatan Pejalan Kaki',
+    pavilion_garden_gazebo: 'Gazebo Taman',
+  };
+  return titles[type] || 'Lansekap';
+}
+
+function getLandscapeDetail(type: string): string {
+  if (type.startsWith('tree_') || type === 'shade_tree' || type === 'tree') {
+    const cooling: Record<string, string> = {
+      tree_tabebuya_pink: 'Pendinginan -2.0°C',
+      tree_tabebuya_gold: 'Pendinginan -2.0°C',
+      tree_flamboyan: 'Pendinginan -2.5°C',
+      tree_frangipani: 'Pendinginan -1.5°C',
+      tree_banyan_kurung: 'Pendinginan -3.0°C',
+      tree_asam_jawa: 'Pendinginan -2.2°C',
+    };
+    return cooling[type] || 'Pendinginan -2.0°C';
+  }
+  if (type === 'biopore') return 'Infiltrasi Air Hujan';
+  if (type === 'well') return 'Resapan Air Tanah';
+  if (type === 'retention_pond') return 'Retensi Banjir Tropis';
+  if (type === 'bioswale_channel') return 'Drainase Bio-retensi';
+  return 'Estetika Ruang Publik';
+}
 
 /**
  * CompositeCommand: Groups multiple atomic commands into a single undo/redo step.
@@ -51,6 +111,7 @@ export class AddRoadCommand implements ICommand {
   private type: RoadType;
   private controlPoints?: THREE.Vector3[];
   private createdEdgeId: string | null = null;
+  private hasExecuted: boolean = false;
 
   constructor(
     engine: Engine,
@@ -78,6 +139,28 @@ export class AddRoadCommand implements ICommand {
       this.createdEdgeId = edge.id;
     }
     this.engine.lotManager.evaluateAllLots();
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+      try {
+        const dist = Math.round(this.startPos.distanceTo(this.endPos));
+        const prof = ROAD_PROFILES[this.type];
+        const width = prof?.width || 8;
+        const roadName = prof?.name || `Jalan ${this.type}`;
+        const isBridge = (edge as any)?.isBridge || this.startPos.y < -0.25 || this.endPos.y < -0.25;
+        const detail = isBridge
+          ? `Panjang ${dist} m • Lebar ${width} m • Jembatan Otomatis Aktif`
+          : `Panjang ${dist} m • Lebar ${width} m`;
+
+        showSnackbar({
+          variant: 'success',
+          title: `${roadName} Dibangun`,
+          detail,
+          undoable: true,
+          groupKey: `place_road_${this.type}`,
+        });
+      } catch {}
+    }
   }
 
   public undo(): void {
@@ -101,6 +184,7 @@ export class RemoveRoadCommand implements ICommand {
   private savedType?: RoadType;
   private savedControlPoints?: THREE.Vector3[];
   private savedCustomProfile?: Partial<RoadProfile>;
+  private hasExecuted: boolean = false;
 
   constructor(engine: Engine, edgeId: string) {
     this.engine = engine;
@@ -124,6 +208,18 @@ export class RemoveRoadCommand implements ICommand {
   public execute(): void {
     this.engine.roadManager.removeRoad(this.edgeId);
     this.engine.lotManager.evaluateAllLots();
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+      try {
+        showSnackbar({
+          variant: 'destructive',
+          title: 'Ruas Jalan Dihapus',
+          undoable: true,
+          groupKey: 'demolish_road',
+        });
+      } catch {}
+    }
   }
 
   public undo(): void {
@@ -154,6 +250,7 @@ export class AddBuildingCommand implements ICommand {
   public description: string;
   private engine: Engine;
   private building: BuildingInstance;
+  private hasExecuted: boolean = false;
 
   constructor(engine: Engine, building: BuildingInstance) {
     this.engine = engine;
@@ -164,6 +261,21 @@ export class AddBuildingCommand implements ICommand {
   public execute(): void {
     this.engine.buildingManager.addBuilding(this.building);
     this.engine.lotManager.evaluateAllLots();
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+      try {
+        const floorCount = this.building.floorCount || 1;
+        const area = Math.round((this.building.width || 10) * (this.building.length || 10));
+        showSnackbar({
+          variant: 'success',
+          title: `Membangun ${this.building.name}`,
+          detail: `${floorCount} Lantai • Tapak ${area} m²`,
+          undoable: true,
+          groupKey: `place_building_${this.building.presetKey || 'custom'}`,
+        });
+      } catch {}
+    }
   }
 
   public undo(): void {
@@ -180,6 +292,7 @@ export class RemoveBuildingCommand implements ICommand {
   public description: string;
   private engine: Engine;
   private building: BuildingInstance;
+  private hasExecuted: boolean = false;
 
   constructor(engine: Engine, building: BuildingInstance) {
     this.engine = engine;
@@ -190,6 +303,18 @@ export class RemoveBuildingCommand implements ICommand {
   public execute(): void {
     this.engine.buildingManager.removeBuilding(this.building.id);
     this.engine.lotManager.evaluateAllLots();
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+      try {
+        showSnackbar({
+          variant: 'destructive',
+          title: `${this.building.name} Dihapus`,
+          undoable: true,
+          groupKey: 'demolish_building',
+        });
+      } catch {}
+    }
   }
 
   public undo(): void {
@@ -202,12 +327,14 @@ export class RemoveBuildingCommand implements ICommand {
   }
 }
 
+
 export class UpdateBuildingParamCommand implements ICommand {
   public description: string;
   private engine: Engine;
   private buildingId: string;
   private prevParams: Partial<BuildingInstance>;
   private nextParams: Partial<BuildingInstance>;
+  private hasExecuted: boolean = false;
 
   constructor(
     engine: Engine,
@@ -230,6 +357,10 @@ export class UpdateBuildingParamCommand implements ICommand {
     Object.assign(bld, this.nextParams);
     this.engine.buildingManager.updateBuilding(bld);
     this.engine.lotManager.evaluateAllLots();
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+    }
   }
 
   public undo(): void {
@@ -250,6 +381,7 @@ export class AddLotCommand implements ICommand {
   public description: string;
   private engine: Engine;
   private parcel: LotParcel;
+  private hasExecuted: boolean = false;
 
   constructor(engine: Engine, parcel: LotParcel) {
     this.engine = engine;
@@ -263,6 +395,20 @@ export class AddLotCommand implements ICommand {
     this.engine.lotManager.evaluateBuildingCode(this.parcel);
     if (this.engine.lotManager.onLotsUpdated) {
       this.engine.lotManager.onLotsUpdated();
+    }
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+      try {
+        const area = Math.round(this.parcel.width * this.parcel.length);
+        showSnackbar({
+          variant: 'success',
+          title: `Kavling ${this.parcel.name} Dibuat`,
+          detail: `Luas ${area} m²`,
+          undoable: true,
+          groupKey: `add_lot_${this.parcel.zone}`,
+        });
+      } catch {}
     }
   }
 
@@ -279,6 +425,7 @@ export class RemoveLotCommand implements ICommand {
   public description: string;
   private engine: Engine;
   private parcel: LotParcel;
+  private hasExecuted: boolean = false;
 
   constructor(engine: Engine, parcel: LotParcel) {
     this.engine = engine;
@@ -288,6 +435,18 @@ export class RemoveLotCommand implements ICommand {
 
   public execute(): void {
     this.engine.lotManager.removeLot(this.parcel.id);
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+      try {
+        showSnackbar({
+          variant: 'destructive',
+          title: `Kavling ${this.parcel.name} Dihapus`,
+          undoable: true,
+          groupKey: 'demolish_lot',
+        });
+      } catch {}
+    }
   }
 
   public undo(): void {
@@ -336,6 +495,7 @@ export class AddLandscapeCommand implements ICommand {
   public description: string;
   private engine: Engine;
   private item: LandscapeItem;
+  private hasExecuted: boolean = false;
 
   constructor(engine: Engine, item: LandscapeItem) {
     this.engine = engine;
@@ -346,6 +506,21 @@ export class AddLandscapeCommand implements ICommand {
   public execute(): void {
     this.engine.landscapeManager.addItem(this.item);
     this.engine.lotManager.evaluateAllLots();
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+      try {
+        const title = `${formatLandscapeTitle(this.item.type)} Ditempatkan`;
+        const detail = getLandscapeDetail(this.item.type);
+        showSnackbar({
+          variant: 'success',
+          title,
+          detail,
+          undoable: true,
+          groupKey: `place_landscape_${this.item.type}`,
+        });
+      } catch {}
+    }
   }
 
   public undo(): void {
@@ -362,6 +537,7 @@ export class RemoveLandscapeCommand implements ICommand {
   public description: string;
   private engine: Engine;
   private item: LandscapeItem;
+  private hasExecuted: boolean = false;
 
   constructor(engine: Engine, item: LandscapeItem) {
     this.engine = engine;
@@ -372,6 +548,18 @@ export class RemoveLandscapeCommand implements ICommand {
   public execute(): void {
     this.engine.landscapeManager.removeItem(this.item.id);
     this.engine.lotManager.evaluateAllLots();
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+      try {
+        showSnackbar({
+          variant: 'destructive',
+          title: `${formatLandscapeTitle(this.item.type)} Dihapus`,
+          undoable: true,
+          groupKey: 'demolish_landscape',
+        });
+      } catch {}
+    }
   }
 
   public undo(): void {
@@ -441,6 +629,7 @@ export class UpdateRoadEdgeCommand implements ICommand {
   private newProfile?: Partial<RoadProfile>;
   private prevType: RoadType;
   private prevProfile?: Partial<RoadProfile>;
+  private hasExecuted: boolean = false;
 
   constructor(
     engine: Engine,
@@ -466,8 +655,27 @@ export class UpdateRoadEdgeCommand implements ICommand {
       edge.customProfile = { ...edge.customProfile, ...this.newProfile };
     }
     this.engine.roadManager.rebuildEdgeMesh(this.edgeId);
+    if (typeof (this.engine as any).enforceRoadClearance === 'function') {
+      (this.engine as any).enforceRoadClearance();
+    } else if (typeof (this.engine.roadManager as any)?.enforceRoadClearance === 'function') {
+      (this.engine.roadManager as any).enforceRoadClearance();
+    }
     if (this.engine.roadManager.onGraphChanged) {
       this.engine.roadManager.onGraphChanged(this.engine.roadManager.graph.getTotalLengthKm());
+    }
+
+    if (!this.hasExecuted) {
+      this.hasExecuted = true;
+      try {
+        const newLabel = this.newType ? (ROAD_PROFILES[this.newType]?.name || this.newType) : 'Profil Diperbarui';
+        showSnackbar({
+          variant: 'info',
+          title: 'Ruas Jalan Diperbarui',
+          detail: newLabel,
+          undoable: true,
+          groupKey: `upgrade_road_${this.edgeId}`,
+        });
+      } catch {}
     }
   }
 
@@ -477,6 +685,11 @@ export class UpdateRoadEdgeCommand implements ICommand {
     edge.type = this.prevType;
     edge.customProfile = this.prevProfile ? { ...this.prevProfile } : undefined;
     this.engine.roadManager.rebuildEdgeMesh(this.edgeId);
+    if (typeof (this.engine as any).enforceRoadClearance === 'function') {
+      (this.engine as any).enforceRoadClearance();
+    } else if (typeof (this.engine.roadManager as any)?.enforceRoadClearance === 'function') {
+      (this.engine.roadManager as any).enforceRoadClearance();
+    }
     if (this.engine.roadManager.onGraphChanged) {
       this.engine.roadManager.onGraphChanged(this.engine.roadManager.graph.getTotalLengthKm());
     }
@@ -486,6 +699,7 @@ export class UpdateRoadEdgeCommand implements ICommand {
     this.execute();
   }
 }
+
 
 /**
  * SubdivideBlockCommand: Smart Block Subdivider into uniform parcels facing the road,
@@ -544,3 +758,298 @@ export class SubdivideBlockCommand implements ICommand {
     this.execute();
   }
 }
+
+export class DuplicateDistrictCommand extends CompositeCommand {
+  public duplicatedBuildingIds: string[] = [];
+
+  constructor(
+    engine: Engine,
+    buildingIds: string[],
+    offset: THREE.Vector3 = new THREE.Vector3(14, 0, 14),
+    description = 'Duplikasi Blok Kawasan'
+  ) {
+    super(description, []);
+    for (const bId of buildingIds) {
+      const orig = engine.buildingManager.buildings.get(bId);
+      if (!orig) continue;
+      const targetX = orig.position.x + offset.x;
+      const targetZ = orig.position.z + offset.z;
+      const targetY = engine.terrain ? engine.terrain.getHeightAt(targetX, targetZ) : 0;
+      const newId = `bld_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+      this.duplicatedBuildingIds.push(newId);
+      const newInstance: BuildingInstance = {
+        ...orig,
+        id: newId,
+        position: new THREE.Vector3(targetX, targetY, targetZ),
+        rotationY: orig.rotationY
+      };
+      this.add(new AddBuildingCommand(engine, newInstance));
+    }
+  }
+}
+
+export interface PlacedFurnitureData {
+  id: string;
+  type: string;
+  name: string;
+  position: [number, number, number];
+  rotationY: number;
+  floorIndex: number;
+}
+
+/**
+ * PlaceFurnitureCommand: Adds a piece of furniture to building.userData.placedFurniture with full Undo/Redo
+ */
+export class PlaceFurnitureCommand implements ICommand {
+  public description: string;
+  private engine: Engine;
+  private buildingId: string;
+  private furniture: PlacedFurnitureData;
+
+  constructor(engine: Engine, buildingId: string, furniture: PlacedFurnitureData) {
+    this.engine = engine;
+    this.buildingId = buildingId;
+    this.furniture = furniture;
+    this.description = `Pasang ${furniture.name}`;
+  }
+
+  public execute(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+    bld.userData = bld.userData || {};
+    bld.userData.placedFurniture = bld.userData.placedFurniture || [];
+    bld.userData.placedFurniture.push(this.furniture);
+
+    this.engine.buildingManager.updateBuilding(bld);
+    try {
+      proceduralAudio.playClick();
+      showSnackbar({
+        variant: 'info',
+        title: 'Perabot Dipasang',
+        detail: this.furniture.name,
+        undoable: true
+      });
+    } catch {}
+  }
+
+  public undo(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld || !bld.userData?.placedFurniture) return;
+    bld.userData.placedFurniture = bld.userData.placedFurniture.filter(
+      (f: PlacedFurnitureData) => f.id !== this.furniture.id
+    );
+    this.engine.buildingManager.updateBuilding(bld);
+    try {
+      proceduralAudio.playClick();
+    } catch {}
+  }
+
+  public redo(): void {
+    this.execute();
+  }
+}
+
+/**
+ * RemoveFurnitureCommand: Removes a piece of furniture from building with full Undo/Redo
+ */
+export class RemoveFurnitureCommand implements ICommand {
+  public description: string;
+  private engine: Engine;
+  private buildingId: string;
+  private furniture: PlacedFurnitureData;
+
+  constructor(engine: Engine, buildingId: string, furniture: PlacedFurnitureData) {
+    this.engine = engine;
+    this.buildingId = buildingId;
+    this.furniture = furniture;
+    this.description = `Hapus ${furniture.name}`;
+  }
+
+  public execute(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld || !bld.userData?.placedFurniture) return;
+    bld.userData.placedFurniture = bld.userData.placedFurniture.filter(
+      (f: PlacedFurnitureData) => f.id !== this.furniture.id
+    );
+    this.engine.buildingManager.updateBuilding(bld);
+    try {
+      proceduralAudio.playDemolish();
+      showSnackbar({
+        variant: 'warning',
+        title: 'Perabot Dihapus',
+        detail: this.furniture.name,
+        undoable: true
+      });
+    } catch {}
+  }
+
+  public undo(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+    bld.userData = bld.userData || {};
+    bld.userData.placedFurniture = bld.userData.placedFurniture || [];
+    bld.userData.placedFurniture.push(this.furniture);
+    this.engine.buildingManager.updateBuilding(bld);
+    try {
+      proceduralAudio.playClick();
+    } catch {}
+  }
+
+  public redo(): void {
+    this.execute();
+  }
+}
+
+/**
+ * AutoFurnishRoomCommand: Fills ground floor of building with standard furniture
+ */
+export class AutoFurnishRoomCommand implements ICommand {
+  public description: string;
+  private engine: Engine;
+  private buildingId: string;
+  private addedFurniture: PlacedFurnitureData[] = [];
+  private prevFurniture: PlacedFurnitureData[] = [];
+
+  constructor(engine: Engine, buildingId: string) {
+    this.engine = engine;
+    this.buildingId = buildingId;
+    this.description = 'Isi Paket Ruangan Otomatis';
+  }
+
+  public execute(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+    bld.userData = bld.userData || {};
+    this.prevFurniture = [...(bld.userData.placedFurniture || [])];
+
+    const w = bld.width || 10;
+    const l = bld.length || 10;
+    const items: PlacedFurnitureData[] = [
+      {
+        id: `fur_${Date.now()}_1`,
+        type: 'sofa_l',
+        name: 'Sofa L-Shape Ruang Tamu',
+        position: [-w * 0.2, 0, -l * 0.15],
+        rotationY: 0,
+        floorIndex: 1
+      },
+      {
+        id: `fur_${Date.now()}_2`,
+        type: 'dining_set',
+        name: 'Meja Makan + 4 Kursi',
+        position: [w * 0.22, 0, -l * 0.1],
+        rotationY: Math.PI * 0.5,
+        floorIndex: 1
+      },
+      {
+        id: `fur_${Date.now()}_3`,
+        type: 'plant_monstera',
+        name: 'Tanaman Pot Monstera',
+        position: [-w * 0.35, 0, l * 0.25],
+        rotationY: 0,
+        floorIndex: 1
+      },
+      {
+        id: `fur_${Date.now()}_4`,
+        type: 'floor_lamp',
+        name: 'Lampu Berdiri 2700K',
+        position: [w * 0.32, 0, l * 0.25],
+        rotationY: 0,
+        floorIndex: 1
+      }
+    ];
+
+    this.addedFurniture = items;
+    bld.userData.placedFurniture = [...this.prevFurniture, ...items];
+    this.engine.buildingManager.updateBuilding(bld);
+    try {
+      proceduralAudio.playPlaceBuilding();
+      showSnackbar({
+        variant: 'success',
+        title: 'Paket Ruangan Diterapkan',
+        detail: `${items.length} perabot berhasil dipasang`,
+        undoable: true
+      });
+    } catch {}
+  }
+
+  public undo(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+    bld.userData = bld.userData || {};
+    bld.userData.placedFurniture = [...this.prevFurniture];
+    this.engine.buildingManager.updateBuilding(bld);
+  }
+
+  public redo(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+    bld.userData = bld.userData || {};
+    bld.userData.placedFurniture = [...this.prevFurniture, ...this.addedFurniture];
+    this.engine.buildingManager.updateBuilding(bld);
+  }
+}
+
+/**
+ * PaintSurfaceCommand: Paints wall or floor material for building with Undo/Redo
+ */
+export class PaintSurfaceCommand implements ICommand {
+  public description: string;
+  private engine: Engine;
+  private buildingId: string;
+  private surface: 'wall' | 'floor';
+  private newMaterial: string;
+  private prevMaterial: string;
+
+  constructor(engine: Engine, buildingId: string, surface: 'wall' | 'floor', material: string) {
+    this.engine = engine;
+    this.buildingId = buildingId;
+    this.surface = surface;
+    this.newMaterial = material;
+
+    const bld = engine.buildingManager.buildings.get(buildingId);
+    this.prevMaterial = (surface === 'wall' ? bld?.wallMaterial : bld?.roofMaterial) || 'concrete';
+    this.description = `Kuas Material ${material} (${surface})`;
+  }
+
+  public execute(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+    if (this.surface === 'wall') {
+      bld.wallMaterial = this.newMaterial as any;
+    } else {
+      bld.userData = bld.userData || {};
+      bld.userData.floorMaterial = this.newMaterial;
+    }
+    this.engine.buildingManager.updateBuilding(bld);
+    try {
+      proceduralAudio.playClick();
+      showSnackbar({
+        variant: 'info',
+        title: 'Material Diperbarui',
+        detail: `${this.surface === 'wall' ? 'Dinding' : 'Lantai'}: ${this.newMaterial}`,
+        undoable: true
+      });
+    } catch {}
+  }
+
+  public undo(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+    if (this.surface === 'wall') {
+      bld.wallMaterial = this.prevMaterial as any;
+    } else {
+      bld.userData = bld.userData || {};
+      bld.userData.floorMaterial = undefined;
+    }
+    this.engine.buildingManager.updateBuilding(bld);
+    try {
+      proceduralAudio.playClick();
+    } catch {}
+  }
+
+  public redo(): void {
+    this.execute();
+  }
+}
+

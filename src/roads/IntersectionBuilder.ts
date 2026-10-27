@@ -3,10 +3,11 @@ import earcut from 'earcut';
 import { RoadGraph } from './RoadGraph';
 import { RoadNode, ROAD_PROFILES } from './RoadTypes';
 import { RoadMaterialHelper } from './RoadMaterialHelper';
+import type { Terrain } from '../world/Terrain';
 
 export class IntersectionBuilder {
-  public static buildIntersectionMesh(node: RoadNode, graph: RoadGraph): THREE.Mesh | null {
-    if (node.connectedEdgeIds.length < 2) return null;
+  public static buildIntersectionMesh(node: RoadNode, graph: RoadGraph, terrain?: Terrain): THREE.Mesh | null {
+    if (node.connectedEdgeIds.length < 2 || !graph.isJunctionNode(node.id)) return null;
 
     // Collect connected edges and their directions from node
     const edgeData: { edgeId: string; dir: THREE.Vector3; width: number; angle: number }[] = [];
@@ -93,13 +94,15 @@ export class IntersectionBuilder {
     const uvs = new Float32Array(polyPoints.length * 2);
 
     for (let i = 0; i < polyPoints.length; i++) {
-      positions[i * 3] = polyPoints[i].x;
-      positions[i * 3 + 1] = 0.06; // Elevasi Y = 0.06m di atas Terrain
-      positions[i * 3 + 2] = polyPoints[i].z;
+      const pt = polyPoints[i];
+      const groundY = terrain ? terrain.getHeightAt(pt.x, pt.z) : 0;
+      positions[i * 3] = pt.x;
+      positions[i * 3 + 1] = groundY + 0.06; // Elevasi Y = groundY + 0.06m di atas Terrain
+      positions[i * 3 + 2] = pt.z;
 
       // Planar UV projection based on world coordinates (u = worldX / 4.0, v = worldZ / 4.0)
-      uvs[i * 2] = polyPoints[i].x / 4.0;
-      uvs[i * 2 + 1] = polyPoints[i].z / 4.0;
+      uvs[i * 2] = pt.x / 4.0;
+      uvs[i * 2 + 1] = pt.z / 4.0;
     }
 
     const geometry = new THREE.BufferGeometry();

@@ -18,6 +18,7 @@ import { ArchitectureQuizModal } from '../education/ArchitectureQuizModal';
 import { LoginPage } from '../ui/components/LoginPage';
 import { WorldHubModal } from '../ui/components/WorldHubModal';
 import { FirstPersonHUD } from '../ui/components/FirstPersonHUD';
+import { SnackbarHost } from '../ui/components/SnackbarHost';
 
 export const App: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -44,6 +45,8 @@ export const App: React.FC = () => {
     setShowSaveLoad,
     showSettings,
     setShowSettings,
+    isCustomBuildingModalOpen,
+    setCustomBuildingModalOpen,
     showCustomBuildingStudio,
     setShowCustomBuildingStudio,
     showLoadTest,
@@ -92,20 +95,28 @@ export const App: React.FC = () => {
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         engine.redo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        engine.duplicateSelection();
       } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         setShowHelp(!useUIStore.getState().showHelp);
       } else if (e.key === 'Escape') {
         setShowHelp(false);
         setIsPhotoMode(false);
+        if (useUIStore.getState().activeTool !== 'select') {
+          useUIStore.getState().setActiveTool('select');
+        }
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        // Quick Tool Switching Hotkeys (1-6)
+        // Quick Tool Switching Hotkeys (1-8)
         const toolMap: Record<string, import('../ui/state/useUIStore').MainToolType> = {
           '1': 'select',
           '2': 'road',
           '3': 'zone',
           '4': 'build',
           '5': 'nature',
-          '6': 'analyze'
+          '6': 'analyze',
+          '7': 'terraform',
+          '8': 'demolish'
         };
         const targetTool = toolMap[e.key];
         if (targetTool) {
@@ -163,10 +174,6 @@ export const App: React.FC = () => {
           <PhotoModeOverlay />
           <SaveLoadModal isOpen={showSaveLoad} onClose={() => setShowSaveLoad(false)} />
           <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
-          <CustomBuildingCreatorModal
-            isOpen={showCustomBuildingStudio}
-            onClose={() => setShowCustomBuildingStudio(false)}
-          />
           <LoadTestModal isOpen={showLoadTest} onClose={() => setShowLoadTest(false)} />
           <RealWorldExportModal
             isOpen={showRealWorldExport}
@@ -176,10 +183,22 @@ export const App: React.FC = () => {
             isOpen={showQuiz}
             onClose={() => setShowQuiz(false)}
           />
-
-
         </>
       )}
+
+      {/* Studio Rancang Bangunan (Studio CAD) - Top-Level Fullscreen Layer (z-index: 99999) */}
+      {(isCustomBuildingModalOpen || showCustomBuildingStudio) && (
+        <CustomBuildingCreatorModal
+          isOpen={true}
+          onClose={() => {
+            setCustomBuildingModalOpen(false);
+            setShowCustomBuildingStudio(false);
+          }}
+        />
+      )}
+
+      {/* Global Apple Dynamic Island Feedback Host */}
+      <SnackbarHost />
     </div>
   );
 };

@@ -172,6 +172,7 @@ export class SubQuadWallBuilder {
         leftDoorGeom.translate(op.x0 + frameCasingThickness + leafThick * 0.5, baseY + op.y0 + leafH * 0.5, leafW * 0.5);
         const leftDoorMesh = new THREE.Mesh(leftDoorGeom, frameMaterial);
         leftDoorMesh.castShadow = true;
+        leftDoorMesh.userData = { isDoor: true, isWalkThroughPortal: true };
         wallSubGroup.add(leftDoorMesh);
 
         // Right open glass/frame leaf (resting perpendicular along door jamb)
@@ -179,6 +180,7 @@ export class SubQuadWallBuilder {
         rightDoorGeom.translate(op.x1 - frameCasingThickness - leafThick * 0.5, baseY + op.y0 + leafH * 0.5, leafW * 0.5);
         const rightDoorMesh = new THREE.Mesh(rightDoorGeom, frameMaterial);
         rightDoorMesh.castShadow = true;
+        rightDoorMesh.userData = { isDoor: true, isWalkThroughPortal: true };
         wallSubGroup.add(rightDoorMesh);
       }
 

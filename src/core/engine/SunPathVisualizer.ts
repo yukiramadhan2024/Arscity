@@ -22,7 +22,7 @@ export class SunPathVisualizer {
   private tickMarksGroup: THREE.Group | null = null;
   private sunSphere: THREE.Group | null = null;
   private groundShadowVectorLine: THREE.Line | null = null;
-  public isVisible: boolean = true;
+  public isVisible: boolean = false;
   public currentDayOfYear: number = 172;
 
   private centerPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
@@ -33,7 +33,7 @@ export class SunPathVisualizer {
     this.scene = scene;
     this.masterGroup = new THREE.Group();
     this.masterGroup.name = 'SunPathVisualizerGroup';
-    this.masterGroup.visible = true;
+    this.masterGroup.visible = false;
     this.scene.add(this.masterGroup);
 
     this.buildArcGeometry(172);

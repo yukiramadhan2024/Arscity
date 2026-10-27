@@ -24,6 +24,10 @@ export class WeatherSystem {
   public setWeather(weather: WeatherType): void {
     this.currentWeather = weather;
 
+    const wetness = weather === 'rain' ? 1.0 : 0.0;
+    this.currentWetness = wetness;
+    MaterialLibrary.getInstance().setWetness(wetness);
+
     if (weather === 'clear') {
       this.scene.fog = new THREE.FogExp2(0x7fb8f5, 0.002);
       this.toggleRain(false);

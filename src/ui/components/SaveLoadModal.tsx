@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { useModalA11y } from '../hooks/useModalA11y';
+import { showSnackbar } from '../state/useSnackbarStore';
 
 interface SaveLoadModalProps {
   isOpen: boolean;
@@ -50,10 +51,21 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
     if (res.success) {
       const updated = await LocalStorageManager.listSlots();
       setSlots(updated);
-      showNotification(`Tersimpan di ${slotId === 'autosave' ? 'Simpan Otomatis' : `Slot #${slotId.split('_')[1]}`}`);
+      const slotLabel = slotId === 'autosave' ? 'Simpan Otomatis' : `Slot #${slotId.split('_')[1]}`;
+      showNotification(`Tersimpan di ${slotLabel}`);
+      showSnackbar({
+        variant: 'success',
+        title: 'Kota Berhasil Disimpan',
+        detail: slotLabel
+      });
       proceduralAudio.playClick();
     } else {
       showNotification(`Gagal menyimpan: ${res.error || 'Kesalahan sistem'}`);
+      showSnackbar({
+        variant: 'warning',
+        title: 'Gagal Menyimpan Kota',
+        detail: res.error || 'Kesalahan sistem'
+      });
     }
   };
 
@@ -61,11 +73,22 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
     if (!engine) return;
     const res = await LocalStorageManager.loadFromSlot(slotId, engine);
     if (res.success) {
+      const slotLabel = slotId === 'autosave' ? 'Simpan Otomatis' : `Slot #${slotId.split('_')[1] || slotId}`;
       showNotification(`Kota berhasil dimuat dari ${slotId}`);
+      showSnackbar({
+        variant: 'success',
+        title: 'Peta Berhasil Dimuat',
+        detail: slotLabel
+      });
       proceduralAudio.playClick();
       onClose();
     } else {
       showNotification(`Gagal memuat: ${res.error || 'Data tidak valid'}`);
+      showSnackbar({
+        variant: 'warning',
+        title: 'Gagal Memuat Peta',
+        detail: res.error || 'Data tidak valid'
+      });
     }
   };
 
@@ -74,6 +97,11 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
     const updated = await LocalStorageManager.listSlots();
     setSlots(updated);
     showNotification(`Slot ${slotId} berhasil dikosongkan.`);
+    showSnackbar({
+      variant: 'destructive',
+      title: 'Slot Dikosongkan',
+      detail: slotId
+    });
     proceduralAudio.playDemolish();
   };
 
@@ -81,6 +109,11 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
     if (!engine) return;
     JsonExporter.exportCityToJson(engine);
     showNotification('Berkas JSON berhasil diunduh');
+    showSnackbar({
+      variant: 'info',
+      title: 'Berkas JSON Diekspor',
+      detail: 'Unduhan berkas dimulai'
+    });
     proceduralAudio.playClick();
   };
 
@@ -91,10 +124,20 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
     const res = await JsonExporter.importCityFromJson(file, engine);
     if (res.success) {
       showNotification('Kota berhasil diimpor dari berkas JSON');
+      showSnackbar({
+        variant: 'success',
+        title: 'Peta Berhasil Dimuat',
+        detail: 'Dari berkas JSON'
+      });
       proceduralAudio.playClick();
       onClose();
     } else {
       showNotification(`Gagal mengimpor: ${res.error || 'Pastikan file JSON valid.'}`);
+      showSnackbar({
+        variant: 'warning',
+        title: 'Gagal Mengimpor Peta',
+        detail: res.error || 'Pastikan file JSON valid.'
+      });
     }
   };
 
@@ -102,6 +145,11 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
     if (!engine) return;
     ScreenshotExporter.exportFloorPlanToSvg(engine);
     showNotification('Denah 2D SVG berhasil diunduh');
+    showSnackbar({
+      variant: 'info',
+      title: 'Denah 2D SVG Diekspor',
+      detail: 'Unduhan denah dimulai'
+    });
     proceduralAudio.playClick();
   };
 
@@ -154,10 +202,10 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
               <HardDrive size={20} color="#007AFF" strokeWidth={2.2} />
             </div>
             <div>
-              <div id="saveload-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
+              <div id="saveload-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.01em' }}>
                 Simpan & Muat Kota
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>
+              <div style={{ fontSize: '13px', color: '#475569', marginTop: '2px' }}>
                 Arsip penyimpanan lokal dan ekspor denah arsitektur
               </div>
             </div>
@@ -170,13 +218,13 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              background: 'var(--fill-control)',
-              border: '1px solid var(--hairline)',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: 'var(--label-secondary)',
+              color: '#334155',
               transition: 'all 0.15s ease'
             }}
           >
@@ -208,7 +256,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
           {/* City Name Row */}
           <div className="inset-group">
             <div className="inset-row">
-              <span style={{ fontSize: '13px', color: 'var(--label-secondary)', width: '90px' }}>Nama Kota:</span>
+              <span style={{ fontSize: '13px', color: '#475569', width: '90px' }}>Nama Kota:</span>
               <input
                 type="text"
                 value={cityNameInput}
@@ -218,7 +266,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
                   flex: 1,
                   background: 'transparent',
                   border: 'none',
-                  color: 'var(--label)',
+                  color: '#0F172A',
                   fontSize: '13px',
                   fontWeight: 500,
                   outline: 'none'
@@ -239,7 +287,8 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
                   className="inset-group"
                   style={{
                     padding: '12px 14px',
-                    borderColor: isSelected ? 'var(--accent)' : undefined,
+                    borderColor: isSelected ? '#007AFF' : '#CBD5E1',
+                    background: '#FFFFFF',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
@@ -248,22 +297,22 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
                       {slot.name}
                     </span>
                     {slot.isEmpty ? (
-                      <span style={{ fontSize: '11px', color: 'var(--label-tertiary)' }}>Kosong</span>
+                      <span style={{ fontSize: '11px', color: '#94A3B8' }}>Kosong</span>
                     ) : (
-                      <span style={{ fontSize: '11px', color: 'var(--good)', fontWeight: 600 }}>Tersimpan</span>
+                      <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: 600 }}>Tersimpan</span>
                     )}
                   </div>
 
-                  <div className="tabular-nums" style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                  <div className="tabular-nums" style={{ fontSize: '11px', color: '#475569' }}>
                     Waktu: {formatDate(slot.timestamp)}
                   </div>
 
                   {!slot.isEmpty && (
-                    <div className="tabular-nums" style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                    <div className="tabular-nums" style={{ fontSize: '11px', color: '#475569' }}>
                       {slot.buildingCount} Gedung • {slot.roadCount} Ruas • {slot.lotCount} Kavling
                     </div>
                   )}
@@ -288,7 +337,15 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
                         handleLoadSlot(slot.slotId);
                       }}
                       className="ios-btn"
-                      style={{ flex: 1, padding: '4px', fontSize: '11px', opacity: slot.isEmpty ? 0.35 : 1 }}
+                      style={{
+                        flex: 1,
+                        padding: '4px',
+                        fontSize: '11px',
+                        opacity: slot.isEmpty ? 0.35 : 1,
+                        background: '#FFFFFF',
+                        border: '1px solid #CBD5E1',
+                        color: '#0F172A'
+                      }}
                     >
                       <RotateCcw size={12} strokeWidth={1.75} />
                       <span>Muat</span>
@@ -319,20 +376,20 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
           <div className="inset-group">
             <div className="inset-row inset-row-clickable" onClick={handleExportJson}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Download size={15} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+                <Download size={15} strokeWidth={1.75} style={{ color: '#007AFF' }} />
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 500 }}>Unduh File JSON Kota</div>
-                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>Cadangan format terbuka</div>
+                  <div style={{ fontSize: '13px', fontWeight: 500, color: '#0F172A' }}>Unduh File JSON Kota</div>
+                  <div style={{ fontSize: '11px', color: '#475569' }}>Cadangan format terbuka</div>
                 </div>
               </div>
             </div>
 
             <div className="inset-row">
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', cursor: 'pointer' }}>
-                <Upload size={15} strokeWidth={1.75} style={{ color: 'var(--good)' }} />
+                <Upload size={15} strokeWidth={1.75} style={{ color: '#16A34A' }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 500 }}>Impor File JSON Kota</div>
-                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>Buka file tata ruang arscity</div>
+                  <div style={{ fontSize: '13px', fontWeight: 500, color: '#0F172A' }}>Impor File JSON Kota</div>
+                  <div style={{ fontSize: '11px', color: '#475569' }}>Buka file tata ruang arscity</div>
                 </div>
                 <input
                   type="file"
@@ -345,10 +402,10 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({ isOpen, onClose })
 
             <div className="inset-row inset-row-clickable" onClick={handleExportSvg}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileCode2 size={15} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+                <FileCode2 size={15} strokeWidth={1.75} style={{ color: '#007AFF' }} />
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 500 }}>Ekspor Denah 2D Bervektor (SVG)</div>
-                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>Blueprint denah arsitektur</div>
+                  <div style={{ fontSize: '13px', fontWeight: 500, color: '#0F172A' }}>Ekspor Denah 2D Bervektor (SVG)</div>
+                  <div style={{ fontSize: '11px', color: '#475569' }}>Blueprint denah arsitektur</div>
                 </div>
               </div>
             </div>

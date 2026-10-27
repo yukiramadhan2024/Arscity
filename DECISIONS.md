@@ -282,3 +282,55 @@ Dokumen ini mencatat setiap keputusan arsitektur penting (*Architecture Decision
   * Seluruh pengujian Vitest lulus 100%.
   * `tsc --noEmit` menghasilkan 0 error.
   * Uji beban 300 gedung & 3.0 km jalan menghasilkan 1 draw call ter-batching, 2.650 geometri terkelola, dan FPS stabil 60 FPS pada frame statis.
+
+## ADR-023: Redesain UI/UX Arscity Batch 2 (Liquid Glass Refined, Tata Letak Bebas Tabrakan, & Integritas Data Jujur)
+* **Status**: Diterima & Diimplementasikan (2026-10-28)
+* **Konteks**:
+  Evaluasi visual mendalam dari 6 tangkapan layar utama (Dunia Utama, Pengaturan, Menu Kota, Analisis, Login, World Hub) mengungkap beberapa inkonsistensi:
+  1. Login dan World Hub menampilkan elemen palsu (tombol Google/GitHub mati, kolom email yang tidak terhubung ke server backend, klaim sinkronisasi awan, dan email pengguna rekayasa `arsitek@arscity.id`).
+  2. Dock Menu Kota dan Minimap bertumpukan pada resolusi standar laptop (1366x768).
+  3. Overlay Analisis bertabrakan dengan Side Dock saat dibuka bersamaan.
+  4. Pengaturan mencantumkan jargon bahasa Inggris teknis seperti "Ultra RTX" (padahal WebGL non-RTX hardware) dan nama renderer GPU berlebihan yang memicu overflow.
+  5. TopHeader memiliki rasio kontras teks tombol kamera aktif di bawah batas WCAG AA.
+  6. Tekstur tanah rumput memiliki normal map yang terlalu agresif dan sumbu crosshair dunia terlalu mencolok.
+  7. Audio ambient otomatis berputar pada layar login sebelum pemain memilih untuk bermain.
+  8. Kanvas kota baru terasa kosong tanpa umpan balik jelas apakah game berjalan normal.
+
+* **Keputusan Desain & Rekayasa**:
+  1. **Layar Masuk / Login Jujur & Transparan (E1–E7)**:
+     - Menghapus tombol login media sosial palsu (Google, GitHub) dan formulir input email yang tidak memiliki backend.
+     - Mengganti alur masuk dengan tombol primer "Mulai Bermain" bergaya iOS pill biru (`#007AFF`) dan 4 kartu aksi jujur: "Lanjutkan Kota Terakhir", "Buka Perpustakaan Kota", "Mulai Panduan Pemula", dan "Impor Berkas GeoJSON".
+     - Menghapus angka-angka dekoratif acak pada latar belakang arsitektur SVG agar bersih dan profesional.
+     - Menyediakan kontrol bisu audio eksplisit di pojok kanan atas layar login dengan status default bisu (`muted = true`).
+  2. **World Hub / Perpustakaan Kota Otentik (F1–F10)**:
+     - Mengubah judul menjadi "Perpustakaan Kota" dengan subjudul "Kota tersimpan di perangkat ini".
+     - Menghapus email pengguna fiktif dan tombol keluar sekunder redundan; mengganti badge menjadi "Penyimpanan Lokal" dengan kapasitas kuota IndexedDB riil (menggunakan `navigator.storage.estimate()`).
+     - Menyediakan satu tombol tutup 'X' konsisten di pojok kanan atas modal.
+     - Menambahkan tombol aksi "+ Kota Baru" dan "Lanjutkan Kota Terakhir" di bagian header.
+     - Menambahkan menu aksi tiga titik (Buka, Ganti Nama, Duplikat, Ekspor, Hapus) pada setiap kartu berkas kota.
+     - Memperbaiki lokalisasi kartu folder dari English "item/items" menjadi "{count} berkas".
+  3. **Pemberantasan Tumpukan Layout & Pemindahan Minimap ke Kanan Bawah (A2, C1, C2, C3, D1)**:
+     - Menetapkan batasan tinggi dinamis pada Side Utility Dock (`maxHeight: calc(100vh - 100px)`) dan Analysis Overlay (`maxHeight: calc(100vh - 180px)`) dengan scrollbar tersembunyi.
+     - Memindahkan Minimap secara permanen ke pojok kanan bawah layar (`ZONE 4: right: var(--hud-edge, 16px)`, `bottom: var(--hud-edge, 16px)`). Keputusan ini membebaskan total sisi kiri viewport sehingga Menu Kota (baik saat terlipat maupun saat diperluas) dan panel laboratorium analisis memiliki ruang vertikal penuh tanpa tabrakan zona.
+     - Menyesuaikan batas bawah Right Property Inspector (`ZONE 5: bottom: calc(var(--hud-edge, 16px) + 196px)`) sehingga ketika panel inspeksi diperluas, panel berhenti tepat dan rapi di atas kartu minimap.
+     - Menghapus tampilan pintasan tombol (keybind) di samping simbol pada Menu Kota agar tampilan menu bersih, rapi, dan minimalis.
+     - Mengotomatiskan penutupan Side Dock saat alat Analisis diaktifkan (`isAnalyzeActive`), dan memposisikan panel laboratorium analisis secara presisi di sebelah kanan dock yang terlipat.
+     - Memperbaiki layout tombol "Peta Kota" pada Minimap dengan `whiteSpace: nowrap` agar tidak terpotong menjadi dua baris.
+  4. **Penyempurnaan Panel Pengaturan / Settings (B1–B5)**:
+     - Mengubah label preset grafis dari "Ultra RTX" menjadi "Ultra" yang faktual dan jujur.
+     - Menyederhanakan tampilan renderer GPU menjadi string ringkas (misalnya: "Direct3D 11 / Angle") dengan tooltip lengkap untuk informasi teknis mendalam.
+     - Memindahkan perangkat diagnostik pengembang (Uji Beban 300 Gedung, Tolok Ukur FPS) ke dalam akordion lipat "PENGEMBANG & DIAGNOSTIK" di bagian terbawah modal.
+     - Mengaktifkan tema tri-mode (Terang, Gelap, Otomatis) yang mendengarkan perubahan preferensi OS (`prefers-color-scheme`).
+  5. **Kontras & Kejelasan Visual Dunia 3D (A1, A3, A4, A5, A7)**:
+     - Mengubah intensitas normal map rumput dari `1.8` menjadi `0.4` dan menghaluskan albedo rumput menjadi hijau tropis hangat dengan mipmapping dan anisotropi 4x.
+     - Meredupkan garis sumbu pusat grid dari cyan mencolok menjadi warna slate lembut (`#64748B`) dengan transparansi `0.25`.
+     - Mengubah indikator kamera aktif pada TopHeader menjadi pill biru solid (`#007AFF`) dengan teks putih bersih (`#FFFFFF`) untuk mencapai rasio kontras 4.6:1 (memenuhi WCAG AA).
+     - Mengubah label orientasi mata angin pada minimap dari singkatan satu huruf "U" menjadi kata eksplisit "Utara".
+     - Menghilangkan bentuk segitiga (kerucut penglihatan kamera) pada kanvas minimap, menyisakan hanya titik fokus kamera biru iOS dengan lingkaran cincin putih yang minimalis dan tidak mengalihkan perhatian.
+  6. **Kapsul Panduan Kanvas Kosong (A6)**:
+     - Menambahkan komponen `EmptyStateGuide` yang menampilkan kapsul Liquid Glass halus saat sebuah kota baru dibuka (0 km jalan dan 0 bangunan): "Mulai rancang kota tropis Anda: letakkan jalan pertama untuk memandu tata ruang" dengan tombol cepat ke "Alat Jalan" dan "Panduan".
+
+* **Hasil Verifikasi**:
+  * Seluruh pengujian Vitest (40 berkas pengujian, 253 tes) lulus 100%.
+  * Kompilasi TypeScript (`tsc`) dan build Vite production berhasil tanpa galat (exit code 0).
+  * 8 tangkapan layar komparasi "Sesudah" telah berhasil diambil pada resolusi 1366x768 dan 1920x1080 di `docs/redesign2/after/`.

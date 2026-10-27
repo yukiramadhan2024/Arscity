@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BuildingInstance } from './PrefabTypes';
 import { PrefabMeshBuilder } from './PrefabMeshBuilder';
 import { CustomBuildingMeshBuilder } from './CustomBuildingMeshBuilder';
-import { CustomBuilding } from './CustomBuildingModel';
+import { CustomBuilding, generateFloorsForMassingShape, calculateBuildingAreas } from './CustomBuildingModel';
 import { PolygonMath, Vec2D } from '../core/math/PolygonMath';
 import type { RaycastManager } from '../core/engine/RaycastManager';
 import type { BBox2D } from '../core/engine/SpatialHashGrid';
@@ -86,19 +86,15 @@ export class BuildingManager {
         position: building.position.clone(),
         rotationY: building.rotationY,
         plinthHeight: building.plinthHeight ?? 0.35,
-        floors: building.floors || [
-          {
-            floorIndex: 0,
-            footprint: building.footprintPolygon || [
-              new THREE.Vector2(-building.width / 2, -building.length / 2),
-              new THREE.Vector2(building.width / 2, -building.length / 2),
-              new THREE.Vector2(building.width / 2, building.length / 2),
-              new THREE.Vector2(-building.width / 2, building.length / 2),
-            ],
-            height: building.floorHeight || 3.2,
-            walls: [],
-          },
-        ],
+        floors: building.floors && building.floors.length > 0
+          ? building.floors
+          : generateFloorsForMassingShape(
+              building.massingShape || 'box',
+              building.width || 10,
+              building.length || 10,
+              building.floorCount || 1,
+              building.floorHeight || 3.2
+            ),
         roof: building.customRoof || {
           type: building.roofType === 'dome' ? 'flat' : (building.roofType as any),
           pitchAngle: 30,
@@ -107,9 +103,21 @@ export class BuildingManager {
         },
         wallMaterial: building.wallMaterial,
         wallColor: building.wallColor,
+        massingShape: building.massingShape,
+        windowStyle: building.windowStyle,
+        hasBalcony: building.hasBalcony,
+        hasSunLouvers: building.hasSunLouvers,
+        hasVerticalGarden: building.hasVerticalGarden,
+        hasFrontArcade: building.hasFrontArcade,
+        useBasePlinthMaterial: building.useBasePlinthMaterial,
+        baseMaterial: building.baseMaterial,
+        mullionColor: building.mullionColor,
+        hasSkylight: building.hasSkylight,
+        hasSolarPV: building.hasSolarPV,
       };
+      (customModel as any).userData = building.userData;
       const grp = CustomBuildingMeshBuilder.buildCustomBuilding(customModel);
-      grp.userData = { buildingId: building.id, type: 'building' };
+      grp.userData = { ...grp.userData, buildingId: building.id, type: 'building' };
       return grp;
     }
     return PrefabMeshBuilder.buildBuildingGroup(building);
@@ -333,6 +341,9 @@ export class BuildingManager {
     if (building.floors && building.floors.length > 0 && building.floors[0].footprint.length >= 3) {
       return PolygonMath.calculateShoelaceArea(building.floors[0].footprint);
     }
+    if (building.massingShape && building.massingShape !== 'box') {
+      return calculateBuildingAreas(building.width, building.length, building.floorCount, building.massingShape).kdb;
+    }
     return building.width * building.length;
   }
 
@@ -343,6 +354,9 @@ export class BuildingManager {
         sum += PolygonMath.calculateShoelaceArea(fl.footprint);
       }
       return sum;
+    }
+    if (building.massingShape && building.massingShape !== 'box') {
+      return calculateBuildingAreas(building.width, building.length, building.floorCount, building.massingShape).klb;
     }
     return BuildingManager.getBuildingGroundArea(building) * Math.max(1, building.floorCount);
   }
@@ -390,6 +404,15 @@ export class BuildingManager {
         const mesh = child as THREE.Mesh;
         if (!mesh.userData?.isSharedGeometry) {
           mesh.geometry?.dispose();
+        }
+        if (mesh.material && !mesh.userData?.isSharedMaterial) {
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((m) => {
+              if (m && !m.userData?.isSharedMaterial) m.dispose();
+            });
+          } else if (mesh.material && !mesh.material.userData?.isSharedMaterial) {
+            mesh.material.dispose();
+          }
         }
       }
     });

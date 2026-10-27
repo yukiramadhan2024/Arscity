@@ -3,24 +3,24 @@ import { useUIStore } from '../state/useUIStore';
 import { ArscityLogo } from './ArscityLogo';
 import {
   Upload,
-  User,
-  LogOut,
+  HardDrive,
   X,
   Sparkles,
+  Plus,
+  Play,
+  MoreVertical,
+  Edit2,
+  Copy,
+  Download,
   Trash2,
-  Clock,
-  Building2,
-  Route,
-  ArrowRight,
-  FolderOpen,
-  ChevronDown,
-  ChevronUp,
+  FolderOpen
 } from 'lucide-react';
 import { IndexedDBStorage, SavedMapMeta } from '../../io/IndexedDBStorage';
 import { GeoJSONImporter } from '../../io/GeoJSONImporter';
 import { JsonExporter } from '../../io/JsonExporter';
 import { GlassFolder, FolderFile } from '@/components/ui/glass-folder-cards';
 import { useModalA11y } from '../hooks/useModalA11y';
+import { showSnackbar } from '../state/useSnackbarStore';
 
 interface WorldHubModalProps {
   isOpen?: boolean;
@@ -29,7 +29,6 @@ interface WorldHubModalProps {
 
 export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onClose }) => {
   const uiStore = useUIStore();
-  // Safe SSR/Hydration fallback for test and headless environments
   const state = typeof useUIStore.getState === 'function' ? useUIStore.getState() : uiStore;
   const isMapHubOpen = uiStore.isMapHubOpen ?? state.isMapHubOpen;
   const closeMapHub = uiStore.closeMapHub ?? state.closeMapHub;
@@ -41,8 +40,6 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
 
   const modalRef = useModalA11y(isOpen && isMapHubOpen !== false, handleDismiss);
   const loadMap = uiStore.loadMap ?? state.loadMap;
-  const userEmail = uiStore.userEmail ?? state.userEmail;
-  const logout = uiStore.logout ?? state.logout;
   const savedMapsList = uiStore.savedMapsList?.length ? uiStore.savedMapsList : (state.savedMapsList || []);
   const refreshSavedMaps = uiStore.refreshSavedMaps ?? state.refreshSavedMaps;
   const isLoadingMap = uiStore.isLoadingMap ?? state.isLoadingMap;
@@ -50,11 +47,9 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
   const engine = uiStore.engine ?? state.engine;
   const activeMapId = uiStore.activeMapId ?? state.activeMapId;
   const activeMapName = uiStore.activeMapName ?? state.activeMapName;
-  const resolvedTheme = (uiStore.resolvedTheme ?? state.resolvedTheme ?? 'dark') as 'light' | 'dark';
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [isSlotListExpanded, setIsSlotListExpanded] = useState<boolean>(false);
+  const [activeMenuMapId, setActiveMenuMapId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -85,8 +80,18 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
       const res = await GeoJSONImporter.importFromFile(file, targetEngine);
       if (res.type === 'arscity') {
         setImportStatus(`Peta Proyek .arscity berhasil dimuat (${res.roadsCount} jalan, ${res.buildingsCount} gedung).`);
+        showSnackbar({
+          variant: 'success',
+          title: 'Peta Berhasil Dimuat',
+          detail: `${res.roadsCount} Jalan • ${res.buildingsCount} Gedung`
+        });
       } else {
         setImportStatus(`Fitur GeoJSON berhasil diimpor: +${res.roadsCount} ruas jalan, +${res.buildingsCount} gedung.`);
+        showSnackbar({
+          variant: 'success',
+          title: 'Fitur GeoJSON Diimpor',
+          detail: `+${res.roadsCount} Jalan • +${res.buildingsCount} Gedung`
+        });
       }
       setTimeout(() => {
         setImportStatus(null);
@@ -94,6 +99,11 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
       }, 1600);
     } catch (err: any) {
       setImportStatus(`Gagal mengimpor: ${err?.message || 'Format berkas tidak valid'}`);
+      showSnackbar({
+        variant: 'warning',
+        title: 'Gagal Mengimpor Peta',
+        detail: err?.message || 'Format tidak valid'
+      });
       setTimeout(() => setImportStatus(null), 3500);
     } finally {
       if (e.target) e.target.value = '';
@@ -102,10 +112,20 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
 
   const handleLoadMalioboro = async () => {
     await loadMap('malioboro', 'malioboro_preset', 'Koridor Malioboro Yogyakarta');
+    showSnackbar({
+      variant: 'success',
+      title: 'Peta Malioboro Dimuat',
+      detail: 'Koridor Cagar Budaya Yogyakarta'
+    });
   };
 
   const handleLoadEmptyDirect = async () => {
     await loadMap('empty', 'empty_map', 'Lahan Kosong Standar');
+    showSnackbar({
+      variant: 'info',
+      title: 'Lahan Kosong Siap',
+      detail: 'Kanvas Baru Dimulai'
+    });
   };
 
   const handleCreateNewCitySlot = async () => {
@@ -114,25 +134,109 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
     const res = await IndexedDBStorage.createNewEmptyMap(defaultName);
     await refreshSavedMaps();
     await loadMap('saved', res.id, defaultName);
+    showSnackbar({
+      variant: 'success',
+      title: 'Slot Kota Baru Dibuat',
+      detail: defaultName
+    });
   };
 
-  const handleLoadSavedMap = async (map: SavedMapMeta) => {
-    await loadMap('saved', map.id, map.name);
+  const handleResumeLastCity = async () => {
+    if (savedMapsList.length > 0) {
+      const last = savedMapsList[0];
+      await loadMap('saved', last.id, last.name);
+      showSnackbar({
+        variant: 'success',
+        title: 'Melanjutkan Kota',
+        detail: last.name
+      });
+    } else {
+      await handleLoadMalioboro();
+    }
   };
 
-  const handleDeleteSavedMap = async (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    await IndexedDBStorage.deleteMapById(id);
-    setDeleteConfirmId(null);
-    await refreshSavedMaps();
+  const handleRenameCity = async (map: SavedMapMeta) => {
+    const newName = window.prompt('Masukkan nama baru untuk kota:', map.name);
+    if (!newName || newName.trim() === '' || newName === map.name) return;
+    const data = await IndexedDBStorage.loadMapById(map.id);
+    if (data) {
+      data.cityTitle = newName.trim();
+      await IndexedDBStorage.saveMapById(map.id, newName.trim(), data);
+      await refreshSavedMaps();
+      showSnackbar({
+        variant: 'success',
+        title: 'Nama Kota Diperbarui',
+        detail: newName.trim()
+      });
+    }
+    setActiveMenuMapId(null);
+  };
+
+  const handleDuplicateCity = async (map: SavedMapMeta) => {
+    const data = await IndexedDBStorage.loadMapById(map.id);
+    if (data) {
+      const newId = `map_${Date.now()}`;
+      const copyName = `${map.name} (Salinan)`;
+      data.cityTitle = copyName;
+      data.timestamp = Date.now();
+      await IndexedDBStorage.saveMapById(newId, copyName, data);
+      await refreshSavedMaps();
+      showSnackbar({
+        variant: 'success',
+        title: 'Kota Berhasil Diduplikasi',
+        detail: copyName
+      });
+    }
+    setActiveMenuMapId(null);
+  };
+
+  const handleExportCity = async (map: SavedMapMeta) => {
+    const data = await IndexedDBStorage.loadMapById(map.id);
+    if (data) {
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const fileName = `${(data.cityTitle || map.name || 'arscity_proyek').toLowerCase().replace(/\s+/g, '_')}.arscity`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showSnackbar({
+        variant: 'info',
+        title: 'Kota Berhasil Diekspor',
+        detail: fileName
+      });
+    }
+    setActiveMenuMapId(null);
+  };
+
+  const handleDeleteCity = async (map: SavedMapMeta) => {
+    if (window.confirm(`Hapus kota "${map.name}" dari penyimpanan lokal?`)) {
+      await IndexedDBStorage.deleteMapById(map.id);
+      await refreshSavedMaps();
+      showSnackbar({
+        variant: 'warning',
+        title: 'Kota Dihapus',
+        detail: map.name
+      });
+    }
+    setActiveMenuMapId(null);
   };
 
   const handleClearAllSavedMaps = async () => {
-    if (typeof window !== 'undefined' && window.confirm('Hapus seluruh slot kota tersimpan dari memori lokal IndexedDB?')) {
+    if (typeof window !== 'undefined' && window.confirm('Hapus seluruh slot kota tersimpan dari memori lokal browser?')) {
       for (const m of savedMapsList) {
         await IndexedDBStorage.deleteMapById(m.id);
       }
       await refreshSavedMaps();
+      showSnackbar({
+        variant: 'warning',
+        title: 'Memori Dibersihkan',
+        detail: 'Seluruh slot kota lokal telah dihapus'
+      });
     }
   };
 
@@ -142,6 +246,11 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
       const fileName = `${(activeMapName || 'arscity_proyek').toLowerCase().replace(/\s+/g, '_')}.arscity`;
       JsonExporter.exportCityToJson(curEngine, fileName);
       setImportStatus(`Berkas ${fileName} berhasil diunduh.`);
+      showSnackbar({
+        variant: 'info',
+        title: 'Kota Berhasil Diekspor',
+        detail: fileName
+      });
       setTimeout(() => setImportStatus(null), 2500);
       return;
     }
@@ -161,6 +270,11 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         setImportStatus(`Berkas ${fileName} berhasil diunduh.`);
+        showSnackbar({
+          variant: 'info',
+          title: 'Kota Berhasil Diekspor',
+          detail: fileName
+        });
         setTimeout(() => setImportStatus(null), 2500);
         return;
       }
@@ -178,9 +292,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
     return `${dateStr} · ${timeStr}`;
   };
 
-  /* =========================================================================
-     FOLDER 1: Peta Bawaan Nusantara & Malioboro
-     ========================================================================= */
+  /* FOLDER 1: Peta Bawaan Nusantara */
   const folder1Files: FolderFile[] = [
     {
       id: 'preset-malioboro',
@@ -196,9 +308,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
     },
   ];
 
-  /* =========================================================================
-     FOLDER 2: Penyimpanan Kota Saya (IndexedDB)
-     ========================================================================= */
+  /* FOLDER 2: Penyimpanan Kota Saya */
   const folder2Files: FolderFile[] =
     savedMapsList.length === 0
       ? [
@@ -209,8 +319,8 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             art: 'glacier',
           },
         ]
-      : savedMapsList.slice(0, 5).map((map, idx) => {
-          const arts: ('dusk' | 'aurora' | 'verdant')[] = ['dusk', 'aurora', 'verdant'];
+      : savedMapsList.slice(0, 6).map((map, idx) => {
+          const arts: ('glacier' | 'verdant' | 'dusk')[] = ['glacier', 'verdant', 'dusk'];
           return {
             id: map.id,
             name: map.name,
@@ -220,9 +330,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           };
         });
 
-  /* =========================================================================
-     FOLDER 3: Berkas Proyek & CAD
-     ========================================================================= */
+  /* FOLDER 3: Berkas Proyek & CAD */
   const folder3Files: FolderFile[] = [
     {
       id: 'action-import',
@@ -240,7 +348,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
       id: 'action-clear',
       name: 'Kelola & Bersihkan Slot',
       meta: 'MANAJEMEN MEMORI',
-      art: 'ember',
+      art: 'glacier',
     },
   ];
 
@@ -249,7 +357,10 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
       className="wh-overlay interactive"
       role="dialog"
       aria-modal="true"
-      aria-label="Pusat Penyimpanan & Dunia Arscity"
+      aria-label="Perpustakaan Kota Arscity"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
     >
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -260,8 +371,8 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 24px;
-          background-color: var(--overlay, rgba(9, 13, 22, 0.8));
+          padding: 20px;
+          background-color: rgba(15, 23, 42, 0.40);
           backdrop-filter: blur(28px) saturate(160%);
           -webkit-backdrop-filter: blur(28px) saturate(160%);
           box-sizing: border-box;
@@ -271,73 +382,31 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
         .wh-card-frame {
           position: relative;
           width: 100%;
-          max-width: 1140px;
-          max-height: 94vh;
+          max-width: 1120px;
+          max-height: 90vh;
           border-radius: 28px;
           overflow: hidden;
-          background: ${resolvedTheme === 'light' ? 'rgba(240, 246, 252, 0.88)' : 'rgba(15, 23, 42, 0.88)'};
-          backdrop-filter: blur(32px) saturate(180%);
-          -webkit-backdrop-filter: blur(32px) saturate(180%);
-          border: 1.5px solid ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.16)'};
-          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+          background: rgba(244, 247, 251, 0.96);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.95);
+          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
           display: flex;
           flex-direction: column;
           box-sizing: border-box;
-          color: var(--label, #F8FAFC);
-        }
-        .wh-mesh-bg {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          overflow: hidden;
-          border-radius: 28px;
-        }
-        .wh-mesh-peach {
-          position: absolute;
-          right: -100px;
-          bottom: -100px;
-          width: 520px;
-          height: 520px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(251, 146, 60, 0.28) 0%, rgba(254, 215, 170, 0.15) 45%, rgba(255, 255, 255, 0) 72%);
-          filter: blur(36px);
-          opacity: 0.25;
-        }
-        .wh-mesh-slate {
-          position: absolute;
-          left: -100px;
-          bottom: -100px;
-          width: 480px;
-          height: 480px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(148, 163, 184, 0.25) 0%, rgba(203, 213, 225, 0.15) 45%, rgba(255, 255, 255, 0) 70%);
-          filter: blur(36px);
-          opacity: 0.2;
-        }
-        .wh-mesh-amber-top {
-          position: absolute;
-          right: 80px;
-          top: 10px;
-          width: 320px;
-          height: 320px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(254, 215, 170, 0.18) 0%, rgba(255, 255, 255, 0) 70%);
-          filter: blur(32px);
-          opacity: 0.22;
+          color: #0F172A;
         }
         .wh-header {
           position: relative;
           z-index: 10;
-          padding: 16px 28px;
-          border-bottom: 1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'};
+          padding: 18px 28px;
+          border-bottom: 1px solid #CBD5E1;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 16px;
           flex-wrap: wrap;
-          background-color: ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(30, 41, 59, 0.85)'};
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
+          background-color: rgba(244, 247, 251, 0.98);
         }
         .wh-logo-wrap {
           display: flex;
@@ -351,17 +420,25 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           overflow-y: auto;
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 18px;
         }
         .wh-body::-webkit-scrollbar {
           width: 6px;
         }
-        .wh-body::-webkit-scrollbar-track {
-          background: transparent;
-        }
         .wh-body::-webkit-scrollbar-thumb {
-          background: var(--separator, rgba(255, 255, 255, 0.15));
+          background: rgba(148, 163, 184, 0.4);
           border-radius: 9999px;
+        }
+        .wh-quick-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 10px 16px;
+          background: #FFFFFF;
+          border: 1px solid #CBD5E1;
+          border-radius: 16px;
+          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         }
         .wh-folders-stage {
           position: relative;
@@ -369,108 +446,77 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           display: flex;
           justify-content: center;
           align-items: flex-start;
-          gap: 28px;
+          gap: 24px;
           flex-wrap: wrap;
-          padding-top: 64px; /* Headroom agar kartu terangkat bebas dan tidak terpotong */
-          padding-bottom: 24px;
+          padding-top: 24px;
+          padding-bottom: 16px;
           box-sizing: border-box;
-        }
-        .wh-hint-bar {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 10px 18px;
-          border-radius: 12px;
-          background: ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.75)' : 'rgba(30, 41, 59, 0.6)'};
-          border: 1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'};
-          font-family: var(--font-mono, monospace);
-          font-variant-numeric: tabular-nums;
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--label-secondary, #94a3b8);
-          letter-spacing: 0.04em;
-          text-align: center;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        }
-        .wh-slots-drawer {
-          border-radius: 18px;
-          background: ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.72)' : 'rgba(30, 41, 59, 0.65)'};
-          border: 1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)'};
-          padding: 16px 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-        }
-        .wh-slot-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 10px 14px;
-          border-radius: 12px;
-          background: ${resolvedTheme === 'light' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.7)'};
-          border: 1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'};
-          cursor: pointer;
-          transition: border-color 150ms ease, transform 150ms ease;
-        }
-        .wh-slot-item:hover {
-          border-color: var(--accent, #0a84ff);
-          transform: translateY(-1px);
         }
         @media (max-width: 1024px) {
           .wh-folders-stage {
-            gap: 20px;
-            padding-top: 120px;
+            gap: 18px;
+            padding-top: 20px;
           }
         }
         @media (max-width: 640px) {
           .wh-header { padding: 14px 18px; }
-          .wh-body { padding: 12px 16px 20px; gap: 16px; }
-          .wh-folders-stage { padding-top: 110px; gap: 16px; }
+          .wh-body { padding: 12px 16px 20px; gap: 14px; }
+          .wh-folders-stage { padding-top: 16px; gap: 14px; }
         }
       `}</style>
 
-      {/* Main Hub Frame */}
+      {/* Main Library Frame */}
       <div ref={modalRef} className="wh-card-frame">
-        {/* Multi-Color Gradient Mesh Background */}
-        <div className="wh-mesh-bg">
-          <div style={{ position: 'absolute', inset: 0 }} />
-          <div className="wh-mesh-peach" />
-          <div className="wh-mesh-slate" />
-          <div className="wh-mesh-amber-top" />
-        </div>
-
         {/* Header Section */}
         <div className="wh-header">
           <div className="wh-logo-wrap">
-            <ArscityLogo size={40} />
+            <ArscityLogo size={38} />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--label, #F8FAFC)' }}>
+                <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: '#0F172A' }}>
                   ARSCITY
                 </span>
                 <span
                   style={{
                     fontSize: '11px',
                     fontWeight: 600,
-                    padding: '3px 10px',
+                    padding: '2px 9px',
                     borderRadius: '9999px',
-                    backgroundColor: 'rgba(10, 132, 255, 0.15)',
-                    color: 'var(--accent, #0a84ff)',
-                    border: '1px solid rgba(10, 132, 255, 0.3)',
+                    backgroundColor: 'rgba(0, 122, 255, 0.12)',
+                    color: '#007AFF',
+                    border: '1px solid rgba(0, 122, 255, 0.28)',
                   }}
                 >
-                  World Hub
+                  Penyimpanan Lokal
                 </span>
               </div>
-              <p style={{ fontSize: '13px', color: 'var(--label-secondary, #94A3B8)', margin: '2px 0 0 0' }}>
-                Pusat Penyimpanan &amp; Dunia Arscity
+              <p style={{ fontSize: '13px', color: '#475569', margin: '2px 0 0 0' }}>
+                Perpustakaan Kota · Kota tersimpan di perangkat ini
               </p>
             </div>
           </div>
 
-          {/* Right Header Actions */}
+          {/* Right Header Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '9999px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                color: '#334155',
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+              }}
+            >
+              <HardDrive size={13} style={{ color: '#007AFF' }} />
+              <span>{savedMapsList.length} Kota Tersimpan</span>
+            </div>
+
             <button
               onClick={() => fileInputRef.current?.click()}
               style={{
@@ -479,19 +525,19 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 gap: '6px',
                 padding: '6px 14px',
                 borderRadius: '9999px',
-                backgroundColor: 'var(--fill-control, rgba(255, 255, 255, 0.1))',
-                border: '1px solid var(--hairline, rgba(255, 255, 255, 0.16))',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #CBD5E1',
                 fontSize: '12px',
                 fontWeight: 600,
-                color: 'var(--label, #F8FAFC)',
+                color: '#0F172A',
                 cursor: 'pointer',
                 transition: 'all 120ms ease',
-                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
               }}
               title="Impor peta dari berkas .geojson atau proyek .arscity"
             >
-              <Upload size={13} strokeWidth={2} style={{ color: 'var(--accent, #0a84ff)' }} />
-              <span>Impor .GeoJSON / .Arscity</span>
+              <Upload size={13} strokeWidth={2} style={{ color: '#007AFF' }} />
+              <span>Impor Berkas</span>
             </button>
             <input
               ref={fileInputRef}
@@ -501,96 +547,28 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
               onChange={handleFileImport}
             />
 
-            {userEmail && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '6px 14px',
-                  borderRadius: '9999px',
-                  backgroundColor: 'var(--fill-control, rgba(255, 255, 255, 0.1))',
-                  border: '1px solid var(--hairline, rgba(255, 255, 255, 0.16))',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--label, #F8FAFC)',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                }}
-              >
-                <User size={13} style={{ color: 'var(--accent, #0a84ff)' }} />
-                <span>{userEmail}</span>
-              </div>
-            )}
-
-            <button
-              onClick={logout}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '9999px',
-                backgroundColor: 'transparent',
-                border: '1px solid var(--hairline, rgba(255, 255, 255, 0.14))',
-                fontSize: '12px',
-                fontWeight: 500,
-                color: 'var(--label-secondary, #94A3B8)',
-                cursor: 'pointer',
-                transition: 'all 120ms ease',
-              }}
-              title="Keluar / Ganti Akun"
-            >
-              <LogOut size={13} />
-              <span>Keluar</span>
-            </button>
-
             <button
               onClick={handleClose}
               style={{
                 width: '32px',
                 height: '32px',
                 borderRadius: '50%',
-                backgroundColor: 'var(--fill-control, rgba(255, 255, 255, 0.1))',
-                border: '1px solid var(--hairline, rgba(255, 255, 255, 0.16))',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #CBD5E1',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--label, #F8FAFC)',
+                color: '#334155',
                 cursor: 'pointer',
-                transition: 'background-color 120ms ease',
+                transition: 'all 120ms ease',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
               }}
-              title="Tutup / Lanjutkan Sesi Permainan"
-              aria-label="Tutup World Hub"
+              title="Tutup Perpustakaan Kota"
+              aria-label="Tutup Perpustakaan Kota"
             >
               <X size={16} strokeWidth={2} />
             </button>
           </div>
-        </div>
-
-        {/* Subtitle / Description Banner */}
-        <div
-          style={{
-            padding: '10px 28px',
-            backgroundColor: resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.04)',
-            borderBottom: `1px solid ${resolvedTheme === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.08)'}`,
-            fontSize: '12.5px',
-            color: 'var(--label-secondary, #94A3B8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <span>Pilih folder dunia untuk membuka lembar peta, atau tekan tombol (+) pada folder untuk menambah kota baru</span>
-          <span
-            style={{
-              fontSize: '11px',
-              fontFamily: 'var(--font-mono, monospace)',
-              fontVariantNumeric: 'tabular-nums',
-              fontWeight: 600,
-            }}
-          >
-            {savedMapsList.length} KOTA TERSIMPAN
-          </span>
         </div>
 
         {/* Import Status Alert Banner */}
@@ -616,7 +594,64 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
 
         {/* Scrollable Body Content */}
         <div className="wh-body">
-          {/* Barisan 3 Folder Kaca Interaktif (3D GlassFolder Grid) */}
+          {/* Quick Action Bar: Resume last / New City */}
+          <div className="wh-quick-bar">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FolderOpen size={16} style={{ color: '#007AFF' }} />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                {savedMapsList.length > 0
+                  ? `Terakhir disunting: ${savedMapsList[0].name}`
+                  : 'Belum ada kota kustom yang tersimpan'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {savedMapsList.length > 0 && (
+                <button
+                  onClick={handleResumeLastCity}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    borderRadius: '9999px',
+                    backgroundColor: '#007AFF',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(0, 122, 255, 0.25)',
+                  }}
+                >
+                  <Play size={12} fill="#FFFFFF" />
+                  <span>Lanjutkan Kota Terakhir</span>
+                </button>
+              )}
+
+              <button
+                onClick={handleCreateNewCitySlot}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '9999px',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#0F172A',
+                  cursor: 'pointer',
+                }}
+              >
+                <Plus size={13} strokeWidth={2} style={{ color: '#007AFF' }} />
+                <span>+ Kota Baru</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Barisan 3 Folder Kaca Interaktif */}
           <div className="wh-folders-stage">
             {/* Folder 1 (Kiri): Peta Bawaan Nusantara */}
             <GlassFolder
@@ -624,7 +659,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
               art="verdant"
               action="more"
               width={310}
-              tone={resolvedTheme}
+              tone="light"
               files={folder1Files}
               onFileSelect={(file) => {
                 if (file.id === 'preset-malioboro') {
@@ -650,10 +685,10 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             {/* Folder 2 (Tengah): Penyimpanan Kota Saya */}
             <GlassFolder
               label="Penyimpanan Kota Saya"
-              art="aurora"
+              art="glacier"
               action="add"
               width={310}
-              tone={resolvedTheme}
+              tone="light"
               files={folder2Files}
               onAdd={handleCreateNewCitySlot}
               onFileSelect={(file) => {
@@ -668,11 +703,11 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             {/* Folder 3 (Kanan): Berkas Proyek & CAD */}
             <GlassFolder
               label="Berkas Proyek & CAD"
-              art="glacier"
+              art="dusk"
               action="more"
               labelPlacement="top-left"
               width={310}
-              tone={resolvedTheme}
+              tone="light"
               files={folder3Files}
               onFileSelect={(file) => {
                 if (file.id === 'action-import') {
@@ -680,7 +715,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 } else if (file.id === 'action-export') {
                   handleExportActiveCity();
                 } else if (file.id === 'action-clear') {
-                  setIsSlotListExpanded((prev) => !prev);
+                  handleClearAllSavedMaps();
                 }
               }}
               menu={[
@@ -704,146 +739,206 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             />
           </div>
 
-          {/* Baris Petunjuk Interaksi Monospasi di Bawah Folder */}
-          <div className="wh-hint-bar">
-            ARAHKAN KURSOR UNTUK MENGINTIP · KLIK FOLDER UNTUK MEMBUKA · KLIK LEMBAR PETA UNTUK MASUK · TEKAN (+) UNTUK DUNIA BARU
-          </div>
-
-          {/* Pengelolaan Slot Simpanan (> 4 slot atau saat diklik) */}
+          {/* Detailed List of Saved Cities with Action Menu */}
           {savedMapsList.length > 0 && (
-            <div className="wh-slots-drawer">
+            <div style={{ marginTop: '8px' }}>
               <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  cursor: 'pointer',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#64748B',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  marginBottom: '8px',
+                  paddingLeft: '4px'
                 }}
-                onClick={() => setIsSlotListExpanded((prev) => !prev)}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FolderOpen size={16} style={{ color: 'var(--accent, #0a84ff)' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label, #F8FAFC)' }}>
-                    Manajemen Seluruh Slot Kota ({savedMapsList.length} Tersimpan)
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--label-secondary, #94A3B8)' }}>
-                  <span>{isSlotListExpanded ? 'Sembunyikan Daftar' : 'Tampilkan Daftar'}</span>
-                  {isSlotListExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                </div>
+                Daftar Kota Tersimpan
               </div>
-
-              {isSlotListExpanded && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
-                  {savedMapsList.map((map) => (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                  gap: '10px'
+                }}
+              >
+                {savedMapsList.map((m) => (
+                  <div
+                    key={m.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: '#FFFFFF',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '14px',
+                      boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+                      transition: 'border-color 150ms ease',
+                    }}
+                  >
                     <div
-                      key={map.id}
-                      className="wh-slot-item"
-                      onClick={() => handleLoadSavedMap(map)}
+                      style={{ cursor: 'pointer', flex: 1, minWidth: 0, marginRight: '10px' }}
+                      onClick={() => loadMap('saved', m.id, m.name)}
                     >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--label, #F8FAFC)' }}>
-                          {map.name}
-                        </span>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            fontSize: '11px',
-                            fontFamily: 'var(--font-mono, monospace)',
-                            fontVariantNumeric: 'tabular-nums',
-                            color: 'var(--label-secondary, #94A3B8)',
-                          }}
-                        >
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <Clock size={11} />
-                            {formatDateShort(map.updatedAt)}
-                          </span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <Building2 size={11} />
-                            {map.buildingCount} Gedung
-                          </span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <Route size={11} />
-                            {map.roadCount} Ruas
-                          </span>
-                        </div>
+                      <div
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#0F172A',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        {m.name}
                       </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {deleteConfirmId === map.id ? (
-                          <div style={{ display: 'flex', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => handleDeleteSavedMap(map.id)}
-                              style={{
-                                padding: '4px 10px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                borderRadius: '6px',
-                                backgroundColor: 'var(--bad, #EF4444)',
-                                color: '#FFFFFF',
-                                border: 'none',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Hapus
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(null)}
-                              style={{
-                                padding: '4px 10px',
-                                fontSize: '11px',
-                                fontWeight: 500,
-                                borderRadius: '6px',
-                                backgroundColor: 'rgba(255,255,255,0.1)',
-                                color: 'var(--label-secondary, #94A3B8)',
-                                border: 'none',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Batal
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteConfirmId(map.id);
-                            }}
-                            style={{
-                              padding: '6px',
-                              borderRadius: '6px',
-                              backgroundColor: 'transparent',
-                              border: 'none',
-                              color: 'var(--label-tertiary, #94A3B8)',
-                              cursor: 'pointer',
-                            }}
-                            title="Hapus Slot Peta"
-                            aria-label={`Hapus ${map.name}`}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            color: 'var(--accent, #0a84ff)',
-                          }}
-                        >
-                          <span>Buka</span>
-                          <ArrowRight size={13} />
-                        </div>
+                      <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                        {m.buildingCount} Gedung • {m.roadCount} Jalan • {formatDateShort(m.updatedAt)}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <button
+                        onClick={() => loadMap('saved', m.id, m.name)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          background: 'rgba(0, 122, 255, 0.1)',
+                          border: '1px solid rgba(0, 122, 255, 0.25)',
+                          color: '#007AFF',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Buka
+                      </button>
+
+                      <button
+                        onClick={() => setActiveMenuMapId(activeMenuMapId === m.id ? null : m.id)}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '8px',
+                          background: 'transparent',
+                          border: '1px solid #CBD5E1',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          color: '#64748B'
+                        }}
+                        title="Opsi Kota"
+                      >
+                        <MoreVertical size={14} />
+                      </button>
+
+                      {activeMenuMapId === m.id && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: '34px',
+                            background: '#FFFFFF',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '12px',
+                            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
+                            padding: '4px',
+                            zIndex: 30,
+                            minWidth: '130px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px'
+                          }}
+                        >
+                          <button
+                            onClick={() => handleRenameCity(m)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              background: 'transparent',
+                              border: 'none',
+                              fontSize: '12px',
+                              color: '#0F172A',
+                              cursor: 'pointer',
+                              textAlign: 'left'
+                            }}
+                          >
+                            <Edit2 size={12} />
+                            <span>Ganti Nama</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleDuplicateCity(m)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              background: 'transparent',
+                              border: 'none',
+                              fontSize: '12px',
+                              color: '#0F172A',
+                              cursor: 'pointer',
+                              textAlign: 'left'
+                            }}
+                          >
+                            <Copy size={12} />
+                            <span>Duplikat</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleExportCity(m)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              background: 'transparent',
+                              border: 'none',
+                              fontSize: '12px',
+                              color: '#0F172A',
+                              cursor: 'pointer',
+                              textAlign: 'left'
+                            }}
+                          >
+                            <Download size={12} />
+                            <span>Ekspor (.arscity)</span>
+                          </button>
+
+                          <div style={{ height: '1px', background: '#E2E8F0', margin: '2px 0' }} />
+
+                          <button
+                            onClick={() => handleDeleteCity(m)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              background: 'transparent',
+                              border: 'none',
+                              fontSize: '12px',
+                              color: '#EF4444',
+                              cursor: 'pointer',
+                              textAlign: 'left'
+                            }}
+                          >
+                            <Trash2 size={12} />
+                            <span>Hapus</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -856,35 +951,48 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             position: 'fixed',
             inset: 0,
             zIndex: 200,
-            backgroundColor: 'rgba(9, 13, 22, 0.78)',
+            backgroundColor: 'rgba(15, 23, 42, 0.25)',
             backdropFilter: 'blur(28px)',
             WebkitBackdropFilter: 'blur(28px)',
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '16px',
           }}
         >
           <div
             style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              border: '3px solid rgba(255, 255, 255, 0.1)',
-              borderTopColor: '#2563EB',
-              animation: 'spin 0.8s linear infinite',
-            }}
-          />
-          <div
-            style={{
-              fontSize: '15px',
-              fontWeight: 600,
-              color: '#FFFFFF',
-              letterSpacing: '-0.01em',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              border: '1px solid #CBD5E1',
+              borderRadius: '24px',
+              padding: '28px 36px',
+              boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '16px',
             }}
           >
-            {loadingMapMessage}
+            <div
+              style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                border: '3px solid rgba(0, 122, 255, 0.15)',
+                borderTopColor: '#007AFF',
+                animation: 'spin 0.8s linear infinite',
+              }}
+            />
+            <div
+              style={{
+                fontSize: '15px',
+                fontWeight: 600,
+                color: '#0F172A',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              {loadingMapMessage}
+            </div>
           </div>
         </div>
       )}

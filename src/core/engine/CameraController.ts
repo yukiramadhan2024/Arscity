@@ -61,6 +61,10 @@ export class CameraController {
   private readonly _scratchRight: THREE.Vector3 = new THREE.Vector3();
   private readonly _scratchDelta: THREE.Vector3 = new THREE.Vector3();
   private readonly _scratchNewTarget: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchUp: THREE.Vector3 = new THREE.Vector3(0, 1, 0);
+  private readonly _scratchTargetVel: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchLookTarget: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchEuler: THREE.Euler = new THREE.Euler(0, 0, 0, 'YXZ');
 
   // Input states
   private isMiddleDragging: boolean = false;
@@ -621,23 +625,23 @@ export class CameraController {
       const cosYaw = Math.cos(this.droneYaw);
 
       // Local 3D forward vector
-      const forwardDir = new THREE.Vector3(
+      const forwardDir = this._scratchForward.set(
         -sinYaw * cosPitch,
         sinPitch,
         -cosYaw * cosPitch
       ).normalize();
 
       // Horizontal strafe right vector
-      const rightDir = new THREE.Vector3(
+      const rightDir = this._scratchRight.set(
         cosYaw,
         0,
         -sinYaw
       ).normalize();
 
       // World vertical vector
-      const upDir = new THREE.Vector3(0, 1, 0);
+      const upDir = this._scratchUp.set(0, 1, 0);
 
-      const targetVel = new THREE.Vector3(0, 0, 0);
+      const targetVel = this._scratchTargetVel.set(0, 0, 0);
 
       // W / S / Up / Down: Fly forward / backward along look vector
       if (this.keysDown.has('KeyW') || this.keysDown.has('ArrowUp')) targetVel.add(forwardDir);
@@ -682,8 +686,8 @@ export class CameraController {
 
       // Apply transform to camera
       this.camera.position.copy(this.dronePosition);
-      const euler = new THREE.Euler(this.dronePitch, this.droneYaw, 0, 'YXZ');
-      this.camera.quaternion.setFromEuler(euler);
+      this._scratchEuler.set(this.dronePitch, this.droneYaw, 0, 'YXZ');
+      this.camera.quaternion.setFromEuler(this._scratchEuler);
 
       // Keep target synchronized ahead of drone for sun lighting & audio
       this.target.copy(this.dronePosition).addScaledVector(forwardDir, 25);
@@ -714,12 +718,12 @@ export class CameraController {
       this.walkPosition.z = THREE.MathUtils.clamp(this.walkPosition.z, -780, 780);
 
       this.camera.position.set(this.walkPosition.x, 1.65, this.walkPosition.z);
-      const lookTarget = new THREE.Vector3(
+      this._scratchLookTarget.set(
         this.walkPosition.x + Math.sin(this.walkYaw) * Math.cos(this.walkPitch),
         1.65 + Math.sin(this.walkPitch),
         this.walkPosition.z + Math.cos(this.walkYaw) * Math.cos(this.walkPitch)
       );
-      this.camera.lookAt(lookTarget);
+      this.camera.lookAt(this._scratchLookTarget);
 
       this.target.set(this.walkPosition.x, 0, this.walkPosition.z);
       return;

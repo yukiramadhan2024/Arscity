@@ -391,18 +391,13 @@ export const LandscapeSubToolbar: React.FC = () => {
 
   return (
     <div
+      className="arscity-glass-bar"
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px',
-        padding: '8px 12px',
-        background: 'rgba(15, 23, 42, 0.94)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        border: '1px solid rgba(255, 255, 255, 0.12)',
-        borderRadius: '16px',
-        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
-        color: '#F8FAFC',
+        gap: '8px',
+        padding: '10px 14px',
+        borderRadius: '20px',
         maxWidth: '820px',
         width: '100%'
       }}
@@ -413,7 +408,6 @@ export const LandscapeSubToolbar: React.FC = () => {
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon;
             const isCatActive = activeCategory === cat.id;
-            const count = LANDSCAPE_CATALOG.filter((i) => i.category === cat.id).length;
 
             return (
               <motion.button
@@ -430,9 +424,9 @@ export const LandscapeSubToolbar: React.FC = () => {
                   borderRadius: '9999px',
                   border: 'none',
                   background: 'transparent',
-                  color: isCatActive ? '#38bdf8' : 'rgba(226, 232, 240, 0.8)',
+                  color: isCatActive ? '#007AFF' : '#475569',
                   fontSize: '11px',
-                  fontWeight: isCatActive ? 600 : 500,
+                  fontWeight: isCatActive ? 700 : 500,
                   cursor: 'pointer',
                   zIndex: 1
                 }}
@@ -445,26 +439,14 @@ export const LandscapeSubToolbar: React.FC = () => {
                       position: 'absolute',
                       inset: 0,
                       borderRadius: '9999px',
-                      background: 'rgba(56, 189, 248, 0.22)',
-                      border: '1px solid rgba(56, 189, 248, 0.55)',
+                      background: 'rgba(10, 132, 255, 0.14)',
+                      border: '1px solid rgba(10, 132, 255, 0.35)',
                       zIndex: -1
                     }}
                   />
                 )}
-                <Icon size={13} strokeWidth={1.8} />
+                <Icon size={13} strokeWidth={1.8} style={{ color: isCatActive ? '#007AFF' : '#64748B' }} />
                 <span>{cat.label}</span>
-                <span
-                  className="font-mono tabular-nums"
-                  style={{
-                    fontSize: '10px',
-                    padding: '1px 5px',
-                    borderRadius: '8px',
-                    background: isCatActive ? 'rgba(56, 189, 248, 0.35)' : 'rgba(255, 255, 255, 0.1)',
-                    color: isCatActive ? '#ffffff' : 'rgba(226, 232, 240, 0.6)'
-                  }}
-                >
-                  {count}
-                </span>
               </motion.button>
             );
           })}
@@ -478,9 +460,9 @@ export const LandscapeSubToolbar: React.FC = () => {
             width: '24px',
             height: '24px',
             borderRadius: '50%',
-            background: 'rgba(255, 255, 255, 0.08)',
+            background: 'rgba(15, 23, 42, 0.06)',
             border: 'none',
-            color: 'rgba(226, 232, 240, 0.7)',
+            color: '#64748B',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -498,7 +480,7 @@ export const LandscapeSubToolbar: React.FC = () => {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
+          gap: '8px',
           overflowX: 'auto',
           paddingBottom: '2px',
           scrollbarWidth: 'none'
@@ -517,12 +499,13 @@ export const LandscapeSubToolbar: React.FC = () => {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '7px',
-                padding: '5px 11px',
-                borderRadius: '10px',
-                background: isSel ? 'rgba(56, 189, 248, 0.24)' : 'rgba(255, 255, 255, 0.04)',
-                border: isSel ? '1px solid rgba(56, 189, 248, 0.6)' : '1px solid rgba(255, 255, 255, 0.08)',
-                color: isSel ? '#ffffff' : 'rgba(241, 245, 249, 0.85)',
+                gap: '8px',
+                padding: '6px 12px',
+                borderRadius: '12px',
+                background: isSel ? 'rgba(10, 132, 255, 0.12)' : 'rgba(255, 255, 255, 0.85)',
+                border: isSel ? '1.5px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.08)',
+                boxShadow: isSel ? '0 0 12px rgba(10, 132, 255, 0.25)' : '0 2px 6px rgba(15, 23, 42, 0.04)',
+                color: '#0F172A',
                 cursor: 'pointer',
                 flexShrink: 0,
                 textAlign: 'left'
@@ -532,50 +515,22 @@ export const LandscapeSubToolbar: React.FC = () => {
             >
               <div
                 style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '7px',
-                  background: isSel ? 'rgba(56, 189, 248, 0.3)' : 'rgba(255, 255, 255, 0.06)',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '8px',
+                  background: isSel ? 'rgba(10, 132, 255, 0.20)' : 'rgba(15, 23, 42, 0.05)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: isSel ? '#38bdf8' : 'rgba(226, 232, 240, 0.75)'
+                  color: isSel ? '#007AFF' : '#475569'
                 }}
               >
-                <Icon size={14} strokeWidth={1.8} />
+                <Icon size={15} strokeWidth={1.8} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: isSel ? 600 : 500, whiteSpace: 'nowrap' }}>
-                    {item.label}
-                  </span>
-                  {item.badge && (
-                    <span
-                      className="font-mono tabular-nums"
-                      style={{
-                        fontSize: '9px',
-                        padding: '1px 4px',
-                        borderRadius: '4px',
-                        background: 'rgba(255, 255, 255, 0.08)',
-                        color: item.badgeColor || '#38bdf8',
-                        fontWeight: 600
-                      }}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
-                <span
-                  style={{
-                    fontSize: '9px',
-                    color: 'rgba(148, 163, 184, 0.85)',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {item.sublabel}
-                </span>
-              </div>
+              <span style={{ fontSize: '11px', fontWeight: isSel ? 700 : 600, color: '#0F172A', whiteSpace: 'nowrap' }}>
+                {item.label}
+              </span>
             </motion.button>
           );
         })}

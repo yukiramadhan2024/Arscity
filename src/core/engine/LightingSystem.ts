@@ -20,6 +20,7 @@ export class LightingSystem {
   public renderer: THREE.WebGLRenderer | null = null;
   public lastShadowCenter: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   public isShadowDirty: boolean = true;
+  private starPoints: THREE.Points | null = null;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -61,8 +62,31 @@ export class LightingSystem {
     this.sunHelperMesh = new THREE.Mesh(sunGeom, sunMat);
     scene.add(this.sunHelperMesh);
 
-    // Atmospheric distant aerial perspective fog (THREE.FogExp2 #D8E2DC density 0.0008)
+    // Atmospheric distant aerial perspective fog
     this.scene.fog = new THREE.FogExp2(0xd8e2dc, 0.0008);
+
+    // Star dome for Obsidian Night sky
+    const starCount = 600;
+    const starGeom = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 0.85 + 0.1);
+      const r = 380;
+      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = r * Math.cos(phi);
+      starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    starGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 1.5,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false
+    });
+    this.starPoints = new THREE.Points(starGeom, starMat);
+    scene.add(this.starPoints);
 
     // Initial update for 16:15 WIB (16.25)
     this.currentSolarCoords = calculateSolarPosition(16.25);
@@ -159,76 +183,198 @@ export class LightingSystem {
     this.sunHelperMesh.position.set(sunX, sunY, sunZ);
     this.sunHelperMesh.visible = coords.isDaylight;
 
-    // Continuous atmospheric sky & light color gradient based on solar altitude
-    const altDeg = coords.altitudeDegrees;
+    // 4 Yogyakarta Atmospheric Sky & Lighting Phases
+    const h = ((hour % 24) + 24) % 24;
 
-    if (altDeg <= -6) {
-      // Deep night
-      this.sunLight.intensity = 0.05;
-      this.sunLight.color.setHex(0x334466);
-      this.ambientLight.intensity = 0.20;
-      this.ambientLight.color.setHex(0x111c33);
-      this.hemiLight.intensity = 0.20;
-      this.hemiLight.color.setHex(0x1e293b);
-      this.hemiLight.groundColor.setHex(0x0a0f1d);
-      this.scene.background = new THREE.Color(0x070c18);
-      if (this.scene.fog && this.scene.fog instanceof THREE.FogExp2) {
-        this.scene.fog.color.setHex(0x080d1a);
-      }
-    } else if (altDeg <= 0) {
-      // Civil twilight / Dawn / Dusk (-6 to 0 deg)
-      const t = (altDeg + 6) / 6;
-      this.sunLight.intensity = THREE.MathUtils.lerp(0.05, 0.4, t);
-      this.sunLight.color.lerpColors(new THREE.Color(0x334466), new THREE.Color(0xff5522), t);
-      this.ambientLight.intensity = THREE.MathUtils.lerp(0.20, 0.35, t);
-      this.hemiLight.intensity = THREE.MathUtils.lerp(0.20, 0.45, t);
-      const skyColor = new THREE.Color(0x070c18).lerp(new THREE.Color(0x7c3a27), t);
-      this.scene.background = skyColor;
-      if (this.scene.fog && this.scene.fog instanceof THREE.FogExp2) {
-        this.scene.fog.color.lerpColors(new THREE.Color(0x080d1a), new THREE.Color(0x5c2e22), t);
-      }
-    } else if (altDeg <= 18) {
-      // Golden Hour (0 to 18 deg, e.g. 16:15 WIB afternoon sun)
-      // Produces warm golden rays (#FFF1D6, intensity 3.2) with low angle
-      const t = altDeg / 18;
-      this.sunLight.intensity = THREE.MathUtils.lerp(1.2, 3.2, t);
-      this.sunLight.color.lerpColors(new THREE.Color(0xff7733), new THREE.Color(0xfff1d6), t);
-      this.ambientLight.intensity = THREE.MathUtils.lerp(0.35, 0.50, t);
-      this.ambientLight.color.lerpColors(new THREE.Color(0x774433), new THREE.Color(0xfff5ea), t);
-      this.hemiLight.intensity = 1.2;
-      this.hemiLight.color.setHex(0x87ceeb); // Warm sky blue
-      this.hemiLight.groundColor.setHex(0x4a5d23); // Terracotta-green ground bounce
-      const skyColor = new THREE.Color(0x7c3a27).lerp(new THREE.Color(0x87ceeb), t);
-      this.scene.background = skyColor;
-      if (this.scene.fog && this.scene.fog instanceof THREE.FogExp2) {
-        this.scene.fog.color.lerpColors(new THREE.Color(0x5c2e22), new THREE.Color(0xd8e2dc), t);
-      }
+    const C_NIGHT = {
+      sky: new THREE.Color(0x0b101e), // Obsidian night blue
+      sun: new THREE.Color(0x2d3a55),
+      sunIntensity: 0.10,
+      ambient: new THREE.Color(0x111c33),
+      ambientIntensity: 0.18,
+      hemiSky: new THREE.Color(0x162035),
+      hemiGround: new THREE.Color(0x0a0f1d),
+      hemiIntensity: 0.25,
+      fog: new THREE.Color(0x0b101e),
+      fogDensity: 0.0009
+    };
+
+    const C_DAWN = {
+      sky: new THREE.Color(0x82a8cc), // Soft morning tropical sky blue
+      sun: new THREE.Color(0xffd5b3), // Gentle warm sunrise gold
+      sunIntensity: 2.2,
+      ambient: new THREE.Color(0x5e5c58), // Balanced warm neutral ambient
+      ambientIntensity: 0.38,
+      hemiSky: new THREE.Color(0x9cb4cb), // Neutral soft sky hemisphere
+      hemiGround: new THREE.Color(0x423e32), // Neutral warm earth bounce
+      hemiIntensity: 0.85,
+      fog: new THREE.Color(0x94a8bc), // Atmospheric distant aerial haze
+      fogDensity: 0.0008
+    };
+
+    const C_MIDDAY = {
+      sky: new THREE.Color(0x5294e2), // Crisp clean tropical sky blue
+      sun: new THREE.Color(0xfffaec), // Balanced natural sunlight
+      sunIntensity: 3.2,
+      ambient: new THREE.Color(0xfcfcfc),
+      ambientIntensity: 0.52,
+      hemiSky: new THREE.Color(0x9ac4e6), // Natural daylight sky bounce
+      hemiGround: new THREE.Color(0x425826), // Foliage lawn ground bounce
+      hemiIntensity: 1.2,
+      fog: new THREE.Color(0xd8e2dc),
+      fogDensity: 0.0008
+    };
+
+    const C_SENJA = {
+      sky: new THREE.Color(0xe28743), // Senja Emas Yogyakarta / Golden Hour
+      sun: new THREE.Color(0xff8c42), // Low golden orange #FF8C42
+      sunIntensity: 3.2,
+      ambient: new THREE.Color(0x7c5438), // Warm golden dusk
+      ambientIntensity: 0.45,
+      hemiSky: new THREE.Color(0xff8c42),
+      hemiGround: new THREE.Color(0x4e3620), // Warm terracotta and soil bounce
+      hemiIntensity: 1.3,
+      fog: new THREE.Color(0xe6a578),
+      fogDensity: 0.0008
+    };
+
+    let curSky = new THREE.Color();
+    let curSun = new THREE.Color();
+    let curSunIntensity = 3.0;
+    let curAmbient = new THREE.Color();
+    let curAmbientIntensity = 0.45;
+    let curHemiSky = new THREE.Color();
+    let curHemiGround = new THREE.Color();
+    let curHemiIntensity = 1.0;
+    let curFog = new THREE.Color();
+    let curFogDensity = 0.0008;
+
+    if (h >= 5.0 && h < 5.5) {
+      const t = (h - 5.0) / 0.5;
+      curSky.lerpColors(C_NIGHT.sky, C_DAWN.sky, t);
+      curSun.lerpColors(C_NIGHT.sun, C_DAWN.sun, t);
+      curSunIntensity = THREE.MathUtils.lerp(C_NIGHT.sunIntensity, C_DAWN.sunIntensity, t);
+      curAmbient.lerpColors(C_NIGHT.ambient, C_DAWN.ambient, t);
+      curAmbientIntensity = THREE.MathUtils.lerp(C_NIGHT.ambientIntensity, C_DAWN.ambientIntensity, t);
+      curHemiSky.lerpColors(C_NIGHT.hemiSky, C_DAWN.hemiSky, t);
+      curHemiGround.lerpColors(C_NIGHT.hemiGround, C_DAWN.hemiGround, t);
+      curHemiIntensity = THREE.MathUtils.lerp(C_NIGHT.hemiIntensity, C_DAWN.hemiIntensity, t);
+      curFog.lerpColors(C_NIGHT.fog, C_DAWN.fog, t);
+      curFogDensity = THREE.MathUtils.lerp(C_NIGHT.fogDensity, C_DAWN.fogDensity, t);
+    } else if (h >= 5.5 && h <= 7.0) {
+      curSky.copy(C_DAWN.sky);
+      curSun.copy(C_DAWN.sun);
+      curSunIntensity = C_DAWN.sunIntensity;
+      curAmbient.copy(C_DAWN.ambient);
+      curAmbientIntensity = C_DAWN.ambientIntensity;
+      curHemiSky.copy(C_DAWN.hemiSky);
+      curHemiGround.copy(C_DAWN.hemiGround);
+      curHemiIntensity = C_DAWN.hemiIntensity;
+      curFog.copy(C_DAWN.fog);
+      curFogDensity = C_DAWN.fogDensity;
+    } else if (h > 7.0 && h < 8.0) {
+      const t = (h - 7.0) / 1.0;
+      curSky.lerpColors(C_DAWN.sky, C_MIDDAY.sky, t);
+      curSun.lerpColors(C_DAWN.sun, C_MIDDAY.sun, t);
+      curSunIntensity = THREE.MathUtils.lerp(C_DAWN.sunIntensity, C_MIDDAY.sunIntensity, t);
+      curAmbient.lerpColors(C_DAWN.ambient, C_MIDDAY.ambient, t);
+      curAmbientIntensity = THREE.MathUtils.lerp(C_DAWN.ambientIntensity, C_MIDDAY.ambientIntensity, t);
+      curHemiSky.lerpColors(C_DAWN.hemiSky, C_MIDDAY.hemiSky, t);
+      curHemiGround.lerpColors(C_DAWN.hemiGround, C_MIDDAY.hemiGround, t);
+      curHemiIntensity = THREE.MathUtils.lerp(C_DAWN.hemiIntensity, C_MIDDAY.hemiIntensity, t);
+      curFog.lerpColors(C_DAWN.fog, C_MIDDAY.fog, t);
+      curFogDensity = THREE.MathUtils.lerp(C_DAWN.fogDensity, C_MIDDAY.fogDensity, t);
+    } else if (h >= 8.0 && h <= 15.0) {
+      curSky.copy(C_MIDDAY.sky);
+      curSun.copy(C_MIDDAY.sun);
+      curSunIntensity = C_MIDDAY.sunIntensity;
+      curAmbient.copy(C_MIDDAY.ambient);
+      curAmbientIntensity = C_MIDDAY.ambientIntensity;
+      curHemiSky.copy(C_MIDDAY.hemiSky);
+      curHemiGround.copy(C_MIDDAY.hemiGround);
+      curHemiIntensity = C_MIDDAY.hemiIntensity;
+      curFog.copy(C_MIDDAY.fog);
+      curFogDensity = C_MIDDAY.fogDensity;
+    } else if (h > 15.0 && h < 15.5) {
+      const t = (h - 15.0) / 0.5;
+      curSky.lerpColors(C_MIDDAY.sky, C_SENJA.sky, t);
+      curSun.lerpColors(C_MIDDAY.sun, C_SENJA.sun, t);
+      curSunIntensity = THREE.MathUtils.lerp(C_MIDDAY.sunIntensity, C_SENJA.sunIntensity, t);
+      curAmbient.lerpColors(C_MIDDAY.ambient, C_SENJA.ambient, t);
+      curAmbientIntensity = THREE.MathUtils.lerp(C_MIDDAY.ambientIntensity, C_SENJA.ambientIntensity, t);
+      curHemiSky.lerpColors(C_MIDDAY.hemiSky, C_SENJA.hemiSky, t);
+      curHemiGround.lerpColors(C_MIDDAY.hemiGround, C_SENJA.hemiGround, t);
+      curHemiIntensity = THREE.MathUtils.lerp(C_MIDDAY.hemiIntensity, C_SENJA.hemiIntensity, t);
+      curFog.lerpColors(C_MIDDAY.fog, C_SENJA.fog, t);
+      curFogDensity = THREE.MathUtils.lerp(C_MIDDAY.fogDensity, C_SENJA.fogDensity, t);
+    } else if (h >= 15.5 && h <= 17.75) {
+      curSky.copy(C_SENJA.sky);
+      curSun.copy(C_SENJA.sun);
+      curSunIntensity = C_SENJA.sunIntensity;
+      curAmbient.copy(C_SENJA.ambient);
+      curAmbientIntensity = C_SENJA.ambientIntensity;
+      curHemiSky.copy(C_SENJA.hemiSky);
+      curHemiGround.copy(C_SENJA.hemiGround);
+      curHemiIntensity = C_SENJA.hemiIntensity;
+      curFog.copy(C_SENJA.fog);
+      curFogDensity = C_SENJA.fogDensity;
+    } else if (h > 17.75 && h < 18.25) {
+      const t = (h - 17.75) / 0.5;
+      curSky.lerpColors(C_SENJA.sky, C_NIGHT.sky, t);
+      curSun.lerpColors(C_SENJA.sun, C_NIGHT.sun, t);
+      curSunIntensity = THREE.MathUtils.lerp(C_SENJA.sunIntensity, C_NIGHT.sunIntensity, t);
+      curAmbient.lerpColors(C_SENJA.ambient, C_NIGHT.ambient, t);
+      curAmbientIntensity = THREE.MathUtils.lerp(C_SENJA.ambientIntensity, C_NIGHT.ambientIntensity, t);
+      curHemiSky.lerpColors(C_SENJA.hemiSky, C_NIGHT.hemiSky, t);
+      curHemiGround.lerpColors(C_SENJA.hemiGround, C_NIGHT.hemiGround, t);
+      curHemiIntensity = THREE.MathUtils.lerp(C_SENJA.hemiIntensity, C_NIGHT.hemiIntensity, t);
+      curFog.lerpColors(C_SENJA.fog, C_NIGHT.fog, t);
+      curFogDensity = THREE.MathUtils.lerp(C_SENJA.fogDensity, C_NIGHT.fogDensity, t);
     } else {
-      // Full Tropical Daylight
-      const t = Math.min(1.0, (altDeg - 18) / 52);
-      this.sunLight.intensity = THREE.MathUtils.lerp(2.5, 3.2, t);
-      this.sunLight.color.lerpColors(new THREE.Color(0xfff1d6), new THREE.Color(0xffffff), t);
-      this.ambientLight.intensity = THREE.MathUtils.lerp(0.45, 0.55, t);
-      this.ambientLight.color.setHex(0xffffff);
-      this.hemiLight.intensity = 1.2;
-      this.hemiLight.color.setHex(0x87ceeb);
-      this.hemiLight.groundColor.setHex(0x4a5d23);
-      const skyColor = new THREE.Color(0x87ceeb).lerp(new THREE.Color(0x6bb1fa), t);
-      this.scene.background = skyColor;
-      if (this.scene.fog && this.scene.fog instanceof THREE.FogExp2) {
-        this.scene.fog.color.lerpColors(new THREE.Color(0xd8e2dc), new THREE.Color(0x7fb8f5), t);
-      }
+      // Night (18:15 - 05:00)
+      curSky.copy(C_NIGHT.sky);
+      curSun.copy(C_NIGHT.sun);
+      curSunIntensity = C_NIGHT.sunIntensity;
+      curAmbient.copy(C_NIGHT.ambient);
+      curAmbientIntensity = C_NIGHT.ambientIntensity;
+      curHemiSky.copy(C_NIGHT.hemiSky);
+      curHemiGround.copy(C_NIGHT.hemiGround);
+      curHemiIntensity = C_NIGHT.hemiIntensity;
+      curFog.copy(C_NIGHT.fog);
+      curFogDensity = C_NIGHT.fogDensity;
     }
 
-    // Dynamic Evening / Night Glow: During blue hour, dusk, and night (17:45 - 05:30 WIB)
-    // smoothly ramps up warm 2700K window illumination and street lights
+    this.scene.background = curSky;
+    this.sunLight.color.copy(curSun);
+    this.sunLight.intensity = curSunIntensity;
+    this.ambientLight.color.copy(curAmbient);
+    this.ambientLight.intensity = curAmbientIntensity;
+    this.hemiLight.color.copy(curHemiSky);
+    this.hemiLight.groundColor.copy(curHemiGround);
+    this.hemiLight.intensity = curHemiIntensity;
+
+    if (this.scene.fog && this.scene.fog instanceof THREE.FogExp2) {
+      this.scene.fog.color.copy(curFog);
+      this.scene.fog.density = curFogDensity;
+    }
+
+    // Night Glow Factor for interior lights, streetlights, and stars
     let nightGlowFactor = 0;
-    if (altDeg <= -6) {
+    if (h >= 18.0 || h <= 5.0) {
       nightGlowFactor = 1.0;
-    } else if (altDeg <= 4) {
-      nightGlowFactor = 1.0 - (altDeg + 6) / 10;
-    } else {
+    } else if (h > 5.0 && h < 6.5) {
+      nightGlowFactor = THREE.MathUtils.clamp(1.0 - (h - 5.0) / 1.5, 0, 1);
+    } else if (h >= 6.5 && h <= 17.25) {
       nightGlowFactor = 0.0;
+    } else if (h > 17.25 && h < 18.0) {
+      nightGlowFactor = THREE.MathUtils.clamp((h - 17.25) / 0.75, 0, 1);
+    }
+
+    if (this.starPoints) {
+      const starOpacity = THREE.MathUtils.clamp((nightGlowFactor - 0.35) / 0.65, 0, 0.95);
+      (this.starPoints.material as THREE.PointsMaterial).opacity = starOpacity;
+      this.starPoints.visible = starOpacity > 0.01;
+      this.starPoints.position.copy(targetCenter);
     }
 
     MaterialLibrary.getInstance().setNightGlow(nightGlowFactor);
@@ -332,5 +478,12 @@ export class LightingSystem {
     }
     this.sunHelperMesh.geometry.dispose();
     (this.sunHelperMesh.material as THREE.Material).dispose();
+
+    if (this.starPoints) {
+      this.scene.remove(this.starPoints);
+      this.starPoints.geometry.dispose();
+      (this.starPoints.material as THREE.Material).dispose();
+      this.starPoints = null;
+    }
   }
 }

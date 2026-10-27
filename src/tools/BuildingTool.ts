@@ -6,7 +6,12 @@ import { PrefabMeshBuilder } from '../buildings/PrefabMeshBuilder';
 import { proceduralAudio } from '../audio/ProceduralAudio';
 import { AddBuildingCommand } from '../core/commands/CityCommands';
 import { HumanScaleFigure } from '../buildings/HumanScaleFigure';
+import { ZONE_RULES } from '../zones/ZoneTypes';
+import { CustomBuildingMeshBuilder } from '../buildings/CustomBuildingMeshBuilder';
+import { CustomBuilding, generateFloorsForMassingShape } from '../buildings/CustomBuildingModel';
 import type { Engine } from '../core/engine/Engine';
+import { showSnackbar } from '../ui/state/useSnackbarStore';
+import { AutoFixService } from '../zones/AutoFixService';
 
 export class BuildingTool {
   public buildingManager: BuildingManager;
@@ -15,7 +20,12 @@ export class BuildingTool {
   public engine?: Engine;
 
   public activePresetKey: string = 'house_36';
+  public customBuildingTemplate: Partial<BuildingInstance> | null = null;
   public currentRotation: number = 0; // 0, PI/2, PI, 3PI/2
+  public manualRotationOffset: number = 0;
+  public isNearRoad: boolean = false;
+  public autoRotationAngle: number = 0;
+  private lastGsbCompliant: boolean | null = null;
 
   private ghostGroup: THREE.Group | null = null;
   private nextBuildingId: number = 1;
@@ -36,13 +46,24 @@ export class BuildingTool {
   }
 
   public setPreset(key: string): void {
+    this.customBuildingTemplate = null;
     if (!PREFAB_CATALOG[key]) return;
     this.activePresetKey = key;
     this.rebuildGhost();
   }
 
+  public setCustomTemplate(template: Partial<BuildingInstance> | null): void {
+    this.customBuildingTemplate = template;
+    this.rebuildGhost();
+  }
+
   public rotate(): void {
-    this.currentRotation = (this.currentRotation + Math.PI * 0.5) % (Math.PI * 2);
+    this.manualRotationOffset = (this.manualRotationOffset + Math.PI * 0.5) % (Math.PI * 2);
+    if (this.isNearRoad) {
+      this.currentRotation = (this.autoRotationAngle + this.manualRotationOffset) % (Math.PI * 2);
+    } else {
+      this.currentRotation = this.manualRotationOffset;
+    }
     if (this.ghostGroup) {
       this.ghostGroup.rotation.y = this.currentRotation;
     }
@@ -69,33 +90,86 @@ export class BuildingTool {
   private rebuildGhost(): void {
     this.disposeGhostGroup();
 
-    const preset = PREFAB_CATALOG[this.activePresetKey];
-    if (!preset) return;
+    let group: THREE.Group;
+    let bWidth = 6;
+    let bLength = 10;
 
-    const dummyInstance: BuildingInstance = {
-      id: 'ghost_preview',
-      presetKey: preset.key,
-      name: preset.name,
-      category: preset.category,
-      position: new THREE.Vector3(0, 0, 0),
-      rotationY: this.currentRotation,
-      width: preset.defaultWidth,
-      length: preset.defaultLength,
-      floorCount: preset.defaultFloorCount,
-      floorHeight: preset.floorHeight,
-      roofType: preset.defaultRoofType,
-      roofOverhang: preset.defaultRoofOverhang,
-      wallMaterial: preset.defaultWallMaterial,
-      wallColor: preset.defaultWallColor,
-      roofMaterial: preset.defaultRoofMaterial
-    };
+    if (this.customBuildingTemplate) {
+      const tmpl = this.customBuildingTemplate;
+      bWidth = tmpl.width || 10;
+      bLength = tmpl.length || 12;
+      const flCount = tmpl.floorCount || 2;
+      const flH = tmpl.floorHeight || 3.2;
 
-    const group = PrefabMeshBuilder.buildBuildingGroup(dummyInstance);
+      const customModel: CustomBuilding = {
+        id: 'ghost_preview_custom',
+        name: tmpl.name || 'Bangunan Kustom',
+        position: new THREE.Vector3(0, 0, 0),
+        rotationY: this.currentRotation,
+        plinthHeight: 0.35,
+        floors: tmpl.floors && tmpl.floors.length > 0
+          ? tmpl.floors
+          : generateFloorsForMassingShape(
+              tmpl.massingShape || 'box',
+              bWidth,
+              bLength,
+              flCount,
+              flH
+            ),
+        roof: tmpl.customRoof || {
+          type: tmpl.roofType === 'dome' ? 'flat' : (tmpl.roofType as any) || 'hip',
+          pitchAngle: 30,
+          overhang: tmpl.roofOverhang || 1.2,
+          material: (tmpl.roofMaterial || 'clay_tile') as any
+        },
+        wallMaterial: tmpl.wallMaterial || 'plaster',
+        wallColor: tmpl.wallColor || '#f8fafc',
+        massingShape: tmpl.massingShape,
+        windowStyle: tmpl.windowStyle,
+        hasBalcony: tmpl.hasBalcony,
+        hasSunLouvers: tmpl.hasSunLouvers,
+        hasVerticalGarden: tmpl.hasVerticalGarden,
+        hasFrontArcade: tmpl.hasFrontArcade,
+        useBasePlinthMaterial: tmpl.useBasePlinthMaterial,
+        baseMaterial: tmpl.baseMaterial,
+        mullionColor: tmpl.mullionColor,
+        hasSkylight: tmpl.hasSkylight,
+        hasSolarPV: tmpl.hasSolarPV
+      };
+
+      group = CustomBuildingMeshBuilder.buildCustomBuilding(customModel);
+    } else {
+      const preset = PREFAB_CATALOG[this.activePresetKey];
+      if (!preset) return;
+      bWidth = preset.defaultWidth;
+      bLength = preset.defaultLength;
+
+      const dummyInstance: BuildingInstance = {
+        id: 'ghost_preview',
+        presetKey: preset.key,
+        name: preset.name,
+        category: preset.category,
+        position: new THREE.Vector3(0, 0, 0),
+        rotationY: this.currentRotation,
+        width: preset.defaultWidth,
+        length: preset.defaultLength,
+        floorCount: preset.defaultFloorCount,
+        floorHeight: preset.floorHeight,
+        roofType: preset.defaultRoofType,
+        roofOverhang: preset.defaultRoofOverhang,
+        wallMaterial: preset.defaultWallMaterial,
+        wallColor: preset.defaultWallColor,
+        roofMaterial: preset.defaultRoofMaterial
+      };
+
+      group = PrefabMeshBuilder.buildBuildingGroup(dummyInstance);
+    }
+
     this.updateGhostGroupMaterial(group, true);
 
     // 1.65m Human Scale Ghost Figure positioned next to entrance
     const humanFigure = new HumanScaleFigure(1.65);
-    humanFigure.setPosition(preset.defaultWidth / 2 + 1.2, 0, -preset.defaultLength / 2);
+    humanFigure.setPosition(bWidth / 2 + 1.2, 0, -bLength / 2);
     group.add(humanFigure.getObject());
 
     this.ghostGroup = group;
@@ -207,98 +281,254 @@ export class BuildingTool {
       }
     }
 
-    // 3. Check collision with road graph edges
+    // 3. Check collision with road graph: is footprint overlapping road corridor or asphalt?
     if (this.engine?.roadManager) {
-      for (const edge of this.engine.roadManager.graph.edges.values()) {
-        const startNode = this.engine.roadManager.graph.nodes.get(edge.startNodeId);
-        const endNode = this.engine.roadManager.graph.nodes.get(edge.endNodeId);
-        if (!startNode || !endNode) continue;
-
-        const start = startNode.position;
-        const end = endNode.position;
-
-        // Approximate road segment check
-        const line = new THREE.Vector2(end.x - start.x, end.z - start.z);
-        const lineLen = line.length();
-        if (lineLen < 0.001) continue;
-
-        const lineDir = line.clone().divideScalar(lineLen);
-        const toPt = new THREE.Vector2(center.x - start.x, center.z - start.z);
-        const proj = Math.max(0, Math.min(lineLen, toPt.dot(lineDir)));
-        const closest = new THREE.Vector2(start.x + lineDir.x * proj, start.z + lineDir.y * proj);
-        const distToRoad = closest.distanceTo(new THREE.Vector2(center.x, center.z));
-
-        const roadHalfWidth = 4.0; // 8m standard road width / 2
-        if (distToRoad < (roadHalfWidth + Math.min(width, length) * 0.45)) {
-          return true; // Collides with road!
-        }
+      const footprint = this.getFootprintCorners(center, width, length, rotation, 0);
+      if (this.engine.roadManager.isFootprintOverlappingRoad(footprint, 0.5)) {
+        return true; // Overlaps road asphalt or sidewalk corridor!
       }
     }
 
     return false;
   }
 
-  public handleClick(snappedPos: THREE.Vector3): void {
-    const preset = PREFAB_CATALOG[this.activePresetKey];
-    if (!preset) return;
+  public getHighestFootprintGroundY(center: THREE.Vector3, width: number, length: number, rotation: number): number {
+    const terrain = this.engine?.terrain;
+    if (!terrain) return center.y;
+    const corners = this.getFootprintCorners(center, width, length, rotation, 0);
+    let maxY = terrain.getHeightAt(center.x, center.z);
+    for (const corner of corners) {
+      const gy = terrain.getHeightAt(corner.x, corner.y); // Note: Vector2.y corresponds to world Z
+      if (gy > maxY) maxY = gy;
+    }
+    return maxY;
+  }
 
-    // Check collision before placing
-    const isColliding = this.checkCollision(snappedPos, preset.defaultWidth, preset.defaultLength, this.currentRotation);
+  public handleClick(snappedPos: THREE.Vector3): void {
+    let bWidth: number;
+    let bLength: number;
+
+    if (this.customBuildingTemplate) {
+      bWidth = this.customBuildingTemplate.width || 10;
+      bLength = this.customBuildingTemplate.length || 12;
+    } else {
+      const preset = PREFAB_CATALOG[this.activePresetKey];
+      if (!preset) return;
+      bWidth = preset.defaultWidth;
+      bLength = preset.defaultLength;
+    }
+
+    // 1. Check collision with road asphalt / corridor
+    if (this.engine?.roadManager) {
+      const footprint = this.getFootprintCorners(snappedPos, bWidth, bLength, this.currentRotation, 0);
+      if (this.engine.roadManager.isFootprintOverlappingRoad(footprint, 0.5)) {
+        proceduralAudio.playTaptic('boundary');
+        showSnackbar({
+          variant: 'warning',
+          title: 'Lokasi Terhalang Jalan Raya',
+          detail: 'Objek tidak boleh berada di atas aspal',
+          groupKey: 'collision_road',
+        });
+        return;
+      }
+    }
+
+    // 2. Check collision with existing buildings or obstacles
+    const isColliding = this.checkCollision(snappedPos, bWidth, bLength, this.currentRotation);
     if (isColliding) {
-      // Rejection feedback: cannot place building when colliding or on cursor
-      proceduralAudio.playClick();
+      proceduralAudio.playTaptic('boundary');
+      showSnackbar({
+        variant: 'warning',
+        title: 'Lokasi Tidak Valid',
+        detail: 'Menabrak bangunan atau rintangan lain',
+        groupKey: 'collision_obstacle',
+      });
       return;
     }
 
+    const highestY = this.getHighestFootprintGroundY(snappedPos, bWidth, bLength, this.currentRotation);
+    const placedPos = snappedPos.clone();
+    placedPos.y = highestY;
+
     const id = `bld_${this.nextBuildingId++}`;
-    const instance: BuildingInstance = {
-      id,
-      presetKey: preset.key,
-      name: preset.name,
-      category: preset.category,
-      position: snappedPos.clone(),
-      rotationY: this.currentRotation,
-      width: preset.defaultWidth,
-      length: preset.defaultLength,
-      floorCount: preset.defaultFloorCount,
-      floorHeight: preset.floorHeight,
-      roofType: preset.defaultRoofType,
-      roofOverhang: preset.defaultRoofOverhang,
-      wallMaterial: preset.defaultWallMaterial,
-      wallColor: preset.defaultWallColor,
-      roofMaterial: preset.defaultRoofMaterial
-    };
+    let instance: BuildingInstance;
+
+    if (this.customBuildingTemplate) {
+      const tmpl = this.customBuildingTemplate;
+      instance = {
+        id,
+        presetKey: tmpl.presetKey || 'custom_designer',
+        name: tmpl.name || 'Bangunan Kustom',
+        category: tmpl.category || 'residential',
+        position: placedPos,
+        rotationY: this.currentRotation,
+        width: bWidth,
+        length: bLength,
+        floorCount: tmpl.floorCount || 2,
+        floorHeight: tmpl.floorHeight || 3.2,
+        roofType: tmpl.roofType || 'hip',
+        roofOverhang: tmpl.roofOverhang || 1.2,
+        wallMaterial: tmpl.wallMaterial || 'plaster',
+        wallColor: tmpl.wallColor || '#f8fafc',
+        roofMaterial: (tmpl.roofMaterial || 'dark_zinc') as any,
+        massingShape: tmpl.massingShape,
+        windowStyle: tmpl.windowStyle,
+        hasBalcony: tmpl.hasBalcony,
+        hasSunLouvers: tmpl.hasSunLouvers,
+        hasVerticalGarden: tmpl.hasVerticalGarden,
+        hasFrontArcade: tmpl.hasFrontArcade,
+        useBasePlinthMaterial: tmpl.useBasePlinthMaterial,
+        baseMaterial: tmpl.baseMaterial,
+        mullionColor: tmpl.mullionColor,
+        hasSkylight: tmpl.hasSkylight,
+        hasSolarPV: tmpl.hasSolarPV
+      };
+    } else {
+      const preset = PREFAB_CATALOG[this.activePresetKey];
+      if (!preset) return;
+      instance = {
+        id,
+        presetKey: preset.key,
+        name: preset.name,
+        category: preset.category,
+        position: placedPos,
+        rotationY: this.currentRotation,
+        width: preset.defaultWidth,
+        length: preset.defaultLength,
+        floorCount: preset.defaultFloorCount,
+        floorHeight: preset.floorHeight,
+        roofType: preset.defaultRoofType,
+        roofOverhang: preset.defaultRoofOverhang,
+        wallMaterial: preset.defaultWallMaterial,
+        wallColor: preset.defaultWallColor,
+        roofMaterial: preset.defaultRoofMaterial
+      };
+    }
 
     // Execute via CommandManager for full Undo/Redo capability!
     if (this.engine) {
       const command = new AddBuildingCommand(this.engine, instance);
       this.engine.commandManager.execute(command);
+
+      // Check if placed building caused regulatory violations on its lot
+      const lot = this.engine.lotManager.getLotAtPosition(placedPos.x, placedPos.z);
+      if (lot && (lot.violations.length > 0 || lot.metrics.kdbPercent > (ZONE_RULES[lot.zone]?.maxKDB ?? 60))) {
+        const violationDetails = lot.violations.join(' • ') || `KDB ${Math.round(lot.metrics.kdbPercent)}% (Maks ${ZONE_RULES[lot.zone]?.maxKDB}%)`;
+        showSnackbar({
+          variant: 'warning',
+          title: 'Peringatan Regulasi Tata Ruang',
+          detail: violationDetails,
+          action: {
+            label: 'Perbaiki Sekarang',
+            onClick: () => {
+              if (this.engine && lot) {
+                const b = this.engine.buildingManager.buildings.get(id);
+                if (b) {
+                  AutoFixService.applyAutoFix(this.engine, lot, b);
+                }
+              }
+            },
+          },
+          groupKey: `violation_lot_${lot.id}`,
+        });
+      }
     } else {
       this.buildingManager.addBuilding(instance);
     }
 
     proceduralAudio.playPlaceBuilding();
+    proceduralAudio.playTaptic('boundary');
   }
 
   public update(): void {
     if (!this.ghostGroup) return;
 
     if (this.raycastManager.isHoveringGround) {
-      const snapped = this.raycastManager.snappedPoint;
+      const snapped = this.raycastManager.snappedPoint.clone();
+      const preset = PREFAB_CATALOG[this.activePresetKey];
+      const width = this.customBuildingTemplate ? (this.customBuildingTemplate.width || 10) : (preset ? preset.defaultWidth : 6);
+      const length = this.customBuildingTemplate ? (this.customBuildingTemplate.length || 12) : (preset ? preset.defaultLength : 10);
+
+      // 1. Auto-Rotate towards nearest road (Magnetic Street Alignment within 25m)
+      if (this.engine?.roadManager) {
+        const nearestRoad = this.engine.roadManager.findNearestRoadWithTangent(snapped, 25);
+        if (nearestRoad) {
+          this.isNearRoad = true;
+          // Calculate angle so front facade faces the road
+          const toRoadX = nearestRoad.nearestPoint.x - snapped.x;
+          const toRoadZ = nearestRoad.nearestPoint.z - snapped.z;
+          this.autoRotationAngle = Math.atan2(toRoadX, toRoadZ);
+          this.currentRotation = (this.autoRotationAngle + this.manualRotationOffset) % (Math.PI * 2);
+        } else {
+          this.isNearRoad = false;
+          this.currentRotation = this.manualRotationOffset;
+        }
+      }
+
+      // 2. Adaptive Terrain Plinth: anchor height to highest ground elevation under footprint
+      const highestY = this.getHighestFootprintGroundY(snapped, width, length, this.currentRotation);
+      snapped.y = highestY;
+
       this.ghostGroup.position.copy(snapped);
+      this.ghostGroup.rotation.y = this.currentRotation;
       this.ghostGroup.visible = true;
 
-      const preset = PREFAB_CATALOG[this.activePresetKey];
-      if (preset) {
-        const isColliding = this.checkCollision(snapped, preset.defaultWidth, preset.defaultLength, this.currentRotation);
-        const nextValid = !isColliding;
-        if (nextValid !== this.isPlacementValid) {
-          this.isPlacementValid = nextValid;
-          this.updateGhostGroupMaterial(this.ghostGroup, this.isPlacementValid);
+      // 3. Collision check
+      const isColliding = this.checkCollision(snapped, width, length, this.currentRotation);
+      const nextValid = !isColliding;
+      if (nextValid !== this.isPlacementValid) {
+        if (!nextValid) {
+          proceduralAudio.playTaptic('boundary');
+        }
+        this.isPlacementValid = nextValid;
+        this.updateGhostGroupMaterial(this.ghostGroup, this.isPlacementValid);
+      }
+
+      // 4. Real-time GSB guideline & boundary feedback
+      if (this.engine?.lotManager && this.engine.spatialHighlighter) {
+        const lot = this.engine.lotManager.getLotAtPosition(snapped.x, snapped.z);
+        if (lot) {
+          const zoneRule = ZONE_RULES[lot.zone];
+          const minSide = zoneRule?.minGSBSide ?? 1.5;
+          const minFront = zoneRule?.minGSBFront ?? 3.0;
+          const minRear = zoneRule?.minGSBRear ?? 2.0;
+
+          const hwSafe = Math.max(0.5, (lot.width - minSide * 2) / 2);
+          const hlSafe = Math.max(0.5, (lot.length - minFront - minRear) / 2);
+          const offsetZ = (minFront - minRear) / 2;
+
+          const candCorners = this.getFootprintCorners(snapped, width, length, this.currentRotation, 0);
+
+          let isGsbCompliant = true;
+          for (const c of candCorners) {
+            const relX = c.x - lot.position.x;
+            const relZ = c.y - lot.position.z - offsetZ;
+
+            if (Math.abs(relX) > hwSafe || Math.abs(relZ) > hlSafe) {
+              isGsbCompliant = false;
+              break;
+            }
+          }
+
+          if (this.lastGsbCompliant !== isGsbCompliant) {
+            if (!isGsbCompliant && this.lastGsbCompliant !== null) {
+              proceduralAudio.playTaptic('boundary');
+            }
+            this.lastGsbCompliant = isGsbCompliant;
+          }
+
+          this.engine.spatialHighlighter.showGsbGuideline(lot, isGsbCompliant);
+        } else {
+          this.engine.spatialHighlighter.hideGsbGuideline();
+          this.lastGsbCompliant = null;
         }
       }
     } else {
       this.ghostGroup.visible = false;
+      if (this.engine?.spatialHighlighter) {
+        this.engine.spatialHighlighter.hideGsbGuideline();
+      }
+      this.lastGsbCompliant = null;
     }
   }
 
@@ -306,9 +536,15 @@ export class BuildingTool {
     if (this.ghostGroup) {
       this.ghostGroup.visible = visible;
     }
+    if (!visible && this.engine?.spatialHighlighter) {
+      this.engine.spatialHighlighter.hideGsbGuideline();
+    }
   }
 
   public dispose(): void {
+    if (this.engine?.spatialHighlighter) {
+      this.engine.spatialHighlighter.hideGsbGuideline();
+    }
     this.disposeGhostGroup();
   }
 }

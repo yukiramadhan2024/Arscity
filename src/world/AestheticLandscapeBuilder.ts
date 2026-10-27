@@ -175,7 +175,7 @@ export class AestheticLandscapeBuilder {
 
     const canopyGeom = this.safeMerge([c0, c1, c2, c3, c4, c5]);
     const canopyMat = new THREE.MeshStandardMaterial({
-      color: isPink ? 0xf472b6 : 0xfacc15,
+      color: isPink ? 0xdf98a8 : 0xddb46c, // Soft natural blossom blush & warm subdued golden floral
       roughness: 0.75,
       metalness: 0.02,
     });
@@ -190,11 +190,11 @@ export class AestheticLandscapeBuilder {
     const petalGeom = new THREE.CylinderGeometry(rad * 0.88, rad * 0.92, 0.02, 16);
     petalGeom.translate(0, 0.01, 0);
     const petalMat = new THREE.MeshStandardMaterial({
-      color: isPink ? 0xfbcfe8 : 0xfef08a,
+      color: isPink ? 0xebd2d8 : 0xede0b8,
       roughness: 0.88,
       metalness: 0.02,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.65,
     });
     const petalMesh = new THREE.Mesh(petalGeom, petalMat);
     petalMesh.receiveShadow = true;

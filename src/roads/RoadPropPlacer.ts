@@ -1,6 +1,24 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { applyWindShader, applyFoliageSubsurfaceShader } from '../materials/WindShader';
+import type { RoadEdge, RoadProfile } from './RoadTypes';
+import type { RoadGraph } from './RoadGraph';
+import type { RoadManager } from './RoadManager';
+
+export interface RoadPropPlacementContext {
+  edge: RoadEdge;
+  profile: RoadProfile;
+  graph: RoadGraph;
+  group: THREE.Group;
+  points: THREE.Vector3[];
+  normals: THREE.Vector3[];
+  distances: number[];
+  effectiveGroundY: number[];
+  segments: number;
+  startRadius: number;
+  endRadius: number;
+  roadManager?: RoadManager;
+}
 
 export class RoadPropPlacer {
   private static lightPoleGeom: THREE.BufferGeometry | null = null;
@@ -12,6 +30,150 @@ export class RoadPropPlacer {
   private static treeTrunkMat: THREE.MeshStandardMaterial | null = null;
   private static treeFoliageGeom: THREE.BufferGeometry | null = null;
   private static treeFoliageMat: THREE.MeshStandardMaterial | null = null;
+
+  /**
+   * Calculates lateral offset for corridor props (trees, lamps, bollards, benches)
+   * following the mandatory formula:
+   * lateralOffset = (edge.width * 0.5) + Math.max(0.8, edge.sidewalkWidth * 0.65)
+   */
+  public static calculateLateralOffset(width: number, sidewalkWidth: number): number {
+    return (width * 0.5) + Math.max(0.8, sidewalkWidth * 0.65);
+  }
+
+  /**
+   * Places streetlights, bollards, benches, shade trees, and planter pits along a road edge.
+   * Ensures all props stay outside the asphalt carriageway and skips points overlapping intersecting roads.
+   */
+  public static placeRoadProps(ctx: RoadPropPlacementContext): void {
+    const {
+      edge,
+      profile,
+      graph,
+      group,
+      points,
+      normals,
+      effectiveGroundY,
+      segments,
+      startRadius,
+      endRadius,
+      roadManager
+    } = ctx;
+
+    const halfWidth = profile.width * 0.5;
+    const swWidth = profile.sidewalkWidth || 0;
+    const lateralOffset = RoadPropPlacer.calculateLateralOffset(profile.width, swWidth);
+
+    // 1. Street Lights, Companion Bollards, and Park Benches
+    const lightTransforms: THREE.Matrix4[] = [];
+    if (profile.hasStreetLights && profile.lightSpacing > 0) {
+      let d = Math.max(startRadius + 3.0, profile.lightSpacing * 0.5);
+      while (d < edge.length - endRadius - 3.0) {
+        const t = d / edge.length;
+        const pt = graph.sampleBezier(edge.controlPoints, t);
+        const segIdx = Math.min(segments, Math.floor(t * segments));
+        const norm = normals[segIdx];
+        const gy = effectiveGroundY[segIdx];
+
+        // Street light position (positive normal)
+        const lightOffset = lateralOffset;
+        const lightPos = pt.clone().addScaledVector(norm, lightOffset);
+        lightPos.y = gy + (profile.curbHeight || 0.16);
+
+        // Check if lightPos falls on another road's asphalt
+        const lightOverlapsOtherRoad = roadManager
+          ? roadManager.isPointOnRoadAsphalt(lightPos.x, lightPos.z, 0.4, edge.id)
+          : false;
+
+        if (!lightOverlapsOtherRoad) {
+          const m = new THREE.Matrix4();
+          m.makeRotationY(Math.atan2(norm.x, norm.z));
+          m.setPosition(lightPos);
+          lightTransforms.push(m);
+
+          // Add companion bollard light nearby on sidewalk
+          if (swWidth > 0 && d + 6 < edge.length - endRadius - 2.0) {
+            const bollardOffset = lateralOffset;
+            const bollardPos = pt.clone().addScaledVector(norm, bollardOffset);
+            bollardPos.y = gy + (profile.curbHeight || 0.16);
+
+            const bollardOverlaps = roadManager
+              ? roadManager.isPointOnRoadAsphalt(bollardPos.x, bollardPos.z, 0.4, edge.id)
+              : false;
+
+            if (!bollardOverlaps) {
+              group.add(RoadPropPlacer.createBollardLight(bollardPos));
+            }
+          }
+        }
+
+        // Add park bench between light intervals
+        if (swWidth >= 2.5 && d + profile.lightSpacing * 0.4 < edge.length - endRadius - 2.0) {
+          const benchT = (d + profile.lightSpacing * 0.4) / edge.length;
+          const benchBase = graph.sampleBezier(edge.controlPoints, benchT);
+          const benchSegIdx = Math.min(segments, Math.floor(benchT * segments));
+          const benchNorm = normals[benchSegIdx];
+          const benchGy = effectiveGroundY[benchSegIdx];
+
+          const benchOffset = lateralOffset;
+          const benchPos = benchBase.clone().addScaledVector(benchNorm, benchOffset);
+          benchPos.y = benchGy + (profile.curbHeight || 0.16);
+
+          const benchOverlaps = roadManager
+            ? roadManager.isPointOnRoadAsphalt(benchPos.x, benchPos.z, 0.4, edge.id)
+            : false;
+
+          if (!benchOverlaps) {
+            const rotY = Math.atan2(benchNorm.x, benchNorm.z) + Math.PI;
+            group.add(RoadPropPlacer.createParkBench(benchPos, rotY));
+          }
+        }
+
+        d += profile.lightSpacing;
+      }
+    }
+
+    // 2. Trees and Planter Pits (negative normal flank)
+    const treeTransforms: THREE.Matrix4[] = [];
+    if (profile.hasTrees && profile.treeSpacing > 0 && swWidth > 0) {
+      let d = Math.max(startRadius + 3.0, profile.treeSpacing * 0.7);
+      while (d < edge.length - endRadius - 3.0) {
+        const t = d / edge.length;
+        const pt = graph.sampleBezier(edge.controlPoints, t);
+        const segIdx = Math.min(segments, Math.floor(t * segments));
+        const norm = normals[segIdx];
+        const gy = effectiveGroundY[segIdx];
+
+        const treeOffset = -lateralOffset;
+        const treePos = pt.clone().addScaledVector(norm, treeOffset);
+        treePos.y = gy + (profile.curbHeight || 0.16);
+
+        // Check if treePos falls on another road's asphalt
+        const treeOverlapsOtherRoad = roadManager
+          ? roadManager.isPointOnRoadAsphalt(treePos.x, treePos.z, 0.4, edge.id)
+          : false;
+
+        if (!treeOverlapsOtherRoad) {
+          const scale = 0.95 + ((Math.floor(d) * 31) % 5) * 0.05;
+          const m = new THREE.Matrix4();
+          m.makeScale(scale, scale, scale);
+          m.setPosition(treePos);
+          treeTransforms.push(m);
+
+          // Tree Planter Pit around every tree
+          group.add(RoadPropPlacer.createTreePlanterPit(treePos));
+        }
+
+        d += profile.treeSpacing;
+      }
+    }
+
+    if (lightTransforms.length > 0) {
+      RoadPropPlacer.addInstancedLights(group, lightTransforms);
+    }
+    if (treeTransforms.length > 0) {
+      RoadPropPlacer.addInstancedTrees(group, treeTransforms);
+    }
+  }
 
   private static initMaterials(): void {
     if (this.lightPoleGeom) return;

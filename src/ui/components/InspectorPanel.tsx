@@ -20,6 +20,7 @@ import {
 } from '../../core/commands/CityCommands';
 import {
   X,
+  Copy,
   Trash2,
   Route,
   Building,
@@ -43,7 +44,8 @@ import {
   Wand2,
   Sun,
   Zap,
-  Activity
+  Activity,
+  DraftingCompass
 } from 'lucide-react';
 import { structuralChecker } from '../../simulation/StructuralChecker';
 import { costEstimator } from '../../simulation/CostEstimator';
@@ -113,7 +115,7 @@ const WhyCard: React.FC<{ principle: WhyPrinciple; targetPos?: THREE.Vector3 }> 
 };
 
 export const InspectorPanel: React.FC = () => {
-  const { engine, inspectorVisible, setInspectorVisible } = useUIStore();
+  const { engine, inspectorVisible, setInspectorVisible, setCustomBuildingModalOpen } = useUIStore();
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [showAdvancedPhysics, setShowAdvancedPhysics] = useState<boolean>(false);
 
@@ -166,7 +168,7 @@ export const InspectorPanel: React.FC = () => {
   if (!isExpanded) {
     return (
       <motion.aside
-        className="inspector-panel interactive"
+        className="inspector-panel interactive arscity-glass-bar"
         initial={{ opacity: 0, x: 28, scale: 0.96 }}
         animate={{ opacity: 1, x: 0, scale: 1 }}
         exit={{ opacity: 0, x: 28, scale: 0.96 }}
@@ -336,7 +338,7 @@ export const InspectorPanel: React.FC = () => {
 
     return (
       <motion.aside
-        className="inspector-panel interactive"
+        className="inspector-panel interactive arscity-glass-bar"
         initial={{ opacity: 0, x: 28, scale: 0.96 }}
         animate={{ opacity: 1, x: 0, scale: 1 }}
         exit={{ opacity: 0, x: 28, scale: 0.96 }}
@@ -635,6 +637,15 @@ export const InspectorPanel: React.FC = () => {
               </button>
             )}
             <button
+              onClick={() => setCustomBuildingModalOpen(true)}
+              className="ios-btn"
+              style={{ width: '100%', height: '36px', marginBottom: '8px' }}
+              title="Studio Rancang Bangunan (Studio CAD)"
+            >
+              <DraftingCompass size={15} strokeWidth={1.75} />
+              <span>Studio Rancang Bangunan (Studio CAD)</span>
+            </button>
+            <button
               onClick={handleDeleteLot}
               className="ios-btn ios-btn-destructive"
               style={{ width: '100%', height: '36px' }}
@@ -710,7 +721,7 @@ export const InspectorPanel: React.FC = () => {
 
     return (
       <motion.aside
-        className="inspector-panel interactive"
+        className="inspector-panel interactive arscity-glass-bar"
         initial={{ opacity: 0, x: 28, scale: 0.96 }}
         animate={{ opacity: 1, x: 0, scale: 1 }}
         exit={{ opacity: 0, x: 28, scale: 0.96 }}
@@ -1481,12 +1492,30 @@ export const InspectorPanel: React.FC = () => {
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
             <button
+              onClick={() => setCustomBuildingModalOpen(true)}
+              className="ios-btn"
+              style={{ flex: 1, height: '36px' }}
+              title="Studio Rancang Bangunan (Studio CAD)"
+            >
+              <DraftingCompass size={15} strokeWidth={1.75} />
+              <span>Studio CAD</span>
+            </button>
+            <button
               onClick={handleInspectFacade}
               className="ios-btn"
               style={{ flex: 1, height: '36px' }}
             >
               <Eye size={15} strokeWidth={1.75} />
               <span>Inspeksi Fasad</span>
+            </button>
+            <button
+              onClick={() => engine?.duplicateSelection()}
+              className="ios-btn"
+              style={{ height: '36px' }}
+              title="Duplikasi Bangunan (Ctrl+D)"
+              aria-label="Duplikasi Bangunan"
+            >
+              <Copy size={15} strokeWidth={1.75} />
             </button>
             <button
               onClick={handleDeleteBuilding}
@@ -1534,7 +1563,7 @@ export const InspectorPanel: React.FC = () => {
 
   return (
     <motion.aside
-      className="inspector-panel interactive"
+      className="inspector-panel interactive arscity-glass-bar"
       initial={{ opacity: 0, x: 28, scale: 0.96 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 28, scale: 0.96 }}

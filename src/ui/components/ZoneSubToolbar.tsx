@@ -48,15 +48,9 @@ export const ZoneSubToolbar: React.FC = () => {
   return (
     <div className="sub-dock-wrapper" style={{ pointerEvents: 'none' }}>
       <div
-        className="glass-surface sub-dock-container interactive"
+        className="glass-surface sub-dock-container interactive arscity-glass-bar"
         style={{
-          background: 'rgba(15, 23, 42, 0.86)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.14)',
           borderRadius: '24px',
-          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-          color: '#F8FAFC'
         }}
       >
         {/* Zone Buttons */}
@@ -76,9 +70,10 @@ export const ZoneSubToolbar: React.FC = () => {
                   gap: '6px',
                   padding: '4px 10px',
                   borderRadius: '9999px',
-                  background: isSel ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
-                  border: isSel ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid transparent',
-                  color: isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                  background: isSel ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
+                  border: isSel ? '1.5px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.08)',
+                  color: isSel ? '#0F172A' : '#475569',
+                  boxShadow: isSel ? '0 1px 4px rgba(15, 23, 42, 0.10)' : 'none',
                   cursor: 'pointer'
                 }}
                 title={`${rule.name} (KDB maks ${rule.maxKDB}%, KLB ${rule.maxKLB})`}
@@ -92,7 +87,7 @@ export const ZoneSubToolbar: React.FC = () => {
                     flexShrink: 0
                   }}
                 />
-                <span style={{ fontSize: '12px', fontWeight: isSel ? 600 : 500 }}>
+                <span style={{ fontSize: '12px', fontWeight: isSel ? 700 : 500 }}>
                   {rule.name.split(' (')[0]}
                 </span>
               </button>
@@ -100,12 +95,12 @@ export const ZoneSubToolbar: React.FC = () => {
           })}
         </div>
 
-        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.15)' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
 
         {/* Lot Size Segmented Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8' }}>Kavling:</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Kavling:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#E2E8F0', padding: '2px', borderRadius: '9999px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
             {[
               { w: 8, l: 15, label: '8x15m', title: 'Kavling Kecil 8x15m' },
               { w: 10, l: 20, label: '10x20m', title: 'Kavling Sedang 10x20m' },
@@ -121,11 +116,12 @@ export const ZoneSubToolbar: React.FC = () => {
                   style={{
                     padding: '3px 8px',
                     borderRadius: '9999px',
-                    border: isSel ? '1px solid rgba(56, 189, 248, 0.55)' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: isSel ? 'rgba(56, 189, 248, 0.22)' : 'rgba(255, 255, 255, 0.04)',
-                    color: isSel ? '#ffffff' : 'rgba(226, 232, 240, 0.85)',
+                    border: 'none',
+                    background: isSel ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
+                    color: isSel ? '#007AFF' : '#475569',
+                    boxShadow: isSel ? '0 1px 4px rgba(15, 23, 42, 0.12)' : 'none',
                     fontSize: '11px',
-                    fontWeight: isSel ? 600 : 500,
+                    fontWeight: isSel ? 700 : 500,
                     cursor: 'pointer'
                   }}
                 >
@@ -136,7 +132,7 @@ export const ZoneSubToolbar: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.15)' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
 
         {/* Smart Block Subdivider Button (Fitur v3.1) */}
         <button
@@ -147,9 +143,9 @@ export const ZoneSubToolbar: React.FC = () => {
             gap: '5px',
             padding: '4px 10px',
             borderRadius: '9999px',
-            background: 'rgba(56, 189, 248, 0.16)',
-            border: '1px solid rgba(56, 189, 248, 0.4)',
-            color: '#38bdf8',
+            background: 'rgba(10, 132, 255, 0.14)',
+            border: '1px solid rgba(10, 132, 255, 0.4)',
+            color: '#007AFF',
             fontSize: '11px',
             fontWeight: 600,
             cursor: 'pointer'
@@ -169,9 +165,9 @@ export const ZoneSubToolbar: React.FC = () => {
             gap: '5px',
             padding: '4px 10px',
             borderRadius: '9999px',
-            background: 'rgba(52, 199, 89, 0.16)',
+            background: 'rgba(52, 199, 89, 0.14)',
             border: '1px solid rgba(52, 199, 89, 0.4)',
-            color: '#34c759',
+            color: '#248A3D',
             fontSize: '11px',
             fontWeight: 600,
             cursor: 'pointer'

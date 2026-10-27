@@ -204,7 +204,9 @@ export class InteriorMeshBuilder {
     floorHeight: number,
     buildingId: string = 'bld_default',
     buildingArchetype: string = 'residential',
-    buildingWorldPos: THREE.Vector3 = new THREE.Vector3(0, 0, 0)
+    buildingWorldPos: THREE.Vector3 = new THREE.Vector3(0, 0, 0),
+    overrideFloorMaterial?: string,
+    overrideFloorColor?: string
   ): THREE.Group {
     const group = new THREE.Group();
     group.name = `FloorInterior_L${layout.floorIndex}`;
@@ -242,6 +244,7 @@ export class InteriorMeshBuilder {
         // Solid partition wall
         const geo = new THREE.BoxGeometry(len, h, th);
         const mesh = new THREE.Mesh(geo, wallMat);
+        mesh.userData = { surfaceType: 'wall', buildingId };
         const mid = new THREE.Vector2().addVectors(p1, p2).multiplyScalar(0.5);
         mesh.position.set(mid.x, baseY + h * 0.5, mid.y);
         mesh.rotation.y = -angle;
@@ -413,8 +416,12 @@ export class InteriorMeshBuilder {
       shape.closePath();
 
       const floorGeo = new THREE.ShapeGeometry(shape);
-      const floorMat = room.type === 'bathroom' ? bathTileMat : tileMat;
+      const customFloorMat = overrideFloorMaterial
+        ? this.getMaterial(overrideFloorMaterial, overrideFloorColor)
+        : null;
+      const floorMat = customFloorMat || (room.type === 'bathroom' ? bathTileMat : tileMat);
       const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.userData = { surfaceType: 'floor', buildingId };
       floorMesh.rotation.x = -Math.PI * 0.5;
       floorMesh.position.y = baseY + 0.02; // Just above structural slab
       floorMesh.receiveShadow = true;

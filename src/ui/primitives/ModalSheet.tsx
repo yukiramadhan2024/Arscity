@@ -60,7 +60,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             padding: '16px',
-            background: 'var(--overlay)',
+            background: 'rgba(15, 23, 42, 0.35)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
           }}
@@ -78,15 +78,15 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
               width: typeof width === 'number' ? `${width}px` : width,
               maxWidth: '94vw',
               maxHeight: typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight,
-              background: 'var(--surface)',
+              background: 'rgba(244, 247, 251, 0.94)',
               borderRadius: 'var(--radius-xl, 20px)',
-              border: '1px solid var(--hairline)',
-              boxShadow: '0 0 0 1px rgba(15, 23, 42, 0.08), 0 20px 50px rgba(15, 23, 42, 0.16)',
+              border: '1px solid rgba(255, 255, 255, 0.95)',
+              boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              backdropFilter: 'blur(var(--glass-blur, 20px))',
-              WebkitBackdropFilter: 'blur(var(--glass-blur, 20px))',
+              backdropFilter: 'blur(24px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(180%)',
             }}
           >
             {/* Header */}
@@ -97,8 +97,8 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '16px 20px',
-                borderBottom: '1px solid var(--hairline)',
-                background: 'var(--surface-raised)',
+                borderBottom: '1px solid #CBD5E1',
+                background: 'transparent',
                 gap: '12px',
                 flexShrink: 0,
               }}
@@ -110,12 +110,12 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                       width: '32px',
                       height: '32px',
                       borderRadius: '8px',
-                      backgroundColor: 'var(--fill-control)',
-                      border: '1px solid var(--hairline)',
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid #CBD5E1',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: 'var(--accent)',
+                      color: '#007AFF',
                       flexShrink: 0,
                     }}
                   >
@@ -128,7 +128,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                       margin: 0,
                       fontSize: '15px',
                       fontWeight: 600,
-                      color: 'var(--label)',
+                      color: '#0F172A',
                       letterSpacing: '-0.01em',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -142,7 +142,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                       style={{
                         margin: '2px 0 0 0',
                         fontSize: '11px',
-                        color: 'var(--label-secondary)',
+                        color: '#475569',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -187,8 +187,8 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                 className="modal-sheet-footer"
                 style={{
                   padding: '12px 20px',
-                  borderTop: '1px solid var(--hairline)',
-                  background: 'var(--surface-raised)',
+                  borderTop: '1px solid #CBD5E1',
+                  background: 'transparent',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'flex-end',

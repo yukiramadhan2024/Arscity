@@ -54,6 +54,18 @@ export interface SerializedBuilding {
   customColor?: string;
   wallTexture?: string;
   interiorVariant?: string;
+  massingShape?: string;
+  windowStyle?: string;
+  hasBalcony?: boolean;
+  hasSunLouvers?: boolean;
+  hasVerticalGarden?: boolean;
+  hasFrontArcade?: boolean;
+  useBasePlinthMaterial?: boolean;
+  baseMaterial?: string;
+  mullionColor?: string;
+  hasSkylight?: boolean;
+  placedFurniture?: any[];
+  floorMaterial?: string;
 }
 
 export interface SerializedCustomBuilding {
@@ -87,6 +99,16 @@ export interface SerializedCustomBuilding {
   wallMaterial: string;
   wallColor: string;
   lotId?: string;
+  massingShape?: string;
+  windowStyle?: string;
+  hasBalcony?: boolean;
+  hasSunLouvers?: boolean;
+  hasVerticalGarden?: boolean;
+  hasFrontArcade?: boolean;
+  useBasePlinthMaterial?: boolean;
+  baseMaterial?: string;
+  mullionColor?: string;
+  hasSkylight?: boolean;
 }
 
 export interface SerializedLot {
@@ -349,6 +371,18 @@ export class CitySerializer {
         hasSolarPV: building.hasSolarPV,
         customColor: building.customColor,
         wallTexture: building.wallTexture,
+        massingShape: building.massingShape,
+        windowStyle: building.windowStyle,
+        hasBalcony: building.hasBalcony,
+        hasSunLouvers: building.hasSunLouvers,
+        hasVerticalGarden: building.hasVerticalGarden,
+        hasFrontArcade: building.hasFrontArcade,
+        useBasePlinthMaterial: building.useBasePlinthMaterial,
+        baseMaterial: building.baseMaterial,
+        mullionColor: building.mullionColor,
+        hasSkylight: building.hasSkylight,
+        placedFurniture: building.userData?.placedFurniture || [],
+        floorMaterial: building.userData?.floorMaterial,
       });
     });
 
@@ -554,6 +588,20 @@ export class CitySerializer {
           hasSolarPV: b.hasSolarPV,
           customColor: b.customColor,
           wallTexture: b.wallTexture,
+          massingShape: b.massingShape,
+          windowStyle: b.windowStyle,
+          hasBalcony: b.hasBalcony,
+          hasSunLouvers: b.hasSunLouvers,
+          hasVerticalGarden: b.hasVerticalGarden,
+          hasFrontArcade: b.hasFrontArcade,
+          useBasePlinthMaterial: b.useBasePlinthMaterial,
+          baseMaterial: b.baseMaterial,
+          mullionColor: b.mullionColor,
+          hasSkylight: b.hasSkylight,
+          userData: {
+            placedFurniture: b.placedFurniture || [],
+            floorMaterial: b.floorMaterial
+          }
         };
         engine.buildingManager.addBuilding(instance);
       });
@@ -587,6 +635,16 @@ export class CitySerializer {
                 walls: fl.walls as any,
               })),
               customRoof: cb.roof as any,
+              massingShape: cb.massingShape,
+              windowStyle: cb.windowStyle,
+              hasBalcony: cb.hasBalcony,
+              hasSunLouvers: cb.hasSunLouvers,
+              hasVerticalGarden: cb.hasVerticalGarden,
+              hasFrontArcade: cb.hasFrontArcade,
+              useBasePlinthMaterial: cb.useBasePlinthMaterial,
+              baseMaterial: cb.baseMaterial,
+              mullionColor: cb.mullionColor,
+              hasSkylight: cb.hasSkylight,
             };
             engine.buildingManager.addBuilding(instance);
           }

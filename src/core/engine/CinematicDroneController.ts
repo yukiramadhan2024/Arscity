@@ -64,6 +64,11 @@ export class CinematicDroneController {
   public currentLens: DslrLensType = '50mm';
   private savedFov: number = 45;
 
+  // Reusable scratch vectors to eliminate 60fps render loop GC pressure
+  private readonly _scratchCamPos: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchTangent: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchLookTarget: THREE.Vector3 = new THREE.Vector3();
+
   // Callbacks
   public onStateChanged?: (state: DroneTourState) => void;
   public onRecordingStateChanged?: (isRecording: boolean, seconds: number) => void;
@@ -251,8 +256,8 @@ export class CinematicDroneController {
       }
 
       // 1. Spline position interpolation
-      const camPos = this.splineCurve.getPointAt(this.progress);
-      this.camera.position.copy(camPos);
+      this.splineCurve.getPointAt(this.progress, this._scratchCamPos);
+      this.camera.position.copy(this._scratchCamPos);
 
       // 2. Quaternion Slerp orientation interpolation
       const segCount = this.customKeyframes.length - 1;
@@ -288,14 +293,14 @@ export class CinematicDroneController {
       this.progress = 0.0;
     }
 
-    const camPos = this.splineCurve.getPointAt(this.progress);
-    const tangent = this.splineCurve.getTangentAt(this.progress);
+    this.splineCurve.getPointAt(this.progress, this._scratchCamPos);
+    this.splineCurve.getTangentAt(this.progress, this._scratchTangent);
 
-    this.camera.position.copy(camPos);
+    this.camera.position.copy(this._scratchCamPos);
 
-    const lookTarget = new THREE.Vector3().copy(camPos).add(tangent.multiplyScalar(20));
-    lookTarget.y = Math.max(1.5, lookTarget.y - 3.5);
-    this.camera.lookAt(lookTarget);
+    this._scratchLookTarget.copy(this._scratchCamPos).addScaledVector(this._scratchTangent, 20);
+    this._scratchLookTarget.y = Math.max(1.5, this._scratchLookTarget.y - 3.5);
+    this.camera.lookAt(this._scratchLookTarget);
 
     this.emitState();
   }

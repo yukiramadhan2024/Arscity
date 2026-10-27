@@ -1,12 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useUIStore } from '../state/useUIStore';
-import {
-  Route,
-  Building,
-  Trees,
-  Scissors,
-  LayoutGrid
-} from 'lucide-react';
+import { Route, Building } from 'lucide-react';
 import { ROAD_PROFILES, RoadType } from '../../roads/RoadTypes';
 import { PREFAB_CATALOG } from '../../buildings/PrefabTypes';
 import { BuildingCatalogRegistry } from '../../buildings/BuildingCatalogRegistry';
@@ -18,7 +12,6 @@ export const SpatialCursorTooltip: React.FC = () => {
   const [, setTick] = useState<number>(0);
 
   useEffect(() => {
-    // Throttled 100ms interval for telemetry updates (eliminates 60fps React re-renders)
     const intervalId = window.setInterval(() => {
       setTick((t) => (t + 1) % 1000);
     }, 100);
@@ -43,8 +36,8 @@ export const SpatialCursorTooltip: React.FC = () => {
         return;
       }
 
-      const posX = Math.min(window.innerWidth - 300, Math.max(16, e.clientX + 20));
-      const posY = Math.min(window.innerHeight - 130, Math.max(16, e.clientY + 20));
+      const posX = Math.min(window.innerWidth - 220, Math.max(16, e.clientX + 16));
+      const posY = Math.min(window.innerHeight - 60, Math.max(16, e.clientY + 16));
 
       containerRef.current.style.transform = `translate3d(${posX}px, ${posY}px, 0)`;
       containerRef.current.style.display = 'flex';
@@ -70,146 +63,63 @@ export const SpatialCursorTooltip: React.FC = () => {
     return null;
   }
 
-  const tooltipBaseStyle: React.CSSProperties = {
+  // Hide tooltips for nature, zoning, and terraform to prevent obstructing view
+  if (activeTool === 'nature' || activeTool === 'zone' || activeTool === 'terraform' || activeTool === 'select') {
+    return null;
+  }
+
+  const capsuleStyle: React.CSSProperties = {
     position: 'fixed',
     left: 0,
     top: 0,
     transform: 'translate3d(-999px, -999px, 0)',
     pointerEvents: 'none',
     zIndex: 150,
-    padding: '10px 16px',
-    borderRadius: '16px',
-    background: 'var(--surface-raised)',
-    backdropFilter: 'blur(24px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-    border: '1px solid var(--hairline)',
-    boxShadow: 'var(--shadow-raised)',
+    padding: '5px 12px',
+    borderRadius: '9999px',
+    background: 'rgba(244, 247, 251, 0.92)',
+    backdropFilter: 'blur(20px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    boxShadow: '0 4px 16px rgba(15, 23, 42, 0.12)',
     display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    maxWidth: '290px',
+    alignItems: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
     userSelect: 'none',
-    color: 'var(--label)'
+    color: '#0F172A',
+    fontSize: '11px',
+    fontWeight: 600
   };
 
-  // 1. Telemetri Gizmo Aktif
-  const gizmoTelem = engine.buildingGizmoManager?.liveGizmoTelemetry;
-  if (gizmoTelem && gizmoTelem.active) {
-    const isWarn = !!gizmoTelem.warning;
-    return (
-      <div ref={containerRef} style={tooltipBaseStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: isWarn ? '#FF3B30' : '#007AFF',
-              boxShadow: isWarn ? '0 0 8px rgba(255, 59, 48, 0.6)' : '0 0 8px rgba(0, 122, 255, 0.6)',
-              flexShrink: 0
-            }}
-          />
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            {gizmoTelem.label}
-          </span>
-        </div>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--label)' }} className="tabular-nums font-mono">
-          {gizmoTelem.value}
-        </div>
-        {gizmoTelem.secondary && (
-          <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }} className="tabular-nums">
-            {gizmoTelem.secondary}
-          </div>
-        )}
-        {gizmoTelem.warning && (
-          <div style={{ fontSize: '11px', color: '#FF3B30', fontWeight: 600 }}>
-            {gizmoTelem.warning}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // 2. Telemetri Irisan Bangunan (Section Cut)
-  if (engine.sectionCutManager?.currentMode === 'floor_plan') {
-    const cutH = engine.sectionCutManager.cutHeight;
-    const layerName = engine.sectionCutManager.getInspectedLayerName(cutH);
-    return (
-      <div ref={containerRef} style={tooltipBaseStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: '#007AFF',
-              boxShadow: '0 0 8px rgba(0, 122, 255, 0.6)',
-              flexShrink: 0
-            }}
-          />
-          <Scissors size={13} strokeWidth={2} style={{ color: '#007AFF' }} />
-          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
-            Irisan Denah Lantai
-          </span>
-        </div>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)' }} className="tabular-nums font-mono">
-          Ketinggian: {cutH.toFixed(2)} m
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-          {layerName}
-        </div>
-      </div>
-    );
-  }
-
-  // 3. Telemetri Pembangunan Jalan (Road Tool)
+  // 1. Road Tool Drawing: single-line capsule showing length
   if (activeTool === 'road' && engine.roadTool) {
     const rt = engine.roadTool;
-    const profile = ROAD_PROFILES[rt.activeRoadType as RoadType] || ROAD_PROFILES.local;
-
     if (rt.isDrawing && rt.startPoint) {
       const currentPt = engine.raycastManager.snappedPoint;
       const lengthM = rt.startPoint.distanceTo(currentPt);
-      const dx = currentPt.x - rt.startPoint.x;
-      const dz = currentPt.z - rt.startPoint.z;
-      const angleRad = Math.atan2(dx, dz);
-      let angleDeg = Math.round((angleRad * 180) / Math.PI);
-      if (angleDeg < 0) angleDeg += 360;
-
       const isValid = lengthM >= 2.0 && lengthM <= 400.0;
 
       return (
-        <div ref={containerRef} style={tooltipBaseStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: isValid ? '#007AFF' : '#FF3B30',
-                boxShadow: isValid ? '0 0 8px rgba(0, 122, 255, 0.6)' : '0 0 8px rgba(255, 59, 48, 0.6)',
-                flexShrink: 0
-              }}
-            />
-            <Route size={13} strokeWidth={2} style={{ color: isValid ? '#007AFF' : '#FF3B30' }} />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
-              {profile.name} (Lebar {profile.width}m)
-            </span>
-          </div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)' }} className="tabular-nums font-mono">
-            Panjang: {lengthM.toFixed(1)} m | Sudut: {angleDeg}°
-          </div>
-          {!isValid && (
-            <div style={{ fontSize: '11px', color: '#FF3B30', fontWeight: 600 }}>
-              {lengthM < 2.0 ? 'Segmen terlalu pendek (< 2.0 m)' : 'Melebihi panjang maksimal (400 m)'}
-            </div>
-          )}
+        <div ref={containerRef} style={capsuleStyle}>
+          <span
+            style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              backgroundColor: isValid ? '#007AFF' : '#FF3B30',
+              boxShadow: isValid ? '0 0 6px rgba(0, 122, 255, 0.6)' : '0 0 6px rgba(255, 59, 48, 0.6)',
+              flexShrink: 0
+            }}
+          />
+          <Route size={12} strokeWidth={2} style={{ color: isValid ? '#007AFF' : '#FF3B30' }} />
+          <span>Panjang: {lengthM.toFixed(1)}m</span>
         </div>
       );
     }
   }
 
-  // 4. Telemetri Penempatan Bangunan (Building Tool)
+  // 2. Building Placement: single-line capsule showing name and dimensions
   if (activeTool === 'build' && engine.buildingTool) {
     const bt = engine.buildingTool;
     const catalogItem = BuildingCatalogRegistry.getBuilding(bt.activePresetKey);
@@ -219,98 +129,24 @@ export const SpatialCursorTooltip: React.FC = () => {
     const length = catalogItem?.defaultLength || legacyItem?.defaultLength;
 
     if (name && width && length) {
-      const rotDeg = Math.round(((bt.currentRotation * 180) / Math.PI) % 360);
-      const groundPos = engine.raycastManager.snappedPoint;
-      const lot = engine.lotManager?.findLotAtPosition(groundPos.x, groundPos.z);
       const isValid = bt.isPlacementValid;
-
       return (
-        <div ref={containerRef} style={tooltipBaseStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: isValid ? '#007AFF' : '#FF3B30',
-                boxShadow: isValid ? '0 0 8px rgba(0, 122, 255, 0.6)' : '0 0 8px rgba(255, 59, 48, 0.6)',
-                flexShrink: 0
-              }}
-            />
-            <Building size={13} strokeWidth={2} style={{ color: isValid ? '#007AFF' : '#FF3B30' }} />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
-              {name}
-            </span>
-          </div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)' }} className="tabular-nums font-mono">
-            Dimensi: {width}m × {length}m | Rotasi: {rotDeg}°
-          </div>
-          {lot ? (
-            <div style={{ fontSize: '11px', color: '#16A34A', fontWeight: 600 }}>
-              Kavling {lot.name} ({lot.zone})
-            </div>
-          ) : (
-            <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-              Lahan Bebas (Tekan [R] untuk memutar 90°)
-            </div>
-          )}
+        <div ref={containerRef} style={capsuleStyle}>
+          <span
+            style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              backgroundColor: isValid ? '#007AFF' : '#FF3B30',
+              boxShadow: isValid ? '0 0 6px rgba(0, 122, 255, 0.6)' : '0 0 6px rgba(255, 59, 48, 0.6)',
+              flexShrink: 0
+            }}
+          />
+          <Building size={12} strokeWidth={2} style={{ color: isValid ? '#007AFF' : '#FF3B30' }} />
+          <span>{name} ({width}×{length}m)</span>
         </div>
       );
     }
-  }
-
-  // 5. Telemetri Lansekap & Vegetasi (Landscape / Nature Tool)
-  if (activeTool === 'nature' && engine.landscapeTool) {
-    return (
-      <div ref={containerRef} style={tooltipBaseStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: '#16A34A',
-              boxShadow: '0 0 8px rgba(22, 163, 74, 0.6)',
-              flexShrink: 0
-            }}
-          />
-          <Trees size={14} strokeWidth={2} style={{ color: '#16A34A' }} />
-          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
-            Vegetasi & Resapan Tropis
-          </span>
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--label-secondary)', lineHeight: '1.4' }}>
-          Klik untuk menanam pohon peneduh, taman rumput, atau biopori resapan
-        </div>
-      </div>
-    );
-  }
-
-  // 6. Telemetri Zonasi (Zone Tool)
-  if (activeTool === 'zone' && engine.zoneTool) {
-    return (
-      <div ref={containerRef} style={tooltipBaseStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: '#007AFF',
-              boxShadow: '0 0 8px rgba(0, 122, 255, 0.6)',
-              flexShrink: 0
-            }}
-          />
-          <LayoutGrid size={14} strokeWidth={2} style={{ color: '#007AFF' }} />
-          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--label)' }}>
-            Penataan Zonasi Kavling
-          </span>
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--label-secondary)', lineHeight: '1.4' }}>
-          Klik pada lahan untuk membuat kavling zonasi dan batas sempadan bangunan
-        </div>
-      </div>
-    );
   }
 
   return null;

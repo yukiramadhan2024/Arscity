@@ -294,4 +294,186 @@ export class RoadGraph {
 
     return reachable;
   }
+
+  /**
+   * Finds the closest point on any road edge within maxDist.
+   */
+  public findNearestEdgePoint(
+    point: THREE.Vector3,
+    maxDist?: number
+  ): { edge: RoadEdge; point: THREE.Vector3; distance: number } | null {
+    let bestMatch: { edge: RoadEdge; point: THREE.Vector3; distance: number } | null = null;
+    let minDistance = Infinity;
+
+    for (const edge of this.edges.values()) {
+      if (!edge.controlPoints || edge.controlPoints.length < 2) continue;
+      const pts = edge.controlPoints;
+      const profile = ROAD_PROFILES[edge.type];
+      const edgeWidth = profile ? profile.width : 8.0;
+      const allowedDist = maxDist !== undefined ? maxDist : Math.max(5.0, edgeWidth * 0.5 + 2.0);
+
+      for (let i = 0; i < pts.length - 1; i++) {
+        const pA = pts[i];
+        const pB = pts[i + 1];
+
+        const dx = pB.x - pA.x;
+        const dz = pB.z - pA.z;
+        const segLenSq = dx * dx + dz * dz;
+        if (segLenSq < 0.0001) continue;
+
+        let t = ((point.x - pA.x) * dx + (point.z - pA.z) * dz) / segLenSq;
+        t = Math.max(0, Math.min(1, t));
+
+        const projX = pA.x + t * dx;
+        const projZ = pA.z + t * dz;
+        const dist = Math.hypot(point.x - projX, point.z - projZ);
+
+        if (dist <= allowedDist && dist < minDistance) {
+          minDistance = dist;
+          bestMatch = {
+            edge,
+            point: new THREE.Vector3(projX, 0, projZ),
+            distance: dist
+          };
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * Determines if a node is a true roadway junction (valency >= 3 or sharp turn < 150 deg)
+   * vs a straight-line continuous road segment.
+   */
+  public isJunctionNode(nodeId: string): boolean {
+    const node = this.nodes.get(nodeId);
+    if (!node || node.connectedEdgeIds.length < 2) return false;
+    if (node.connectedEdgeIds.length >= 3) return true;
+
+    // Node with exactly 2 edges: check if collinear
+    const e1 = this.edges.get(node.connectedEdgeIds[0]);
+    const e2 = this.edges.get(node.connectedEdgeIds[1]);
+    if (!e1 || !e2) return false;
+
+    const o1Id = e1.startNodeId === node.id ? e1.endNodeId : e1.startNodeId;
+    const o2Id = e2.startNodeId === node.id ? e2.endNodeId : e2.startNodeId;
+    const o1 = this.nodes.get(o1Id);
+    const o2 = this.nodes.get(o2Id);
+    if (!o1 || !o2) return false;
+
+    const d1 = new THREE.Vector3().subVectors(o1.position, node.position).normalize();
+    const d2 = new THREE.Vector3().subVectors(o2.position, node.position).normalize();
+    d1.y = 0;
+    d2.y = 0;
+    // Dot product > -0.85 means sharp bend (< 150 deg), requiring intersection treatment
+    return d1.dot(d2) > -0.85;
+  }
+
+  /**
+   * Splits an existing edge at a given 3D position, creating a new junction node
+   * and replacing the edge with two connected sub-edges.
+   */
+  public splitEdgeAtPoint(
+    edgeId: string,
+    splitPoint: THREE.Vector3
+  ): { node: RoadNode; edge1: RoadEdge | null; edge2: RoadEdge | null } | null {
+    const edge = this.edges.get(edgeId);
+    if (!edge) return null;
+
+    const startNode = this.nodes.get(edge.startNodeId);
+    const endNode = this.nodes.get(edge.endNodeId);
+    if (!startNode || !endNode) return null;
+
+    // If split point is within 2.5m of an existing endpoint node, reuse it without splitting
+    if (startNode.position.distanceTo(splitPoint) <= 2.5) {
+      return { node: startNode, edge1: edge, edge2: null };
+    }
+    if (endNode.position.distanceTo(splitPoint) <= 2.5) {
+      return { node: endNode, edge1: edge, edge2: null };
+    }
+
+    const roadType = edge.type;
+    const customProfile = edge.customProfile;
+
+    // Create split node at the intersection point
+    const splitNode = this.getOrCreateNode(splitPoint, 1.5);
+
+    // Add two new edges connecting startNode -> splitNode and splitNode -> endNode BEFORE removing old edge
+    // (prevents removeEdge from deleting startNode/endNode as temporary orphans)
+    const edge1 = this.addEdge(startNode.id, splitNode.id, roadType);
+    if (edge1 && customProfile) edge1.customProfile = { ...customProfile };
+
+    const edge2 = this.addEdge(splitNode.id, endNode.id, roadType);
+    if (edge2 && customProfile) edge2.customProfile = { ...customProfile };
+
+    // Remove the old unsplit edge
+    this.removeEdge(edgeId);
+
+    return { node: splitNode, edge1, edge2 };
+  }
+
+  /**
+   * Finds all 2D planar intersections between a line segment [start, end] and existing road edges.
+   */
+  public findCrossings(
+    start: THREE.Vector3,
+    end: THREE.Vector3
+  ): { edge: RoadEdge; point: THREE.Vector3; t: number }[] {
+    const crossings: { edge: RoadEdge; point: THREE.Vector3; t: number }[] = [];
+    const dx1 = end.x - start.x;
+    const dz1 = end.z - start.z;
+    const len1Sq = dx1 * dx1 + dz1 * dz1;
+    if (len1Sq < 1.0) return crossings;
+
+    for (const edge of this.edges.values()) {
+      if (!edge.controlPoints || edge.controlPoints.length < 2) continue;
+      const pts = edge.controlPoints;
+
+      for (let i = 0; i < pts.length - 1; i++) {
+        const pA = pts[i];
+        const pB = pts[i + 1];
+
+        const dx2 = pB.x - pA.x;
+        const dz2 = pB.z - pA.z;
+
+        const denom = dx1 * dz2 - dz1 * dx2;
+        if (Math.abs(denom) < 1e-5) continue; // Parallel
+
+        const ox = pA.x - start.x;
+        const oz = pA.z - start.z;
+        const t1 = (ox * dz2 - oz * dx2) / denom;
+        const t2 = (ox * dz1 - oz * dx1) / denom;
+
+        // Interior intersection (excluding exact node endpoints)
+        if (t1 > 0.04 && t1 < 0.96 && t2 > 0.04 && t2 < 0.96) {
+          const ix = start.x + t1 * dx1;
+          const iz = start.z + t1 * dz1;
+          crossings.push({
+            edge,
+            point: new THREE.Vector3(ix, 0, iz),
+            t: t1
+          });
+        }
+      }
+    }
+
+    // Sort by parameter t1 from start to end
+    crossings.sort((a, b) => a.t - b.t);
+
+    // Deduplicate any crossings that are within 1.5m of each other
+    const filtered: typeof crossings = [];
+    for (const c of crossings) {
+      if (filtered.length === 0) {
+        filtered.push(c);
+      } else {
+        const last = filtered[filtered.length - 1];
+        if (last.point.distanceTo(c.point) > 1.5) {
+          filtered.push(c);
+        }
+      }
+    }
+
+    return filtered;
+  }
 }

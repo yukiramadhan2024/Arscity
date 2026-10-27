@@ -4,6 +4,8 @@ import { InteriorInteractiveSystem, InteractiveDoor, InteractiveSeat } from '../
 import { FirstPersonController } from '../src/core/engine/FirstPersonController';
 import { InteriorMeshBuilder } from '../src/buildings/InteriorMeshBuilder';
 import { InteriorLayout } from '../src/buildings/InteriorTypes';
+import { PrefabMeshBuilder } from '../src/buildings/PrefabMeshBuilder';
+import { BuildingInstance } from '../src/buildings/PrefabTypes';
 import { acousticAnalyzer } from '../src/analysis/AcousticAnalyzer';
 import { ThermalVentilationAnalyzer } from '../src/analysis/ThermalVentilationAnalyzer';
 
@@ -232,5 +234,79 @@ describe('First-Person Interactive Interior & Ergonomic Seating Suite', () => {
 
     const openFactor = system.getBuildingDoorOpenFactor('bld_physics_test');
     expect(openFactor).toBeGreaterThan(0.7);
+  });
+
+  it('6. Dynamically renders user-placed furniture immediately in 3D scene with individual meshes, raycast metadata, and seats', () => {
+    const building: BuildingInstance = {
+      id: 'test_bld_furnish',
+      presetKey: 'house_36',
+      name: 'Rumah Tipe 36',
+      category: 'residential',
+      position: new THREE.Vector3(10, 0, 10),
+      rotationY: 0,
+      width: 6,
+      length: 8,
+      floorCount: 1,
+      floorHeight: 3.2,
+      plinthHeight: 0.35,
+      roofType: 'gable',
+      roofOverhang: 1.0,
+      wallMaterial: 'concrete',
+      wallColor: '#ffffff',
+      roofMaterial: 'clay_tile',
+      userData: {
+        placedFurniture: [
+          {
+            id: 'fur_sofa_123',
+            type: 'sofa_l',
+            name: 'Sofa L-Shape Ruang Tamu',
+            position: [1.0, 0, -1.0],
+            rotationY: 0,
+            floorIndex: 1
+          }
+        ]
+      }
+    } as unknown as BuildingInstance;
+
+    // First build (cache miss)
+    const grp = PrefabMeshBuilder.buildBuildingGroup(building);
+    expect(grp).toBeDefined();
+
+    // Check that furniture mesh exists in interiorDetails
+    const interior = grp.userData.interiorDetails;
+    expect(interior).toBeDefined();
+
+    let foundFurMesh: THREE.Object3D | null = null;
+    interior.traverse((child: any) => {
+      if (child.userData?.furnitureId === 'fur_sofa_123') {
+        foundFurMesh = child;
+      }
+    });
+    expect(foundFurMesh).not.toBeNull();
+    expect((foundFurMesh as any).userData.type).toBe('sofa_l');
+
+    // Check interactive seat was registered
+    const seat = InteriorInteractiveSystem.getInstance().getNearestSeat(new THREE.Vector3(11, 0.35, 9));
+    expect(seat).toBeDefined();
+    expect(seat?.id).toBe('seat_fur_sofa_123');
+
+    // Second build (cache hit) with another furniture added
+    building.userData!.placedFurniture.push({
+      id: 'fur_bed_456',
+      type: 'bed_king',
+      name: 'Tempat Tidur King',
+      position: [-1.0, 0, 1.0],
+      rotationY: Math.PI / 2,
+      floorIndex: 1
+    });
+
+    const grp2 = PrefabMeshBuilder.buildBuildingGroup(building);
+    let foundBed: THREE.Object3D | null = null;
+    grp2.userData.interiorDetails.traverse((child: any) => {
+      if (child.userData?.furnitureId === 'fur_bed_456') {
+        foundBed = child;
+      }
+    });
+    expect(foundBed).not.toBeNull();
   });
 });

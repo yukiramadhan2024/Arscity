@@ -6,19 +6,14 @@
  * Seluruh impor internal baru sebaiknya langsung merujuk ke `src/ui/components/LoginPage.tsx`.
  */
 export {
-  AuthComponent,
   LoginPage,
-  ConfettiContext,
-  Confetti,
-  fireConfetti,
-  GoogleIcon,
-  GitHubIcon,
+  LoginPage as AuthComponent,
   ArchitecturalCityBackground
 } from '../../ui/components/LoginPage';
+
 export { ArscityLogo } from '../../ui/components/ArscityLogo';
 
 export type {
-  AuthComponentProps,
-  ConfettiRef,
-  LoginPageProps
+  LoginPageProps,
+  LoginPageProps as AuthComponentProps
 } from '../../ui/components/LoginPage';

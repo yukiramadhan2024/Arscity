@@ -7,6 +7,7 @@ import { AnalysisOverlay } from './AnalysisOverlay';
 import { InspectorPanel } from './InspectorPanel';
 import { BottomToolbar } from './BottomToolbar';
 import { SpatialCursorTooltip } from './SpatialCursorTooltip';
+import { EmptyStateGuide } from './EmptyStateGuide';
 import { useUIStore } from '../state/useUIStore';
 
 export interface HudLayoutProps {
@@ -25,7 +26,7 @@ export interface HudLayoutProps {
  * - Bottom Center: Bottom Toolbar and contextual sub-toolbars
  */
 export const HudLayout: React.FC<HudLayoutProps> = ({ onOpenHelp }) => {
-  const { activeTool } = useUIStore();
+  const { activeTool, isSideDockExpanded } = useUIStore();
   const isAnalyzeActive = activeTool === 'analyze';
 
   return (
@@ -61,6 +62,23 @@ export const HudLayout: React.FC<HudLayoutProps> = ({ onOpenHelp }) => {
         </div>
       </div>
 
+      {/* ZONE 1.5: Empty State Guide Capsule */}
+      <div
+        id="hud-zone-guide"
+        style={{
+          position: 'absolute',
+          top: 'var(--hud-top-offset, 76px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          zIndex: 15,
+        }}
+      >
+        <EmptyStateGuide />
+      </div>
+
       {/* ZONE 2: Left Utility Rail (Icon Dock) */}
       <div
         id="hud-zone-rail"
@@ -69,6 +87,7 @@ export const HudLayout: React.FC<HudLayoutProps> = ({ onOpenHelp }) => {
           left: 'var(--hud-edge, 16px)',
           top: 'var(--hud-top-offset, 76px)',
           pointerEvents: 'none',
+          zIndex: 20,
         }}
       >
         <div style={{ pointerEvents: 'auto' }}>
@@ -97,14 +116,18 @@ export const HudLayout: React.FC<HudLayoutProps> = ({ onOpenHelp }) => {
         )}
       </AnimatePresence>
 
-      {/* ZONE 4: Bottom-Left Radar / Minimap */}
+      {/* ZONE 4: Bottom-Right Radar / Minimap */}
       <div
-        id="hud-zone-bottom-left"
+        id="hud-zone-bottom-right"
         style={{
           position: 'absolute',
-          left: 'var(--hud-edge, 16px)',
+          right: 'var(--hud-edge, 16px)',
           bottom: 'var(--hud-edge, 16px)',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'flex-end',
           pointerEvents: 'none',
+          zIndex: 10,
         }}
       >
         <div style={{ pointerEvents: 'auto' }}>
@@ -119,7 +142,7 @@ export const HudLayout: React.FC<HudLayoutProps> = ({ onOpenHelp }) => {
           position: 'absolute',
           right: 'var(--hud-edge, 16px)',
           top: 'var(--hud-top-offset, 76px)',
-          bottom: 'var(--hud-bottom-reserve, 88px)',
+          bottom: 'calc(var(--hud-edge, 16px) + 196px)',
           pointerEvents: 'none',
           display: 'flex',
           flexDirection: 'column',

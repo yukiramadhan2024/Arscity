@@ -85,17 +85,34 @@ export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOp
         {/* Header */}
         <div className="modal-sheet-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileCode size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+            <FileCode size={18} strokeWidth={1.75} style={{ color: '#007AFF' }} />
             <div>
-              <div id="export-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
+              <div id="export-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>
                 Jembatan Dunia Nyata (CAD & 3D Export)
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+              <div style={{ fontSize: '11px', color: '#475569' }}>
                 Interoperabilitas AutoCAD, SketchUp, Blender, dan Gambar Denah
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="icon-btn" aria-label="Tutup Modal">
+          <button
+            onClick={onClose}
+            className="icon-btn"
+            aria-label="Tutup Modal"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#334155',
+              transition: 'all 0.15s ease'
+            }}
+          >
             <X size={16} strokeWidth={1.75} />
           </button>
         </div>
@@ -126,15 +143,22 @@ export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOp
             {/* glTF */}
             <div className="inset-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>Model 3D Standar Web (.glTF)</div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>Model 3D Standar Web (.glTF)</div>
+                <div style={{ fontSize: '11px', color: '#475569' }}>
                   Format universal untuk Blender, Three.js, dan engine rendering
                 </div>
               </div>
               <button
                 onClick={handleExportGLTF}
                 className="ios-btn"
-                style={{ fontSize: '12px', padding: '5px 12px', gap: '6px' }}
+                style={{
+                  fontSize: '12px',
+                  padding: '5px 12px',
+                  gap: '6px',
+                  background: '#FFFFFF',
+                  border: '1px solid #CBD5E1',
+                  color: '#0F172A'
+                }}
               >
                 <Box size={13} strokeWidth={1.75} />
                 <span>Unduh glTF</span>
@@ -144,15 +168,22 @@ export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOp
             {/* OBJ */}
             <div className="inset-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>Model Geometri Wavefront (.OBJ)</div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>Model Geometri Wavefront (.OBJ)</div>
+                <div style={{ fontSize: '11px', color: '#475569' }}>
                   Kompatibel dengan SketchUp, Rhino, ArchiCAD, dan Revit
                 </div>
               </div>
               <button
                 onClick={handleExportOBJ}
                 className="ios-btn"
-                style={{ fontSize: '12px', padding: '5px 12px', gap: '6px' }}
+                style={{
+                  fontSize: '12px',
+                  padding: '5px 12px',
+                  gap: '6px',
+                  background: '#FFFFFF',
+                  border: '1px solid #CBD5E1',
+                  color: '#0F172A'
+                }}
               >
                 <Download size={13} strokeWidth={1.75} />
                 <span>Unduh OBJ</span>
@@ -160,12 +191,12 @@ export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOp
             </div>
 
             {/* Lembar Presentasi Studio A3 (2400x1697 px) */}
-            <div className="inset-row" style={{ justifyContent: 'space-between', alignItems: 'center', background: 'rgba(56, 189, 248, 0.05)' }}>
+            <div className="inset-row" style={{ justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0, 122, 255, 0.05)' }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#007AFF' }}>
                   Papan Presentasi Studio Arsitektur (A3 Landscape PNG)
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                <div style={{ fontSize: '11px', color: '#475569' }}>
                   Resolusi 2400x1697 px: render 3D perspektif, data sains kota, dan kop gambar standar studio
                 </div>
               </div>
@@ -185,12 +216,23 @@ export const RealWorldExportModal: React.FC<RealWorldExportModalProps> = ({ isOp
           <div className="inset-group">
             <div className="inset-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>Unggah Gambar Denah Arsitektur</div>
-                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>Unggah Gambar Denah Arsitektur</div>
+                <div style={{ fontSize: '11px', color: '#475569' }}>
                   {underlayFile ? `Berkas aktif: ${underlayFile}` : 'Pilih file PNG atau JPG denah rumah/site plan dari komputermu'}
                 </div>
               </div>
-              <label className="ios-btn" style={{ fontSize: '12px', padding: '5px 12px', gap: '6px', cursor: 'pointer' }}>
+              <label
+                className="ios-btn"
+                style={{
+                  fontSize: '12px',
+                  padding: '5px 12px',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  background: '#FFFFFF',
+                  border: '1px solid #CBD5E1',
+                  color: '#0F172A'
+                }}
+              >
                 <Upload size={13} strokeWidth={1.75} />
                 <span>Pilih Berkas</span>
                 <input

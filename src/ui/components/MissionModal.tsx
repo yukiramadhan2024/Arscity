@@ -72,10 +72,10 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
               <Award size={20} color="#007AFF" strokeWidth={2.2} />
             </div>
             <div>
-              <div id="mission-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
+              <div id="mission-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.01em' }}>
                 Misi & Tantangan Tata Kota Tropis
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>
+              <div style={{ fontSize: '13px', color: '#475569', marginTop: '2px' }}>
                 Belajar prinsip perancangan melalui skenario praktis bertahap
               </div>
             </div>
@@ -88,13 +88,13 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              background: 'var(--fill-control)',
-              border: '1px solid var(--hairline)',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: 'var(--label-secondary)',
+              color: '#334155',
               transition: 'all 0.15s ease'
             }}
           >
@@ -105,7 +105,7 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
         {/* Master - Detail Panes */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Mission List (Left) */}
-          <div style={{ width: '270px', borderRight: '0.5px solid var(--separator)', overflowY: 'auto', padding: '10px' }}>
+          <div style={{ width: '270px', borderRight: '1px solid #CBD5E1', overflowY: 'auto', padding: '10px' }}>
             <div className="inset-group" style={{ marginBottom: 0 }}>
               {MISSIONS.map((mission, idx) => {
                 const isSelected = selectedMissionId === mission.id;
@@ -118,15 +118,15 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
                     onClick={() => handleSelectMission(mission.id)}
                     className="inset-row inset-row-clickable"
                     style={{
-                      background: isSelected ? 'var(--fill-control-active)' : undefined,
+                      background: isSelected ? 'rgba(0, 122, 255, 0.12)' : '#FFFFFF',
                       padding: '10px 12px'
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '10px', color: 'var(--label-secondary)', fontWeight: 600 }}>
+                      <div style={{ fontSize: '10px', color: isSelected ? '#007AFF' : '#64748B', fontWeight: 600 }}>
                         MISI #{idx + 1}
                       </div>
-                      <div style={{ fontSize: '12px', fontWeight: isSelected ? 600 : 500, color: 'var(--label)', marginTop: '2px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#007AFF' : '#0F172A', marginTop: '2px' }}>
                         {mission.title}
                       </div>
                       {/* Stars */}
@@ -136,8 +136,8 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
                             key={sIdx}
                             size={12}
                             strokeWidth={1.75}
-                            fill={sIdx < stars ? 'var(--warn)' : 'transparent'}
-                            style={{ color: sIdx < stars ? 'var(--warn)' : 'var(--label-tertiary)' }}
+                            fill={sIdx < stars ? '#F59E0B' : 'transparent'}
+                            style={{ color: sIdx < stars ? '#F59E0B' : '#CBD5E1' }}
                           />
                         ))}
                       </div>
@@ -149,12 +149,12 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
           </div>
 
           {/* Mission Details (Right) */}
-          <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', background: 'var(--surface)' }}>
+          <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', background: 'transparent' }}>
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontSize: '17px', fontWeight: 600, color: 'var(--label)', marginBottom: '4px' }}>
+              <div style={{ fontSize: '17px', fontWeight: 600, color: '#0F172A', marginBottom: '4px' }}>
                 {currentMission.title}
               </div>
-              <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--label-secondary)' }}>
+              <p style={{ fontSize: '13px', lineHeight: 1.5, color: '#475569' }}>
                 {currentMission.subtitle}
               </p>
             </div>
@@ -171,19 +171,19 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
                       <Star
                         size={16}
                         strokeWidth={1.75}
-                        fill={isCompleted ? 'var(--warn)' : 'transparent'}
-                        style={{ color: isCompleted ? 'var(--warn)' : 'var(--label-secondary)', flexShrink: 0 }}
+                        fill={isCompleted ? '#F59E0B' : 'transparent'}
+                        style={{ color: isCompleted ? '#F59E0B' : '#94A3B8', flexShrink: 0 }}
                       />
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--label)' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#0F172A' }}>
                           Bintang {sIdx + 1}: {requirementText}
                         </div>
                       </div>
                     </div>
                     {isCompleted ? (
-                      <CheckCircle2 size={16} strokeWidth={2} style={{ color: 'var(--good)' }} />
+                      <CheckCircle2 size={16} strokeWidth={2} style={{ color: '#16A34A' }} />
                     ) : (
-                      <Circle size={16} strokeWidth={1.5} style={{ color: 'var(--label-tertiary)' }} />
+                      <Circle size={16} strokeWidth={1.5} style={{ color: '#CBD5E1' }} />
                     )}
                   </div>
                 );
@@ -191,12 +191,12 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
             </div>
 
             {/* Architectural Learning Takeaway */}
-            <div className="inset-header" style={{ padding: '0 0 4px 0', color: 'var(--accent)' }}>
+            <div className="inset-header" style={{ padding: '0 0 4px 0', color: '#007AFF' }}>
               PELAJARAN ARSITEKTUR
             </div>
             <div className="inset-group">
-              <div className="inset-row" style={{ background: 'var(--fill-control)' }}>
-                <p style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--label)' }}>
+              <div className="inset-row" style={{ background: '#FFFFFF' }}>
+                <p style={{ fontSize: '12px', lineHeight: 1.5, color: '#0F172A' }}>
                   {currentMission.architecturalLesson}
                 </p>
               </div>
@@ -207,8 +207,8 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
               <>
                 <div className="inset-header" style={{ padding: '0 0 4px 0' }}>PETUNJUK PERANCANGAN</div>
                 <div className="inset-group">
-                  <div className="inset-row">
-                    <p style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--label-secondary)' }}>
+                  <div className="inset-row" style={{ background: '#FFFFFF' }}>
+                    <p style={{ fontSize: '12px', lineHeight: 1.5, color: '#475569' }}>
                       {currentMission.hint}
                     </p>
                   </div>
@@ -227,7 +227,7 @@ export const MissionModal: React.FC<MissionModalProps> = ({ isOpen, onClose }) =
                   }
                 }}
                 className="ios-btn"
-                style={{ padding: '8px 16px', fontSize: '13px', background: 'rgba(0, 122, 255, 0.1)', color: 'var(--accent)', borderColor: 'rgba(0, 122, 255, 0.3)', gap: '6px' }}
+                style={{ padding: '8px 16px', fontSize: '13px', background: 'rgba(0, 122, 255, 0.14)', color: '#007AFF', border: '1px solid rgba(0, 122, 255, 0.40)', gap: '6px' }}
               >
                 <Sparkles size={14} strokeWidth={1.75} />
                 <span>Simulasikan Kondisi Misi</span>

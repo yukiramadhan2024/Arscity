@@ -48,17 +48,34 @@ export const StyleLibraryModal: React.FC<StyleLibraryModalProps> = ({ isOpen, on
         {/* Header */}
         <div className="modal-sheet-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Landmark size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+            <Landmark size={18} strokeWidth={1.75} style={{ color: '#007AFF' }} />
             <div>
-              <div id="style-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
+              <div id="style-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>
                 Pustaka Gaya Arsitektur Nusantara
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+              <div style={{ fontSize: '11px', color: '#475569' }}>
                 Karakter bentuk atap, orientasi, dan material tropis lokal
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="icon-btn" aria-label="Tutup Pustaka Gaya">
+          <button
+            onClick={onClose}
+            className="icon-btn"
+            aria-label="Tutup Pustaka Gaya"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#334155',
+              transition: 'all 0.15s ease'
+            }}
+          >
             <X size={16} strokeWidth={1.75} />
           </button>
         </div>
@@ -66,7 +83,7 @@ export const StyleLibraryModal: React.FC<StyleLibraryModalProps> = ({ isOpen, on
         {/* Master - Detail Panes */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Style Selector List (Left) */}
-          <div style={{ width: '270px', borderRight: '0.5px solid var(--separator)', overflowY: 'auto', padding: '10px' }}>
+          <div style={{ width: '270px', borderRight: '1px solid #CBD5E1', overflowY: 'auto', padding: '10px' }}>
             <div className="inset-group" style={{ marginBottom: 0 }}>
               {ARCHITECTURAL_STYLES.map((style) => {
                 const isSelected = selectedStyle.id === style.id;
@@ -76,18 +93,18 @@ export const StyleLibraryModal: React.FC<StyleLibraryModalProps> = ({ isOpen, on
                     onClick={() => setSelectedStyle(style)}
                     className="inset-row inset-row-clickable"
                     style={{
-                      background: isSelected ? 'var(--fill-control-active)' : undefined,
+                      background: isSelected ? 'rgba(0, 122, 255, 0.12)' : '#FFFFFF',
                       padding: '10px 12px'
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>
+                      <div style={{ fontSize: '10px', color: '#007AFF', fontWeight: 600 }}>
                         {style.badge}
                       </div>
-                      <div style={{ fontSize: '13px', fontWeight: isSelected ? 600 : 500, color: 'var(--label)', marginTop: '2px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#007AFF' : '#0F172A', marginTop: '2px' }}>
                         {style.name}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                      <div style={{ fontSize: '11px', color: '#64748B' }}>
                         {style.originEra}
                       </div>
                     </div>
@@ -98,36 +115,37 @@ export const StyleLibraryModal: React.FC<StyleLibraryModalProps> = ({ isOpen, on
           </div>
 
           {/* Style Details (Right) */}
-          <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', background: 'var(--surface)' }}>
+          <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', background: 'transparent' }}>
             <div style={{ marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '17px', fontWeight: 600, color: 'var(--label)' }}>
+                <span style={{ fontSize: '17px', fontWeight: 600, color: '#0F172A' }}>
                   {selectedStyle.name}
                 </span>
                 <span
                   style={{
                     fontSize: '11px',
                     padding: '2px 8px',
-                    background: 'var(--fill-control)',
+                    background: '#FFFFFF',
+                    border: '1px solid #CBD5E1',
                     borderRadius: '6px',
-                    color: 'var(--label-secondary)'
+                    color: '#475569'
                   }}
                 >
                   {selectedStyle.originEra}
                 </span>
               </div>
-              <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--label-secondary)' }}>
+              <p style={{ fontSize: '13px', lineHeight: 1.5, color: '#475569' }}>
                 {selectedStyle.description}
               </p>
             </div>
 
             {/* Historical Context Callout */}
-            <div className="inset-header" style={{ padding: '0 0 4px 0', color: 'var(--accent)' }}>
+            <div className="inset-header" style={{ padding: '0 0 4px 0', color: '#007AFF' }}>
               KONTEKS SEJARAH & ADAPTASI IKLIM
             </div>
             <div className="inset-group">
-              <div className="inset-row" style={{ background: 'var(--fill-control)' }}>
-                <p style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--label)' }}>
+              <div className="inset-row" style={{ background: '#FFFFFF' }}>
+                <p style={{ fontSize: '12px', lineHeight: 1.5, color: '#0F172A' }}>
                   {selectedStyle.historicalContext}
                 </p>
               </div>
@@ -139,8 +157,8 @@ export const StyleLibraryModal: React.FC<StyleLibraryModalProps> = ({ isOpen, on
               {selectedStyle.signatureFeatures.map((feat, idx) => (
                 <div key={idx} className="inset-row">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                    <Check size={14} strokeWidth={2} style={{ color: 'var(--good)', flexShrink: 0 }} />
-                    <span style={{ color: 'var(--label)' }}>{feat}</span>
+                    <Check size={14} strokeWidth={2} style={{ color: '#16A34A', flexShrink: 0 }} />
+                    <span style={{ color: '#0F172A' }}>{feat}</span>
                   </div>
                 </div>
               ))}
@@ -151,16 +169,16 @@ export const StyleLibraryModal: React.FC<StyleLibraryModalProps> = ({ isOpen, on
               style={{
                 marginTop: '16px',
                 paddingTop: '12px',
-                borderTop: '0.5px solid var(--separator)',
+                borderTop: '1px solid #CBD5E1',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: 'var(--label-secondary)' }}>
-                <span>Material: <strong>{selectedStyle.recommendedMaterial}</strong></span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: '#475569' }}>
+                <span>Material: <strong style={{ color: '#0F172A' }}>{selectedStyle.recommendedMaterial}</strong></span>
                 <span>•</span>
-                <span>Atap: <strong>{selectedStyle.recommendedRoof}</strong></span>
+                <span>Atap: <strong style={{ color: '#0F172A' }}>{selectedStyle.recommendedRoof}</strong></span>
               </div>
 
               <button

@@ -12,11 +12,11 @@ export class GridSystem {
     this.size = size;
     this.snapStep = defaultStep;
 
-    // iOS system blue primary, subtle secondary
-    this.gridHelper = new THREE.GridHelper(size, Math.min(size, 800), 0x007aff, 0x3a3a3c);
+    // Subtle architectural grid and center axis
+    this.gridHelper = new THREE.GridHelper(size, Math.min(size, 800), 0x64748b, 0x334155);
     this.gridHelper.position.y = 0.04; // Elevate slightly above grass
     (this.gridHelper.material as THREE.Material).transparent = true;
-    (this.gridHelper.material as THREE.Material).opacity = 0.4;
+    (this.gridHelper.material as THREE.Material).opacity = 0.25;
     this.gridHelper.name = 'GridHelper';
 
     scene.add(this.gridHelper);

@@ -742,7 +742,7 @@ export function GlassFolder({
   const start = Math.max(0, files.length - MAX_VISIBLE)
   const visible = files.slice(start)
   const count = files.length
-  const metaLine = meta ?? count + (count === 1 ? " item" : " items")
+  const metaLine = meta ?? `${count} berkas`
 
   return (
     <div

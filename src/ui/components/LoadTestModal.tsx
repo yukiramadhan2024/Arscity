@@ -80,17 +80,34 @@ export const LoadTestModal: React.FC<LoadTestModalProps> = ({ isOpen, onClose })
         {/* Header */}
         <div className="modal-sheet-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Activity size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+            <Activity size={18} strokeWidth={1.75} style={{ color: '#007AFF' }} />
             <div>
-              <div id="loadtest-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--label)' }}>
+              <div id="loadtest-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>
                 Uji Beban & Performa Grafis 3D
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+              <div style={{ fontSize: '11px', color: '#475569' }}>
                 Milestone T3: Target 300 Bangunan & 3 km Jalan @ 60 FPS
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="icon-btn" aria-label="Tutup Panel Uji Beban">
+          <button
+            onClick={onClose}
+            className="icon-btn"
+            aria-label="Tutup Panel Uji Beban"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#334155',
+              transition: 'all 0.15s ease'
+            }}
+          >
             <X size={16} strokeWidth={1.75} />
           </button>
         </div>
@@ -102,16 +119,16 @@ export const LoadTestModal: React.FC<LoadTestModalProps> = ({ isOpen, onClose })
             style={{
               padding: '12px 14px',
               borderRadius: 'var(--radius-medium)',
-              backgroundColor: 'var(--fill-control)',
-              border: '1px solid var(--separator)',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #CBD5E1',
               marginBottom: '14px',
               display: 'flex',
               flexDirection: 'column',
               gap: '8px'
             }}
           >
-            <div style={{ fontSize: '12px', color: 'var(--label-secondary)', lineHeight: 1.4 }}>
-              Mengisi kota secara instan dengan <strong>300 bangunan</strong> (arsitektur modern, joglo, ruko, sekolah, dsb) dan <strong>3.0 km jalan beraspal</strong> berderet pohon peneduh & lampu jalan instanced.
+            <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+              Mengisi kota secara instan dengan <strong style={{ color: '#0F172A' }}>300 bangunan</strong> (arsitektur modern, joglo, ruko, sekolah, dsb) dan <strong style={{ color: '#0F172A' }}>3.0 km jalan beraspal</strong> berderet pohon peneduh & lampu jalan instanced.
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
@@ -126,7 +143,13 @@ export const LoadTestModal: React.FC<LoadTestModalProps> = ({ isOpen, onClose })
                   justifyContent: 'center',
                   gap: '6px',
                   padding: '8px 14px',
-                  fontSize: '12px'
+                  fontSize: '12px',
+                  background: '#007AFF',
+                  color: '#FFFFFF',
+                  borderRadius: '10px',
+                  border: 'none',
+                  fontWeight: 600,
+                  cursor: 'pointer'
                 }}
               >
                 <Play size={14} />
@@ -141,7 +164,13 @@ export const LoadTestModal: React.FC<LoadTestModalProps> = ({ isOpen, onClose })
                   alignItems: 'center',
                   gap: '6px',
                   padding: '8px 12px',
-                  fontSize: '12px'
+                  fontSize: '12px',
+                  background: '#FFFFFF',
+                  border: '1px solid #CBD5E1',
+                  color: '#0F172A',
+                  borderRadius: '10px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
                 }}
                 title="Bersihkan Semua Gedung Uji"
               >

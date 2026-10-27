@@ -159,10 +159,10 @@ export function createMalioboroMapData(): CitySaveData {
       id: lotId,
       name: `Kavling Ruko Malioboro Barat #${idx + 1}`,
       zone: 'commercial',
-      position: [-26, 0, z],
-      width: 26,
+      position: [-35, 0, z],
+      width: 24,
       length: 18,
-      areaM2: 468,
+      areaM2: 432,
       gsbDistanceM: 5.0,
     });
 
@@ -171,7 +171,7 @@ export function createMalioboroMapData(): CitySaveData {
       presetKey: 'ruko_3fl',
       name: `Ruko Malioboro Kulon #${idx + 1}`,
       category: 'commercial',
-      position: [-26, 0, z],
+      position: [-35, 0, z],
       rotationY: Math.PI / 2, // Facing East towards Jl. Malioboro
       width: 8,
       length: 14,
@@ -192,7 +192,7 @@ export function createMalioboroMapData(): CitySaveData {
     id: jogloLotId,
     name: 'Kavling Pendopo Joglo Yogyakarta',
     zone: 'public_facility',
-    position: [-28, 0, -18],
+    position: [-42, 0, -48],
     width: 32,
     length: 36,
     areaM2: 1152,
@@ -204,7 +204,7 @@ export function createMalioboroMapData(): CitySaveData {
     presetKey: 'joglo',
     name: 'Pendopo Joglo Yogyakarta',
     category: 'public',
-    position: [-28, 0, -18],
+    position: [-42, 0, -48],
     rotationY: Math.PI / 2,
     width: 18,
     length: 22,
@@ -224,10 +224,10 @@ export function createMalioboroMapData(): CitySaveData {
     id: cafeLotId,
     name: 'Kavling Tropical Cafe KOPI & RASA',
     zone: 'commercial',
-    position: [-24, 0, 16],
+    position: [-35, 0, 16],
     width: 26,
-    length: 30,
-    areaM2: 780,
+    length: 28,
+    areaM2: 728,
     gsbDistanceM: 4.0,
   });
 
@@ -236,7 +236,7 @@ export function createMalioboroMapData(): CitySaveData {
     presetKey: 'cafe_minimalis_kaca',
     name: 'Tropical Cafe KOPI & RASA',
     category: 'commercial',
-    position: [-24, 0, 16],
+    position: [-35, 0, 16],
     rotationY: Math.PI / 2,
     width: 14,
     length: 18,
@@ -262,10 +262,10 @@ export function createMalioboroMapData(): CitySaveData {
       id: lotId,
       name: `Kavling Ruko Malioboro Wetan #${idx + 1}`,
       zone: 'commercial',
-      position: [26, 0, z],
-      width: 26,
+      position: [35, 0, z],
+      width: 24,
       length: 18,
-      areaM2: 468,
+      areaM2: 432,
       gsbDistanceM: 5.0,
     });
 
@@ -274,7 +274,7 @@ export function createMalioboroMapData(): CitySaveData {
       presetKey: 'ruko_3fl',
       name: `Ruko Malioboro Wetan #${idx + 1}`,
       category: 'commercial',
-      position: [26, 0, z],
+      position: [35, 0, z],
       rotationY: -Math.PI / 2, // Facing West towards Jl. Malioboro
       width: 8,
       length: 14,
@@ -295,10 +295,10 @@ export function createMalioboroMapData(): CitySaveData {
     id: mieLotId,
     name: 'Kavling Resto MIE NUSANTARA',
     zone: 'commercial',
-    position: [26, 0, 0],
-    width: 30,
-    length: 32,
-    areaM2: 960,
+    position: [36, 0, -4],
+    width: 26,
+    length: 28,
+    areaM2: 728,
     gsbDistanceM: 4.5,
   });
 
@@ -307,10 +307,10 @@ export function createMalioboroMapData(): CitySaveData {
     presetKey: 'resto_mie_gacoan',
     name: 'Resto MIE NUSANTARA',
     category: 'commercial',
-    position: [26, 0, 0],
+    position: [36, 0, -4],
     rotationY: -Math.PI / 2,
     width: 16,
-    length: 22,
+    length: 20,
     floorCount: 2,
     floorHeight: 4.5,
     roofType: 'flat',
@@ -321,16 +321,16 @@ export function createMalioboroMapData(): CitySaveData {
     lotId: mieLotId,
   });
 
-  // C. Kompleks Kepatihan DIY (Middle East area: z = 30 to 75, x = 35 to 85)
+  // C. Kompleks Kepatihan DIY (Middle East area: South of Jl. Kepatihan z = 30)
   const kepatihanLotId = 'lot_kepatihan_diy';
   lots.push({
     id: kepatihanLotId,
     name: 'Kawasan Cagar Budaya Kepatihan DIY',
     zone: 'public_facility',
-    position: [62, 0, 55],
+    position: [68, 0, 75],
     width: 56,
-    length: 64,
-    areaM2: 3584,
+    length: 50,
+    areaM2: 2800,
     gsbDistanceM: 6.0,
   });
 
@@ -340,7 +340,7 @@ export function createMalioboroMapData(): CitySaveData {
     presetKey: 'joglo',
     name: 'Pendopo Ageng Kepatihan DIY',
     category: 'public',
-    position: [62, 0, 55],
+    position: [68, 0, 75],
     rotationY: 0,
     width: 20,
     length: 24,
@@ -360,7 +360,7 @@ export function createMalioboroMapData(): CitySaveData {
     presetKey: 'community_hall',
     name: 'Bale Pertemuan Danunegaran',
     category: 'public',
-    position: [78, 0, 72],
+    position: [82, 0, 88],
     rotationY: 0,
     width: 14,
     length: 18,
@@ -374,17 +374,17 @@ export function createMalioboroMapData(): CitySaveData {
     lotId: kepatihanLotId,
   });
 
-  // D. Simpang Titik Nol Km: Dutch Indies / Colonial Heritage Buildings
+  // D. Simpang Titik Nol Km: Dutch Indies / Colonial Heritage Buildings (North of Titik Nol road z = 180)
   // 1. Gedung Cagar Budaya Titik Nol Timur (ex Bank Indonesia / BNI 1946)
   const heritageEastLotId = 'lot_heritage_nol_e';
   lots.push({
     id: heritageEastLotId,
     name: 'Kavling Cagar Budaya Titik Nol Timur',
     zone: 'public_facility',
-    position: [38, 0, 160],
-    width: 32,
-    length: 32,
-    areaM2: 1024,
+    position: [42, 0, 138],
+    width: 30,
+    length: 30,
+    areaM2: 900,
     gsbDistanceM: 5.0,
   });
 
@@ -393,7 +393,7 @@ export function createMalioboroMapData(): CitySaveData {
     presetKey: 'house_2fl',
     name: 'Gedung Cagar Budaya Titik Nol (Heritage Kolonial)',
     category: 'public',
-    position: [38, 0, 160],
+    position: [42, 0, 138],
     rotationY: -Math.PI / 2,
     width: 16,
     length: 22,
@@ -413,10 +413,10 @@ export function createMalioboroMapData(): CitySaveData {
     id: heritageWestLotId,
     name: 'Kavling Cagar Budaya Titik Nol Barat',
     zone: 'public_facility',
-    position: [-38, 0, 160],
-    width: 32,
-    length: 32,
-    areaM2: 1024,
+    position: [-42, 0, 138],
+    width: 30,
+    length: 30,
+    areaM2: 900,
     gsbDistanceM: 5.0,
   });
 
@@ -425,7 +425,7 @@ export function createMalioboroMapData(): CitySaveData {
     presetKey: 'house_2fl',
     name: 'Gedung Pos Heritage Titik Nol',
     category: 'public',
-    position: [-38, 0, 160],
+    position: [-42, 0, 138],
     rotationY: Math.PI / 2,
     width: 16,
     length: 22,
@@ -440,92 +440,94 @@ export function createMalioboroMapData(): CitySaveData {
   });
 
   // 4. Landscape Items (Iconic Placemaking, Flora Nusantara, Statues, Lighting, Eco-Drainage)
+  // All items placed strictly on the pedestrian sidewalks (x = -16 and x = 16) or dedicated plazas
   const landscape: SerializedLandscapeItem[] = [
     // ----------------------------------------------------
-    // NORTH CORRIDOR APEX: TUGU PAL PUTIH YOGYAKARTA
+    // NORTH CORRIDOR APEX: TUGU PAL PUTIH YOGYAKARTA (Placed outside road node at z = -185)
     // ----------------------------------------------------
     { id: 'land_tugu_jogja', type: 'monument_tugu_jogja', position: [0, 0, -185], width: 4.5, length: 4.5, radius: 2.5 },
 
     // ----------------------------------------------------
-    // MALIOBORO PEDESTRIAN SIDEWALK FLANKS (x = -8 and x = 8)
-    // Featuring alternating Tabebuya Pink/Gold, Asem Jawa, Bollards, & Festoon Lights
+    // MALIOBORO PEDESTRIAN SIDEWALK FLANKS (x = -16 and x = 16)
+    // Sidewalk extends from |x| = 13.0m to 18.5m; center of sidewalk is at |x| = 16.0m
     // ----------------------------------------------------
-    // West Sidewalk (x = -8)
-    { id: 'land_tree_w_1', type: 'tree_tabebuya_pink', position: [-8, 0, -150], width: 5.5, length: 5.5, radius: 2.8 },
-    { id: 'land_bollard_w_1', type: 'street_malioboro_bollards', position: [-8, 0, -135], width: 4.0, length: 2.0 },
-    { id: 'land_tree_w_2', type: 'tree_asam_jawa', position: [-8, 0, -115], width: 6.0, length: 6.0, radius: 3.2 },
-    { id: 'land_festoon_w_1', type: 'street_festoon_lights', position: [-8, 0, -95], width: 8.0, length: 2.0 },
-    { id: 'land_tree_w_3', type: 'tree_tabebuya_gold', position: [-8, 0, -75], width: 5.5, length: 5.5, radius: 2.8 },
-    { id: 'land_bollard_w_2', type: 'street_malioboro_bollards', position: [-8, 0, -55], width: 4.0, length: 2.0 },
-    { id: 'land_tree_w_4', type: 'tree_tabebuya_pink', position: [-8, 0, -35], width: 5.5, length: 5.5, radius: 2.8 },
-    { id: 'land_tree_w_5', type: 'tree_asam_jawa', position: [-8, 0, 10], width: 6.0, length: 6.0, radius: 3.2 },
-    { id: 'land_bollard_w_3', type: 'street_malioboro_bollards', position: [-8, 0, 35], width: 4.0, length: 2.0 },
-    { id: 'land_festoon_w_2', type: 'street_festoon_lights', position: [-8, 0, 55], width: 8.0, length: 2.0 },
-    { id: 'land_tree_w_6', type: 'tree_tabebuya_gold', position: [-8, 0, 75], width: 5.5, length: 5.5, radius: 2.8 },
-    { id: 'land_bollard_w_4', type: 'street_malioboro_bollards', position: [-8, 0, 110], width: 4.0, length: 2.0 },
-    { id: 'land_tree_w_7', type: 'tree_tabebuya_pink', position: [-8, 0, 135], width: 5.5, length: 5.5, radius: 2.8 },
+    // West Sidewalk (x = -16)
+    { id: 'land_tree_w_1', type: 'tree_tabebuya_pink', position: [-16, 0, -150], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_bollard_w_1', type: 'street_malioboro_bollards', position: [-16, 0, -135], width: 4.0, length: 2.0 },
+    { id: 'land_tree_w_2', type: 'tree_asam_jawa', position: [-16, 0, -115], width: 6.0, length: 6.0, radius: 3.2 },
+    { id: 'land_festoon_w_1', type: 'street_festoon_lights', position: [-16, 0, -105], width: 8.0, length: 2.0 },
+    { id: 'land_tree_w_3', type: 'tree_tabebuya_gold', position: [-16, 0, -75], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_bollard_w_2', type: 'street_malioboro_bollards', position: [-16, 0, -55], width: 4.0, length: 2.0 },
+    { id: 'land_tree_w_4', type: 'tree_tabebuya_pink', position: [-16, 0, -35], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_tree_w_5', type: 'tree_asam_jawa', position: [-16, 0, 5], width: 6.0, length: 6.0, radius: 3.2 },
+    { id: 'land_bollard_w_3', type: 'street_malioboro_bollards', position: [-16, 0, 45], width: 4.0, length: 2.0 },
+    { id: 'land_festoon_w_2', type: 'street_festoon_lights', position: [-16, 0, 60], width: 8.0, length: 2.0 },
+    { id: 'land_tree_w_6', type: 'tree_tabebuya_gold', position: [-16, 0, 75], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_bollard_w_4', type: 'street_malioboro_bollards', position: [-16, 0, 105], width: 4.0, length: 2.0 },
+    { id: 'land_tree_w_7', type: 'tree_asam_jawa', position: [-16, 0, 135], width: 6.0, length: 6.0, radius: 3.2 },
 
-    // East Sidewalk (x = 8)
-    { id: 'land_tree_e_1', type: 'tree_tabebuya_gold', position: [8, 0, -150], width: 5.5, length: 5.5, radius: 2.8 },
-    { id: 'land_bollard_e_1', type: 'street_malioboro_bollards', position: [8, 0, -135], width: 4.0, length: 2.0 },
-    { id: 'land_tree_e_2', type: 'tree_tabebuya_pink', position: [8, 0, -115], width: 5.5, length: 5.5, radius: 2.8 },
-    { id: 'land_festoon_e_1', type: 'street_festoon_lights', position: [8, 0, -95], width: 8.0, length: 2.0 },
-    { id: 'land_tree_e_3', type: 'tree_asam_jawa', position: [8, 0, -75], width: 6.0, length: 6.0, radius: 3.2 },
-    { id: 'land_bollard_e_2', type: 'street_malioboro_bollards', position: [8, 0, -55], width: 4.0, length: 2.0 },
-    { id: 'land_tree_e_4', type: 'tree_tabebuya_gold', position: [8, 0, -35], width: 5.5, length: 5.5, radius: 2.8 },
-    { id: 'land_tree_e_5', type: 'tree_tabebuya_pink', position: [8, 0, 10], width: 5.5, length: 5.5, radius: 2.8 },
-    { id: 'land_bollard_e_3', type: 'street_malioboro_bollards', position: [8, 0, 35], width: 4.0, length: 2.0 },
-    { id: 'land_festoon_e_2', type: 'street_festoon_lights', position: [8, 0, 55], width: 8.0, length: 2.0 },
-    { id: 'land_tree_e_6', type: 'tree_asam_jawa', position: [8, 0, 75], width: 6.0, length: 6.0, radius: 3.2 },
-    { id: 'land_bollard_e_4', type: 'street_malioboro_bollards', position: [8, 0, 110], width: 4.0, length: 2.0 },
-    { id: 'land_tree_e_7', type: 'tree_tabebuya_gold', position: [8, 0, 135], width: 5.5, length: 5.5, radius: 2.8 },
+    // East Sidewalk (x = 16)
+    { id: 'land_tree_e_1', type: 'tree_tabebuya_gold', position: [16, 0, -150], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_bollard_e_1', type: 'street_malioboro_bollards', position: [16, 0, -135], width: 4.0, length: 2.0 },
+    { id: 'land_tree_e_2', type: 'tree_tabebuya_pink', position: [16, 0, -115], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_festoon_e_1', type: 'street_festoon_lights', position: [16, 0, -105], width: 8.0, length: 2.0 },
+    { id: 'land_tree_e_3', type: 'tree_asam_jawa', position: [16, 0, -75], width: 6.0, length: 6.0, radius: 3.2 },
+    { id: 'land_bollard_e_2', type: 'street_malioboro_bollards', position: [16, 0, -55], width: 4.0, length: 2.0 },
+    { id: 'land_tree_e_4', type: 'tree_tabebuya_gold', position: [16, 0, -35], width: 5.5, length: 5.5, radius: 2.8 },
+    { id: 'land_tree_e_5', type: 'tree_asam_jawa', position: [16, 0, 5], width: 6.0, length: 6.0, radius: 3.2 },
+    { id: 'land_bollard_e_3', type: 'street_malioboro_bollards', position: [16, 0, 48], width: 4.0, length: 2.0 },
+    { id: 'land_festoon_e_2', type: 'street_festoon_lights', position: [16, 0, 65], width: 8.0, length: 2.0 },
+    { id: 'land_tree_e_6', type: 'tree_asam_jawa', position: [16, 0, 75], width: 6.0, length: 6.0, radius: 3.2 },
+    { id: 'land_bollard_e_4', type: 'street_malioboro_bollards', position: [16, 0, 105], width: 4.0, length: 2.0 },
+    { id: 'land_tree_e_7', type: 'tree_tabebuya_gold', position: [16, 0, 135], width: 5.5, length: 5.5, radius: 2.8 },
 
     // ----------------------------------------------------
     // KOMPLEKS KEPATIHAN DIY (CULTURAL & HERITAGE SANCTUARY)
     // ----------------------------------------------------
-    { id: 'land_candi_bentar_kepatihan', type: 'gate_candi_bentar', position: [28, 0, 30], width: 6.0, length: 2.5 },
-    { id: 'land_beringin_kurung', type: 'tree_banyan_kurung', position: [55, 0, 55], width: 14.0, length: 14.0, radius: 7.0 },
-    { id: 'land_wayang_corten_kepatihan', type: 'sculpture_wayang_corten', position: [38, 0, 32], width: 3.0, length: 1.5 },
-    { id: 'land_lotus_kepatihan', type: 'flora_lotus_water', position: [55, 0, 38], width: 6.0, length: 6.0, radius: 3.0 },
-    { id: 'land_gazebo_kepatihan', type: 'pavilion_garden_gazebo', position: [72, 0, 38], width: 4.5, length: 4.5 },
-    { id: 'land_bamboo_kepatihan', type: 'flora_yellow_bamboo', position: [36, 0, 70], width: 4.0, length: 2.0 },
-    { id: 'land_lanterns_kepatihan', type: 'street_garden_lanterns', position: [42, 0, 35], width: 3.0, length: 1.5 },
-    { id: 'land_tree_flamboyan_kepatihan', type: 'tree_flamboyan', position: [72, 0, 72], width: 8.0, length: 8.0, radius: 4.0 },
+    { id: 'land_candi_bentar_kepatihan', type: 'gate_candi_bentar', position: [35, 0, 48], width: 6.0, length: 2.5 },
+    { id: 'land_beringin_kurung', type: 'tree_banyan_kurung', position: [60, 0, 75], width: 14.0, length: 14.0, radius: 7.0 },
+    { id: 'land_wayang_corten_kepatihan', type: 'sculpture_wayang_corten', position: [42, 0, 52], width: 3.0, length: 1.5 },
+    { id: 'land_lotus_kepatihan', type: 'flora_lotus_water', position: [60, 0, 58], width: 6.0, length: 6.0, radius: 3.0 },
+    { id: 'land_gazebo_kepatihan', type: 'pavilion_garden_gazebo', position: [75, 0, 58], width: 4.5, length: 4.5 },
+    { id: 'land_bamboo_kepatihan', type: 'flora_yellow_bamboo', position: [40, 0, 85], width: 4.0, length: 2.0 },
+    { id: 'land_lanterns_kepatihan', type: 'street_garden_lanterns', position: [44, 0, 54], width: 3.0, length: 1.5 },
+    { id: 'land_tree_flamboyan_kepatihan', type: 'tree_flamboyan', position: [75, 0, 85], width: 8.0, length: 8.0, radius: 4.0 },
 
     // Kepatihan Green Courtyard Lawns, Trees & Eco-Drainage
-    { id: 'land_kepatihan_lawn_1', type: 'grass_garden', position: [44, 0, 44], width: 12, length: 12 },
-    { id: 'land_kepatihan_lawn_2', type: 'grass_garden', position: [66, 0, 44], width: 12, length: 12 },
-    { id: 'land_kepatihan_lawn_3', type: 'grass_garden', position: [44, 0, 66], width: 12, length: 12 },
-    { id: 'land_kepatihan_lawn_4', type: 'grass_garden', position: [66, 0, 66], width: 12, length: 12 },
-    { id: 'land_tree_kepatihan_1', type: 'tree_banyan_kurung', position: [38, 0, 38], width: 10.0, length: 10.0, radius: 5.0 },
-    { id: 'land_tree_kepatihan_2', type: 'tree_flamboyan', position: [72, 0, 38], width: 8.0, length: 8.0, radius: 4.0 },
-    { id: 'land_tree_kepatihan_3', type: 'tree_tabebuya_pink', position: [38, 0, 72], width: 6.0, length: 6.0, radius: 3.0 },
-    { id: 'land_tree_kepatihan_4', type: 'tree_asam_jawa', position: [72, 0, 72], width: 7.0, length: 7.0, radius: 3.5 },
-    { id: 'land_well_kepatihan_1', type: 'well', position: [40, 0, 42], radius: 1.0 },
-    { id: 'land_well_kepatihan_2', type: 'well', position: [70, 0, 68], radius: 1.0 },
-    { id: 'land_biopore_1', type: 'biopore', position: [42, 0, 50], radius: 0.3 },
-    { id: 'land_biopore_2', type: 'biopore', position: [46, 0, 52], radius: 0.3 },
-    { id: 'land_biopore_3', type: 'biopore', position: [64, 0, 50], radius: 0.3 },
-    { id: 'land_biopore_4', type: 'biopore', position: [68, 0, 52], radius: 0.3 },
+    { id: 'land_kepatihan_lawn_1', type: 'grass_garden', position: [50, 0, 60], width: 12, length: 12 },
+    { id: 'land_kepatihan_lawn_2', type: 'grass_garden', position: [72, 0, 60], width: 12, length: 12 },
+    { id: 'land_kepatihan_lawn_3', type: 'grass_garden', position: [50, 0, 80], width: 12, length: 12 },
+    { id: 'land_kepatihan_lawn_4', type: 'grass_garden', position: [72, 0, 80], width: 12, length: 12 },
+    { id: 'land_tree_kepatihan_1', type: 'tree_banyan_kurung', position: [44, 0, 60], width: 10.0, length: 10.0, radius: 5.0 },
+    { id: 'land_tree_kepatihan_2', type: 'tree_flamboyan', position: [78, 0, 60], width: 8.0, length: 8.0, radius: 4.0 },
+    { id: 'land_tree_kepatihan_3', type: 'tree_tabebuya_pink', position: [44, 0, 85], width: 6.0, length: 6.0, radius: 3.0 },
+    { id: 'land_tree_kepatihan_4', type: 'tree_asam_jawa', position: [78, 0, 85], width: 7.0, length: 7.0, radius: 3.5 },
+    { id: 'land_well_kepatihan_1', type: 'well', position: [48, 0, 52], radius: 1.0 },
+    { id: 'land_well_kepatihan_2', type: 'well', position: [76, 0, 72], radius: 1.0 },
+    { id: 'land_biopore_1', type: 'biopore', position: [48, 0, 56], radius: 0.3 },
+    { id: 'land_biopore_2', type: 'biopore', position: [52, 0, 56], radius: 0.3 },
+    { id: 'land_biopore_3', type: 'biopore', position: [70, 0, 56], radius: 0.3 },
+    { id: 'land_biopore_4', type: 'biopore', position: [74, 0, 56], radius: 0.3 },
 
     // ----------------------------------------------------
     // TITIK NOL KILOMETER & GEDUNG HERITAGE CIVIC PLAZA
+    // Placed safely away from Jl. Malioboro (x = 0) and Jl. Titik Nol (z = 180)
     // ----------------------------------------------------
-    { id: 'land_fountain_nol', type: 'fountain_reflecting_pool', position: [24, 0, 168], width: 8.0, length: 8.0, radius: 4.0 },
-    { id: 'land_kinetic_nol', type: 'sculpture_kinetic_steel', position: [-24, 0, 168], width: 3.5, length: 3.5 },
-    { id: 'land_clock_tower_nol', type: 'monument_clock_tower', position: [30, 0, 185], width: 3.5, length: 3.5 },
-    { id: 'land_amphitheater_nol', type: 'plaza_mini_amphitheater', position: [-30, 0, 185], width: 12.0, length: 12.0, radius: 6.0 },
-    { id: 'land_pergola_nol', type: 'street_timber_pergola', position: [-24, 0, 148], width: 6.0, length: 4.0 },
-    { id: 'land_deck_nol', type: 'waterfront_wood_deck', position: [24, 0, 148], width: 6.0, length: 4.0 },
-    { id: 'land_candi_stone_nol', type: 'sculpture_candi_stone', position: [15, 0, 175], width: 2.0, length: 2.0 },
+    { id: 'land_fountain_nol', type: 'fountain_reflecting_pool', position: [26, 0, 145], width: 8.0, length: 8.0, radius: 4.0 },
+    { id: 'land_kinetic_nol', type: 'sculpture_kinetic_steel', position: [-26, 0, 145], width: 3.5, length: 3.5 },
+    { id: 'land_clock_tower_nol', type: 'monument_clock_tower', position: [32, 0, 205], width: 3.5, length: 3.5 },
+    { id: 'land_amphitheater_nol', type: 'plaza_mini_amphitheater', position: [-32, 0, 205], width: 12.0, length: 12.0, radius: 6.0 },
+    { id: 'land_pergola_nol', type: 'street_timber_pergola', position: [-28, 0, 145], width: 6.0, length: 4.0 },
+    { id: 'land_deck_nol', type: 'waterfront_wood_deck', position: [28, 0, 145], width: 6.0, length: 4.0 },
+    { id: 'land_candi_stone_nol', type: 'sculpture_candi_stone', position: [22, 0, 205], width: 2.0, length: 2.0 },
 
     // ----------------------------------------------------
     // JOGLO COURTYARD & TROPICAL CAFE HIGHLIGHTS
     // ----------------------------------------------------
-    { id: 'land_frangipani_joglo', type: 'tree_frangipani', position: [-38, 0, -8], width: 4.0, length: 4.0, radius: 2.0 },
-    { id: 'land_bambusa_joglo', type: 'flora_yellow_bamboo', position: [-38, 0, -28], width: 4.0, length: 2.0 },
-    { id: 'land_arch_cafe', type: 'flora_bougainvillea_arch', position: [-20, 0, 16], width: 3.0, length: 4.0 },
-    { id: 'land_frangipani_cafe', type: 'tree_frangipani', position: [-34, 0, 24], width: 4.0, length: 4.0, radius: 2.0 }
+    { id: 'land_frangipani_joglo', type: 'tree_frangipani', position: [-40, 0, -42], width: 4.0, length: 4.0, radius: 2.0 },
+    { id: 'land_bambusa_joglo', type: 'flora_yellow_bamboo', position: [-40, 0, -56], width: 4.0, length: 2.0 },
+    { id: 'land_arch_cafe', type: 'flora_bougainvillea_arch', position: [-28, 0, 16], width: 3.0, length: 4.0 },
+    { id: 'land_frangipani_cafe', type: 'tree_frangipani', position: [-38, 0, 24], width: 4.0, length: 4.0, radius: 2.0 }
   ];
 
   return {

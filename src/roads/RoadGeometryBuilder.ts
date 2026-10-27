@@ -5,6 +5,8 @@ import { MaterialLibrary } from '../materials/MaterialLibrary';
 import { RoadPropPlacer } from './RoadPropPlacer';
 import { ProceduralTextureGen } from '../materials/ProceduralTextureGen';
 import { RoadMaterialHelper } from './RoadMaterialHelper';
+import type { Terrain } from '../world/Terrain';
+import type { RoadManager } from './RoadManager';
 
 export class RoadGeometryBuilder {
   private static asphaltMaterial: THREE.MeshStandardMaterial | null = null;
@@ -71,7 +73,12 @@ export class RoadGeometryBuilder {
     });
   }
 
-  public static buildRoadMeshGroup(edge: RoadEdge, graph: RoadGraph): THREE.Group {
+  public static buildRoadMeshGroup(
+    edge: RoadEdge,
+    graph: RoadGraph,
+    terrain?: Terrain,
+    roadManager?: RoadManager
+  ): THREE.Group {
     this.initMaterials();
 
     const profile = { ...ROAD_PROFILES[edge.type], ...edge.customProfile };
@@ -86,6 +93,9 @@ export class RoadGeometryBuilder {
     const points: THREE.Vector3[] = [];
     const tangents: THREE.Vector3[] = [];
     const normals: THREE.Vector3[] = []; // lateral normals (perpendicular to tangent and UP)
+    const rawGroundY: number[] = [];
+    const effectiveGroundY: number[] = [];
+    const isBridgeSample: boolean[] = [];
 
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
@@ -106,6 +116,28 @@ export class RoadGeometryBuilder {
       // Lateral normal (perpendicular to road direction)
       const lat = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
       normals.push(lat);
+
+      const gy = terrain ? terrain.getHeightAt(pt.x, pt.z) : 0;
+      rawGroundY.push(gy);
+    }
+
+    // River / valley crossing: keep deck level at bank height (deckY >= 0.10m)
+    const startBankY = rawGroundY[0];
+    const endBankY = rawGroundY[segments];
+    let hasBridge = false;
+
+    for (let i = 0; i <= segments; i++) {
+      const raw = rawGroundY[i];
+      if (raw < -0.25) {
+        hasBridge = true;
+        isBridgeSample[i] = true;
+        const t = i / segments;
+        const bankY = THREE.MathUtils.lerp(startBankY, endBankY, t);
+        effectiveGroundY[i] = Math.max(bankY, 0.10);
+      } else {
+        isBridgeSample[i] = false;
+        effectiveGroundY[i] = raw;
+      }
     }
 
     // 1. Road Carriageway Ribbon (Badan Jalan Utama)
@@ -122,25 +154,46 @@ export class RoadGeometryBuilder {
       distances[i] = distances[i - 1] + points[i].distanceTo(points[i - 1]);
     }
 
+    // Junction trimming radii to ensure sidewalks, curbs, markings, and props never invade intersection boxes
+    const startNode = graph.nodes.get(edge.startNodeId);
+    const endNode = graph.nodes.get(edge.endNodeId);
+    const startIsJunction = startNode ? graph.isJunctionNode(startNode.id) : false;
+    const endIsJunction = endNode ? graph.isJunctionNode(endNode.id) : false;
+
+    const startRadius = startIsJunction && startNode
+      ? Math.max(...(startNode.connectedEdgeIds.map((id) => {
+          const e = graph.edges.get(id);
+          return e ? (ROAD_PROFILES[e.type]?.width || profile.width) : profile.width;
+        }))) * 0.52
+      : 0;
+
+    const endRadius = endIsJunction && endNode
+      ? Math.max(...(endNode.connectedEdgeIds.map((id) => {
+          const e = graph.edges.get(id);
+          return e ? (ROAD_PROFILES[e.type]?.width || profile.width) : profile.width;
+        }))) * 0.52
+      : 0;
+
     for (let i = 0; i <= segments; i++) {
       const pt = points[i];
       const norm = normals[i];
       const dist = distances[i];
+      const groundY = effectiveGroundY[i];
 
       const leftPt = pt.clone().addScaledVector(norm, -halfWidth);
       const rightPt = pt.clone().addScaledVector(norm, halfWidth);
 
       const baseIdx = i * 2;
-      // Left vertex (cross-section u = 0, v = curveDistance / 4.0) at Y = 0.06m
+      // Left vertex at groundY + 0.06m
       positions[baseIdx * 3] = leftPt.x;
-      positions[baseIdx * 3 + 1] = 0.06;
+      positions[baseIdx * 3 + 1] = groundY + 0.06;
       positions[baseIdx * 3 + 2] = leftPt.z;
       uvs[baseIdx * 2] = 0.0;
       uvs[baseIdx * 2 + 1] = dist / 4.0;
 
-      // Right vertex (cross-section u = 1.0, v = curveDistance / 4.0) at Y = 0.06m
+      // Right vertex at groundY + 0.06m
       positions[(baseIdx + 1) * 3] = rightPt.x;
-      positions[(baseIdx + 1) * 3 + 1] = 0.06;
+      positions[(baseIdx + 1) * 3 + 1] = groundY + 0.06;
       positions[(baseIdx + 1) * 3 + 2] = rightPt.z;
       uvs[(baseIdx + 1) * 2] = 1.0;
       uvs[(baseIdx + 1) * 2 + 1] = dist / 4.0;
@@ -189,41 +242,48 @@ export class RoadGeometryBuilder {
 
         doubleOffsets.forEach((offset) => {
           const doubleLineGeom = new THREE.BufferGeometry();
-          const linePositions = new Float32Array(posCount * 3);
+          const linePositions: number[] = [];
           const lineIndices: number[] = [];
+          let vLine = 0;
 
-          for (let i = 0; i <= segments; i++) {
-            const pt = points[i];
-            const norm = normals[i];
-            const center = pt.clone().addScaledVector(norm, offset);
-            const pL = center.clone().addScaledVector(norm, -lineHalfW);
-            const pR = center.clone().addScaledVector(norm, lineHalfW);
+          for (let i = 0; i < segments; i++) {
+            const midDist = (distances[i] + distances[i + 1]) * 0.5;
+            if (startIsJunction && midDist < startRadius + 0.4) continue;
+            if (endIsJunction && midDist > edge.length - endRadius - 0.4) continue;
 
-            const baseIdx = i * 2;
-            linePositions[baseIdx * 3] = pL.x;
-            linePositions[baseIdx * 3 + 1] = 0.075;
-            linePositions[baseIdx * 3 + 2] = pL.z;
+            const pt0 = points[i];
+            const pt1 = points[i + 1];
+            const norm0 = normals[i];
+            const norm1 = normals[i + 1];
+            const gy0 = effectiveGroundY[i];
+            const gy1 = effectiveGroundY[i + 1];
 
-            linePositions[(baseIdx + 1) * 3] = pR.x;
-            linePositions[(baseIdx + 1) * 3 + 1] = 0.075;
-            linePositions[(baseIdx + 1) * 3 + 2] = pR.z;
+            const c0 = pt0.clone().addScaledVector(norm0, offset);
+            const c1 = pt1.clone().addScaledVector(norm1, offset);
+            const pL0 = c0.clone().addScaledVector(norm0, -lineHalfW);
+            const pR0 = c0.clone().addScaledVector(norm0, lineHalfW);
+            const pL1 = c1.clone().addScaledVector(norm1, -lineHalfW);
+            const pR1 = c1.clone().addScaledVector(norm1, lineHalfW);
 
-            if (i < segments) {
-              const v0 = baseIdx;
-              const v1 = baseIdx + 1;
-              const v2 = baseIdx + 2;
-              const v3 = baseIdx + 3;
-              lineIndices.push(v0, v1, v2);
-              lineIndices.push(v1, v3, v2);
-            }
+            const baseV = vLine;
+            linePositions.push(pL0.x, gy0 + 0.075, pL0.z);
+            linePositions.push(pR0.x, gy0 + 0.075, pR0.z);
+            linePositions.push(pL1.x, gy1 + 0.075, pL1.z);
+            linePositions.push(pR1.x, gy1 + 0.075, pR1.z);
+
+            lineIndices.push(baseV, baseV + 1, baseV + 2);
+            lineIndices.push(baseV + 1, baseV + 3, baseV + 2);
+            vLine += 4;
           }
 
-          doubleLineGeom.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
-          doubleLineGeom.setIndex(lineIndices);
-          doubleLineGeom.computeVertexNormals();
+          if (linePositions.length > 0) {
+            doubleLineGeom.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+            doubleLineGeom.setIndex(lineIndices);
+            doubleLineGeom.computeVertexNormals();
 
-          const doubleMesh = new THREE.Mesh(doubleLineGeom, yellowMat);
-          group.add(doubleMesh);
+            const doubleMesh = new THREE.Mesh(doubleLineGeom, yellowMat);
+            group.add(doubleMesh);
+          }
         });
       } else if (matConfig.centerMarkingType === 'dashed') {
         // Garis Marka Putus-putus (Dashed Centerline)
@@ -239,6 +299,13 @@ export class RoadGeometryBuilder {
         let d = 0;
         while (d < totalLen) {
           const dEnd = Math.min(d + dashLen, totalLen);
+          if (startIsJunction && dEnd < startRadius + 0.5) {
+            d += cycleLen;
+            continue;
+          }
+          if (endIsJunction && d > totalLen - endRadius - 0.5) {
+            break;
+          }
           if (dEnd - d >= 0.4) {
             const segsInDash = Math.max(1, Math.round((dEnd - d) * 3));
             const baseV = cVertIdx;
@@ -248,12 +315,13 @@ export class RoadGeometryBuilder {
               const pt = graph.sampleBezier(edge.controlPoints, t);
               const segIdx = Math.min(segments, Math.floor(t * segments));
               const norm = normals[segIdx];
+              const gy = effectiveGroundY[segIdx];
 
               const mL = pt.clone().addScaledVector(norm, -markHalfW);
               const mR = pt.clone().addScaledVector(norm, markHalfW);
 
-              centerDashPositions.push(mL.x, 0.075, mL.z);
-              centerDashPositions.push(mR.x, 0.075, mR.z);
+              centerDashPositions.push(mL.x, gy + 0.075, mL.z);
+              centerDashPositions.push(mR.x, gy + 0.075, mR.z);
               cVertIdx += 2;
 
               if (s < segsInDash) {
@@ -305,42 +373,49 @@ export class RoadGeometryBuilder {
 
       [-1, 1].forEach((side) => {
         const edgeMarkGeom = new THREE.BufferGeometry();
-        const edgePositions = new Float32Array(posCount * 3);
+        const edgePositions: number[] = [];
         const edgeIndices: number[] = [];
+        let vEdge = 0;
         const w = edge.type === 'alley' ? 0.06 : 0.09;
 
-        for (let i = 0; i <= segments; i++) {
-          const pt = points[i];
-          const norm = normals[i];
-          const center = pt.clone().addScaledVector(norm, side * edgeMarkDist);
-          const eL = center.clone().addScaledVector(norm, -w);
-          const eR = center.clone().addScaledVector(norm, w);
+        for (let i = 0; i < segments; i++) {
+          const midDist = (distances[i] + distances[i + 1]) * 0.5;
+          if (startIsJunction && midDist < startRadius) continue;
+          if (endIsJunction && midDist > edge.length - endRadius) continue;
 
-          const baseIdx = i * 2;
-          edgePositions[baseIdx * 3] = eL.x;
-          edgePositions[baseIdx * 3 + 1] = 0.075;
-          edgePositions[baseIdx * 3 + 2] = eL.z;
+          const pt0 = points[i];
+          const pt1 = points[i + 1];
+          const norm0 = normals[i];
+          const norm1 = normals[i + 1];
+          const gy0 = effectiveGroundY[i];
+          const gy1 = effectiveGroundY[i + 1];
 
-          edgePositions[(baseIdx + 1) * 3] = eR.x;
-          edgePositions[(baseIdx + 1) * 3 + 1] = 0.075;
-          edgePositions[(baseIdx + 1) * 3 + 2] = eR.z;
+          const c0 = pt0.clone().addScaledVector(norm0, side * edgeMarkDist);
+          const c1 = pt1.clone().addScaledVector(norm1, side * edgeMarkDist);
+          const eL0 = c0.clone().addScaledVector(norm0, -w);
+          const eR0 = c0.clone().addScaledVector(norm0, w);
+          const eL1 = c1.clone().addScaledVector(norm1, -w);
+          const eR1 = c1.clone().addScaledVector(norm1, w);
 
-          if (i < segments) {
-            const v0 = baseIdx;
-            const v1 = baseIdx + 1;
-            const v2 = baseIdx + 2;
-            const v3 = baseIdx + 3;
-            edgeIndices.push(v0, v1, v2);
-            edgeIndices.push(v1, v3, v2);
-          }
+          const baseV = vEdge;
+          edgePositions.push(eL0.x, gy0 + 0.075, eL0.z);
+          edgePositions.push(eR0.x, gy0 + 0.075, eR0.z);
+          edgePositions.push(eL1.x, gy1 + 0.075, eL1.z);
+          edgePositions.push(eR1.x, gy1 + 0.075, eR1.z);
+
+          edgeIndices.push(baseV, baseV + 1, baseV + 2);
+          edgeIndices.push(baseV + 1, baseV + 3, baseV + 2);
+          vEdge += 4;
         }
 
-        edgeMarkGeom.setAttribute('position', new THREE.BufferAttribute(edgePositions, 3));
-        edgeMarkGeom.setIndex(edgeIndices);
-        edgeMarkGeom.computeVertexNormals();
+        if (edgePositions.length > 0) {
+          edgeMarkGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+          edgeMarkGeom.setIndex(edgeIndices);
+          edgeMarkGeom.computeVertexNormals();
 
-        const edgeMarkMesh = new THREE.Mesh(edgeMarkGeom, edgeMarkMat);
-        group.add(edgeMarkMesh);
+          const edgeMarkMesh = new THREE.Mesh(edgeMarkGeom, edgeMarkMat);
+          group.add(edgeMarkMesh);
+        }
       });
     }
 
@@ -358,7 +433,7 @@ export class RoadGeometryBuilder {
         textPlane.rotateX(-Math.PI / 2);
         const roadAngle = Math.atan2(tan.x, tan.z);
         textPlane.rotateZ(-roadAngle + Math.PI / 2);
-        textPlane.position.set(pt.x, 0.075, pt.z); // Berada tepat di atas aspal pada Y = 0.075m
+        textPlane.position.set(pt.x, effectiveGroundY[segIdx] + 0.075, pt.z);
         group.add(textPlane);
 
         d += step * 2;
@@ -370,49 +445,51 @@ export class RoadGeometryBuilder {
       const swWidth = profile.sidewalkWidth;
       const swHeight = Math.max(0.16, profile.curbHeight || 0.16);
 
-      const createSidewalkMesh = (sideMultiplier: number): THREE.Mesh => {
-        const swGeom = new THREE.BufferGeometry();
-        const swPositions = new Float32Array(posCount * 3);
-        const swUvs = new Float32Array(posCount * 2);
+      const createSidewalkMesh = (sideMultiplier: number): THREE.Mesh | null => {
+        const swPositions: number[] = [];
+        const swUvs: number[] = [];
         const swIndices: number[] = [];
+        let vertIdx = 0;
 
-        for (let i = 0; i <= segments; i++) {
-          const pt = points[i];
-          const norm = normals[i];
+        for (let i = 0; i < segments; i++) {
+          const d0 = distances[i];
+          const d1 = distances[i + 1];
+          const midDist = (d0 + d1) * 0.5;
 
-          // Inner edge (adjacent to road)
-          const innerOffset = sideMultiplier * halfWidth;
-          const outerOffset = sideMultiplier * (halfWidth + swWidth);
+          // Trim sidewalk at intersection junction boundary
+          if (startIsJunction && midDist < startRadius) continue;
+          if (endIsJunction && midDist > edge.length - endRadius) continue;
 
-          const innerPt = pt.clone().addScaledVector(norm, innerOffset);
-          const outerPt = pt.clone().addScaledVector(norm, outerOffset);
+          const pt0 = points[i];
+          const pt1 = points[i + 1];
+          const norm0 = normals[i];
+          const norm1 = normals[i + 1];
+          const gy0 = effectiveGroundY[i];
+          const gy1 = effectiveGroundY[i + 1];
 
-          const baseIdx = i * 2;
-          const dist = distances[i];
-          swPositions[baseIdx * 3] = innerPt.x;
-          swPositions[baseIdx * 3 + 1] = swHeight; // Y = 0.16m
-          swPositions[baseIdx * 3 + 2] = innerPt.z;
-          swUvs[baseIdx * 2] = 0;
-          swUvs[baseIdx * 2 + 1] = dist / 1.5;
+          const in0 = pt0.clone().addScaledVector(norm0, sideMultiplier * halfWidth);
+          const out0 = pt0.clone().addScaledVector(norm0, sideMultiplier * (halfWidth + swWidth));
+          const in1 = pt1.clone().addScaledVector(norm1, sideMultiplier * halfWidth);
+          const out1 = pt1.clone().addScaledVector(norm1, sideMultiplier * (halfWidth + swWidth));
 
-          swPositions[(baseIdx + 1) * 3] = outerPt.x;
-          swPositions[(baseIdx + 1) * 3 + 1] = swHeight;
-          swPositions[(baseIdx + 1) * 3 + 2] = outerPt.z;
-          swUvs[(baseIdx + 1) * 2] = swWidth / 1.5;
-          swUvs[(baseIdx + 1) * 2 + 1] = dist / 1.5;
+          const baseV = vertIdx;
+          swPositions.push(in0.x, gy0 + swHeight, in0.z);
+          swPositions.push(out0.x, gy0 + swHeight, out0.z);
+          swPositions.push(in1.x, gy1 + swHeight, in1.z);
+          swPositions.push(out1.x, gy1 + swHeight, out1.z);
 
-          if (i < segments) {
-            const v0 = baseIdx;
-            const v1 = baseIdx + 1;
-            const v2 = baseIdx + 2;
-            const v3 = baseIdx + 3;
-            swIndices.push(v0, v1, v2);
-            swIndices.push(v1, v3, v2);
-          }
+          swUvs.push(0, d0 / 1.5, swWidth / 1.5, d0 / 1.5, 0, d1 / 1.5, swWidth / 1.5, d1 / 1.5);
+
+          swIndices.push(baseV, baseV + 1, baseV + 2);
+          swIndices.push(baseV + 1, baseV + 3, baseV + 2);
+          vertIdx += 4;
         }
 
-        swGeom.setAttribute('position', new THREE.BufferAttribute(swPositions, 3));
-        swGeom.setAttribute('uv', new THREE.BufferAttribute(swUvs, 2));
+        if (swPositions.length === 0) return null;
+
+        const swGeom = new THREE.BufferGeometry();
+        swGeom.setAttribute('position', new THREE.Float32BufferAttribute(swPositions, 3));
+        swGeom.setAttribute('uv', new THREE.Float32BufferAttribute(swUvs, 2));
         swGeom.setIndex(swIndices);
         swGeom.computeVertexNormals();
 
@@ -423,38 +500,44 @@ export class RoadGeometryBuilder {
       };
 
       // Concrete Curb Bevel (Batu Pembatas Trotoar 3D)
-      const createCurbBevelMesh = (sideMultiplier: number): THREE.Mesh => {
-        const curbGeom = new THREE.BufferGeometry();
-        const curbPositions = new Float32Array(posCount * 3);
+      const createCurbBevelMesh = (sideMultiplier: number): THREE.Mesh | null => {
+        const curbPositions: number[] = [];
         const curbIndices: number[] = [];
+        let vertIdx = 0;
 
-        for (let i = 0; i <= segments; i++) {
-          const pt = points[i];
-          const norm = normals[i];
-          const roadEdgePt = pt.clone().addScaledVector(norm, sideMultiplier * halfWidth);
+        for (let i = 0; i < segments; i++) {
+          const d0 = distances[i];
+          const d1 = distances[i + 1];
+          const midDist = (d0 + d1) * 0.5;
 
-          const baseIdx = i * 2;
-          // Bottom at road level (Y = 0.06m)
-          curbPositions[baseIdx * 3] = roadEdgePt.x;
-          curbPositions[baseIdx * 3 + 1] = 0.06;
-          curbPositions[baseIdx * 3 + 2] = roadEdgePt.z;
+          if (startIsJunction && midDist < startRadius) continue;
+          if (endIsJunction && midDist > edge.length - endRadius) continue;
 
-          // Top at sidewalk level (Y = 0.16m)
-          curbPositions[(baseIdx + 1) * 3] = roadEdgePt.x;
-          curbPositions[(baseIdx + 1) * 3 + 1] = swHeight;
-          curbPositions[(baseIdx + 1) * 3 + 2] = roadEdgePt.z;
+          const pt0 = points[i];
+          const pt1 = points[i + 1];
+          const norm0 = normals[i];
+          const norm1 = normals[i + 1];
+          const gy0 = effectiveGroundY[i];
+          const gy1 = effectiveGroundY[i + 1];
 
-          if (i < segments) {
-            const v0 = baseIdx;
-            const v1 = baseIdx + 1;
-            const v2 = baseIdx + 2;
-            const v3 = baseIdx + 3;
-            curbIndices.push(v0, v1, v2);
-            curbIndices.push(v1, v3, v2);
-          }
+          const p0 = pt0.clone().addScaledVector(norm0, sideMultiplier * halfWidth);
+          const p1 = pt1.clone().addScaledVector(norm1, sideMultiplier * halfWidth);
+
+          const baseV = vertIdx;
+          curbPositions.push(p0.x, gy0 + 0.06, p0.z);
+          curbPositions.push(p0.x, gy0 + swHeight, p0.z);
+          curbPositions.push(p1.x, gy1 + 0.06, p1.z);
+          curbPositions.push(p1.x, gy1 + swHeight, p1.z);
+
+          curbIndices.push(baseV, baseV + 1, baseV + 2);
+          curbIndices.push(baseV + 1, baseV + 3, baseV + 2);
+          vertIdx += 4;
         }
 
-        curbGeom.setAttribute('position', new THREE.BufferAttribute(curbPositions, 3));
+        if (curbPositions.length === 0) return null;
+
+        const curbGeom = new THREE.BufferGeometry();
+        curbGeom.setAttribute('position', new THREE.Float32BufferAttribute(curbPositions, 3));
         curbGeom.setIndex(curbIndices);
         curbGeom.computeVertexNormals();
 
@@ -465,47 +548,54 @@ export class RoadGeometryBuilder {
       };
 
       // Yellow Tactile Paving Blocks (Jalur Ubin Pemandu Disabilitas Kuning)
-      const createTactileStripMesh = (sideMultiplier: number): THREE.Mesh => {
-        const tacGeom = new THREE.BufferGeometry();
-        const tacPositions = new Float32Array(posCount * 3);
-        const tacUvs = new Float32Array(posCount * 2);
+      const createTactileStripMesh = (sideMultiplier: number): THREE.Mesh | null => {
+        const tacPositions: number[] = [];
+        const tacUvs: number[] = [];
         const tacIndices: number[] = [];
+        let vertIdx = 0;
         const tacWidth = 0.45;
         const tacOffset = sideMultiplier * (halfWidth + swWidth * 0.42);
 
-        for (let i = 0; i <= segments; i++) {
-          const pt = points[i];
-          const norm = normals[i];
-          const dist = distances[i];
-          const centerPt = pt.clone().addScaledVector(norm, tacOffset);
-          const leftPt = centerPt.clone().addScaledVector(norm, -tacWidth * 0.5);
-          const rightPt = centerPt.clone().addScaledVector(norm, tacWidth * 0.5);
+        for (let i = 0; i < segments; i++) {
+          const d0 = distances[i];
+          const d1 = distances[i + 1];
+          const midDist = (d0 + d1) * 0.5;
 
-          const baseIdx = i * 2;
-          tacPositions[baseIdx * 3] = leftPt.x;
-          tacPositions[baseIdx * 3 + 1] = swHeight + 0.005;
-          tacPositions[baseIdx * 3 + 2] = leftPt.z;
-          tacUvs[baseIdx * 2] = 0;
-          tacUvs[baseIdx * 2 + 1] = dist / 0.6;
+          if (startIsJunction && midDist < startRadius) continue;
+          if (endIsJunction && midDist > edge.length - endRadius) continue;
 
-          tacPositions[(baseIdx + 1) * 3] = rightPt.x;
-          tacPositions[(baseIdx + 1) * 3 + 1] = swHeight + 0.005;
-          tacPositions[(baseIdx + 1) * 3 + 2] = rightPt.z;
-          tacUvs[(baseIdx + 1) * 2] = tacWidth / 0.45;
-          tacUvs[(baseIdx + 1) * 2 + 1] = dist / 0.6;
+          const pt0 = points[i];
+          const pt1 = points[i + 1];
+          const norm0 = normals[i];
+          const norm1 = normals[i + 1];
+          const gy0 = effectiveGroundY[i];
+          const gy1 = effectiveGroundY[i + 1];
 
-          if (i < segments) {
-            const v0 = baseIdx;
-            const v1 = baseIdx + 1;
-            const v2 = baseIdx + 2;
-            const v3 = baseIdx + 3;
-            tacIndices.push(v0, v1, v2);
-            tacIndices.push(v1, v3, v2);
-          }
+          const c0 = pt0.clone().addScaledVector(norm0, tacOffset);
+          const c1 = pt1.clone().addScaledVector(norm1, tacOffset);
+          const l0 = c0.clone().addScaledVector(norm0, -tacWidth * 0.5);
+          const r0 = c0.clone().addScaledVector(norm0, tacWidth * 0.5);
+          const l1 = c1.clone().addScaledVector(norm1, -tacWidth * 0.5);
+          const r1 = c1.clone().addScaledVector(norm1, tacWidth * 0.5);
+
+          const baseV = vertIdx;
+          tacPositions.push(l0.x, gy0 + swHeight + 0.005, l0.z);
+          tacPositions.push(r0.x, gy0 + swHeight + 0.005, r0.z);
+          tacPositions.push(l1.x, gy1 + swHeight + 0.005, l1.z);
+          tacPositions.push(r1.x, gy1 + swHeight + 0.005, r1.z);
+
+          tacUvs.push(0, d0 / 0.6, tacWidth / 0.45, d0 / 0.6, 0, d1 / 0.6, tacWidth / 0.45, d1 / 0.6);
+
+          tacIndices.push(baseV, baseV + 1, baseV + 2);
+          tacIndices.push(baseV + 1, baseV + 3, baseV + 2);
+          vertIdx += 4;
         }
 
-        tacGeom.setAttribute('position', new THREE.BufferAttribute(tacPositions, 3));
-        tacGeom.setAttribute('uv', new THREE.BufferAttribute(tacUvs, 2));
+        if (tacPositions.length === 0) return null;
+
+        const tacGeom = new THREE.BufferGeometry();
+        tacGeom.setAttribute('position', new THREE.Float32BufferAttribute(tacPositions, 3));
+        tacGeom.setAttribute('uv', new THREE.Float32BufferAttribute(tacUvs, 2));
         tacGeom.setIndex(tacIndices);
         tacGeom.computeVertexNormals();
 
@@ -516,183 +606,224 @@ export class RoadGeometryBuilder {
 
       // Add sidewalks, curb bevels, and tactile strips on both sides
       [-1, 1].forEach((side) => {
-        group.add(createSidewalkMesh(side));
-        group.add(createCurbBevelMesh(side));
-        group.add(createTactileStripMesh(side));
+        const sw = createSidewalkMesh(side);
+        if (sw) group.add(sw);
+        const curb = createCurbBevelMesh(side);
+        if (curb) group.add(curb);
+        const tac = createTactileStripMesh(side);
+        if (tac) group.add(tac);
       });
     } else {
       // 3b. Bahu Pembatas Beton (#94A3B8) untuk jalan tanpa trotoar lebar
       const curbW = 0.22;
       const curbH = 0.16; // Standar elevasi 0.16m
       [-1, 1].forEach((side) => {
-        const curbGeom = new THREE.BufferGeometry();
-        const curbPositions = new Float32Array(posCount * 3);
+        const curbPositions: number[] = [];
         const curbIndices: number[] = [];
+        let vertIdx = 0;
 
-        for (let i = 0; i <= segments; i++) {
-          const pt = points[i];
-          const norm = normals[i];
-          const innerPt = pt.clone().addScaledVector(norm, side * halfWidth);
-          const outerPt = pt.clone().addScaledVector(norm, side * (halfWidth + curbW));
+        for (let i = 0; i < segments; i++) {
+          const d0 = distances[i];
+          const d1 = distances[i + 1];
+          const midDist = (d0 + d1) * 0.5;
 
-          const baseIdx = i * 2;
-          curbPositions[baseIdx * 3] = innerPt.x;
-          curbPositions[baseIdx * 3 + 1] = curbH;
-          curbPositions[baseIdx * 3 + 2] = innerPt.z;
+          if (startIsJunction && midDist < startRadius) continue;
+          if (endIsJunction && midDist > edge.length - endRadius) continue;
 
-          curbPositions[(baseIdx + 1) * 3] = outerPt.x;
-          curbPositions[(baseIdx + 1) * 3 + 1] = curbH;
-          curbPositions[(baseIdx + 1) * 3 + 2] = outerPt.z;
+          const pt0 = points[i];
+          const pt1 = points[i + 1];
+          const norm0 = normals[i];
+          const norm1 = normals[i + 1];
+          const gy0 = effectiveGroundY[i];
+          const gy1 = effectiveGroundY[i + 1];
 
-          if (i < segments) {
-            const v0 = baseIdx;
-            const v1 = baseIdx + 1;
-            const v2 = baseIdx + 2;
-            const v3 = baseIdx + 3;
-            curbIndices.push(v0, v1, v2);
-            curbIndices.push(v1, v3, v2);
-          }
+          const in0 = pt0.clone().addScaledVector(norm0, side * halfWidth);
+          const out0 = pt0.clone().addScaledVector(norm0, side * (halfWidth + curbW));
+          const in1 = pt1.clone().addScaledVector(norm1, side * halfWidth);
+          const out1 = pt1.clone().addScaledVector(norm1, side * (halfWidth + curbW));
+
+          const baseV = vertIdx;
+          curbPositions.push(in0.x, gy0 + curbH, in0.z);
+          curbPositions.push(out0.x, gy0 + curbH, out0.z);
+          curbPositions.push(in1.x, gy1 + curbH, in1.z);
+          curbPositions.push(out1.x, gy1 + curbH, out1.z);
+
+          curbIndices.push(baseV, baseV + 1, baseV + 2);
+          curbIndices.push(baseV + 1, baseV + 3, baseV + 2);
+          vertIdx += 4;
         }
 
-        curbGeom.setAttribute('position', new THREE.BufferAttribute(curbPositions, 3));
-        curbGeom.setIndex(curbIndices);
-        curbGeom.computeVertexNormals();
+        if (curbPositions.length > 0) {
+          const curbGeom = new THREE.BufferGeometry();
+          curbGeom.setAttribute('position', new THREE.Float32BufferAttribute(curbPositions, 3));
+          curbGeom.setIndex(curbIndices);
+          curbGeom.computeVertexNormals();
 
-        const curbMesh = new THREE.Mesh(curbGeom, RoadGeometryBuilder.curbMaterial!);
-        curbMesh.castShadow = true;
-        curbMesh.receiveShadow = true;
-        group.add(curbMesh);
+          const curbMesh = new THREE.Mesh(curbGeom, RoadGeometryBuilder.curbMaterial!);
+          curbMesh.castShadow = true;
+          curbMesh.receiveShadow = true;
+          group.add(curbMesh);
+        }
       });
     }
 
     // 4. Props: Street Lights, Trees, Planter Pits, Benches, and Bollards
-    const lightTransforms: THREE.Matrix4[] = [];
-    if (profile.hasStreetLights && profile.lightSpacing > 0) {
-      let d = profile.lightSpacing * 0.5;
-      while (d < edge.length) {
-        const t = d / edge.length;
-        const pt = graph.sampleBezier(edge.controlPoints, t);
-        const norm = normals[Math.min(segments, Math.floor(t * segments))];
-        const swOffset = halfWidth + (profile.sidewalkWidth > 0 ? profile.sidewalkWidth * 0.5 : 0.6);
-        const lightPos = pt.clone().addScaledVector(norm, swOffset);
-        lightPos.y = profile.curbHeight || 0.16;
+    RoadPropPlacer.placeRoadProps({
+      edge,
+      profile,
+      graph,
+      group,
+      points,
+      normals,
+      distances,
+      effectiveGroundY,
+      segments,
+      startRadius,
+      endRadius,
+      roadManager
+    });
 
-        const m = new THREE.Matrix4();
-        m.makeRotationY(Math.atan2(norm.x, norm.z));
-        m.setPosition(lightPos);
-        lightTransforms.push(m);
+    // 5. Automatic Bridge Deck, Parapets & Riverbed Piers when crossing rivers/valleys (groundY < -0.25m)
+    if (hasBridge) {
+      const bridgeDeckGeom = new THREE.BufferGeometry();
+      const bridgePositions: number[] = [];
+      const bridgeIndices: number[] = [];
+      let bVertCount = 0;
 
-        // Add companion bollard light nearby
-        if (profile.sidewalkWidth > 0 && d + 6 < edge.length) {
-          const bollardPos = lightPos.clone().addScaledVector(norm, -0.6);
-          group.add(RoadPropPlacer.createBollardLight(bollardPos));
+      const totalBridgeHalfW = halfWidth + (profile.sidewalkWidth > 0 ? profile.sidewalkWidth : 0.22);
+      const concreteMat = this.curbMaterial || MaterialLibrary.getInstance().getMaterial('concrete', {
+        roughness: 0.85,
+        metalness: 0.05,
+        color: 0x94a3b8
+      });
+
+      // 5a. Underside structural deck slab
+      for (let i = 0; i <= segments; i++) {
+        if (!isBridgeSample[i] && !(i > 0 && isBridgeSample[i - 1]) && !(i < segments && isBridgeSample[i + 1])) {
+          continue;
+        }
+        const pt = points[i];
+        const norm = normals[i];
+        const gy = effectiveGroundY[i];
+        const deckBottomY = gy - 0.45;
+
+        const leftOuter = pt.clone().addScaledVector(norm, -totalBridgeHalfW);
+        const rightOuter = pt.clone().addScaledVector(norm, totalBridgeHalfW);
+
+        bridgePositions.push(leftOuter.x, deckBottomY, leftOuter.z);
+        bridgePositions.push(rightOuter.x, deckBottomY, rightOuter.z);
+
+        if (bVertCount >= 2) {
+          const v0 = bVertCount - 2;
+          const v1 = bVertCount - 1;
+          const v2 = bVertCount;
+          const v3 = bVertCount + 1;
+          bridgeIndices.push(v0, v1, v2);
+          bridgeIndices.push(v1, v3, v2);
+        }
+        bVertCount += 2;
+      }
+
+      if (bridgePositions.length > 0) {
+        bridgeDeckGeom.setAttribute('position', new THREE.Float32BufferAttribute(bridgePositions, 3));
+        bridgeDeckGeom.setIndex(bridgeIndices);
+        bridgeDeckGeom.computeVertexNormals();
+        const bridgeDeckMesh = new THREE.Mesh(bridgeDeckGeom, concreteMat);
+        bridgeDeckMesh.name = 'BridgeDeck';
+        bridgeDeckMesh.receiveShadow = true;
+        bridgeDeckMesh.castShadow = true;
+        group.add(bridgeDeckMesh);
+      }
+
+      // 5b. Bridge Parapet Railings on both sides of sidewalk
+      const railH = 0.95;
+      const railThick = 0.12;
+      [-1, 1].forEach((side) => {
+        const railPositions: number[] = [];
+        const railIndices: number[] = [];
+        let rVertCount = 0;
+
+        for (let i = 0; i <= segments; i++) {
+          if (!isBridgeSample[i] && !(i > 0 && isBridgeSample[i - 1]) && !(i < segments && isBridgeSample[i + 1])) {
+            continue;
+          }
+          const pt = points[i];
+          const norm = normals[i];
+          const gy = effectiveGroundY[i];
+          const baseRailY = gy + 0.16;
+          const topRailY = baseRailY + railH;
+          const railOffset = side * totalBridgeHalfW;
+
+          const innerR = pt.clone().addScaledVector(norm, railOffset - side * railThick);
+          const outerR = pt.clone().addScaledVector(norm, railOffset);
+
+          railPositions.push(innerR.x, topRailY, innerR.z);
+          railPositions.push(outerR.x, topRailY, outerR.z);
+          railPositions.push(innerR.x, baseRailY, innerR.z);
+          railPositions.push(outerR.x, baseRailY, outerR.z);
+
+          if (rVertCount >= 4) {
+            const v0 = rVertCount - 4;
+            const v1 = rVertCount - 3;
+            const v2 = rVertCount - 2;
+            const v3 = rVertCount - 1;
+            const c0 = rVertCount;
+            const c1 = rVertCount + 1;
+            const c2 = rVertCount + 2;
+            const c3 = rVertCount + 3;
+            // Top face
+            railIndices.push(v0, v1, c0);
+            railIndices.push(v1, c1, c0);
+            // Outer face
+            railIndices.push(v1, v3, c1);
+            railIndices.push(v3, c3, c1);
+            // Inner face
+            railIndices.push(v2, v0, c2);
+            railIndices.push(v0, c0, c2);
+          }
+          rVertCount += 4;
         }
 
-        // Add park bench between light intervals
-        if (profile.sidewalkWidth >= 2.5 && d + profile.lightSpacing * 0.4 < edge.length) {
-          const benchT = (d + profile.lightSpacing * 0.4) / edge.length;
-          const benchBase = graph.sampleBezier(edge.controlPoints, benchT);
-          const benchNorm = normals[Math.min(segments, Math.floor(benchT * segments))];
-          const benchPos = benchBase.clone().addScaledVector(benchNorm, halfWidth + profile.sidewalkWidth * 0.75);
-          benchPos.y = profile.curbHeight || 0.16;
-          const rotY = Math.atan2(benchNorm.x, benchNorm.z) + Math.PI;
-          group.add(RoadPropPlacer.createParkBench(benchPos, rotY));
+        if (railPositions.length > 0) {
+          const railGeom = new THREE.BufferGeometry();
+          railGeom.setAttribute('position', new THREE.Float32BufferAttribute(railPositions, 3));
+          railGeom.setIndex(railIndices);
+          railGeom.computeVertexNormals();
+          const railMesh = new THREE.Mesh(railGeom, concreteMat);
+          railMesh.name = side === -1 ? 'BridgeParapetRailing_Left' : 'BridgeParapetRailing_Right';
+          railMesh.castShadow = true;
+          railMesh.receiveShadow = true;
+          group.add(railMesh);
         }
+      });
 
-        d += profile.lightSpacing;
+      // 5c. Concrete Piers supporting deck down to riverbed
+      const pierInterval = Math.max(2, Math.floor(segments / 4));
+      let pierIdx = 0;
+      for (let i = 1; i < segments; i++) {
+        if (isBridgeSample[i] && (i % pierInterval === 0 || i === Math.floor(segments / 2))) {
+          const pt = points[i];
+          const deckY = effectiveGroundY[i];
+          const bedY = rawGroundY[i];
+          const pierH = Math.max(0.5, deckY - bedY);
+          const pierRadius = Math.min(0.8, totalBridgeHalfW * 0.25);
+
+          const pierGeom = new THREE.CylinderGeometry(pierRadius, pierRadius * 1.15, pierH, 16);
+          const pierMesh = new THREE.Mesh(pierGeom, concreteMat);
+          pierMesh.name = `BridgePier_${pierIdx++}`;
+          pierMesh.position.set(pt.x, bedY + pierH * 0.5, pt.z);
+          pierMesh.castShadow = true;
+          pierMesh.receiveShadow = true;
+          group.add(pierMesh);
+        }
       }
     }
 
-    const treeTransforms: THREE.Matrix4[] = [];
-    if (profile.hasTrees && profile.treeSpacing > 0 && profile.sidewalkWidth > 0) {
-      let d = profile.treeSpacing * 0.7;
-      while (d < edge.length) {
-        const t = d / edge.length;
-        const pt = graph.sampleBezier(edge.controlPoints, t);
-        const norm = normals[Math.min(segments, Math.floor(t * segments))];
-        const swOffset = -(halfWidth + profile.sidewalkWidth * 0.5);
-        const treePos = pt.clone().addScaledVector(norm, swOffset);
-        treePos.y = profile.curbHeight || 0.16;
-
-        const scale = 0.95 + ((Math.floor(d) * 31) % 5) * 0.05;
-        const m = new THREE.Matrix4();
-        m.makeScale(scale, scale, scale);
-        m.setPosition(treePos);
-        treeTransforms.push(m);
-
-        // Tree Planter Pit around every tree
-        group.add(RoadPropPlacer.createTreePlanterPit(treePos));
-
-        d += profile.treeSpacing;
-      }
-    }
-
-    if (lightTransforms.length > 0) {
-      RoadPropPlacer.addInstancedLights(group, lightTransforms);
-    }
-    if (treeTransforms.length > 0) {
-      RoadPropPlacer.addInstancedTrees(group, treeTransforms);
-    }
-
-    // Subsurface Drainage System (Box Culverts, Biopori Shafts, Sumur Resapan)
+    // Subsurface Drainage Group (Clean lightweight group with 0 heavy polygons)
     const subsurfaceGroup = new THREE.Group();
     subsurfaceGroup.name = 'SubsurfaceDrainage';
     subsurfaceGroup.visible = false;
-
-    if (profile.sidewalkWidth > 0 && points.length >= 2) {
-      const concreteMat = MaterialLibrary.getInstance().getMaterial('concrete', { roughness: 0.9, color: 0x475569 });
-      const culvertWidth = Math.min(1.2, profile.sidewalkWidth * 0.8);
-      const culvertHeight = 0.9;
-      const culvertY = -0.75;
-
-      for (const side of [-1, 1]) {
-        const culvertOffset = side * (halfWidth + profile.sidewalkWidth * 0.5);
-        for (let i = 0; i < points.length - 1; i++) {
-          const p1 = points[i].clone().addScaledVector(normals[i], culvertOffset);
-          const p2 = points[i + 1].clone().addScaledVector(normals[i + 1], culvertOffset);
-          p1.y = culvertY;
-          p2.y = culvertY;
-
-          const segLen = p1.distanceTo(p2);
-          if (segLen > 0.05) {
-            const culvertGeom = new THREE.BoxGeometry(culvertWidth, culvertHeight, segLen);
-            const culvertMesh = new THREE.Mesh(culvertGeom, concreteMat);
-            culvertMesh.position.copy(p1).add(p2).multiplyScalar(0.5);
-            culvertMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), p2.clone().sub(p1).normalize());
-            subsurfaceGroup.add(culvertMesh);
-          }
-        }
-      }
-
-      const resapanGeom = new THREE.CylinderGeometry(0.5, 0.5, 3.0, 12);
-      const bioporiGeom = new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8);
-      const gravelMat = MaterialLibrary.getInstance().getMaterial('stone_plinth', { roughness: 0.95, color: 0x334155 });
-
-      let drainageD = 15;
-      while (drainageD < edge.length) {
-        const t = drainageD / edge.length;
-        const pt = graph.sampleBezier(edge.controlPoints, t);
-        const norm = normals[Math.min(segments, Math.floor(t * segments))];
-
-        const resapanPos = pt.clone().addScaledVector(norm, halfWidth + profile.sidewalkWidth * 0.7);
-        resapanPos.y = -1.5;
-        const resapanMesh = new THREE.Mesh(resapanGeom, concreteMat);
-        resapanMesh.position.copy(resapanPos);
-        subsurfaceGroup.add(resapanMesh);
-
-        const bioporiPos = pt.clone().addScaledVector(norm, -(halfWidth + profile.sidewalkWidth * 0.7));
-        bioporiPos.y = -0.6;
-        const bioporiMesh = new THREE.Mesh(bioporiGeom, gravelMat);
-        bioporiMesh.position.copy(bioporiPos);
-        subsurfaceGroup.add(bioporiMesh);
-
-        drainageD += 25;
-      }
-    }
-
     group.add(subsurfaceGroup);
-    group.userData.subsurfaceDrainage = subsurfaceGroup;
-
     return group;
   }
 }

@@ -110,6 +110,19 @@ export class LandscapeManager {
     return this.itemGroups.get(id);
   }
 
+  public updateItemPosition(id: string, newPos: THREE.Vector3): void {
+    const item = this.items.get(id);
+    if (!item) return;
+    item.position.copy(newPos);
+    const group = this.itemGroups.get(id);
+    if (group) {
+      group.position.copy(newPos);
+    }
+    if (this.onLandscapeUpdated) {
+      this.onLandscapeUpdated();
+    }
+  }
+
   public createItem(
     type: LandscapeType,
     position: THREE.Vector3,

@@ -5,7 +5,7 @@ import { SolarSeason, getSolarSeasonDayOfYear } from '../../core/math/SolarPosit
 import type { SavedMapMeta } from '../../io/IndexedDBStorage';
 import type { DslrLensType } from '../../core/engine/CinematicDroneController';
 
-export type MainToolType = 'select' | 'road' | 'zone' | 'build' | 'nature' | 'analyze' | 'view';
+export type MainToolType = 'select' | 'road' | 'zone' | 'build' | 'nature' | 'analyze' | 'view' | 'terraform' | 'demolish';
 export type ThemeMode = 'auto' | 'light' | 'dark';
 export type GlassStyle = 'clear' | 'tinted';
 export type { GraphicsQuality } from '../../core/engine/GraphicsPresets';
@@ -73,6 +73,12 @@ interface UIState {
 
   fps: number;
   setFps: (fps: number) => void;
+  showFps: boolean;
+  setShowFps: (show: boolean) => void;
+  toggleShowFps: () => void;
+  showLotOverlays: boolean;
+  setShowLotOverlays: (show: boolean) => void;
+  toggleShowLotOverlays: () => void;
   adaptiveGlass: 'normal' | 'low';
 
   canUndo: boolean;
@@ -114,6 +120,9 @@ interface UIState {
   inspectorVisible: boolean;
   setInspectorVisible: (val: boolean) => void;
 
+  isSideDockExpanded: boolean;
+  setIsSideDockExpanded: (val: boolean) => void;
+
   // Centralized Modal Management (Single Modal Rule)
   activeModal: ModalId | null;
   openModal: (id: ModalId) => void;
@@ -148,8 +157,14 @@ interface UIState {
   setMousepadSensitivity: (val: number) => void;
 
   // Custom building designer studio modal
+  isCustomBuildingModalOpen: boolean;
+  setCustomBuildingModalOpen: (val: boolean) => void;
   showCustomBuildingStudio: boolean;
   setShowCustomBuildingStudio: (val: boolean) => void;
+
+  // Active Terrain Mode
+  activeTerrainMode: 'raise' | 'lower' | 'flatten' | 'river';
+  setActiveTerrainMode: (mode: 'raise' | 'lower' | 'flatten' | 'river') => void;
 
   // Milestone T3 Load Test Modal
   showLoadTest: boolean;
@@ -224,7 +239,7 @@ const loadSavedSettings = () => {
 };
 
 const savedSettings = loadSavedSettings();
-const initialThemeMode: ThemeMode = savedSettings.themeMode || 'dark';
+const initialThemeMode: ThemeMode = (savedSettings.themeMode === 'light' || savedSettings.themeMode === 'dark' || savedSettings.themeMode === 'auto') ? savedSettings.themeMode : 'light';
 const initialGlassStyle: GlassStyle = savedSettings.glassStyle || 'clear';
 const initialGlassOpacity: number = typeof savedSettings.glassOpacity === 'number' ? savedSettings.glassOpacity : 0.60;
 const initialTextScale: number = typeof savedSettings.textScale === 'number' ? savedSettings.textScale : 1.0;
@@ -260,12 +275,35 @@ export const useUIStore = create<UIState>((set, get) => {
   const calculateResolvedTheme = (mode: ThemeMode, hour: number): 'light' | 'dark' => {
     if (mode === 'light') return 'light';
     if (mode === 'dark') return 'dark';
-    // Auto: Default to pristine light Laboratorium Analisis
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
     return 'light';
   };
 
   const initialHour = 16.25; // 16:15 WIB Golden Hour Default
   const initialResolved = calculateResolvedTheme(initialThemeMode, initialHour);
+
+  // Sync with OS theme changes when themeMode === 'auto'
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', () => {
+      const state = get();
+      if (state.themeMode === 'auto') {
+        const resolved = mq.matches ? 'dark' : 'light';
+        set({ resolvedTheme: resolved });
+        applyThemeTokensToDOM(
+          resolved,
+          state.glassStyle,
+          state.glassOpacity,
+          state.graphicsQuality,
+          state.textScale,
+          state.reduceMotion,
+          state.highContrast
+        );
+      }
+    });
+  }
 
   // Apply initial settings immediately to document
   applyThemeTokensToDOM(
@@ -321,7 +359,15 @@ export const useUIStore = create<UIState>((set, get) => {
     activeTool: 'select',
     setActiveTool: (activeTool) => {
       set({ activeTool });
-      get().engine?.setActiveTool(activeTool);
+      const engine = get().engine;
+      if (engine) {
+        engine.setActiveTool(activeTool);
+        if (activeTool === 'terraform') {
+          const mode = get().activeTerrainMode || 'river';
+          if (engine.terraformTool) engine.terraformTool.setMode(mode);
+          if (engine.terrainTool) engine.terrainTool.setMode(mode);
+        }
+      }
     },
 
     timeOfDay: initialHour,
@@ -488,6 +534,14 @@ export const useUIStore = create<UIState>((set, get) => {
       set({ fps, adaptiveGlass: nextAdaptive });
     },
 
+    showFps: false,
+    setShowFps: (showFps) => set({ showFps }),
+    toggleShowFps: () => set((s) => ({ showFps: !s.showFps })),
+
+    showLotOverlays: false,
+    setShowLotOverlays: (showLotOverlays) => set({ showLotOverlays }),
+    toggleShowLotOverlays: () => set((s) => ({ showLotOverlays: !s.showLotOverlays })),
+
     canUndo: false,
     canRedo: false,
     setHistoryState: (canUndo, canRedo) => set({ canUndo, canRedo }),
@@ -611,6 +665,9 @@ export const useUIStore = create<UIState>((set, get) => {
     inspectorVisible: true,
     setInspectorVisible: (inspectorVisible) => set({ inspectorVisible }),
 
+    isSideDockExpanded: false,
+    setIsSideDockExpanded: (isSideDockExpanded) => set({ isSideDockExpanded }),
+
     // Centralized Modal Management (Single Modal Rule)
     activeModal: null,
     openModal: (id) => {
@@ -623,6 +680,7 @@ export const useUIStore = create<UIState>((set, get) => {
         showSaveLoad: id === 'saveLoad',
         showSettings: id === 'settings',
         showCustomBuildingStudio: id === 'customBuildingStudio',
+        isCustomBuildingModalOpen: id === 'customBuildingStudio',
         showLoadTest: id === 'loadTest',
         showRealWorldExport: id === 'realWorldExport',
         showQuiz: id === 'quiz',
@@ -639,6 +697,7 @@ export const useUIStore = create<UIState>((set, get) => {
         showSaveLoad: false,
         showSettings: false,
         showCustomBuildingStudio: false,
+        isCustomBuildingModalOpen: false,
         showLoadTest: false,
         showRealWorldExport: false,
         showQuiz: false,
@@ -695,11 +754,26 @@ export const useUIStore = create<UIState>((set, get) => {
       else set({ showSettings: false });
     },
 
-    showCustomBuildingStudio: false,
-    setShowCustomBuildingStudio: (val) => {
+    isCustomBuildingModalOpen: false,
+    setCustomBuildingModalOpen: (val) => {
       if (val) get().openModal('customBuildingStudio');
       else if (get().activeModal === 'customBuildingStudio') get().closeModal();
-      else set({ showCustomBuildingStudio: false });
+      else set({ isCustomBuildingModalOpen: false, showCustomBuildingStudio: false });
+    },
+
+    showCustomBuildingStudio: false,
+    setShowCustomBuildingStudio: (val) => {
+      get().setCustomBuildingModalOpen(val);
+    },
+
+    activeTerrainMode: 'river',
+    setActiveTerrainMode: (mode) => {
+      set({ activeTerrainMode: mode });
+      const engine = get().engine;
+      if (engine) {
+        if (engine.terraformTool) engine.terraformTool.setMode(mode);
+        if ((engine as any).terrainTool) (engine as any).terrainTool.setMode(mode);
+      }
     },
 
     showLoadTest: false,

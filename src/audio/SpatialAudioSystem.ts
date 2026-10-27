@@ -4,6 +4,7 @@ import { BuildingManager } from '../buildings/BuildingManager';
 import { RoadManager } from '../roads/RoadManager';
 import { LandscapeManager } from '../world/LandscapeManager';
 import { WeatherType } from '../world/WeatherSystem';
+import { useUIStore } from '../ui/state/useUIStore';
 
 export interface SpatialAudioZone {
   id: string;
@@ -218,7 +219,7 @@ export class SpatialAudioSystem {
     this.lastPlayerPos.copy(cameraPos);
     this.isUnderRoof = isUnderRoof;
 
-    if (!this.enabled || proceduralAudio.isMuted()) {
+    if (!this.enabled || proceduralAudio.isMuted() || (typeof window !== 'undefined' && useUIStore.getState().currentScreen !== 'game')) {
       if (this.masterGain && this.ctx) {
         this.masterGain.gain.setTargetAtTime(0.0, this.ctx.currentTime, 0.05);
       }

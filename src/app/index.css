@@ -42,82 +42,118 @@
 @tailwind utilities;
 
 /* ====================================================
+   STANDAR WARNA & LIQUID GLASS TERANG ARSCITY
+   ==================================================== */
+.arscity-glass-bar {
+  background: rgba(244, 247, 251, 0.94) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08) !important;
+  color: #0F172A !important;
+}
+
+/* ====================================================
    iOS 27 (LIQUID GLASS REFINED) DESIGN SYSTEM
-   Arscity - Pure architectural clarity, zero AI-slop
+   Arscity - Pure architectural clarity, Unified Light Glass Theme
    ==================================================== */
 
 :root {
-  /* Auth & Brand Tokens (shared by Login, Hub, shadcn-style components) */
-  --background: #090D16;
-  --foreground: #f8fafc;
-  --card: #0f172a;
-  --border: rgba(255, 255, 255, 0.12);
-  --primary: #0A84FF;
-  --primary-foreground: #ffffff;
-  --muted-foreground: rgba(235, 235, 245, 0.65);
-  --destructive: #ef4444;
-  --color-primary: #0A84FF;
-  --color-secondary: #10b981;
-  --color-accent: #0284c7;
-  --color-destructive: #ef4444;
-  --color-chart-1: #0A84FF;
-  --color-chart-2: #10b981;
-  --color-chart-3: #0284c7;
-  --color-chart-4: #d97706;
+  /* Auth & Brand Tokens */
+  --background: #F1F5F9;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --border: #CBD5E1;
+  --primary: #007AFF;
+  --primary-foreground: #FFFFFF;
+  --muted-foreground: #475569;
+  --destructive: #EF4444;
+  --color-primary: #007AFF;
+  --color-secondary: #10B981;
+  --color-accent: #0284C7;
+  --color-destructive: #EF4444;
+  --color-chart-1: #007AFF;
+  --color-chart-2: #10B981;
+  --color-chart-3: #0284C7;
+  --color-chart-4: #D97706;
   --color-chart-5: #059669;
 
-  /* ---------- SURFACES (Dark = default) ---------- */
-  --app-bg: #080d16;
-  --bg-grouped: #0f172a;
-  --surface: rgba(15, 23, 42, 0.86);
-  --surface-strong: rgba(15, 23, 42, 0.95);
-  --surface-solid: #0f172a;
-  --surface-raised: #1e293b;
-  --surface-inset: rgba(30, 41, 59, 0.65);
-  --scrim: rgba(0, 0, 0, 0.40);
+  /* ---------- SURFACES (Unified Architectural Light Glass) ---------- */
+  --app-bg: #E2E8F0;
+  --bg-grouped: #F1F5F9;
+  --surface: rgba(244, 247, 251, 0.94);
+  --surface-strong: rgba(244, 247, 251, 0.96);
+  --surface-solid: #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-inset: #F8FAFC;
+  --scrim: rgba(15, 23, 42, 0.28);
+  --overlay: rgba(15, 23, 42, 0.35);
 
-  /* ---------- LABELS ---------- */
-  --label: #F8FAFC;
-  --label-strong: #FFFFFF;
-  --label-muted: #CBD5E1;
-  --label-secondary: #94A3B8;
+  /* ---------- LABELS (Tegas & Kontras Tinggi) ---------- */
+  --label: #0F172A;
+  --label-strong: #020617;
+  --label-muted: #334155;
+  --label-secondary: #475569;
   --label-tertiary: #64748B;
-  --icon: rgba(226, 232, 240, 0.85);
+  --icon: #334155;
   --on-accent: #FFFFFF;
 
   /* ---------- LINES & FILLS ---------- */
-  --separator: rgba(255, 255, 255, 0.14);
-  --hairline: rgba(255, 255, 255, 0.14);
-  --hairline-soft: rgba(255, 255, 255, 0.10);
-  --fill-subtle: rgba(255, 255, 255, 0.05);
-  --fill-control: rgba(255, 255, 255, 0.08);
-  --fill-control-hover: rgba(255, 255, 255, 0.14);
-  --fill-control-active: rgba(255, 255, 255, 0.22);
+  --separator: #CBD5E1;
+  --hairline: #CBD5E1;
+  --hairline-soft: #E2E8F0;
+  --fill-subtle: rgba(15, 23, 42, 0.035);
+  --fill-control: #E2E8F0;
+  --fill-control-hover: #CBD5E1;
+  --fill-control-active: rgba(0, 122, 255, 0.14);
 
-  /* ---------- SEMANTIC COLORS (rgb triplets allow rgba(var(--x-rgb), a)) ---------- */
-  --accent: #0A84FF;
-  --accent-rgb: 10, 132, 255;
-  --accent-hover: #3d9dff;
-  --accent-subtle: rgba(10, 132, 255, 0.16);
-  --info: #38BDF8;
-  --info-rgb: 56, 189, 248;
-  --good: #30D158;
-  --good-rgb: 48, 209, 88;
-  --warn: #FF9F0A;
-  --warn-rgb: 255, 159, 10;
-  --bad: #FF453A;
-  --bad-rgb: 255, 69, 58;
+  /* ---------- SEMANTIC COLORS ---------- */
+  --accent: #007AFF;
+  --accent-rgb: 0, 122, 255;
+  --accent-hover: #0066D6;
+  --accent-subtle: rgba(0, 122, 255, 0.14);
+  --info: #0284C7;
+  --info-rgb: 2, 132, 199;
+  --good: #16A34A;
+  --good-rgb: 22, 163, 74;
+  --warn: #D97706;
+  --warn-rgb: 217, 119, 6;
+  --bad: #DC2626;
+  --bad-rgb: 220, 38, 38;
 
   /* ---------- GLASS MATERIAL ---------- */
-  --glass-base: 15, 23, 42;
-  --glass-opacity: 0.86;
-  --glass-blur: 20px;
+  --glass-base: 244, 247, 251;
+  --glass-opacity: 0.94;
+  --glass-blur: 24px;
   --glass-saturate: 180%;
-  --specular-alpha: 0.14;
-  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.45);
-  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-popover: 0 12px 36px rgba(0, 0, 0, 0.5);
-  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.65);
+  --specular-alpha: 0.6;
+  --shadow-glass: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-card: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --shadow-popover: 0 12px 36px rgba(15, 23, 42, 0.12);
+  --shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.16);
+
+  /* ---------- LABORATORIUM ANALISIS DESIGN TOKENS ---------- */
+  --lab-card-bg: rgba(244, 247, 251, 0.94);
+  --lab-card-blur: 24px;
+  --lab-card-saturate: 180%;
+  --lab-card-border: 1px solid rgba(255, 255, 255, 0.95);
+  --lab-card-radius: 24px;
+  --lab-card-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
+
+  --lab-badge-bg: rgba(0, 122, 255, 0.12);
+  --lab-badge-icon: #007AFF;
+  --lab-title-color: #0F172A;
+  --lab-subtitle-color: #475569;
+
+  --lab-section-bg: #FFFFFF;
+  --lab-section-border: 1px solid #CBD5E1;
+  --lab-section-radius: 18px;
+  --lab-section-divider: #E2E8F0;
+
+  --lab-pill-bg: #E2E8F0;
+  --lab-pill-active-bg: #FFFFFF;
+  --lab-pill-active-text: #007AFF;
+  --lab-pill-active-shadow: 0 2px 8px rgba(15, 23, 42, 0.10);
 
   /* ---------- RADIUS (Concentric Hierarchy) ---------- */
   --radius-capsule: 9999px;
@@ -142,7 +178,7 @@
   --text-lg: 18px;
   --text-xl: 22px;
 
-  /* ---------- Z-INDEX SCALE (single source of truth) ---------- */
+  /* ---------- Z-INDEX SCALE ---------- */
   --z-canvas: 0;
   --z-hud: 10;
   --z-hud-popover: 20;
@@ -166,7 +202,7 @@
   --dur-fast: 120ms;
   --dur-base: 200ms;
 
-  /* Zone Map Colors (identical in both themes) */
+  /* Zone Map Colors */
   --zone-residential: #d97706;
   --zone-commercial: #0284c7;
   --zone-office: #4f46e5;
@@ -174,88 +210,178 @@
   --zone-green: #16a34a;
   --zone-mixed: #9333ea;
 
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 /* ====================================================
-   LIGHT THEME (html[data-theme="light"])
-   Frosted white glass, slate ink, iOS light system colors
+   UNIFIED LIGHT THEME (html[data-theme="light"] & standard)
+   Frosted architectural white glass, slate ink, iOS system colors
    ==================================================== */
 [data-theme="light"] {
   --background: #F1F5F9;
   --foreground: #0F172A;
   --card: #FFFFFF;
-  --border: rgba(15, 23, 42, 0.12);
-  --muted-foreground: rgba(15, 23, 42, 0.6);
+  --border: #CBD5E1;
+  --muted-foreground: #475569;
 
   --app-bg: #E2E8F0;
   --bg-grouped: #F1F5F9;
-  --surface: rgba(255, 255, 255, 0.80);
-  --surface-strong: rgba(255, 255, 255, 0.94);
+  --surface: rgba(244, 247, 251, 0.94);
+  --surface-strong: rgba(244, 247, 251, 0.96);
   --surface-solid: #FFFFFF;
   --surface-raised: #FFFFFF;
-  --surface-inset: rgba(241, 245, 249, 0.85);
+  --surface-inset: #F8FAFC;
   --scrim: rgba(15, 23, 42, 0.28);
+  --overlay: rgba(15, 23, 42, 0.35);
 
   --label: #0F172A;
   --label-strong: #020617;
   --label-muted: #334155;
   --label-secondary: #475569;
   --label-tertiary: #64748B;
-  --icon: rgba(15, 23, 42, 0.78);
+  --icon: #334155;
   --on-accent: #FFFFFF;
 
-  --separator: rgba(15, 23, 42, 0.12);
-  --hairline: rgba(15, 23, 42, 0.12);
-  --hairline-soft: rgba(15, 23, 42, 0.08);
+  --separator: #CBD5E1;
+  --hairline: #CBD5E1;
+  --hairline-soft: #E2E8F0;
   --fill-subtle: rgba(15, 23, 42, 0.035);
-  --fill-control: rgba(15, 23, 42, 0.06);
-  --fill-control-hover: rgba(15, 23, 42, 0.10);
-  --fill-control-active: rgba(15, 23, 42, 0.16);
+  --fill-control: #E2E8F0;
+  --fill-control-hover: #CBD5E1;
+  --fill-control-active: rgba(0, 122, 255, 0.14);
 
   --accent: #007AFF;
   --accent-rgb: 0, 122, 255;
   --accent-hover: #0066D6;
-  --accent-subtle: rgba(0, 122, 255, 0.12);
-  --info: #0369A1;
+  --accent-subtle: rgba(0, 122, 255, 0.14);
+  --info: #0284C7;
   --info-rgb: 2, 132, 199;
-  --good: #248A3D;
-  --good-rgb: 36, 138, 61;
-  --warn: #C93400;
-  --warn-rgb: 201, 52, 0;
-  --bad: #D70015;
-  --bad-rgb: 215, 0, 21;
+  --good: #16A34A;
+  --good-rgb: 22, 163, 74;
+  --warn: #D97706;
+  --warn-rgb: 217, 119, 6;
+  --bad: #DC2626;
+  --bad-rgb: 220, 38, 38;
 
-  --glass-base: 255, 255, 255;
+  --glass-base: 244, 247, 251;
   --specular-alpha: 0.6;
-  --shadow-glass: 0 8px 28px rgba(15, 23, 42, 0.14);
+  --shadow-glass: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
   --shadow-card: 0 2px 8px rgba(15, 23, 42, 0.08);
-  --shadow-popover: 0 12px 32px rgba(15, 23, 42, 0.16);
-  --shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.22);
+  --shadow-popover: 0 12px 36px rgba(15, 23, 42, 0.12);
+  --shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.16);
 
-  --lab-card-bg: rgba(248, 250, 252, 0.88);
+  --lab-card-bg: rgba(244, 247, 251, 0.94);
   --lab-card-blur: 24px;
   --lab-card-saturate: 180%;
-  --lab-card-border: 1px solid rgba(15, 23, 42, 0.10);
+  --lab-card-border: 1px solid rgba(255, 255, 255, 0.95);
   --lab-card-radius: 24px;
-  --lab-card-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 20px 50px rgba(15, 23, 42, 0.14);
+  --lab-card-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
 
-  --lab-badge-bg: rgba(10, 132, 255, 0.12);
+  --lab-badge-bg: rgba(0, 122, 255, 0.12);
   --lab-badge-icon: #007AFF;
   --lab-title-color: #0F172A;
   --lab-subtitle-color: #475569;
 
-  --lab-section-bg: rgba(255, 255, 255, 0.88);
-  --lab-section-border: 1px solid rgba(15, 23, 42, 0.08);
+  --lab-section-bg: #FFFFFF;
+  --lab-section-border: 1px solid #CBD5E1;
   --lab-section-radius: 18px;
-  --lab-section-divider: rgba(15, 23, 42, 0.06);
+  --lab-section-divider: #E2E8F0;
 
-  --lab-pill-bg: rgba(226, 232, 240, 0.7);
+  --lab-pill-bg: #E2E8F0;
   --lab-pill-active-bg: #FFFFFF;
-  --lab-pill-active-text: #0F172A;
+  --lab-pill-active-text: #007AFF;
   --lab-pill-active-shadow: 0 2px 8px rgba(15, 23, 42, 0.10);
 
   color-scheme: light;
+}
+
+/* ====================================================
+   AUTHENTIC DARK THEME (html[data-theme="dark"])
+   True smoked liquid glass, high contrast crisp white & slate labels
+   ==================================================== */
+[data-theme="dark"] {
+  --background: #0B0F19;
+  --foreground: #F8FAFC;
+  --card: #1E293B;
+  --border: #334155;
+  --muted-foreground: #94A3B8;
+
+  --app-bg: #0F172A;
+  --bg-grouped: #1E293B;
+  --surface: rgba(15, 23, 42, 0.88);
+  --surface-strong: rgba(15, 23, 42, 0.94);
+  --surface-solid: #1E293B;
+  --surface-raised: #334155;
+  --surface-inset: #0F172A;
+  --scrim: rgba(0, 0, 0, 0.65);
+  --overlay: rgba(0, 0, 0, 0.70);
+
+  --label: #F8FAFC;
+  --label-strong: #FFFFFF;
+  --label-muted: #94A3B8;
+  --label-secondary: #CBD5E1;
+  --label-tertiary: #64748B;
+  --icon: #CBD5E1;
+  --on-accent: #FFFFFF;
+
+  --separator: #334155;
+  --hairline: #334155;
+  --hairline-soft: #1E293B;
+  --fill-subtle: rgba(255, 255, 255, 0.05);
+  --fill-control: #334155;
+  --fill-control-hover: #475569;
+  --fill-control-active: rgba(0, 122, 255, 0.25);
+
+  --accent: #007AFF;
+  --accent-rgb: 0, 122, 255;
+  --accent-hover: #38BDF8;
+  --accent-subtle: rgba(0, 122, 255, 0.20);
+  --info: #38BDF8;
+  --info-rgb: 56, 189, 248;
+  --good: #22C55E;
+  --good-rgb: 34, 197, 94;
+  --warn: #F59E0B;
+  --warn-rgb: 245, 158, 11;
+  --bad: #EF4444;
+  --bad-rgb: 239, 68, 68;
+
+  --glass-base: 15, 23, 42;
+  --specular-alpha: 0.25;
+  --shadow-glass: 0 12px 36px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-popover: 0 12px 36px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.65);
+
+  --lab-card-bg: rgba(15, 23, 42, 0.88);
+  --lab-card-blur: 24px;
+  --lab-card-saturate: 180%;
+  --lab-card-border: 1px solid rgba(255, 255, 255, 0.12);
+  --lab-card-radius: 24px;
+  --lab-card-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+
+  --lab-badge-bg: rgba(0, 122, 255, 0.2);
+  --lab-badge-icon: #38BDF8;
+  --lab-title-color: #F8FAFC;
+  --lab-subtitle-color: #94A3B8;
+
+  --lab-section-bg: #1E293B;
+  --lab-section-border: 1px solid #334155;
+  --lab-section-radius: 18px;
+  --lab-section-divider: #334155;
+
+  --lab-pill-bg: #334155;
+  --lab-pill-active-bg: #0F172A;
+  --lab-pill-active-text: #38BDF8;
+  --lab-pill-active-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  color-scheme: dark;
+}
+
+[data-theme="dark"] .arscity-glass-bar {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+  color: #F8FAFC !important;
 }
 
 /* HIGH CONTRAST MODE */
@@ -367,53 +493,31 @@ html, body, #root {
    Clean, light frosted translucent glass, soft specular highlights,
    circular blue badges, white inset containers, and pill controls.
    ==================================================== */
-:root {
-  --lab-card-bg: rgba(15, 23, 42, 0.86);
-  --lab-card-blur: 24px;
-  --lab-card-saturate: 180%;
-  --lab-card-border: 1px solid rgba(255, 255, 255, 0.12);
-  --lab-card-radius: 24px;
-  --lab-card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.45);
-
-  --lab-badge-bg: rgba(10, 132, 255, 0.18);
-  --lab-badge-icon: #38BDF8;
-  --lab-title-color: #F8FAFC;
-  --lab-subtitle-color: #94A3B8;
-
-  --lab-section-bg: rgba(30, 41, 59, 0.65);
-  --lab-section-border: 1px solid rgba(255, 255, 255, 0.08);
-  --lab-section-radius: 18px;
-  --lab-section-divider: rgba(255, 255, 255, 0.08);
-
-  --lab-pill-bg: rgba(30, 41, 59, 0.85);
-  --lab-pill-active-bg: #0A84FF;
-  --lab-pill-active-text: #FFFFFF;
-  --lab-pill-active-shadow: 0 2px 10px rgba(10, 132, 255, 0.4);
-}
-
+:root,
 html[data-theme="light"],
-[data-theme="light"] {
-  --lab-card-bg: rgba(248, 250, 252, 0.92);
+[data-theme="light"],
+[data-theme="dark"] {
+  --lab-card-bg: rgba(244, 247, 251, 0.95);
   --lab-card-blur: 24px;
   --lab-card-saturate: 180%;
-  --lab-card-border: 1px solid rgba(15, 23, 42, 0.10);
+  --lab-card-border: 1px solid rgba(255, 255, 255, 0.95);
   --lab-card-radius: 24px;
-  --lab-card-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 20px 50px rgba(15, 23, 42, 0.14);
+  --lab-card-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
 
-  --lab-badge-bg: rgba(10, 132, 255, 0.12);
+  --lab-badge-bg: rgba(0, 122, 255, 0.12);
   --lab-badge-icon: #007AFF;
   --lab-title-color: #0F172A;
   --lab-subtitle-color: #475569;
 
-  --lab-section-bg: rgba(241, 245, 249, 0.85);
-  --lab-section-border: 1px solid rgba(15, 23, 42, 0.08);
+  --lab-section-bg: #FFFFFF;
+  --lab-section-border: 1px solid #CBD5E1;
   --lab-section-radius: 18px;
-  --lab-section-divider: rgba(15, 23, 42, 0.08);
+  --lab-section-divider: #E2E8F0;
 
-  --lab-pill-bg: rgba(255, 255, 255, 0.90);
-  --lab-pill-active-bg: #007AFF;
-  --lab-pill-active-text: #FFFFFF;
-  --lab-pill-active-shadow: 0 2px 10px rgba(0, 122, 255, 0.35);
+  --lab-pill-bg: #E2E8F0;
+  --lab-pill-active-bg: rgba(0, 122, 255, 0.14);
+  --lab-pill-active-text: #007AFF;
+  --lab-pill-active-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
 }
 
 .interactive {
@@ -843,6 +947,12 @@ input[type="range"].ios-slider:focus-visible {
   padding: 6px 14px;
   border-radius: var(--radius-capsule);
   pointer-events: auto;
+  background: rgba(235, 242, 250, 0.82);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 16px 40px rgba(15, 23, 42, 0.14);
+  color: #0F172A;
 }
 
 /* ====================================================
@@ -861,11 +971,12 @@ input[type="range"].ios-slider:focus-visible {
   padding: 8px 6px;
   gap: 4px;
   border-radius: 24px;
-  background: var(--surface);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-  border: 1px solid var(--hairline);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.35);
+  background: rgba(244, 247, 251, 0.94);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
+  color: #0F172A;
   max-height: calc(100vh - 180px);
   overflow-y: auto;
   -ms-overflow-style: none;
@@ -893,15 +1004,16 @@ input[type="range"].ios-slider:focus-visible {
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: var(--label-secondary);
+  color: #334155;
   cursor: pointer;
   outline: none;
   transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.side-dock-btn:hover {
-  background: var(--accent-subtle);
-  color: var(--accent);
+.side-dock-btn:hover,
+.side-dock-btn.active {
+  background: rgba(0, 122, 255, 0.12);
+  color: #007AFF;
   transform: scale(1.08);
 }
 
@@ -926,22 +1038,20 @@ input[type="range"].ios-slider:focus-visible {
   left: calc(100% + 12px);
   top: 50%;
   transform: translateY(-50%) translateX(-6px);
-  background: var(--surface-strong);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
-  color: var(--label);
+  background: #FFFFFF !important;
+  color: #0F172A !important;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 9999px !important;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
   transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
               transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-popover);
+  border: 1px solid #CBD5E1 !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.10) !important;
   z-index: var(--z-hud-popover);
 }
 
@@ -971,14 +1081,14 @@ input[type="range"].ios-slider:focus-visible {
   display: flex;
   flex-direction: column;
   z-index: 45;
-  background: var(--lab-card-bg);
-  -webkit-backdrop-filter: blur(var(--lab-card-blur)) saturate(var(--lab-card-saturate));
-  backdrop-filter: blur(var(--lab-card-blur)) saturate(var(--lab-card-saturate));
-  border: var(--lab-card-border);
+  background: rgba(244, 247, 251, 0.86);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: var(--lab-card-radius);
   overflow: hidden;
-  box-shadow: var(--lab-card-shadow);
-  color: var(--lab-title-color);
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10), 0 1px 2px rgba(15, 23, 42, 0.06);
+  color: #0F172A;
 }
 
 .inspector-header {

@@ -277,6 +277,9 @@ export class MaterialLibrary {
 
     const mat = this.buildMaterial(type, options);
     this.materialCache.set(cacheKey, mat);
+    if (this.wetnessFactor > 0) {
+      this.setWetness(this.wetnessFactor);
+    }
     return mat;
   }
 
@@ -360,7 +363,8 @@ export class MaterialLibrary {
 
       // 2. Beton Struktural & Papan Bekisting
       case 'concrete':
-      case 'concrete_board': {
+      case 'concrete_board':
+      case 'concrete_slab': {
         const pkg = ProceduralTextureGen.getBoardFormedConcretePackage(512);
         const mat = new THREE.MeshStandardMaterial({
           map: pkg.albedo,
@@ -423,6 +427,7 @@ export class MaterialLibrary {
 
       // 5. Genteng Tanah Liat Nusantara
       case 'roof_tile':
+      case 'clay_tile':
       case 'genteng': {
         const pkg = ProceduralTextureGen.getTerracottaPackage(512);
         const mat = new THREE.MeshStandardMaterial({
@@ -475,7 +480,7 @@ export class MaterialLibrary {
           bumpScale: 0.05,
           aoMap: pkg.ao,
           aoMapIntensity: 0.80,
-          normalScale: new THREE.Vector2(2.4, 2.4),
+          normalScale: new THREE.Vector2(0.8, 0.8),
           roughness: options.roughness ?? 0.88,
           metalness: options.metalness ?? 0.02,
         });
@@ -614,6 +619,7 @@ export class MaterialLibrary {
       // 12. Metal Lembaran / Seng Gelap
       case 'metal':
       case 'zinc_roof':
+      case 'dark_zinc':
       case 'dark_metal': {
         const pkg = ProceduralTextureGen.getDarkZincRoofPackage(512);
         const mat = new THREE.MeshStandardMaterial({
@@ -624,8 +630,8 @@ export class MaterialLibrary {
           bumpScale: 0.04,
           aoMap: pkg.ao,
           aoMapIntensity: 0.80,
-          normalScale: new THREE.Vector2(2.4, 2.4),
-          color: options.color !== undefined ? new THREE.Color(options.color) : 0x334155,
+          normalScale: new THREE.Vector2(1.8, 1.8),
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0x383d45,
           roughness: options.roughness ?? 0.45,
           metalness: options.metalness ?? 0.65,
         });
@@ -836,10 +842,9 @@ export class MaterialLibrary {
 
   public setWetness(factor: number): void {
     const clamped = THREE.MathUtils.clamp(factor, 0, 1);
-    if (Math.abs(this.wetnessFactor - clamped) < 0.001) return;
     this.wetnessFactor = clamped;
 
-    const outdoorKeys = ['asphalt', 'concrete', 'roof_tile', 'paving', 'trotoar', 'stone_plinth'];
+    const outdoorKeys = ['asphalt', 'road_asphalt', 'concrete', 'roof_tile', 'paving', 'sidewalk_paving', 'trotoar', 'sidewalk', 'stone_plinth'];
     for (const [key, mat] of this.materialCache.entries()) {
       const isOutdoor = outdoorKeys.some((k) => key.startsWith(k));
       if (!isOutdoor) continue;
@@ -847,16 +852,33 @@ export class MaterialLibrary {
       if (mat.userData.baseRoughness === undefined) {
         mat.userData.baseRoughness = mat.roughness;
       }
+      if (mat.userData.baseMetalness === undefined) {
+        mat.userData.baseMetalness = mat.metalness;
+      }
+      if (mat.userData.baseEnvMapIntensity === undefined) {
+        mat.userData.baseEnvMapIntensity = mat.envMapIntensity ?? 1.0;
+      }
       if (!mat.userData.baseColor) {
         mat.userData.baseColor = mat.color.clone();
       }
 
-      // Smoothly reduce roughness (more specular / glossy)
-      const targetRoughness = Math.max(0.08, mat.userData.baseRoughness * 0.35);
-      mat.roughness = THREE.MathUtils.lerp(mat.userData.baseRoughness, targetRoughness, clamped);
+      if (key.startsWith('road_asphalt') || key.startsWith('asphalt')) {
+        // Target roughness drops to 0.22 in wet mode, restores to 0.88 when dry
+        mat.roughness = THREE.MathUtils.lerp(mat.userData.baseRoughness ?? 0.88, 0.22, clamped);
+        mat.metalness = THREE.MathUtils.lerp(mat.userData.baseMetalness, 0.20, clamped);
+        mat.envMapIntensity = THREE.MathUtils.lerp(mat.userData.baseEnvMapIntensity, 2.2, clamped);
+      } else if (key.startsWith('sidewalk_paving') || key.startsWith('paving') || key.startsWith('trotoar') || key.startsWith('sidewalk')) {
+        // Target roughness drops to 0.30 in wet mode, restores to base when dry
+        mat.roughness = THREE.MathUtils.lerp(mat.userData.baseRoughness, 0.30, clamped);
+        mat.metalness = THREE.MathUtils.lerp(mat.userData.baseMetalness, 0.18, clamped);
+        mat.envMapIntensity = THREE.MathUtils.lerp(mat.userData.baseEnvMapIntensity, 1.8, clamped);
+      } else {
+        const targetRoughness = Math.max(0.12, mat.userData.baseRoughness * 0.4);
+        mat.roughness = THREE.MathUtils.lerp(mat.userData.baseRoughness, targetRoughness, clamped);
+      }
 
       // Darken color slightly when saturated with water
-      const darken = 1.0 - clamped * 0.22;
+      const darken = 1.0 - clamped * 0.18;
       mat.color.copy(mat.userData.baseColor).multiplyScalar(darken);
       mat.needsUpdate = true;
     }

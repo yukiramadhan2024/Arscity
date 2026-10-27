@@ -42,7 +42,8 @@ import {
   Factory,
   Bus,
   Zap,
-  Church
+  Church,
+  Trash2
 } from 'lucide-react';
 import { ProceduralTextureGen } from '../../materials/ProceduralTextureGen';
 import { BuildingCatalogRegistry, BuildingCategory, BuildingCatalogItem } from '../../buildings/BuildingCatalogRegistry';
@@ -51,6 +52,9 @@ import { ZONE_RULES, ZoneType } from '../../zones/ZoneTypes';
 import { AutoZoningService } from '../../zones/AutoZoningService';
 import { LandscapeType } from '../../world/LandscapeManager';
 import { LandscapeSubToolbar } from './LandscapeSubToolbar';
+import { TerraformSubToolbar } from './TerraformSubToolbar';
+import { MAIN_TOOLS_I18N } from '../constants/i18n';
+import { ContextualHintBar } from './ContextualHintBar';
 
 interface ToolItem {
   id: MainToolType;
@@ -60,13 +64,16 @@ interface ToolItem {
 }
 
 const TOOLS: ToolItem[] = [
-  { id: 'select', label: 'Select', icon: MousePointer, hotkey: 'V' },
-  { id: 'road', label: 'Road', icon: Route, hotkey: 'R' },
-  { id: 'zone', label: 'Zoning', icon: LayoutGrid, hotkey: 'Z' },
-  { id: 'build', label: 'Building Catalog', icon: Building2, hotkey: 'B' },
-  { id: 'nature', label: 'Landscape', icon: Trees, hotkey: 'T' },
-  { id: 'analyze', label: 'Analysis', icon: SlidersHorizontal, hotkey: 'A' },
+  { id: 'select', label: MAIN_TOOLS_I18N.select.label, icon: MousePointer, hotkey: 'V' },
+  { id: 'road', label: MAIN_TOOLS_I18N.road.label, icon: Route, hotkey: 'R' },
+  { id: 'zone', label: MAIN_TOOLS_I18N.zone.label, icon: LayoutGrid, hotkey: 'Z' },
+  { id: 'build', label: MAIN_TOOLS_I18N.build.label, icon: Building2, hotkey: 'B' },
+  { id: 'nature', label: MAIN_TOOLS_I18N.nature.label, icon: Trees, hotkey: 'T' },
+  { id: 'terraform', label: MAIN_TOOLS_I18N.terraform.label, icon: Waves, hotkey: 'W' },
+  { id: 'demolish', label: MAIN_TOOLS_I18N.demolish.label, icon: Trash2, hotkey: 'X' },
+  { id: 'analyze', label: MAIN_TOOLS_I18N.analyze.label, icon: SlidersHorizontal, hotkey: 'A' },
 ];
+
 
 
 
@@ -87,6 +94,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
   const setActiveTool = useUIStore((s) => s.setActiveTool);
   const canUndo = useUIStore((s) => s.canUndo);
   const canRedo = useUIStore((s) => s.canRedo);
+  const setCustomBuildingModalOpen = useUIStore((s) => s.setCustomBuildingModalOpen);
   const setShowCustomBuildingStudio = useUIStore((s) => s.setShowCustomBuildingStudio);
 
   // Building Catalog Sub-tier state
@@ -114,7 +122,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
   const totalCount = allBuildings.length;
 
   const categories: Array<{ id: 'all' | BuildingCategory; label: string; icon: React.ElementType }> = [
-    { id: 'all', label: `Semua (${totalCount})`, icon: LayoutGrid },
+    { id: 'all', label: 'Semua', icon: LayoutGrid },
     { id: 'hunian', label: 'Hunian', icon: Home },
     { id: 'pemerintahan_keamanan', label: 'Pemerintahan', icon: ShieldCheck },
     { id: 'pendidikan', label: 'Pendidikan', icon: GraduationCap },
@@ -183,27 +191,25 @@ export const BottomToolbar: React.FC = React.memo(() => {
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
-        flexDirection: 'column-reverse',
+        flexDirection: 'column',
         alignItems: 'center',
-        gap: '10px',
         zIndex: 'var(--z-hud)' as any,
-        userSelect: 'none',
-        maxWidth: 'min(920px, calc(100vw - 380px))'
+        userSelect: 'none'
       }}
     >
-      {/* Tier 1: Main Dock (Capsule Rounded-Full with 6 Tools) */}
+      {/* Contextual Hint Bar (Spec A5: Nama alat aktif + langkah berikutnya + Esc) */}
+      <ContextualHintBar />
+
+      {/* Tier 1: Main Dock (Capsule Rounded-Full with Tools) */}
       <div
+        className="arscity-glass-bar"
         style={{
+          position: 'relative',
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
           padding: '6px 14px',
-          background: 'var(--surface)',
-          backdropFilter: 'blur(var(--glass-blur))',
-          WebkitBackdropFilter: 'blur(var(--glass-blur))',
-          border: '1px solid var(--hairline)',
           borderRadius: 'var(--radius-capsule)',
-          boxShadow: 'var(--shadow-glass)',
           zIndex: 'var(--z-hud)' as any
         }}
       >
@@ -235,7 +241,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
                 borderRadius: '9999px',
                 border: 'none',
                 background: 'transparent',
-                color: isActive ? 'var(--accent)' : 'var(--label)',
+                color: isActive ? '#007AFF' : '#334155',
                 cursor: 'pointer',
                 minWidth: '58px',
                 zIndex: 1
@@ -245,27 +251,28 @@ export const BottomToolbar: React.FC = React.memo(() => {
             >
               {isActive && (
                 <motion.div
-                  layoutId="activeBottomToolPill"
+                  layoutId="bottom-dock-active-pill"
+                  layout="position"
                   transition={SPRING_TACTILE}
                   style={{
                     position: 'absolute',
                     inset: 0,
                     borderRadius: '9999px',
-                    border: '1px solid var(--accent)',
-                    background: 'var(--accent-subtle)',
-                    boxShadow: '0 0 16px rgba(var(--accent-rgb, 10, 132, 255), 0.35)',
+                    border: '1px solid rgba(0, 122, 255, 0.40)',
+                    background: 'rgba(0, 122, 255, 0.14)',
+                    boxShadow: '0 1px 4px rgba(0, 122, 255, 0.15)',
                     zIndex: -1
                   }}
                 />
               )}
-              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? 'var(--accent)' : 'var(--label)' }} />
+              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? '#007AFF' : '#334155' }} />
               <span
                 style={{
                   fontSize: '11px',
-                  fontWeight: isActive ? 600 : 500,
+                  fontWeight: isActive ? 700 : 500,
                   whiteSpace: 'nowrap',
                   letterSpacing: '-0.01em',
-                  color: isActive ? 'var(--accent)' : 'var(--label)'
+                  color: isActive ? '#007AFF' : '#334155'
                 }}
               >
                 {tool.label}
@@ -274,7 +281,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
           );
         })}
 
-        <div style={{ width: '1px', height: '24px', background: 'var(--separator)', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '24px', background: '#CBD5E1', margin: '0 4px' }} />
 
         {/* Undo / Redo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -292,8 +299,8 @@ export const BottomToolbar: React.FC = React.memo(() => {
               borderRadius: '50%',
               background: 'transparent',
               border: 'none',
-              color: 'var(--label)',
-              opacity: canUndo ? 0.9 : 0.3,
+              color: '#334155',
+              opacity: canUndo ? 1 : 0.35,
               cursor: canUndo ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
@@ -302,7 +309,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
             title="Batal (Ctrl + Z)"
             aria-label="Batal"
           >
-            <Undo2 size={15} strokeWidth={2} />
+            <Undo2 size={15} strokeWidth={2} style={{ color: '#334155' }} />
           </motion.button>
           <motion.button
             whileTap={canRedo ? { scale: 0.92 } : undefined}
@@ -318,8 +325,8 @@ export const BottomToolbar: React.FC = React.memo(() => {
               borderRadius: '50%',
               background: 'transparent',
               border: 'none',
-              color: 'var(--label)',
-              opacity: canRedo ? 0.9 : 0.3,
+              color: '#334155',
+              opacity: canRedo ? 1 : 0.35,
               cursor: canRedo ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
@@ -328,262 +335,274 @@ export const BottomToolbar: React.FC = React.memo(() => {
             title="Ulangi (Ctrl + Y)"
             aria-label="Ulangi"
           >
-            <Redo2 size={15} strokeWidth={2} />
+            <Redo2 size={15} strokeWidth={2} style={{ color: '#334155' }} />
           </motion.button>
         </div>
       </div>
 
 
 
-      {/* Sub-toolbars with Apple interruptible spring transitions & bottom origin morphing */}
-      <AnimatePresence mode="popLayout">
-        {/* 2B. 'build' Mode: Full Building Catalog with Category Tabs & Search */}
-        {activeTool === 'build' && (
-          <motion.div
-            key="subtoolbar-build"
-            initial={{ opacity: 0, scale: 0.94, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 16 }}
-            transition={SPRING_SHEET}
-            style={{
-              transformOrigin: 'bottom center',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              padding: '10px 14px',
-              background: 'var(--surface)',
-              backdropFilter: 'blur(var(--glass-blur))',
-              WebkitBackdropFilter: 'blur(var(--glass-blur))',
-              border: '1px solid var(--hairline)',
-              borderRadius: 'var(--radius-panel)',
-              boxShadow: 'var(--shadow-glass)',
-              zIndex: 'var(--z-hud)' as any,
-              width: '100%'
-            }}
-          >
-            {/* Controls Bar: Tabs, Search, Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-              {/* Category Tabs */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
-                {categories.map((cat) => {
-                  const Icon = cat.icon;
-                  const isCatActive = activeCategory === cat.id;
+      {/* Sub-toolbar Container anchored above the dock with absolute positioning */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 'calc(100% + 10px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: 'max-content',
+          maxWidth: 'min(920px, calc(100vw - 380px))',
+          pointerEvents: 'none',
+          zIndex: 'var(--z-hud)' as any
+        }}
+      >
+        <div style={{ pointerEvents: 'auto', width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <AnimatePresence mode="popLayout">
+            {/* 2B. 'build' Mode: Full Building Catalog with Category Tabs & Search */}
+            {activeTool === 'build' && (
+              <motion.div
+                key="subtoolbar-build"
+                initial={{ opacity: 0, scale: 0.94, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.94, y: 16 }}
+                transition={SPRING_SHEET}
+                style={{
+                  transformOrigin: 'bottom center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  borderRadius: '20px',
+                  zIndex: 'var(--z-hud)' as any,
+                  width: '100%'
+                }}
+                className="arscity-glass-bar"
+              >
+                {/* Controls Bar: Tabs, Search, Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Category Tabs */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
+                    {categories.map((cat) => {
+                      const Icon = cat.icon;
+                      const isCatActive = activeCategory === cat.id;
 
-                  return (
-                    <motion.button
-                      key={cat.id}
-                      whileTap={{ scale: 0.95 }}
-                      onPointerDown={() => proceduralAudio.playTaptic('selection')}
-                      onClick={() => setActiveCategory(cat.id)}
+                      return (
+                        <motion.button
+                          key={cat.id}
+                          whileTap={{ scale: 0.95 }}
+                          onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                          onClick={() => setActiveCategory(cat.id)}
+                          style={{
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '4px 10px',
+                            borderRadius: '9999px',
+                            border: 'none',
+                            background: 'transparent',
+                            color: isCatActive ? '#007AFF' : '#475569',
+                            fontSize: '11px',
+                            fontWeight: isCatActive ? 700 : 500,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            zIndex: 1
+                          }}
+                        >
+                          {isCatActive && (
+                            <motion.div
+                              layoutId="activeBuildingCategoryPill"
+                              transition={SPRING_TACTILE}
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                borderRadius: '9999px',
+                                border: '1px solid rgba(10, 132, 255, 0.35)',
+                                background: 'rgba(10, 132, 255, 0.14)',
+                                zIndex: -1
+                              }}
+                            />
+                          )}
+                          <Icon size={12} strokeWidth={1.8} style={{ color: isCatActive ? '#007AFF' : '#64748B' }} />
+                          <span>{cat.label}</span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Search Input & Action Buttons */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div
                       style={{
-                        position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '5px',
-                        padding: '4px 10px',
+                        gap: '6px',
+                        background: 'rgba(255, 255, 255, 0.85)',
+                        border: '1px solid rgba(15, 23, 42, 0.12)',
                         borderRadius: '9999px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: isCatActive ? 'var(--accent)' : 'var(--label)',
-                        fontSize: '11px',
-                        fontWeight: isCatActive ? 600 : 500,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        zIndex: 1
+                        padding: '3px 10px'
                       }}
                     >
-                      {isCatActive && (
-                        <motion.div
-                          layoutId="activeBuildingCategoryPill"
-                          transition={SPRING_TACTILE}
-                          style={{
-                            position: 'absolute',
-                            inset: 0,
-                            borderRadius: '9999px',
-                            border: '1px solid var(--accent)',
-                            background: 'var(--accent-subtle)',
-                            zIndex: -1
-                          }}
-                        />
+                      <Search size={13} style={{ color: '#64748B' }} />
+                      <input
+                        type="text"
+                        placeholder="Cari gedung..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          outline: 'none',
+                          color: '#0F172A',
+                          fontSize: '11px',
+                          width: '100px'
+                        }}
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          style={{ background: 'transparent', border: 'none', color: '#64748B', cursor: 'pointer', padding: 0 }}
+                        >
+                          <X size={11} />
+                        </button>
                       )}
-                      <Icon size={12} strokeWidth={1.8} style={{ color: isCatActive ? 'var(--accent)' : 'var(--label-secondary)' }} />
-                      <span>{cat.label}</span>
-                    </motion.button>
-                  );
-                })}
-              </div>
+                    </div>
 
-              {/* Search Input & Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onPointerDown={() => proceduralAudio.playTaptic('light')}
+                      onClick={handleRotateBuilding}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 10px',
+                        borderRadius: '9999px',
+                        background: 'rgba(255, 255, 255, 0.85)',
+                        border: '1px solid rgba(15, 23, 42, 0.12)',
+                        color: '#0F172A',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                      title="Putar Orientasi Bangunan (R)"
+                    >
+                      <RotateCw size={12} />
+                      <span>Putar (R)</span>
+                    </motion.button>
+
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onPointerDown={() => proceduralAudio.playTaptic('light')}
+                      onClick={() => setCustomBuildingModalOpen(true)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 10px',
+                        borderRadius: '9999px',
+                        background: 'rgba(10, 132, 255, 0.14)',
+                        border: '1px solid rgba(10, 132, 255, 0.35)',
+                        color: '#007AFF',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                      title="Studio Rancang Bangunan (Studio CAD)"
+                    >
+                      <PenTool size={12} />
+                      <span>+ Rancang</span>
+                    </motion.button>
+
+                    <button
+                      onClick={() => setActiveTool('select')}
+                      onPointerDown={() => proceduralAudio.playTaptic('light')}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: 'rgba(15, 23, 42, 0.06)',
+                        border: 'none',
+                        color: '#64748B',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer'
+                      }}
+                      title="Tutup Katalog"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Buildings Horizontal Card Carousel */}
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    background: 'var(--fill-control)',
-                    border: '1px solid var(--hairline)',
-                    borderRadius: '9999px',
-                    padding: '3px 10px'
+                    gap: '10px',
+                    overflowX: 'auto',
+                    padding: '4px 2px',
+                    maxHeight: '145px',
+                    scrollbarWidth: 'thin'
                   }}
                 >
-                  <Search size={13} style={{ color: 'var(--label-secondary)' }} />
-                  <input
-                    type="text"
-                    placeholder="Cari gedung..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      outline: 'none',
-                      color: 'var(--label)',
-                      fontSize: '11px',
-                      width: '100px'
-                    }}
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--label-secondary)', cursor: 'pointer', padding: 0 }}
-                    >
-                      <X size={11} />
-                    </button>
-                  )}
+                  {filteredBuildings.slice(0, 36).map((item) => {
+                    const isSelected = selectedBuildingKey === item.id;
+                    const thumb = ProceduralTextureGen.getBuildingThumbnail(item.id, item.category, item.name);
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        whileTap={{ scale: 0.96 }}
+                        whileHover={{ scale: 1.02 }}
+                        onPointerDown={() => proceduralAudio.playTaptic('light')}
+                        onClick={() => handleSelectBuildingItem(item)}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          flexShrink: 0,
+                          width: '130px',
+                          padding: '6px',
+                          borderRadius: '14px',
+                          background: isSelected
+                            ? 'rgba(10, 132, 255, 0.10)'
+                            : 'rgba(255, 255, 255, 0.85)',
+                          border: isSelected
+                            ? '1.5px solid #007AFF'
+                            : '1px solid rgba(15, 23, 42, 0.08)',
+                          boxShadow: isSelected ? '0 0 12px rgba(10, 132, 255, 0.25)' : '0 2px 6px rgba(15, 23, 42, 0.04)',
+                          cursor: 'pointer'
+                        }}
+                        title={item.description}
+                      >
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '56px',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            marginBottom: '5px',
+                            background: '#E2E8F0'
+                          }}
+                        >
+                          <img src={thumb} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.name}
+                        </div>
+                        <div className="font-mono tabular-nums" style={{ fontSize: '9px', color: '#64748B' }}>
+                          {item.defaultWidth}×{item.defaultDepth}m • {item.defaultFloors} Lt
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
-
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onPointerDown={() => proceduralAudio.playTaptic('light')}
-                  onClick={handleRotateBuilding}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 10px',
-                    borderRadius: '9999px',
-                    background: 'var(--fill-control)',
-                    border: '1px solid var(--hairline)',
-                    color: 'var(--label)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                  title="Putar Orientasi Bangunan (R)"
-                >
-                  <RotateCw size={12} />
-                  <span>Putar (R)</span>
-                </motion.button>
-
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onPointerDown={() => proceduralAudio.playTaptic('light')}
-                  onClick={() => setShowCustomBuildingStudio(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 10px',
-                    borderRadius: '9999px',
-                    background: 'var(--accent-subtle)',
-                    border: '1px solid var(--accent)',
-                    color: 'var(--accent)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                  title="Rancang Gedung Sendiri"
-                >
-                  <PenTool size={12} />
-                  <span>+ Rancang</span>
-                </motion.button>
-
-                <button
-                  onClick={() => setActiveTool('select')}
-                  onPointerDown={() => proceduralAudio.playTaptic('light')}
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    background: 'var(--fill-control)',
-                    border: 'none',
-                    color: 'var(--label-secondary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer'
-                  }}
-                  title="Tutup Katalog"
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            </div>
-
-            {/* Buildings Horizontal Card Carousel */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                overflowX: 'auto',
-                padding: '4px 2px',
-                maxHeight: '145px',
-                scrollbarWidth: 'thin'
-              }}
-            >
-              {filteredBuildings.slice(0, 36).map((item) => {
-                const isSelected = selectedBuildingKey === item.id;
-                const thumb = ProceduralTextureGen.getBuildingThumbnail(item.id, item.category, item.name);
-
-                return (
-                  <motion.div
-                    key={item.id}
-                    whileTap={{ scale: 0.96 }}
-                    whileHover={{ scale: 1.02 }}
-                    onPointerDown={() => proceduralAudio.playTaptic('light')}
-                    onClick={() => handleSelectBuildingItem(item)}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      flexShrink: 0,
-                      width: '130px',
-                      padding: '6px',
-                      borderRadius: '14px',
-                      background: isSelected
-                        ? 'var(--accent-subtle)'
-                        : 'var(--fill-control)',
-                      border: isSelected
-                        ? '1px solid var(--accent)'
-                        : '1px solid var(--hairline)',
-                      boxShadow: isSelected ? '0 0 12px rgba(var(--accent-rgb, 10, 132, 255), 0.3)' : 'none',
-                      cursor: 'pointer'
-                    }}
-                    title={item.description}
-                  >
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '56px',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        marginBottom: '5px',
-                        background: '#090d16'
-                      }}
-                    >
-                      <img src={thumb} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {item.name}
-                    </div>
-                    <div className="font-mono tabular-nums" style={{ fontSize: '9px', color: 'var(--label-secondary)' }}>
-                      {item.defaultWidth}×{item.defaultDepth}m • {item.defaultFloors} Lt
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
+              </motion.div>
+            )}
 
         {/* 2C. 'road' Mode: Integrated Road Profiles & Draw Mode */}
         {activeTool === 'road' && (
@@ -599,17 +618,13 @@ export const BottomToolbar: React.FC = React.memo(() => {
               alignItems: 'center',
               gap: '8px',
               padding: '8px 14px',
-              background: 'var(--surface)',
-              backdropFilter: 'blur(var(--glass-blur))',
-              WebkitBackdropFilter: 'blur(var(--glass-blur))',
-              border: '1px solid var(--hairline)',
-              borderRadius: 'var(--radius-panel)',
-              boxShadow: 'var(--shadow-glass)',
+              borderRadius: '20px',
               zIndex: 'var(--z-hud)' as any
             }}
+            className="arscity-glass-bar"
           >
             {/* Straight vs Bezier with layoutId spring indicator */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', background: 'var(--fill-control)', borderRadius: '9999px', padding: '2px' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onPointerDown={() => proceduralAudio.playTaptic('selection')}
@@ -623,9 +638,9 @@ export const BottomToolbar: React.FC = React.memo(() => {
                   borderRadius: '9999px',
                   border: 'none',
                   background: 'transparent',
-                  color: roadDrawMode === 'straight' ? 'var(--accent)' : 'var(--label)',
+                  color: roadDrawMode === 'straight' ? '#007AFF' : '#475569',
                   fontSize: '11px',
-                  fontWeight: 600,
+                  fontWeight: roadDrawMode === 'straight' ? 700 : 500,
                   cursor: 'pointer',
                   zIndex: 1
                 }}
@@ -638,8 +653,8 @@ export const BottomToolbar: React.FC = React.memo(() => {
                       position: 'absolute',
                       inset: 0,
                       borderRadius: '9999px',
-                      background: 'var(--accent-subtle)',
-                      border: '1px solid var(--accent)',
+                      background: 'rgba(255, 255, 255, 0.95)',
+                      boxShadow: '0 1px 4px rgba(15, 23, 42, 0.12)',
                       zIndex: -1
                     }}
                   />
@@ -660,9 +675,9 @@ export const BottomToolbar: React.FC = React.memo(() => {
                   borderRadius: '9999px',
                   border: 'none',
                   background: 'transparent',
-                  color: roadDrawMode === 'bezier' ? 'var(--accent)' : 'var(--label)',
+                  color: roadDrawMode === 'bezier' ? '#007AFF' : '#475569',
                   fontSize: '11px',
-                  fontWeight: 600,
+                  fontWeight: roadDrawMode === 'bezier' ? 700 : 500,
                   cursor: 'pointer',
                   zIndex: 1
                 }}
@@ -675,8 +690,8 @@ export const BottomToolbar: React.FC = React.memo(() => {
                       position: 'absolute',
                       inset: 0,
                       borderRadius: '9999px',
-                      background: 'var(--accent-subtle)',
-                      border: '1px solid var(--accent)',
+                      background: 'rgba(255, 255, 255, 0.95)',
+                      boxShadow: '0 1px 4px rgba(15, 23, 42, 0.12)',
                       zIndex: -1
                     }}
                   />
@@ -686,7 +701,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
               </motion.button>
             </div>
 
-            <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
+            <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
 
             {/* Road Profiles */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto' }}>
@@ -703,11 +718,11 @@ export const BottomToolbar: React.FC = React.memo(() => {
                     style={{
                       padding: '4px 10px',
                       borderRadius: '9999px',
-                      border: isSel ? '1px solid var(--accent)' : '1px solid var(--hairline)',
-                      background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
-                      color: isSel ? 'var(--accent)' : 'var(--label)',
+                      border: isSel ? '1.5px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.08)',
+                      background: isSel ? 'rgba(10, 132, 255, 0.14)' : 'rgba(255, 255, 255, 0.85)',
+                      color: isSel ? '#007AFF' : '#475569',
                       fontSize: '11px',
-                      fontWeight: isSel ? 600 : 500,
+                      fontWeight: isSel ? 700 : 500,
                       cursor: 'pointer',
                       whiteSpace: 'nowrap'
                     }}
@@ -721,7 +736,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
             <button
               onClick={() => setActiveTool('select')}
               onPointerDown={() => proceduralAudio.playTaptic('light')}
-              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(15, 23, 42, 0.06)', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <X size={12} />
             </button>
@@ -742,14 +757,10 @@ export const BottomToolbar: React.FC = React.memo(() => {
               alignItems: 'center',
               gap: '8px',
               padding: '8px 14px',
-              background: 'var(--surface)',
-              backdropFilter: 'blur(var(--glass-blur))',
-              WebkitBackdropFilter: 'blur(var(--glass-blur))',
-              border: '1px solid var(--hairline)',
-              borderRadius: 'var(--radius-panel)',
-              boxShadow: 'var(--shadow-glass)',
+              borderRadius: '20px',
               zIndex: 'var(--z-hud)' as any
             }}
+            className="arscity-glass-bar"
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               {(Object.keys(ZONE_RULES) as ZoneType[]).map((zt) => {
@@ -768,11 +779,12 @@ export const BottomToolbar: React.FC = React.memo(() => {
                       gap: '6px',
                       padding: '4px 10px',
                       borderRadius: '9999px',
-                      border: isSel ? '1px solid var(--accent)' : '1px solid transparent',
-                      background: isSel ? 'var(--fill-control-active)' : 'transparent',
-                      color: isSel ? 'var(--label)' : 'var(--label-secondary)',
+                      border: isSel ? '1.5px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.08)',
+                      background: isSel ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
+                      color: isSel ? '#0F172A' : '#475569',
+                      boxShadow: isSel ? '0 1px 4px rgba(15, 23, 42, 0.10)' : 'none',
                       fontSize: '11px',
-                      fontWeight: isSel ? 600 : 500,
+                      fontWeight: isSel ? 700 : 500,
                       cursor: 'pointer'
                     }}
                   >
@@ -783,57 +795,59 @@ export const BottomToolbar: React.FC = React.memo(() => {
               })}
             </div>
 
-            <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
+            <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
 
             {/* Lot Size Selector with layoutId indicator */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>Kavling:</span>
-              {[
-                { w: 12, l: 15, label: '12×15m' },
-                { w: 15, l: 20, label: '15×20m' },
-                { w: 20, l: 30, label: '20×30m' }
-              ].map((sz) => {
-                const isSel = activeLotSize === sz.label;
-                return (
-                  <motion.button
-                    key={sz.label}
-                    whileTap={{ scale: 0.95 }}
-                    onPointerDown={() => proceduralAudio.playTaptic('selection')}
-                    onClick={() => handleLotSizeChange(sz.w, sz.l, sz.label)}
-                    style={{
-                      position: 'relative',
-                      padding: '3px 8px',
-                      borderRadius: '9999px',
-                      border: 'none',
-                      background: 'transparent',
-                      color: isSel ? 'var(--accent)' : 'var(--label)',
-                      fontSize: '11px',
-                      fontWeight: isSel ? 600 : 500,
-                      cursor: 'pointer',
-                      zIndex: 1
-                    }}
-                  >
-                    {isSel && (
-                      <motion.div
-                        layoutId="activeLotSizePill"
-                        transition={SPRING_TACTILE}
-                        style={{
-                          position: 'absolute',
-                          inset: 0,
-                          borderRadius: '9999px',
-                          border: '1px solid var(--accent)',
-                          background: 'var(--accent-subtle)',
-                          zIndex: -1
-                        }}
-                      />
-                    )}
-                    <span className="font-mono tabular-nums">{sz.label}</span>
-                  </motion.button>
-                );
-              })}
+              <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Kavling:</span>
+              <div style={{ display: 'flex', alignItems: 'center', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+                {[
+                  { w: 12, l: 15, label: '12×15m' },
+                  { w: 15, l: 20, label: '15×20m' },
+                  { w: 20, l: 30, label: '20×30m' }
+                ].map((sz) => {
+                  const isSel = activeLotSize === sz.label;
+                  return (
+                    <motion.button
+                      key={sz.label}
+                      whileTap={{ scale: 0.95 }}
+                      onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                      onClick={() => handleLotSizeChange(sz.w, sz.l, sz.label)}
+                      style={{
+                        position: 'relative',
+                        padding: '3px 8px',
+                        borderRadius: '9999px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: isSel ? '#007AFF' : '#475569',
+                        fontSize: '11px',
+                        fontWeight: isSel ? 700 : 500,
+                        cursor: 'pointer',
+                        zIndex: 1
+                      }}
+                    >
+                      {isSel && (
+                        <motion.div
+                          layoutId="activeLotSizePill"
+                          transition={SPRING_TACTILE}
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            borderRadius: '9999px',
+                            background: 'rgba(255, 255, 255, 0.95)',
+                            boxShadow: '0 1px 4px rgba(15, 23, 42, 0.12)',
+                            zIndex: -1
+                          }}
+                        />
+                      )}
+                      <span className="font-mono tabular-nums">{sz.label}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
+            <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
 
             <motion.button
               whileTap={{ scale: 0.95 }}
@@ -849,9 +863,9 @@ export const BottomToolbar: React.FC = React.memo(() => {
                 gap: '4px',
                 padding: '4px 10px',
                 borderRadius: '9999px',
-                background: 'rgba(52, 199, 89, 0.16)',
+                background: 'rgba(52, 199, 89, 0.14)',
                 border: '1px solid rgba(52, 199, 89, 0.4)',
-                color: '#34c759',
+                color: '#248A3D',
                 fontSize: '11px',
                 fontWeight: 600,
                 cursor: 'pointer'
@@ -865,7 +879,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
             <button
               onClick={() => setActiveTool('select')}
               onPointerDown={() => proceduralAudio.playTaptic('light')}
-              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(15, 23, 42, 0.06)', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <X size={12} />
             </button>
@@ -885,7 +899,58 @@ export const BottomToolbar: React.FC = React.memo(() => {
             <LandscapeSubToolbar />
           </motion.div>
         )}
-      </AnimatePresence>
+
+        {/* 2F. 'terraform' Mode: River & Terrain Sculptor Subtoolbar */}
+        {activeTool === 'terraform' && (
+          <TerraformSubToolbar key="subtoolbar-terraform" />
+        )}
+
+        {/* 2G. 'demolish' Mode: SimCity Bulldozer Banner */}
+        {activeTool === 'demolish' && (
+          <motion.div
+            key="subtoolbar-demolish"
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={SPRING_SHEET}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '8px 16px',
+              borderRadius: '9999px',
+              background: 'rgba(239, 68, 68, 0.14)',
+              border: '1.5px solid rgba(239, 68, 68, 0.45)',
+              backdropFilter: 'blur(20px)',
+              boxShadow: '0 8px 32px rgba(239, 68, 68, 0.20)',
+              color: '#dc2626',
+              fontSize: '12px',
+              fontWeight: 600,
+            }}
+          >
+            <Trash2 size={15} className="text-red-500 animate-pulse" />
+            <span>Mode Buldoser: Klik gedung, jalan, pohon, atau alur sungai untuk menghancurkan</span>
+            <button
+              onClick={() => setActiveTool('select')}
+              style={{
+                marginLeft: '6px',
+                padding: '3px 10px',
+                borderRadius: '8px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#b91c1c',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 700,
+              }}
+            >
+              Selesai
+            </button>
+          </motion.div>
+        )}
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 });

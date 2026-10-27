@@ -609,22 +609,22 @@ export class ProceduralTextureGen {
         return 0.72 + chamfer * 0.22 + stoneGrain;
       },
       (u, v, h) => {
-        // Terrazzo / modern concrete tone (#cbd5e1 with aggregate flecks)
-        const grain = (Math.sin(u * 200) * Math.sin(v * 200)) * 8;
-        let r = 155 + grain;
-        let g = 162 + grain;
-        let b = 172 + grain;
+        // Warm neutral concrete tone without lavender/purple color cast
+        const grain = (Math.sin(u * 200) * Math.sin(v * 200)) * 6;
+        let r = 172 + grain;
+        let g = 172 + grain;
+        let b = 170 + grain;
 
         if (h < 0.25) {
-          r = 75;
-          g = 80;
-          b = 90;
+          r = 88;
+          g = 88;
+          b = 86;
         }
         return [r, g, b];
       },
       size,
       size,
-      3.0
+      2.2
     );
   }
 
@@ -671,40 +671,41 @@ export class ProceduralTextureGen {
 
   /**
    * 9. Rumput & Tanah Kontur (terrain_grass)
-   * Volumetric turf clumps and subtle micro-contours preventing flat plastic look.
+   * Lush tropical grass without repeating dark reddish blotches.
    */
   public static getGrassPackage(size: number = 1024): Material3DPackage {
     return this.generate3DMaterialMaps(
       'terrain_grass',
       (u, v) => {
-        // Multiscale Voronoi-like grass tufts
-        const clump1 = Math.sin(u * 40 + Math.sin(v * 30) * 1.5) * 0.20;
-        const clump2 = Math.cos(v * 50 + Math.cos(u * 25) * 1.5) * 0.18;
-        const blade = (Math.sin(u * 280) * Math.sin(v * 280)) * 0.10;
-        return 0.62 + clump1 + clump2 + blade;
+        // High-frequency subtle grass tufts preventing repetitive macro blotches
+        const clump1 = Math.sin(u * 90 + Math.sin(v * 70) * 1.2) * 0.12;
+        const clump2 = Math.cos(v * 110 + Math.cos(u * 60) * 1.2) * 0.10;
+        const blade = (Math.sin(u * 400) * Math.sin(v * 400)) * 0.08;
+        return 0.65 + clump1 + clump2 + blade;
       },
       (u, v, h) => {
-        // Lush equatorial tropical lawn (#2d5a1e to #4d8b2c)
-        const tone = Math.sin(u * 32 + v * 45) * 16;
+        // Natural equatorial tropical grass palette (#3d7c2e to #549a3c)
+        const tone = Math.sin(u * 64 + v * 90) * 12;
         let r = 58 + tone * 0.4;
-        let g = 112 + tone * 1.4;
-        let b = 38 + tone * 0.3;
+        let g = 126 + tone * 1.0;
+        let b = 44 + tone * 0.3;
 
-        // Soil undertones in deep hollows
-        if (h < 0.45) {
-          r = 65;
-          g = 52;
-          b = 32;
-        } else if (h > 0.85) {
+        // Soft shadowing in hollows without reddish-brown mud cuts
+        if (h < 0.50) {
+          r = Math.max(38, r * 0.85);
+          g = Math.max(88, g * 0.85);
+          b = Math.max(30, b * 0.85);
+        } else if (h > 0.78) {
           // Sunlit blades
-          r = Math.min(255, r * 1.2);
-          g = Math.min(255, g * 1.25);
+          r = Math.min(255, r * 1.15);
+          g = Math.min(255, g * 1.18);
+          b = Math.min(255, b * 1.10);
         }
         return [r, g, b];
       },
       size,
       size,
-      2.6
+      0.40
     );
   }
 

@@ -160,4 +160,71 @@ describe('CitySerializer - Validation, Migrations & Roundtrip Safety', () => {
     expect(reloaded.roads.edges.length).toBe(validCityData.roads.edges.length);
     expect(reloaded.lots.length).toBe(validCityData.lots.length);
   });
+
+  it('serializes and preserves all v3.3.0 architectural CAD custom building properties', () => {
+    const cadCityData: CitySaveData = {
+      ...validCityData,
+      customBuildings: [
+        {
+          id: 'custom_bld_cad',
+          name: 'Villa L-Shape Modern',
+          position: [30, 0, 20],
+          rotationY: 1.57,
+          plinthHeight: 0.35,
+          floors: [
+            {
+              floorIndex: 0,
+              height: 3.2,
+              footprint: [
+                [-5, -6],
+                [5, -6],
+                [5, 0],
+                [0, 0],
+                [0, 6],
+                [-5, 6],
+              ],
+              walls: [],
+            },
+          ],
+          roof: {
+            type: 'hip',
+            pitchAngle: 30,
+            overhang: 1.4,
+            material: 'metal',
+          },
+          wallMaterial: 'plaster',
+          wallColor: '#f8fafc',
+          massingShape: 'l_shape',
+          windowStyle: 'curtain_wall',
+          hasBalcony: true,
+          hasSunLouvers: true,
+          hasVerticalGarden: true,
+          hasFrontArcade: false,
+          useBasePlinthMaterial: true,
+          baseMaterial: 'andesite',
+          mullionColor: '#1e293b',
+          hasSkylight: false,
+        },
+      ],
+    };
+
+    const jsonStr = JSON.stringify(cadCityData);
+    const parsed: CitySaveData = JSON.parse(jsonStr);
+
+    const cb = parsed.customBuildings?.[0];
+    expect(cb).toBeDefined();
+    expect(cb?.massingShape).toBe('l_shape');
+    expect(cb?.windowStyle).toBe('curtain_wall');
+    expect(cb?.hasBalcony).toBe(true);
+    expect(cb?.hasSunLouvers).toBe(true);
+    expect(cb?.hasVerticalGarden).toBe(true);
+    expect(cb?.hasFrontArcade).toBe(false);
+    expect(cb?.useBasePlinthMaterial).toBe(true);
+    expect(cb?.baseMaterial).toBe('andesite');
+    expect(cb?.mullionColor).toBe('#1e293b');
+    expect(cb?.hasSkylight).toBe(false);
+
+    const val = CitySerializer.validateCityData(parsed);
+    expect(val.valid).toBe(true);
+  });
 });

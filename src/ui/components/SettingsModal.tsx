@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useUIStore, GraphicsQuality, ThemeMode } from '../state/useUIStore';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
-import { X, Settings, Activity, Sun, Moon, Laptop } from 'lucide-react';
+import { X, Settings, Activity, Sun, Moon, Laptop, ChevronDown } from 'lucide-react';
 
 import { useModalA11y } from '../hooks/useModalA11y';
 
@@ -28,12 +28,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     mousepadSensitivity,
     setMousepadSensitivity,
     setShowLoadTest,
+    showFps,
+    toggleShowFps,
     engine
   } = useUIStore();
 
   const [softShadows, setSoftShadows] = useState<boolean>(true);
   const [bloomSSAO, setBloomSSAO] = useState<boolean>(graphicsQuality === 'ultra');
   const [ambientSound, setAmbientSound] = useState<boolean>(true);
+  const [devSectionOpen, setDevSectionOpen] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -74,6 +77,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const gpuInfo = engine?.getGpuInfo();
   const gpuName = gpuInfo?.renderer || 'Akselerator Grafis WebGL';
+  const cleanGpuName = (() => {
+    if (!gpuName) return 'Akselerator Grafis WebGL';
+    const match = gpuName.match(/(?:NVIDIA\s+GeForce\s+[^,)]+|Apple\s+M\d+[^,)]*|AMD\s+Radeon\s+[^,)]+|Intel\s+[^,)]+)/i);
+    if (match) return match[0];
+    const angleMatch = gpuName.match(/ANGLE\s*\([^,]+,\s*([^,)]+)/i);
+    if (angleMatch) return angleMatch[1];
+    return gpuName.length > 36 ? gpuName.slice(0, 36) + '...' : gpuName;
+  })();
 
   return (
     <div
@@ -113,10 +124,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <Settings size={20} color="#0A84FF" strokeWidth={2.2} />
             </div>
             <div>
-              <div id="settings-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--lab-title-color)', letterSpacing: '-0.01em' }}>
+              <div id="settings-modal-title" style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.01em' }}>
                 Pengaturan Kota
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--lab-subtitle-color)', marginTop: '2px' }}>
+              <div style={{ fontSize: '13px', color: '#475569', marginTop: '2px' }}>
                 Konfigurasi grafis, kontrol kamera, suara, dan tampilan antarmuka
               </div>
             </div>
@@ -129,13 +140,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              background: 'var(--fill-control)',
-              border: '1px solid var(--hairline)',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: 'var(--label-secondary)',
+              color: '#334155',
               transition: 'all 0.15s ease'
             }}
           >
@@ -252,7 +263,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
           {/* BAGIAN 2: KUALITAS GRAFIS & PERFORMA */}
           <div className="inset-header">
-            KUALITAS GRAFIS & PERFORMA
+            KUALITAS GRAFIS &amp; PERFORMA
           </div>
           <div className="inset-group">
             {/* 4 Preset Buttons */}
@@ -265,7 +276,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   { id: 'low' as GraphicsQuality, label: 'Rendah' },
                   { id: 'medium' as GraphicsQuality, label: 'Sedang' },
                   { id: 'high' as GraphicsQuality, label: 'Tinggi' },
-                  { id: 'ultra' as GraphicsQuality, label: 'Ultra RTX' }
+                  { id: 'ultra' as GraphicsQuality, label: 'Ultra' }
                 ].map((preset) => {
                   const isActive = graphicsQuality === preset.id;
                   return (
@@ -275,12 +286,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       style={{
                         padding: '8px 10px',
                         borderRadius: 'var(--radius-sub)',
-                        border: isActive ? '1px solid var(--accent)' : '1px solid var(--hairline)',
-                        background: isActive ? 'var(--accent)' : 'var(--fill-control)',
-                        color: isActive ? '#FFFFFF' : 'var(--label)',
-                        boxShadow: isActive ? '0 2px 8px rgba(10, 132, 255, 0.4)' : 'none',
+                        border: isActive ? '1.5px solid #007AFF' : '1px solid #CBD5E1',
+                        background: isActive ? 'rgba(0, 122, 255, 0.14)' : '#FFFFFF',
+                        color: isActive ? '#007AFF' : '#0F172A',
+                        boxShadow: isActive ? '0 2px 8px rgba(0, 122, 255, 0.2)' : '0 1px 3px rgba(15, 23, 42, 0.04)',
                         fontSize: '12px',
-                        fontWeight: isActive ? 600 : 500,
+                        fontWeight: isActive ? 700 : 500,
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                         textAlign: 'center'
@@ -297,7 +308,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div className="inset-row">
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--label)' }}>
-                  Bayangan Matahari Halus (Soft Shadows)
+                  Bayangan Matahari Halus
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
                   Pencahayaan realistis dengan bayangan dinamis sesuai posisi matahari
@@ -317,10 +328,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div className="inset-row">
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--label)' }}>
-                  Efek Cahaya & Atmosfer (Bloom & SSAO)
+                  Efek Cahaya dan Bayangan Sudut
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
-                  Pendaran cahaya lembut dan oklusi ambien pada sudut arsitektur
+                  Pendaran cahaya lembut dan bayangan sudut ruang arsitektur
                 </div>
               </div>
               <label className="ios-switch">
@@ -333,33 +344,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </label>
             </div>
 
-            {/* GPU Status & Load Test Button */}
+            {/* Perangkat Grafis */}
             <div className="inset-row">
-              <div style={{ maxWidth: '65%' }}>
-                <div style={{ fontSize: '12px', color: 'var(--label-secondary)' }}>
-                  Kartu Grafis Aktif
+              <div style={{ width: '100%' }}>
+                <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                  Perangkat Grafis
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {gpuName}
+                <div
+                  style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  title={gpuName}
+                >
+                  {cleanGpuName}
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setShowLoadTest(true);
-                  onClose();
-                }}
-                className="ios-btn"
-                style={{
-                  background: 'var(--accent-subtle)',
-                  color: 'var(--accent)',
-                  border: '1px solid var(--accent)',
-                  fontSize: '11px',
-                  fontWeight: 600
-                }}
-              >
-                <Activity size={13} />
-                <span>Uji Beban 300 Gedung</span>
-              </button>
             </div>
           </div>
 
@@ -434,6 +431,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 aria-label="Sensitivitas Kamera"
               />
             </div>
+          </div>
+
+          {/* BAGIAN 4: PENGEMBANG (Collapsible) */}
+          <div style={{ marginTop: '12px' }}>
+            <button
+              onClick={() => setDevSectionOpen(!devSectionOpen)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 4px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#64748B',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase'
+              }}
+            >
+              <span>PENGEMBANG &amp; DIAGNOSTIK</span>
+              <ChevronDown
+                size={14}
+                style={{
+                  transform: devSectionOpen ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.2s ease',
+                  color: '#64748B'
+                }}
+              />
+            </button>
+
+            {devSectionOpen && (
+              <div className="inset-group" style={{ marginTop: '6px' }}>
+                {/* Indikator FPS */}
+                <div className="inset-row">
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--label)' }}>
+                      Indikator FPS
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                      Tampilkan frame rate rendering real-time di bar atas
+                    </div>
+                  </div>
+                  <label className="ios-switch">
+                    <input
+                      type="checkbox"
+                      checked={showFps}
+                      onChange={toggleShowFps}
+                    />
+                    <span className="ios-switch-slider" />
+                  </label>
+                </div>
+
+                {/* Uji Beban 300 Gedung */}
+                <div className="inset-row" style={{ justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--label)' }}>
+                      Uji Stres Performa
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
+                      Uji rendering 300 gedung sekaligus
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowLoadTest(true);
+                      onClose();
+                    }}
+                    className="ios-btn"
+                    style={{
+                      background: 'rgba(0, 122, 255, 0.1)',
+                      color: '#007AFF',
+                      border: '1px solid rgba(0, 122, 255, 0.25)',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      padding: '5px 12px',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    <Activity size={13} />
+                    <span>Uji Beban 300 Gedung</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Modal Footer Done Button */}

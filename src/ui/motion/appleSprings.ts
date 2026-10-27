@@ -14,8 +14,8 @@ import { Transition } from 'framer-motion';
  */
 export const SPRING_TACTILE: Transition = {
   type: 'spring',
-  stiffness: 520,
-  damping: 32,
+  stiffness: 500,
+  damping: 34,
   mass: 0.7,
 };
 

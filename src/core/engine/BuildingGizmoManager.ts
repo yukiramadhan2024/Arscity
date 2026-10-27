@@ -462,17 +462,37 @@ export class BuildingGizmoManager {
           const deg = Math.round(((finalAngle * 180) / Math.PI) % 360);
           const positiveDeg = deg < 0 ? deg + 360 : deg;
 
+          const footprint = this.getBuildingFootprint(bld);
+          const overlapsRoad = this.engine.roadManager.isFootprintOverlappingRoad(footprint, 0.5);
+          if (overlapsRoad) {
+            proceduralAudio.playTaptic('boundary');
+          }
+
           this.liveGizmoTelemetry = {
             active: true,
             type: 'rotation',
             label: 'Orientasi Fasad 3D',
             value: `${positiveDeg}° (Snap 15°)`,
-            secondary: positiveDeg === 0 || positiveDeg === 180 ? 'Orientasi Utara-Selatan Optimal (Minim Radiasi)' : 'Orientasi Menyudut Lintasan Matahari'
+            secondary: positiveDeg === 0 || positiveDeg === 180 ? 'Orientasi Utara-Selatan Optimal (Minim Radiasi)' : 'Orientasi Menyudut Lintasan Matahari',
+            warning: overlapsRoad ? 'Melanggar sempadan jalan / trotoar!' : undefined
           };
         }
       }
     }
   };
+
+  private getBuildingFootprint(bld: BuildingInstance): THREE.Vector2[] {
+    const hw = bld.width / 2;
+    const hl = bld.length / 2;
+    const cos = Math.cos(bld.rotationY || 0);
+    const sin = Math.sin(bld.rotationY || 0);
+    return [
+      new THREE.Vector2(bld.position.x + (-hw * cos - -hl * sin), bld.position.z + (-hw * sin + -hl * cos)),
+      new THREE.Vector2(bld.position.x + (hw * cos - -hl * sin),  bld.position.z + (hw * sin + -hl * cos)),
+      new THREE.Vector2(bld.position.x + (hw * cos - hl * sin),   bld.position.z + (hw * sin + hl * cos)),
+      new THREE.Vector2(bld.position.x + (-hw * cos - hl * sin),  bld.position.z + (-hw * sin + hl * cos))
+    ];
+  }
 
   private onPointerUp = (): void => {
     if (!this.dragState || !this.activeHandle) return;
@@ -509,16 +529,23 @@ export class BuildingGizmoManager {
         this.activeHandle === 'rotation' &&
         Math.abs((bld.rotationY || 0) - this.dragState.initialRotationY) > 0.01
       ) {
-        this.engine.executeCommand(
-          new UpdateBuildingParamCommand(
-            this.engine,
-            bld.id,
-            { rotationY: this.dragState.initialRotationY },
-            { rotationY: bld.rotationY },
-            `Putar Orientasi Bangunan ${bld.name}`
-          )
-        );
-        proceduralAudio.playStarChime();
+        // Prevent rotation that places building into road
+        if (this.engine.roadManager.isFootprintOverlappingRoad(this.getBuildingFootprint(bld), 0.5)) {
+          bld.rotationY = this.dragState.initialRotationY;
+          this.engine.buildingManager.updateBuilding(bld);
+          proceduralAudio.playTaptic('boundary');
+        } else {
+          this.engine.executeCommand(
+            new UpdateBuildingParamCommand(
+              this.engine,
+              bld.id,
+              { rotationY: this.dragState.initialRotationY },
+              { rotationY: bld.rotationY },
+              `Putar Orientasi Bangunan ${bld.name}`
+            )
+          );
+          proceduralAudio.playStarChime();
+        }
       }
     }
 

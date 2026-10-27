@@ -143,4 +143,16 @@ export interface BuildingInstance {
   maxFloors?: number;
   stairZones?: StairZone[];
   userData?: Record<string, any>;
+
+  // Custom Building CAD Architecture Overhaul (v3.3.0)
+  massingShape?: string;
+  windowStyle?: string;
+  hasBalcony?: boolean;
+  hasSunLouvers?: boolean;
+  hasVerticalGarden?: boolean;
+  hasFrontArcade?: boolean;
+  useBasePlinthMaterial?: boolean;
+  baseMaterial?: string;
+  mullionColor?: string;
+  hasSkylight?: boolean;
 }

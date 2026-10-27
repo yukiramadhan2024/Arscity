@@ -27,6 +27,7 @@ import {
   RemoveRoadCommand,
   RemoveLotCommand,
   SwapInteriorVariantCommand,
+  DuplicateDistrictCommand,
 } from '../commands/CityCommands';
 import { BuildingInstance } from '../../buildings/PrefabTypes';
 import { LandscapeManager } from '../../world/LandscapeManager';
@@ -51,6 +52,11 @@ import { CinematicDroneController, DroneTourState } from './CinematicDroneContro
 import { spatialAudio } from '../../audio/SpatialAudioSystem';
 import { acousticAnalyzer } from '../../analysis/AcousticAnalyzer';
 import { InteriorInteractiveSystem } from '../../buildings/InteriorInteractiveSystem';
+import { RiverManager } from '../../world/RiverManager';
+import { RiverTool } from '../../tools/RiverTool';
+import { TerraformTool } from '../../tools/TerraformTool';
+import { DemolishTool } from '../../tools/DemolishTool';
+import { useUIStore } from '../../ui/state/useUIStore';
 
 export type MaquetteDataLensType = 'none' | 'kdb_gsb' | 'solar_vent' | 'runoff' | 'walkability' | 'acoustic';
 
@@ -85,6 +91,13 @@ export class Engine {
   public zoneTool: ZoneTool;
   public landscapeManager: LandscapeManager;
   public landscapeTool: LandscapeTool;
+  public riverManager: RiverManager;
+  public riverTool: RiverTool;
+  public terraformTool: TerraformTool;
+  public get terrainTool(): TerraformTool {
+    return this.terraformTool;
+  }
+  public demolishTool: DemolishTool;
   public solarAnalyzer: SolarAnalyzer;
   public ventilationAnalyzer: VentilationAnalyzer;
   public sectionCutManager: SectionCutManager;
@@ -181,6 +194,7 @@ export class Engine {
 
     // Roads
     this.roadManager = new RoadManager(this.scene);
+    this.roadManager.terrain = this.terrain;
     this.roadTool = new RoadTool(this.roadManager, this.raycastManager, this.scene);
 
     this.roadManager.onGraphChanged = (totalKm) => {
@@ -206,8 +220,16 @@ export class Engine {
     this.landscapeTool = new LandscapeTool(this.landscapeManager, this.raycastManager, this.scene, this);
     this.landscapeTool.setVisible(false);
 
+    // Rivers, Terraforming & Demolition (SimCity Build Mode)
+    this.riverManager = new RiverManager(this.scene, this.terrain);
+    this.riverTool = new RiverTool(this, this.raycastManager, this.scene);
+    this.terraformTool = new TerraformTool(this, this.raycastManager, this.scene);
+    this.demolishTool = new DemolishTool(this, this.raycastManager, this.scene);
+    this.zoneTool.setEngine(this);
+
     // Wire dependencies: LotManager needs roadManager for GSB and landscapeManager for KDH
     this.lotManager.setDependencies(this.roadManager, this.landscapeManager);
+    this.roadManager.setDependencies(this.landscapeManager, this.lotManager, this.buildingManager);
     this.landscapeManager.onLandscapeUpdated = () => {
       this.lotManager.evaluateAllLots();
       this.missionManager.evaluate();
@@ -226,7 +248,7 @@ export class Engine {
     // Interactive 3D Spatial Highlighter, Sun Path & Building Handles
     this.spatialHighlighter = new SpatialHighlighter(this.scene, this);
     this.sunPathVisualizer = new SunPathVisualizer(this.scene);
-    this.sunPathVisualizer.setVisible(true);
+    this.sunPathVisualizer.setVisible(false);
     this.buildingGizmoManager = new BuildingGizmoManager(
       this,
       this.scene,
@@ -273,6 +295,14 @@ export class Engine {
       if (this.onSelectionChanged) this.onSelectionChanged();
     };
 
+    // Clean initial lot overlay state (hidden by default)
+    this.lotManager.updateVisibility('select', false);
+    useUIStore.subscribe((state, prevState) => {
+      if (state.showLotOverlays !== prevState.showLotOverlays) {
+        this.lotManager.updateVisibility(this.activeToolName, state.showLotOverlays);
+      }
+    });
+
     // Human-Scale Walkthrough & Drone Tour Controllers
     this.firstPersonController = new FirstPersonController(
       this.cameraController.camera,
@@ -280,6 +310,7 @@ export class Engine {
       this.buildingManager,
       this.terrain
     );
+    this.firstPersonController.setEngine(this);
     this.firstPersonController.onExit = () => {
       this.setCameraMode('orbit');
     };
@@ -301,6 +332,8 @@ export class Engine {
 
     // User input listeners
     this.renderer.domElement.addEventListener('click', this.onCanvasClick);
+    this.renderer.domElement.addEventListener('pointerdown', this.onCanvasPointerDown);
+    window.addEventListener('pointerup', this.onCanvasPointerUp);
     window.addEventListener('keydown', this.onWindowKeyDown);
     window.addEventListener('resize', this.handleResize);
 
@@ -383,6 +416,16 @@ export class Engine {
       if (this.raycastManager.isHoveringGround) {
         this.landscapeTool.handleClick(this.raycastManager.snappedPoint);
       }
+    } else if (this.activeToolName === 'river') {
+      if (this.raycastManager.isHoveringGround) {
+        this.riverTool.handleClick(this.raycastManager.snappedPoint);
+      }
+    } else if (this.activeToolName === 'terraform') {
+      if (this.raycastManager.isHoveringGround) {
+        this.terraformTool.applyBrush(this.raycastManager.snappedPoint);
+      }
+    } else if (this.activeToolName === 'demolish') {
+      this.demolishTool.handleClick();
     } else if (this.activeToolName === 'analyze') {
       if (this.measurementTool.isActive && this.raycastManager.isHoveringGround) {
         this.measurementTool.handleClick(this.raycastManager.snappedPoint);
@@ -462,6 +505,22 @@ export class Engine {
     }
   };
 
+  private onCanvasPointerDown = (e: PointerEvent): void => {
+    if (e.button !== 0) return;
+    if (this.activeToolName === 'terraform') {
+      this.raycastManager.updateMousePosition(e.clientX, e.clientY);
+      if (this.raycastManager.isHoveringGround) {
+        this.terraformTool.handlePointerDown(this.raycastManager.groundPoint);
+      }
+    }
+  };
+
+  private onCanvasPointerUp = (): void => {
+    if (this.activeToolName === 'terraform') {
+      this.terraformTool.handlePointerUp();
+    }
+  };
+
   private onWindowKeyDown = (e: KeyboardEvent): void => {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
       e.preventDefault();
@@ -474,6 +533,10 @@ export class Engine {
     } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
       e.preventDefault();
       this.commandManager.redo();
+      return;
+    } else if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault();
+      this.duplicateSelection();
       return;
     }
 
@@ -541,6 +604,32 @@ export class Engine {
     return success;
   }
 
+  public duplicateSelection(offset = new THREE.Vector3(14, 0, 14)): DuplicateDistrictCommand | null {
+    let buildingIdsToDuplicate: string[] = [];
+
+    if (this.buildingManager.selectedBuildingId) {
+      buildingIdsToDuplicate = [this.buildingManager.selectedBuildingId];
+    } else if (this.lotManager.selectedLotId) {
+      const lot = this.lotManager.lots.get(this.lotManager.selectedLotId);
+      if (lot && lot.containedBuildingIds.length > 0) {
+        buildingIdsToDuplicate = [...lot.containedBuildingIds];
+      }
+    }
+
+    if (buildingIdsToDuplicate.length === 0) return null;
+
+    const cmd = new DuplicateDistrictCommand(this, buildingIdsToDuplicate, offset);
+    this.executeCommand(cmd);
+
+    // Select the first duplicated building
+    if (cmd.duplicatedBuildingIds.length > 0) {
+      this.buildingManager.selectBuilding(cmd.duplicatedBuildingIds[0]);
+      if (this.onSelectionChanged) this.onSelectionChanged();
+    }
+
+    return cmd;
+  }
+
   public setActiveTool(toolName: string): void {
     this.activeToolName = toolName;
 
@@ -548,26 +637,48 @@ export class Engine {
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(false);
+      this.riverTool.cancel();
     } else if (toolName === 'build') {
       this.roadTool.cancelDrawing();
       this.buildingTool.setVisible(true);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(false);
+      this.riverTool.cancel();
     } else if (toolName === 'zone') {
       this.roadTool.cancelDrawing();
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(true);
       this.landscapeTool.setVisible(false);
+      this.riverTool.cancel();
     } else if (toolName === 'nature' || toolName === 'landscape') {
       this.roadTool.cancelDrawing();
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(true);
+      this.riverTool.cancel();
+    } else if (toolName === 'river') {
+      this.roadTool.cancelDrawing();
+      this.buildingTool.setVisible(false);
+      this.zoneTool.setVisible(false);
+      this.landscapeTool.setVisible(false);
+    } else if (toolName === 'terraform') {
+      this.roadTool.cancelDrawing();
+      this.buildingTool.setVisible(false);
+      this.zoneTool.setVisible(false);
+      this.landscapeTool.setVisible(false);
+      this.riverTool.cancel();
+    } else if (toolName === 'demolish') {
+      this.roadTool.cancelDrawing();
+      this.buildingTool.setVisible(false);
+      this.zoneTool.setVisible(false);
+      this.landscapeTool.setVisible(false);
+      this.riverTool.cancel();
     } else {
       this.roadTool.cancelDrawing();
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(false);
+      this.riverTool.cancel();
     }
 
     if (toolName !== 'select') {
@@ -575,6 +686,10 @@ export class Engine {
       this.buildingManager.selectBuilding(null);
       this.lotManager.selectLot(null);
       if (this.onSelectionChanged) this.onSelectionChanged();
+    }
+
+    if (this.lotManager) {
+      this.lotManager.updateVisibility(toolName, useUIStore.getState().showLotOverlays);
     }
   }
 
@@ -668,11 +783,13 @@ export class Engine {
         this.cameraController.camera.position,
         true
       );
-      spatialAudio.update(
-        this.cameraController.camera.position,
-        this.weatherSystem.currentWeather,
-        this.firstPersonController.isUnderRoof
-      );
+      if (useUIStore.getState().currentScreen === 'game') {
+        spatialAudio.update(
+          this.cameraController.camera.position,
+          this.weatherSystem.currentWeather,
+          this.firstPersonController.isUnderRoof
+        );
+      }
     } else if (this.currentCameraMode === 'cinematic_drone') {
       InteriorInteractiveSystem.getInstance().update(
         deltaTime,
@@ -684,18 +801,22 @@ export class Engine {
       } else {
         this.cameraController.update(deltaTime);
       }
-      spatialAudio.update(
-        this.cameraController.camera.position,
-        this.weatherSystem.currentWeather,
-        false
-      );
+      if (useUIStore.getState().currentScreen === 'game') {
+        spatialAudio.update(
+          this.cameraController.camera.position,
+          this.weatherSystem.currentWeather,
+          false
+        );
+      }
     } else {
       this.cameraController.update(deltaTime);
-      spatialAudio.update(
-        this.cameraController.camera.position,
-        this.weatherSystem.currentWeather,
-        false
-      );
+      if (useUIStore.getState().currentScreen === 'game') {
+        spatialAudio.update(
+          this.cameraController.camera.position,
+          this.weatherSystem.currentWeather,
+          false
+        );
+      }
     }
     this.raycastManager.setCamera(this.cameraController.activeCamera);
     this.raycastManager.update();
@@ -713,11 +834,20 @@ export class Engine {
       this.zoneTool.update();
     } else if (this.activeToolName === 'nature' || this.activeToolName === 'landscape') {
       this.landscapeTool.update();
+    } else if (this.activeToolName === 'river') {
+      this.riverTool.update();
+    } else if (this.activeToolName === 'terraform') {
+      this.terraformTool.update();
+    } else if (this.activeToolName === 'demolish') {
+      this.demolishTool.update();
     } else if (this.activeToolName === 'analyze') {
       if (this.measurementTool.isActive) {
         this.measurementTool.update();
       }
     }
+
+    // River wave flow animation
+    this.riverManager.update(deltaTime);
 
     // Ventilation simulation particles
     if (this.ventilationAnalyzer.isWindActive) {
@@ -996,6 +1126,9 @@ export class Engine {
     this.clearCurrentWorld();
     const res = CitySerializer.deserialize(this, data);
     if (res.success) {
+      // Enforce road clearance across landscape, lots, and buildings
+      this.enforceRoadClearance();
+
       if (this.onBuildingStatsChanged) {
         let totalFootprint = 0;
         for (const b of this.buildingManager.buildings.values()) {
@@ -1012,6 +1145,13 @@ export class Engine {
     }
     console.error('[Engine] Failed to load world state:', res.error);
     return false;
+  }
+
+  /**
+   * Enforces road clearance: auto-evicts/relocates items overlapping road asphalt or sidewalks.
+   */
+  public enforceRoadClearance(): void {
+    this.roadManager.enforceRoadClearance(this.landscapeManager, this.lotManager, this.buildingManager);
   }
 
   /**
@@ -1289,6 +1429,10 @@ export class Engine {
 
     this.postProcessingManager.dispose();
     this.measurementTool.dispose();
+    this.demolishTool.dispose();
+    this.terraformTool.dispose();
+    this.riverTool.dispose();
+    this.riverManager.dispose();
     this.floorPlanAnnotationOverlay.dispose();
     this.runoffOverlay.dispose();
     this.cityScoreOverlay.dispose();

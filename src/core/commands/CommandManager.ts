@@ -1,3 +1,5 @@
+import { showSnackbar } from '../../ui/state/useSnackbarStore';
+
 export interface ICommand {
   description: string;
   execute(): void;
@@ -74,6 +76,10 @@ export class CommandManager {
     this.notify();
   }
 
+  public executeCommand(command: ICommand): void {
+    this.execute(command);
+  }
+
   public undo(): boolean {
     const cmd = this.undoStack.pop();
     if (!cmd) return false;
@@ -81,6 +87,14 @@ export class CommandManager {
     cmd.undo();
     this.redoStack.push(cmd);
     this.notify();
+    try {
+      showSnackbar({
+        variant: 'info',
+        title: 'Aksi Dibatalkan',
+        undoable: false,
+        groupKey: 'action_undone',
+      });
+    } catch {}
     return true;
   }
 
@@ -95,6 +109,12 @@ export class CommandManager {
     }
     this.undoStack.push(cmd);
     this.notify();
+    try {
+      showSnackbar({
+        variant: 'info',
+        title: `Mengulangi: ${cmd.description}`,
+      });
+    } catch {}
     return true;
   }
 

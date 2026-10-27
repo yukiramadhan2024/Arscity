@@ -6,6 +6,7 @@ import { BuildingManager } from '../buildings/BuildingManager';
 import { CompositeCommand, UpdateBuildingParamCommand, AddLandscapeCommand } from '../core/commands/CityCommands';
 import { LandscapeItem } from '../world/LandscapeManager';
 import { proceduralAudio } from '../audio/ProceduralAudio';
+import { showSnackbar } from '../ui/state/useSnackbarStore';
 
 export interface AutoFixResult {
   success: boolean;
@@ -183,6 +184,16 @@ export class AutoFixService {
     // Execute composite command
     engine.executeCommand(composite);
     proceduralAudio.playStarChime();
+
+    try {
+      showSnackbar({
+        variant: 'success',
+        title: 'Tata Ruang Dikoreksi Otomatis',
+        detail: 'Patuh KDB, GSB, & KDH',
+        undoable: true,
+        groupKey: 'autofix_applied',
+      });
+    } catch {}
 
     return {
       success: true,

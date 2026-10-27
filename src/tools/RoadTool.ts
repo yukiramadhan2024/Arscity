@@ -4,6 +4,7 @@ import { RoadType, ROAD_PROFILES } from '../roads/RoadTypes';
 import { RaycastManager } from '../core/engine/RaycastManager';
 import { proceduralAudio } from '../audio/ProceduralAudio';
 import { RoadMaterialHelper } from '../roads/RoadMaterialHelper';
+import { showSnackbar } from '../ui/state/useSnackbarStore';
 
 export class RoadTool {
   public roadManager: RoadManager;
@@ -109,9 +110,17 @@ export class RoadTool {
   }
 
   public handleClick(snappedPos: THREE.Vector3): void {
-    // Check if snapping to existing node
-    const closeNode = this.roadManager.graph.findClosestNode(snappedPos, 2.5);
-    const targetPos = closeNode ? closeNode.position.clone() : snappedPos.clone();
+    // Check if snapping to existing node or edge
+    let targetPos = snappedPos.clone();
+    const closeNode = this.roadManager.graph.findClosestNode(snappedPos, 3.5);
+    if (closeNode) {
+      targetPos.copy(closeNode.position);
+    } else {
+      const nearEdge = this.roadManager.graph.findNearestEdgePoint(snappedPos);
+      if (nearEdge) {
+        targetPos.copy(nearEdge.point);
+      }
+    }
     targetPos.y = 0;
 
     if (!this.isDrawing) {
@@ -123,10 +132,41 @@ export class RoadTool {
       if (this.drawMode === 'straight') {
         // Step 2 (straight): Finish road
         if (this.startPoint && this.isValidPlacement) {
-          this.roadManager.addRoad(this.startPoint, targetPos, this.activeRoadType);
+          const edge = this.roadManager.addRoad(this.startPoint, targetPos, this.activeRoadType);
           proceduralAudio.playPlaceRoad();
-          // Chain drawing: start next road from this end point
-          this.startPoint = targetPos;
+
+          const dist = Math.round(this.startPoint.distanceTo(targetPos));
+          const prof = ROAD_PROFILES[this.activeRoadType];
+          const width = prof?.width || 8;
+          const roadName = prof?.name || `Jalan ${this.activeRoadType}`;
+          const isBridge = (edge as any)?.isBridge || this.startPoint.y < -0.25 || targetPos.y < -0.25;
+          const detail = isBridge
+            ? `Panjang ${dist} m • Lebar ${width} m • Jembatan Otomatis Aktif`
+            : `Panjang ${dist} m • Lebar ${width} m`;
+
+          showSnackbar({
+            variant: 'success',
+            title: `${roadName} Dibangun`,
+            detail,
+            undoable: true,
+            groupKey: `place_road_${this.activeRoadType}`,
+          });
+
+          // Reset drawing state so the next click starts a fresh road instead of dragging unwanted diagonal lines
+          this.isDrawing = false;
+          this.startPoint = null;
+          this.midControlPoint = null;
+          this.ghostMesh.visible = false;
+          if (this.guideGroup) this.guideGroup.visible = false;
+          if (this.onLengthUpdate) this.onLengthUpdate(0, false);
+        } else if (this.startPoint && !this.isValidPlacement) {
+          proceduralAudio.playTaptic('boundary');
+          showSnackbar({
+            variant: 'warning',
+            title: 'Ruas Jalan Terlalu Pendek',
+            detail: 'Panjang minimum 3.5 meter',
+            groupKey: 'road_too_short',
+          });
         }
       } else {
         // Bezier mode
@@ -141,14 +181,45 @@ export class RoadTool {
             const p1 = new THREE.Vector3().lerpVectors(p0, this.midControlPoint, 0.65);
             const p2 = new THREE.Vector3().lerpVectors(this.midControlPoint, p3, 0.35);
 
-            this.roadManager.addRoad(p0, p3, this.activeRoadType, [p0, p1, p2, p3]);
+            const edge = this.roadManager.addRoad(p0, p3, this.activeRoadType, [p0, p1, p2, p3]);
             proceduralAudio.playPlaceRoad();
-            this.startPoint = targetPos;
+
+            const dist = Math.round(p0.distanceTo(p3));
+            const prof = ROAD_PROFILES[this.activeRoadType];
+            const width = prof?.width || 8;
+            const roadName = prof?.name || `Jalan Lengkung ${this.activeRoadType}`;
+            const isBridge = (edge as any)?.isBridge || p0.y < -0.25 || p3.y < -0.25;
+            const detail = isBridge
+              ? `Panjang ${dist} m • Lebar ${width} m • Jembatan Otomatis Aktif`
+              : `Panjang ${dist} m • Lebar ${width} m`;
+
+            showSnackbar({
+              variant: 'success',
+              title: `${roadName} Dibangun`,
+              detail,
+              undoable: true,
+              groupKey: `place_road_${this.activeRoadType}`,
+            });
+
+            this.isDrawing = false;
+            this.startPoint = null;
             this.midControlPoint = null;
+            this.ghostMesh.visible = false;
+            if (this.guideGroup) this.guideGroup.visible = false;
+            if (this.onLengthUpdate) this.onLengthUpdate(0, false);
+          } else if (this.startPoint && !this.isValidPlacement) {
+            proceduralAudio.playTaptic('boundary');
+            showSnackbar({
+              variant: 'warning',
+              title: 'Ruas Jalan Terlalu Pendek',
+              detail: 'Panjang minimum 3.5 meter',
+              groupKey: 'road_too_short',
+            });
           }
         }
       }
     }
+
   }
 
   public update(): void {
@@ -160,9 +231,17 @@ export class RoadTool {
     const hoverPos = this.raycastManager.snappedPoint.clone();
     hoverPos.y = 0;
 
-    // Check if hovering near existing node for magnetic snap preview
-    const closeNode = this.roadManager.graph.findClosestNode(hoverPos, 2.5);
-    const currentEnd = closeNode ? closeNode.position.clone() : hoverPos;
+    // Check if hovering near existing node or road edge for magnetic snap preview
+    const closeNode = this.roadManager.graph.findClosestNode(hoverPos, 3.5);
+    let currentEnd = hoverPos;
+    if (closeNode) {
+      currentEnd = closeNode.position.clone();
+    } else {
+      const nearEdge = this.roadManager.graph.findNearestEdgePoint(hoverPos);
+      if (nearEdge) {
+        currentEnd = nearEdge.point.clone();
+      }
+    }
     currentEnd.y = 0;
 
     const dist = this.startPoint.distanceTo(currentEnd);

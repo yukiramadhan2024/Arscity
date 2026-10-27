@@ -514,15 +514,17 @@ export class LotManager {
 
     const rule = ZONE_RULES[lot.zone];
     const hasViolations = lot.violations.length > 0;
+    const COLOR_BAD = 0xe11d48;
+    const COLOR_GOOD = 0x30d158;
 
-    // 1. Transparent tinted zone surface plane
+    // 1. Transparent tinted zone surface plane (reduced opacity for natural city look)
     const planeGeom = new THREE.PlaneGeometry(lot.width - 0.2, lot.length - 0.2);
     planeGeom.rotateX(-Math.PI / 2);
 
     const planeMat = new THREE.MeshBasicMaterial({
-      color: rule.colorHexInt,
+      color: hasViolations ? COLOR_BAD : rule.colorHexInt,
       transparent: true,
-      opacity: 0.35,
+      opacity: hasViolations ? 0.20 : 0.14,
       depthWrite: false
     });
     const surfaceMesh = new THREE.Mesh(planeGeom, planeMat);
@@ -540,8 +542,8 @@ export class LotManager {
     ];
     const lineGeom = new THREE.BufferGeometry().setFromPoints(borderPoints);
     const lineMat = new THREE.LineBasicMaterial({
-      color: hasViolations ? 0xff3b30 : rule.colorHexInt,
-      linewidth: hasViolations ? 3 : 2
+      color: hasViolations ? COLOR_BAD : rule.colorHexInt,
+      linewidth: 2
     });
     const lineMesh = new THREE.Line(lineGeom, lineMat);
     group.add(lineMesh);
@@ -566,15 +568,15 @@ export class LotManager {
       ];
       const setbackGeom = new THREE.BufferGeometry().setFromPoints(setbackPoints);
       const isGsbViolated = lot.violations.some(v => v.code.startsWith('GSB'));
-      const gsbColor = isGsbViolated ? 0xff3b30 : 0x00ff66; // Emerald green glow (#00FF66)
+      const gsbColor = isGsbViolated ? COLOR_BAD : COLOR_GOOD;
 
       const setbackMat = new THREE.LineDashedMaterial({
         color: gsbColor,
         dashSize: 1.2,
         gapSize: 0.6,
-        linewidth: 2.5,
+        linewidth: 2.0,
         transparent: true,
-        opacity: 0.95
+        opacity: 0.85
       });
       const setbackLine = new THREE.Line(setbackGeom, setbackMat);
       setbackLine.computeLineDistances();
@@ -582,9 +584,83 @@ export class LotManager {
       group.add(setbackLine);
     }
 
+    // 4. Compact 3D Floating Violation Badge (Spec B2)
+    if (hasViolations && typeof document !== 'undefined') {
+      try {
+        const badgeCanvas = document.createElement('canvas');
+        badgeCanvas.width = 384;
+        badgeCanvas.height = 72;
+        const bCtx = badgeCanvas.getContext('2d');
+        if (bCtx) {
+          bCtx.fillStyle = 'rgba(225, 29, 72, 0.94)';
+          if ((bCtx as any).roundRect) {
+            (bCtx as any).roundRect(4, 4, 376, 64, 18);
+          } else {
+            bCtx.rect(4, 4, 376, 64);
+          }
+          bCtx.fill();
+          bCtx.strokeStyle = '#FFFFFF';
+          bCtx.lineWidth = 2.5;
+          bCtx.stroke();
+
+          bCtx.fillStyle = '#FFFFFF';
+          bCtx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+          bCtx.textAlign = 'center';
+          bCtx.textBaseline = 'middle';
+          const badgeText = lot.violations[0].title || 'Pelanggaran SNI';
+          bCtx.fillText(badgeText, 192, 36);
+
+          const badgeTex = new THREE.CanvasTexture(badgeCanvas);
+          badgeTex.colorSpace = THREE.SRGBColorSpace;
+          const spriteMat = new THREE.SpriteMaterial({
+            map: badgeTex,
+            depthTest: false,
+            transparent: true
+          });
+          const badgeSprite = new THREE.Sprite(spriteMat);
+          badgeSprite.position.set(0, 3.2, 0);
+          badgeSprite.scale.set(4.5, 0.85, 1.0);
+          badgeSprite.renderOrder = 999;
+          group.add(badgeSprite);
+        }
+      } catch (err) {
+        // Ignore canvas errors in headless environments
+      }
+    }
+
     this.masterGroup.add(group);
     this.lotMeshGroups.set(lot.id, group);
   }
+
+  /**
+   * Updates lot mesh visibility based on active tool or layer toggle (Spec B1).
+   * Default mode displays a pristine, clean city without noisy lot outlines.
+   */
+  public updateVisibility(
+    activeToolName: string,
+    forceOverlays: boolean = false,
+    hoveredLotId: string | null = null
+  ): void {
+    const isToolNeedingLots =
+      activeToolName === 'zone' || activeToolName === 'build' || activeToolName === 'analyze';
+    const showAll = isToolNeedingLots || forceOverlays;
+
+    for (const [lotId, group] of this.lotMeshGroups.entries()) {
+      const isSelected = lotId === this.selectedLotId;
+      const isHovered = lotId === hoveredLotId;
+      const lot = this.lots.get(lotId);
+      const hasViolations = Boolean(lot && lot.violations && lot.violations.length > 0);
+
+      if (showAll || isSelected || isHovered) {
+        group.visible = true;
+      } else if (hasViolations && activeToolName === 'analyze') {
+        group.visible = true;
+      } else {
+        group.visible = false;
+      }
+    }
+  }
+
 
   public selectLot(id: string | null): void {
     this.selectedLotId = id;

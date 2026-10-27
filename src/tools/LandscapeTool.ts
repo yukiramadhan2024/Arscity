@@ -4,6 +4,7 @@ import { RaycastManager } from '../core/engine/RaycastManager';
 import { AddLandscapeCommand } from '../core/commands/CityCommands';
 import { proceduralAudio } from '../audio/ProceduralAudio';
 import type { Engine } from '../core/engine/Engine';
+import { showSnackbar } from '../ui/state/useSnackbarStore';
 
 export class LandscapeTool {
   public landscapeManager: LandscapeManager;
@@ -194,6 +195,18 @@ export class LandscapeTool {
   }
 
   public handleClick(snappedPos: THREE.Vector3): void {
+    // Reject placement if position is on road asphalt
+    if (this.engine?.roadManager?.isPointOnRoadAsphalt(snappedPos.x, snappedPos.z, 0.6)) {
+      proceduralAudio.playTaptic('boundary');
+      showSnackbar({
+        variant: 'warning',
+        title: 'Lokasi Terhalang Jalan Raya',
+        detail: 'Objek tidak boleh berada di atas aspal',
+        groupKey: 'collision_road',
+      });
+      return;
+    }
+
     const nextId = `land_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const hasDimensions =
       this.activeType === 'grass_garden' ||
@@ -239,12 +252,26 @@ export class LandscapeTool {
     if (!this.ghostGroup) return;
 
     if (this.isVisible && this.raycastManager.isHoveringGround) {
-      this.ghostGroup.position.set(
-        this.raycastManager.snappedPoint.x,
-        0,
-        this.raycastManager.snappedPoint.z
-      );
+      const snapX = this.raycastManager.snappedPoint.x;
+      const snapZ = this.raycastManager.snappedPoint.z;
+
+      let isOnRoad = false;
+      if (this.engine?.roadManager) {
+        isOnRoad = this.engine.roadManager.isPointOnRoadAsphalt(snapX, snapZ, 0.6);
+      }
+
+      this.ghostGroup.position.set(snapX, 0, snapZ);
       this.ghostGroup.visible = true;
+
+      const targetColor = isOnRoad ? 0xff3b30 : 0x34c759;
+      this.ghostGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const m = child as THREE.Mesh;
+          if (m.material && (m.material as any).color) {
+            (m.material as THREE.MeshBasicMaterial).color.setHex(targetColor);
+          }
+        }
+      });
     } else {
       this.ghostGroup.visible = false;
     }

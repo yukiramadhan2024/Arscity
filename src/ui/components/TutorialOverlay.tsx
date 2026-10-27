@@ -54,30 +54,50 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isOpen, onClos
       }}
     >
       <div
-        className="glass-surface"
         style={{
+          background: 'rgba(244, 247, 251, 0.95)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          border: '1px solid rgba(255, 255, 255, 0.95)',
+          boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
           padding: '14px 16px',
-          borderRadius: 'var(--radius-panel)'
+          borderRadius: '20px'
         }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Sparkles size={15} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <Sparkles size={15} strokeWidth={1.75} style={{ color: '#007AFF' }} />
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#007AFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Panduan • Langkah {currentStepIndex + 1}/{TUTORIAL_STEPS.length}
             </span>
           </div>
-          <button onClick={onClose} className="icon-btn" style={{ width: '24px', height: '24px' }} aria-label="Tutup Panduan">
+          <button
+            onClick={onClose}
+            className="icon-btn"
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#334155'
+            }}
+            aria-label="Tutup Panduan"
+          >
             <X size={13} strokeWidth={1.75} />
           </button>
         </div>
 
         {/* Title & Instruction */}
-        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--label)', marginBottom: '4px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
           {currentStep.title}
         </div>
-        <p style={{ fontSize: '12px', color: 'var(--label)', lineHeight: 1.5, margin: '0 0 10px 0' }}>
+        <p style={{ fontSize: '12px', color: '#334155', lineHeight: 1.5, margin: '0 0 10px 0' }}>
           {currentStep.instruction}
         </p>
 
@@ -85,16 +105,16 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isOpen, onClos
         <div
           style={{
             padding: '8px 10px',
-            background: 'var(--surface)',
+            background: '#FFFFFF',
             borderRadius: '10px',
-            border: '0.5px solid var(--separator)',
+            border: '1px solid #CBD5E1',
             marginBottom: '12px',
             fontSize: '11px',
-            color: 'var(--label-secondary)',
+            color: '#475569',
             lineHeight: 1.4
           }}
         >
-          <strong style={{ color: 'var(--label)' }}>Prinsip Desain:</strong> {currentStep.architecturalInsight}
+          <strong style={{ color: '#0F172A' }}>Prinsip Desain:</strong> {currentStep.architecturalInsight}
         </div>
 
         {/* Navigation Buttons */}
@@ -103,7 +123,14 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ isOpen, onClos
             onClick={handlePrev}
             disabled={isFirst}
             className="ios-btn"
-            style={{ padding: '4px 10px', fontSize: '12px', opacity: isFirst ? 0.35 : 1 }}
+            style={{
+              padding: '4px 10px',
+              fontSize: '12px',
+              opacity: isFirst ? 0.35 : 1,
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              color: '#0F172A'
+            }}
           >
             <ChevronLeft size={14} strokeWidth={1.75} />
             <span>Sebelumnya</span>

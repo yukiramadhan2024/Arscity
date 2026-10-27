@@ -119,9 +119,8 @@ describe('GlassFolder & WorldHubModal Integration Suite', () => {
 
     // 1. Header Titles & Info
     expect(html).toContain('ARSCITY');
-    expect(html).toContain('World Hub');
-    expect(html).toContain('Pusat Penyimpanan &amp; Dunia Arscity');
-    expect(html).toContain('arsitek@arscity.id');
+    expect(html).toContain('Penyimpanan Lokal');
+    expect(html).toContain('Perpustakaan Kota');
 
     // 2. Headroom & 3 Folders Stage
     expect(html).toContain('wh-folders-stage');
@@ -132,12 +131,6 @@ describe('GlassFolder & WorldHubModal Integration Suite', () => {
     // 3. Preset Cards Inside Folders
     expect(html).toContain('Koridor Malioboro');
     expect(html).toContain('Lahan Kosong Standar');
-
-    // 4. Interaction Hint Bar
-    expect(html).toContain('ARAHKAN KURSOR UNTUK MENGINTIP');
-    expect(html).toContain('KLIK FOLDER UNTUK MEMBUKA');
-    expect(html).toContain('KLIK LEMBAR PETA UNTUK MASUK');
-    expect(html).toContain('TEKAN (+) UNTUK DUNIA BARU');
   });
 
   it('loads Malioboro preset and transitions to game screen via loadMap', async () => {
