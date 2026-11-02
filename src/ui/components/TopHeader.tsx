@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore } from '../state/useUIStore';
 import {
@@ -10,12 +10,12 @@ import {
   Grid,
   RotateCcw,
   Compass,
-  Award,
   Sparkles,
   Check,
   Footprints,
   User,
-  Video
+  Video,
+  Settings
 } from 'lucide-react';
 import { WeatherType } from '../../world/WeatherSystem';
 import { SolarSeason, SOLAR_SEASONS } from '../../core/math/SolarPosition';
@@ -59,10 +59,10 @@ const FpsDisplay: React.FC = React.memo(() => {
       />
       <span
         style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: "var(--font-mono)",
           fontSize: '12px',
           fontWeight: 600,
-          color: '#0F172A',
+          color: 'var(--label)',
           whiteSpace: 'nowrap',
           lineHeight: 1
         }}
@@ -87,14 +87,24 @@ export const TopHeader: React.FC = React.memo(() => {
   const isTopDown = useUIStore((s) => s.isTopDown);
   const toggleTopDown = useUIStore((s) => s.toggleTopDown);
   const engine = useUIStore((s) => s.engine);
-  const setShowMissions = useUIStore((s) => s.setShowMissions);
+  // Deprecated in v4.0: setShowMissions removed
   const setShowTutorial = useUIStore((s) => s.setShowTutorial);
   const cameraMode = useUIStore((s) => s.cameraMode);
   const setCameraMode = useUIStore((s) => s.setCameraMode);
   const showFps = useUIStore((s) => s.showFps);
+  const setShowSettings = useUIStore((s) => s.setShowSettings);
 
   const [showUtilityMenu, setShowUtilityMenu] = useState<boolean>(false);
   const [showWeatherMenu, setShowWeatherMenu] = useState<boolean>(false);
+  const [isNarrowScreen, setIsNarrowScreen] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 1440);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsNarrowScreen(window.innerWidth < 1440);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const lastHourRef = useRef<number>(Math.floor(timeOfDay));
   const lastSnappedRef = useRef<number | null>(null);
@@ -172,9 +182,10 @@ export const TopHeader: React.FC = React.memo(() => {
     handleWeatherChange(next[weather] || 'clear');
   };
 
-  const handleCameraModeChange = (mode: 'orbit' | 'first_person' | 'cinematic_drone', label: string) => {
+  const handleCameraModeChange = (mode: '2d' | 'orbit' | 'first_person' | 'cinematic_drone', label: string) => {
     setCameraMode(mode);
     const details: Record<string, string> = {
+      '2d': 'Denah ortografis 90 derajat masterplan kota',
       orbit: 'Putar dengan Drag Kanan • Zoom Roll',
       first_person: 'Gunakan WASD untuk berjalan',
       cinematic_drone: 'Navigasi halus ketinggian dinamis'
@@ -193,11 +204,13 @@ export const TopHeader: React.FC = React.memo(() => {
       <header
         className="top-header interactive"
         style={{
-          position: 'absolute',
+          position: 'fixed',
           top: '16px',
           left: '50%',
           transform: 'translateX(-50%)',
-          zIndex: 'var(--z-hud)' as any,
+          width: 'max-content',
+          maxWidth: 'calc(100vw - 32px)',
+          zIndex: 50,
           pointerEvents: 'auto'
         }}
       >
@@ -219,7 +232,7 @@ export const TopHeader: React.FC = React.memo(() => {
               className="font-mono tabular-nums"
               style={{
                 fontSize: '12px',
-                color: '#0F172A',
+                color: 'var(--label)',
                 fontWeight: 600,
                 minWidth: '70px',
                 letterSpacing: '-0.01em'
@@ -227,6 +240,7 @@ export const TopHeader: React.FC = React.memo(() => {
             >
               {formatTime(timeOfDay)}
             </span>
+            {!isNarrowScreen && (
             <input
               type="range"
               min="5.0"
@@ -250,12 +264,13 @@ export const TopHeader: React.FC = React.memo(() => {
                 width: '100px',
                 height: '4px',
                 borderRadius: '9999px',
-                accentColor: '#007AFF',
-                background: '#CBD5E1',
+                accentColor: 'var(--accent)',
+                background: 'var(--fill-control)',
                 cursor: 'pointer',
                 margin: 0
               }}
             />
+            )}
           </div>
 
           {/* Bagian Tengah: Tombol Cuaca Interaktif Langsung (Cerah, Berawan, Hujan) */}
@@ -273,18 +288,18 @@ export const TopHeader: React.FC = React.memo(() => {
                 alignItems: 'center',
                 gap: '6px',
                 padding: '4px 12px',
-                background: showWeatherMenu ? 'rgba(0, 122, 255, 0.14)' : '#FFFFFF',
-                border: showWeatherMenu ? '1px solid rgba(0, 122, 255, 0.40)' : '1px solid #CBD5E1',
-                borderRadius: 'var(--radius-capsule)',
+                background: showWeatherMenu ? 'var(--accent-subtle)' : 'rgba(255, 255, 255, 0.92)',
+                border: 'none',
+                borderRadius: '12px',
                 cursor: 'pointer',
-                color: '#0F172A',
-                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
+                color: 'var(--label)',
+                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
               }}
               title="Klik untuk mengganti cuaca (Cerah, Berawan, Hujan)"
               aria-label={`Cuaca: ${currentWeather.label}`}
             >
-              <WeatherIcon size={15} strokeWidth={2} style={{ color: '#007AFF' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap' }}>
+              <WeatherIcon size={15} strokeWidth={2} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)', whiteSpace: 'nowrap' }}>
                 {currentWeather.label}
               </span>
             </motion.button>
@@ -302,12 +317,12 @@ export const TopHeader: React.FC = React.memo(() => {
                     top: '36px',
                     left: '50%',
                     transformOrigin: 'top center',
-                    background: 'rgba(244, 247, 251, 0.96)',
+                    background: 'var(--surface-raised)',
                     backdropFilter: 'blur(24px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-                    border: '1px solid rgba(255, 255, 255, 0.95)',
+                    border: '1px solid var(--border-glass)',
                     borderRadius: '16px',
-                    boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
+                    boxShadow: 'var(--shadow-popover)',
                     padding: '8px',
                     display: 'flex',
                     flexDirection: 'column',
@@ -335,16 +350,16 @@ export const TopHeader: React.FC = React.memo(() => {
                             gap: '5px',
                             padding: '6px 10px',
                             borderRadius: '8px',
-                            background: isSel ? 'rgba(0, 122, 255, 0.14)' : '#FFFFFF',
-                            border: isSel ? '1px solid rgba(0, 122, 255, 0.40)' : '1px solid #CBD5E1',
-                            color: isSel ? '#007AFF' : '#334155',
+                            background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                            border: isSel ? '1px solid rgba(0, 122, 255, 0.40)' : '1px solid var(--separator)',
+                            color: isSel ? 'var(--accent)' : 'var(--label)',
                             fontSize: '11px',
                             fontWeight: isSel ? 700 : 500,
                             cursor: 'pointer',
                             whiteSpace: 'nowrap'
                           }}
                         >
-                          <OptIcon size={13} style={{ color: isSel ? '#007AFF' : '#334155' }} />
+                          <OptIcon size={13} style={{ color: isSel ? 'var(--accent)' : 'currentColor' }} />
                           <span>{opt.label}</span>
                         </motion.button>
                       );
@@ -352,11 +367,11 @@ export const TopHeader: React.FC = React.memo(() => {
                   </div>
 
                   {/* Segmented Control Musim Surya (Mar / Jun / Des) */}
-                  <div style={{ borderTop: '1px solid #CBD5E1', marginTop: '4px', paddingTop: '4px' }}>
-                    <div style={{ fontSize: '9px', fontWeight: 600, color: '#475569', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ marginTop: '8px', paddingTop: '2px' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--label-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
                       Musim Surya & Deklinasi
                     </div>
-                    <div style={{ display: 'flex', gap: '3px', background: '#E2E8F0', border: '1px solid #CBD5E1', padding: '2px', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', gap: '3px', background: 'var(--fill-control)', border: 'none', padding: '2px', borderRadius: '8px' }}>
                       {(['equinox_mar', 'solstice_jun', 'solstice_dec'] as SolarSeason[]).map((s) => {
                         const info = SOLAR_SEASONS[s];
                         const isSel = solarSeason === s;
@@ -374,9 +389,9 @@ export const TopHeader: React.FC = React.memo(() => {
                               flex: 1,
                               padding: '4px 8px',
                               borderRadius: '5px',
-                              background: isSel ? '#007AFF' : 'transparent',
+                              background: isSel ? 'var(--accent)' : 'transparent',
                               border: 'none',
-                              color: isSel ? '#FFFFFF' : '#334155',
+                              color: isSel ? '#FFFFFF' : 'var(--label)',
                               fontSize: '10px',
                               fontWeight: isSel ? 700 : 500,
                               fontFamily: 'var(--font-mono)',
@@ -403,15 +418,16 @@ export const TopHeader: React.FC = React.memo(() => {
               position: 'relative',
               display: 'flex',
               alignItems: 'center',
-              background: '#E2E8F0',
+              background: 'var(--fill-control)',
               borderRadius: '9999px',
               padding: '2px',
               gap: '2px',
-              border: '1px solid #CBD5E1'
+              border: '1px solid var(--border)'
             }}
           >
             {[
-              { id: 'orbit' as const, label: 'Orbit', icon: Compass },
+              { id: '2d' as const, label: '2D Denah', icon: Grid },
+              { id: 'orbit' as const, label: '3D Orbit', icon: Compass },
               { id: 'first_person' as const, label: 'Pejalan Kaki', icon: Footprints },
               { id: 'cinematic_drone' as const, label: 'Drone', icon: Video }
             ].map((m) => {
@@ -432,7 +448,7 @@ export const TopHeader: React.FC = React.memo(() => {
                     padding: '4px 10px',
                     borderRadius: '9999px',
                     background: 'transparent',
-                    color: isActive ? '#FFFFFF' : '#1E293B',
+                    color: isActive ? '#FFFFFF' : 'var(--label)',
                     fontWeight: isActive ? 700 : 500,
                     fontSize: '11px',
                     border: 'none',
@@ -452,13 +468,13 @@ export const TopHeader: React.FC = React.memo(() => {
                         position: 'absolute',
                         inset: 0,
                         borderRadius: '9999px',
-                        background: '#007AFF',
+                        background: 'var(--accent)',
                         boxShadow: '0 2px 6px rgba(0, 122, 255, 0.35)',
                         zIndex: -1
                       }}
                     />
                   )}
-                  <IconComp size={15} strokeWidth={2} style={{ color: isActive ? '#FFFFFF' : '#334155' }} />
+                  <IconComp size={15} strokeWidth={2} style={{ color: isActive ? '#FFFFFF' : 'var(--label-secondary)' }} />
                   <span>{m.label}</span>
                 </motion.button>
               );
@@ -472,35 +488,33 @@ export const TopHeader: React.FC = React.memo(() => {
           >
             {showFps && <FpsDisplay />}
 
-            {/* Widget Misi Aktif & Skor Kota Ringkas (A6) */}
+            {/* Tombol Pengaturan Cepat */}
             <motion.button
-              onClick={() => {
-                setShowMissions(true);
-                proceduralAudio.playTaptic('selection');
-              }}
-              whileTap={{ scale: 0.95 }}
-              whileHover={{ scale: 1.02 }}
+              onClick={() => setShowSettings(true)}
+              onPointerDown={() => proceduralAudio.playTaptic('light')}
+              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.08 }}
+              className="hit-slop-8"
               style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '12px',
+                background: 'rgba(255, 255, 255, 0.92)',
+                border: 'none',
+                color: 'var(--icon)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
-                padding: '4px 10px',
-                borderRadius: '9999px',
-                background: '#FFFFFF',
-                border: '1px solid #CBD5E1',
-                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
-                color: '#0F172A',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer'
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
               }}
-              title="Buka Misi & Indeks Skor Kota"
+              title="Buka Pengaturan Kota"
+              aria-label="Pengaturan Cepat"
             >
-              <Award size={13} style={{ color: '#007AFF' }} />
-              <span>Misi & Skor</span>
+              <Settings size={14} />
             </motion.button>
 
-            {/* Menu Popover Trigger Button dengan Invisible Touch Padding */}
+            {/* Menu Popover Trigger Button tanpa border ganda */}
             <motion.button
               onClick={() => setShowUtilityMenu(!showUtilityMenu)}
               onPointerDown={() => proceduralAudio.playTaptic('light')}
@@ -508,17 +522,17 @@ export const TopHeader: React.FC = React.memo(() => {
               whileHover={{ scale: 1.08 }}
               className="hit-slop-8"
               style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                background: showUtilityMenu ? 'rgba(0, 122, 255, 0.14)' : '#FFFFFF',
-                border: showUtilityMenu ? '1px solid rgba(0, 122, 255, 0.40)' : '1px solid #CBD5E1',
-                color: showUtilityMenu ? '#007AFF' : '#334155',
+                width: '28px',
+                height: '28px',
+                borderRadius: '12px',
+                background: showUtilityMenu ? 'var(--accent-subtle)' : 'rgba(255, 255, 255, 0.92)',
+                border: 'none',
+                color: showUtilityMenu ? 'var(--accent)' : 'var(--icon)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
+                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
               }}
               title="Kontrol Cepat Viewport & Grid"
               aria-label="Kontrol Cepat"
@@ -542,12 +556,12 @@ export const TopHeader: React.FC = React.memo(() => {
                 right: '0',
                 width: '270px',
                 transformOrigin: 'top right',
-                background: 'rgba(244, 247, 251, 0.96)',
+                background: 'var(--surface)',
                 backdropFilter: 'blur(24px) saturate(180%)',
                 WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-                border: '1px solid rgba(255, 255, 255, 0.95)',
+                border: '1px solid var(--border-glass)',
                 borderRadius: '16px',
-                boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
+                boxShadow: 'var(--shadow-glass)',
                 padding: '14px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -556,27 +570,71 @@ export const TopHeader: React.FC = React.memo(() => {
               }}
             >
               {/* Header Popover */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid #CBD5E1' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '2px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Kontrol Cepat
                 </span>
                 <button
                   onClick={() => setShowUtilityMenu(false)}
-                  style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', padding: 0 }}
+                  style={{ background: 'none', border: 'none', color: 'var(--label-secondary)', cursor: 'pointer', padding: 0 }}
                   aria-label="Tutup Kontrol Cepat"
                 >
                   <X size={14} />
                 </button>
               </div>
 
+              {/* Slider Waktu (khusus saat layar sempit / collapsed) */}
+              {isNarrowScreen && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingBottom: '4px', borderBottom: '1px solid var(--separator)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--label)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Sun size={13} style={{ color: '#F59E0B' }} />
+                      Waktu Matahari:
+                    </span>
+                    <span className="font-mono tabular-nums" style={{ fontSize: '11px', color: 'var(--label)', fontWeight: 600 }}>
+                      {formatTime(timeOfDay)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5.0"
+                    max="20.0"
+                    step="0.05"
+                    value={timeOfDay}
+                    onChange={(e) => handleTimeSliderChange(parseFloat(e.target.value))}
+                    onPointerDown={() => {
+                      proceduralAudio.playTaptic('light');
+                      engine?.setUIInteractionActive(true);
+                      engine?.sunPathVisualizer?.setVisible(true);
+                    }}
+                    onPointerUp={() => {
+                      engine?.setUIInteractionActive(false);
+                      setTimeout(() => {
+                        engine?.sunPathVisualizer?.setVisible(false);
+                      }, 2000);
+                    }}
+                    aria-label="Pengatur Waktu Matahari Popover"
+                    style={{
+                      width: '100%',
+                      height: '4px',
+                      borderRadius: '9999px',
+                      accentColor: 'var(--accent)',
+                      background: 'var(--fill-control)',
+                      cursor: 'pointer',
+                      margin: 0
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Kontrol Grid Spasial */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '11px', color: '#0F172A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <Grid size={13} style={{ color: '#007AFF' }} />
+                  <span style={{ fontSize: '11px', color: 'var(--label)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Grid size={13} style={{ color: 'var(--accent)' }} />
                     Snap Grid:
                   </span>
-                  <div style={{ display: 'flex', gap: '4px' }}>
+                  <div style={{ display: 'flex', gap: '5px' }}>
                     {[1, 5, 10].map((step) => {
                       const isSel = gridSnap === step;
                       return (
@@ -584,15 +642,15 @@ export const TopHeader: React.FC = React.memo(() => {
                           key={step}
                           onClick={() => setGridSnap(step)}
                           style={{
-                            padding: '3px 8px',
-                            borderRadius: '6px',
-                            background: isSel ? 'rgba(0, 122, 255, 0.14)' : '#FFFFFF',
-                            border: isSel ? '1px solid rgba(0, 122, 255, 0.40)' : '1px solid #CBD5E1',
-                            color: isSel ? '#007AFF' : '#0F172A',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            background: isSel ? 'var(--accent-subtle)' : 'rgba(255, 255, 255, 0.92)',
+                            border: 'none',
+                            color: isSel ? 'var(--accent)' : 'var(--label)',
                             fontSize: '11px',
                             fontWeight: isSel ? 700 : 500,
                             cursor: 'pointer',
-                            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)'
+                            boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
                           }}
                         >
                           {step}m
@@ -609,27 +667,27 @@ export const TopHeader: React.FC = React.memo(() => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '8px 10px',
-                    borderRadius: '8px',
-                    background: '#FFFFFF',
-                    border: '1px solid #CBD5E1',
-                    color: '#0F172A',
+                    padding: '8px 12px',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.92)',
+                    border: 'none',
+                    color: 'var(--label)',
                     fontSize: '11px',
                     fontWeight: 500,
                     cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)'
+                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
                   }}
                 >
                   <span>Tampilkan Garis Grid</span>
-                  <span style={{ color: gridVisible ? '#007AFF' : '#64748B', fontWeight: 700 }}>
+                  <span style={{ color: gridVisible ? 'var(--accent)' : 'var(--label-tertiary)', fontWeight: 700 }}>
                     {gridVisible ? 'Aktif' : 'Mati'}
                   </span>
                 </button>
               </div>
 
               {/* Kontrol Sudut Pandang Kamera */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '6px', borderTop: '1px solid #CBD5E1' }}>
-                <div style={{ display: 'flex', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={toggleTopDown}
                     style={{
@@ -639,18 +697,18 @@ export const TopHeader: React.FC = React.memo(() => {
                       justifyContent: 'center',
                       gap: '5px',
                       padding: '8px 10px',
-                      borderRadius: '8px',
-                      background: isTopDown ? 'rgba(0, 122, 255, 0.14)' : '#FFFFFF',
-                      border: isTopDown ? '1px solid rgba(0, 122, 255, 0.40)' : '1px solid #CBD5E1',
-                      color: isTopDown ? '#007AFF' : '#0F172A',
+                      borderRadius: '12px',
+                      background: isTopDown ? 'var(--accent-subtle)' : 'rgba(255, 255, 255, 0.92)',
+                      border: 'none',
+                      color: isTopDown ? 'var(--accent)' : 'var(--label)',
                       fontSize: '11px',
                       fontWeight: 500,
                       cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)'
+                      boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
                     }}
                     title="Ganti Sudut Pandang 2D Tegak Lurus / 3D Isometrik"
                   >
-                    <Compass size={13} style={{ color: '#007AFF' }} />
+                    <Compass size={13} style={{ color: 'var(--accent)' }} />
                     <span>{isTopDown ? 'Mode 2D' : 'Mode 3D'}</span>
                   </button>
 
@@ -666,46 +724,25 @@ export const TopHeader: React.FC = React.memo(() => {
                       justifyContent: 'center',
                       gap: '5px',
                       padding: '8px 10px',
-                      borderRadius: '8px',
-                      background: '#FFFFFF',
-                      border: '1px solid #CBD5E1',
-                      color: '#0F172A',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.92)',
+                      border: 'none',
+                      color: 'var(--label)',
                       fontSize: '11px',
                       fontWeight: 500,
                       cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)'
+                      boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
                     }}
                     title="Reset Posisi Kamera ke Pusat Kota"
                   >
-                    <RotateCcw size={13} style={{ color: '#334155' }} />
+                    <RotateCcw size={13} style={{ color: 'var(--icon)' }} />
                     <span>Reset Kamera</span>
                   </button>
                 </div>
               </div>
 
-              {/* Misi & Tutorial Kota */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', paddingTop: '6px', borderTop: '1px solid #CBD5E1' }}>
-                <button
-                  onClick={() => { setShowMissions(true); setShowUtilityMenu(false); }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px',
-                    padding: '8px 10px',
-                    borderRadius: '8px',
-                    background: '#FFFFFF',
-                    border: '1px solid #CBD5E1',
-                    color: '#0F172A',
-                    fontSize: '11px',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)'
-                  }}
-                >
-                  <Award size={13} style={{ color: '#F59E0B' }} />
-                  <span>Misi Kota</span>
-                </button>
+              {/* Tutorial Kota */}
+              <div>
                 <button
                   onClick={() => { setShowTutorial(true); setShowUtilityMenu(false); }}
                   style={{
@@ -714,17 +751,18 @@ export const TopHeader: React.FC = React.memo(() => {
                     justifyContent: 'center',
                     gap: '5px',
                     padding: '8px 10px',
-                    borderRadius: '8px',
-                    background: '#FFFFFF',
-                    border: '1px solid #CBD5E1',
-                    color: '#0F172A',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.92)',
+                    border: 'none',
+                    color: 'var(--label)',
                     fontSize: '11px',
                     fontWeight: 500,
                     cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)'
+                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+                    width: '100%'
                   }}
                 >
-                  <Sparkles size={13} style={{ color: '#007AFF' }} />
+                  <Sparkles size={13} style={{ color: 'var(--accent)' }} />
                   <span>Tutorial</span>
                 </button>
               </div>
