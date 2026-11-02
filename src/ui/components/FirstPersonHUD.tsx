@@ -147,7 +147,7 @@ export const FirstPersonHUD: React.FC = () => {
     }
   }, [engine, isFirstPerson, isPhotoMode, dslrLens]);
 
-  if (!isFirstPerson && !isDrone && !isPhotoMode && !isRecordingVideo) {
+  if (!isFirstPerson && !isDrone && !isRecordingVideo) {
     return null;
   }
 
@@ -1674,7 +1674,7 @@ export const FirstPersonHUD: React.FC = () => {
       )}
 
       {/* 7. DSLR Photo Mode Viewfinder: 4 Minimalist Corner Focus Brackets (Zero 3x3 Grid Lines) */}
-      {isPhotoMode && (
+      {isPhotoMode && (isFirstPerson || isDrone) && (
         <>
           <div
             style={{
@@ -1766,6 +1766,8 @@ export const FirstPersonHUD: React.FC = () => {
               pointerEvents: 'auto',
               background: 'var(--surface)',
               backdropFilter: 'blur(26px) saturate(185%)',
+              border: '1px solid var(--border)',
+              boxShadow: 'var(--shadow-glass)',
               borderRadius: '9999px',
               fontFamily: FONT_SANS
             }}
@@ -1774,7 +1776,7 @@ export const FirstPersonHUD: React.FC = () => {
               <span style={{ fontSize: '11px', color: 'var(--label-secondary)', fontWeight: 600 }}>
                 Lensa
               </span>
-              {(['24mm', '50mm', '85mm'] as DslrLensType[]).map((lens) => (
+              {(['24mm', '35mm', '50mm', '85mm'] as DslrLensType[]).map((lens) => (
                 <button
                   type="button"
                   key={lens}
@@ -1816,7 +1818,7 @@ export const FirstPersonHUD: React.FC = () => {
               }}
             >
               <Camera size={14} strokeWidth={2} />
-              <span>Ambil Foto</span>
+              <span>Ambil Foto PNG</span>
             </button>
 
             <button

@@ -17,10 +17,11 @@ export interface DroneTourState {
   keyframeCount?: number;
 }
 
-export type DslrLensType = '24mm' | '50mm' | '85mm';
+export type DslrLensType = '24mm' | '35mm' | '50mm' | '85mm';
 
 export const DSLR_LENS_MAP: Record<DslrLensType, { name: string; fov: number; desc: string }> = {
   '24mm': { name: '24mm Wide Angle', fov: 84, desc: 'Lensa lanskap sudut lebar untuk menangkap seluruh kawasan kota' },
+  '35mm': { name: '35mm Street & Architecture', fov: 63, desc: 'Lensa dokumentasi arsitektur dan ruang publik' },
   '50mm': { name: '50mm Standard', fov: 40, desc: 'Lensa standar natural mirip perspektif mata manusia' },
   '85mm': { name: '85mm Telephoto', fov: 28, desc: 'Lensa telefoto untuk detail fasad dan kompresi kedalaman' }
 };

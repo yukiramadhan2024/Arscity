@@ -241,7 +241,7 @@ describe('Mode Eksplorasi Skala Manusia & Tur Virtual (First-Person, Drone & Aud
       expect(drone.isActive).toBe(false);
     });
 
-    it('configures DSLR lens focal lengths (24mm, 50mm, 85mm) accurately', () => {
+    it('configures DSLR lens focal lengths (24mm, 35mm, 50mm, 85mm) accurately', () => {
       const mockRenderer = {
         domElement: { captureStream: () => null, toDataURL: () => '' }
       } as any;
@@ -249,6 +249,10 @@ describe('Mode Eksplorasi Skala Manusia & Tur Virtual (First-Person, Drone & Aud
 
       drone.setDslrLens('24mm');
       expect(camera.fov).toBe(DSLR_LENS_MAP['24mm'].fov);
+
+      drone.setDslrLens('35mm');
+      expect(camera.fov).toBe(DSLR_LENS_MAP['35mm'].fov);
+      expect(DSLR_LENS_MAP['35mm'].fov).toBe(63);
 
       drone.setDslrLens('50mm');
       expect(camera.fov).toBe(DSLR_LENS_MAP['50mm'].fov);
