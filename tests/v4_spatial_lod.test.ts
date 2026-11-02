@@ -210,4 +210,139 @@ describe('Tahap 2: Render Jarak Bertingkat (3-Zone Spatial LOD) - T2.1 Verificat
       landscapeManager.dispose();
     });
   });
+
+  describe('T2.3: Indoor Room Focus & G6 Data Persistence Integrity', () => {
+    let otherBld: BuildingInstance;
+
+    beforeEach(() => {
+      otherBld = {
+        id: 'bld_other_neighbor',
+        presetKey: 'house_36',
+        name: 'Rumah Tetangga',
+        category: 'residential',
+        position: new THREE.Vector3(18, 0, 0), // 18m away (well within Zone 0 distance < 24m)
+        rotationY: 0,
+        width: 8,
+        length: 10,
+        floorCount: 1,
+        floorHeight: 3.2,
+        roofType: 'gable',
+        roofOverhang: 0.5,
+        wallMaterial: 'brick',
+        wallColor: '#ea580c',
+        roofMaterial: 'clay_tile',
+      };
+      buildingManager.addBuilding(otherBld);
+    });
+
+    it('forces host building to Zone 0 and hides interior/furniture of other buildings when indoors', () => {
+      const hostGroup = buildingManager.getBuildingGroup('bld_lod_test')!;
+      const otherGroup = buildingManager.getBuildingGroup('bld_other_neighbor')!;
+
+      const hostInterior = hostGroup.getObjectByName('InteriorDetails')!;
+      const hostFurniture = hostGroup.getObjectByName('DynamicFurnitureGroup')!;
+      const otherInterior = otherGroup.getObjectByName('InteriorDetails')!;
+      const otherFurniture = otherGroup.getObjectByName('DynamicFurnitureGroup')!;
+
+      // 1. Without indoor focus, camera at (10, 2, 0) puts both buildings in Zone 0:
+      buildingManager.updateSpatialLOD(new THREE.Vector3(10, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test')).toBe(0);
+      expect(buildingManager.buildingZones.get('bld_other_neighbor')).toBe(0);
+      expect(hostInterior.visible, 'Host interior visible outside').toBe(true);
+      expect(otherInterior.visible, 'Neighbor interior visible outside').toBe(true);
+
+      // 2. Player enters host building: insideBuildingId = 'bld_lod_test'
+      // Camera is at (0, 1.6, 0) inside host building.
+      buildingManager.updateSpatialLOD(new THREE.Vector3(0, 1.6, 0), true, 'bld_lod_test', true);
+
+      // Host building MUST remain Zone 0 with full interior and furniture
+      expect(buildingManager.buildingZones.get('bld_lod_test')).toBe(0);
+      expect(hostInterior.visible, 'Host interior MUST be visible while inside').toBe(true);
+      expect(hostFurniture.visible, 'Host furniture MUST be visible while inside').toBe(true);
+
+      // Other building is only 18m away (Zone 0 distance), BUT indoor focus MUST hide its interior and furniture!
+      expect(otherInterior.visible, 'Neighbor interior MUST be hidden during indoor room focus').toBe(false);
+      expect(otherFurniture.visible, 'Neighbor furniture MUST be hidden during indoor room focus').toBe(false);
+
+      // 3. Player exits host building: insideBuildingId = null
+      buildingManager.updateSpatialLOD(new THREE.Vector3(10, 2, 0), false, null, true);
+      expect(otherInterior.visible, 'Neighbor interior restored upon exit').toBe(true);
+      expect(otherFurniture.visible, 'Neighbor furniture restored upon exit').toBe(true);
+    });
+
+    it('hides small landscape props located > 35m from host building when indoors and restores on exit', () => {
+      const landscapeManager = new LandscapeManager(scene);
+
+      // Prop 1: Close prop 12m from host building
+      landscapeManager.addItem({
+        id: 'prop_close',
+        type: 'shrub' as const,
+        position: new THREE.Vector3(12, 0, 0),
+      });
+
+      // Prop 2: Distant prop 45m (> 35m) from host building
+      landscapeManager.addItem({
+        id: 'prop_far',
+        type: 'well' as const,
+        position: new THREE.Vector3(45, 0, 0),
+      });
+
+      const closeGroup = landscapeManager.getItemGroup('prop_close')!;
+      const farGroup = landscapeManager.getItemGroup('prop_far')!;
+
+      // 1. Outside: both props visible
+      landscapeManager.updateSpatialLOD(new THREE.Vector3(10, 2, 0), null, null);
+      expect(closeGroup.visible).toBe(true);
+      expect(farGroup.visible).toBe(true);
+
+      // 2. Inside host building at (0, 0, 0):
+      landscapeManager.updateSpatialLOD(new THREE.Vector3(0, 1.6, 0), 'bld_lod_test', new THREE.Vector3(0, 0, 0));
+      expect(closeGroup.visible, 'Prop <= 35m from host remains visible').toBe(true);
+      expect(farGroup.visible, 'Prop > 35m from host MUST be hidden').toBe(false);
+
+      // 3. Exit building:
+      landscapeManager.updateSpatialLOD(new THREE.Vector3(10, 2, 0), null, null);
+      expect(closeGroup.visible, 'Close prop visible on exit').toBe(true);
+      expect(farGroup.visible, 'Distant prop restored on exit').toBe(true);
+
+      landscapeManager.dispose();
+    });
+
+    it('G6 Rule: visibility toggling never modifies, deletes, or alters placed furniture data', () => {
+      // Place furniture in test building
+      buildingManager.attachFurniture('bld_lod_test', {
+        id: 'fur_test_sofa',
+        type: 'sofa_3seater',
+        name: 'Sofa 3 Dudukan',
+        position: [2, 0, 3],
+        rotationY: 0,
+        floorIndex: 1,
+      });
+
+      const bld = buildingManager.getBuilding('bld_lod_test')!;
+      expect(bld.userData?.placedFurniture.length).toBe(1);
+      expect(bld.userData?.placedFurniture[0].id).toBe('fur_test_sofa');
+
+      // Cycle LOD through Zone 0, Zone 1, Zone 2, and indoor focus
+      buildingManager.updateSpatialLOD(new THREE.Vector3(10, 2, 0), false, null, true); // Zone 0
+      buildingManager.updateSpatialLOD(new THREE.Vector3(35, 2, 0), false, null, true); // Zone 1
+      buildingManager.updateSpatialLOD(new THREE.Vector3(80, 2, 0), false, null, true); // Zone 2
+      buildingManager.updateSpatialLOD(new THREE.Vector3(0, 2, 0), true, 'bld_other_neighbor', true); // Inside neighbor (hides host)
+
+      // Verify furniture mesh visibility toggled
+      const hostGroup = buildingManager.getBuildingGroup('bld_lod_test')!;
+      const dynamicFur = hostGroup.getObjectByName('DynamicFurnitureGroup')!;
+      expect(dynamicFur.visible).toBe(false);
+
+      // G6 Check: Underlying data MUST remain 100% intact
+      expect(bld.userData?.placedFurniture.length, 'G6: Furniture array must not be altered').toBe(1);
+      expect(bld.userData?.placedFurniture[0].id).toBe('fur_test_sofa');
+      expect(bld.userData?.placedFurniture[0].position).toEqual([2, 0, 3]);
+
+      // Return to Zone 0
+      buildingManager.updateSpatialLOD(new THREE.Vector3(10, 2, 0), false, null, true);
+      expect(dynamicFur.visible).toBe(true);
+      expect(bld.userData?.placedFurniture.length).toBe(1);
+    });
+  });
 });
