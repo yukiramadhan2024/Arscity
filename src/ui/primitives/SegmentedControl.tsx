@@ -68,8 +68,8 @@ export function SegmentedControl<T extends string>({
               border: 'none',
               backgroundColor: 'transparent',
               fontSize: isSm ? '11px' : '12px',
-              fontWeight: isSelected ? 600 : 500,
-              color: isSelected ? 'var(--label)' : 'var(--label-secondary)',
+              fontWeight: 600,
+              color: isSelected ? '#FFFFFF' : 'var(--label)',
               cursor: 'pointer',
               zIndex: 1,
               outline: 'none',
@@ -85,8 +85,8 @@ export function SegmentedControl<T extends string>({
                   position: 'absolute',
                   inset: 0,
                   borderRadius: 'var(--radius-capsule, 9999px)',
-                  backgroundColor: 'var(--surface)',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--hairline)',
+                  backgroundColor: 'var(--accent)',
+                  boxShadow: '0 2px 6px rgba(0, 122, 255, 0.35)',
                   zIndex: -1,
                 }}
               />
@@ -95,7 +95,7 @@ export function SegmentedControl<T extends string>({
               <Icon
                 icon={option.icon}
                 size={isSm ? 'xs' : 'sm'}
-                style={{ color: isSelected ? 'var(--accent)' : 'inherit' }}
+                style={{ color: isSelected ? '#FFFFFF' : 'inherit' }}
               />
             )}
             <span>{option.label}</span>
@@ -108,7 +108,7 @@ export function SegmentedControl<T extends string>({
                   color: isSelected ? '#FFFFFF' : 'var(--label-secondary)',
                   fontSize: '10px',
                   fontWeight: 600,
-                  fontFamily: 'monospace',
+                  fontFamily: 'var(--font-mono)',
                 }}
               >
                 {option.badge}
