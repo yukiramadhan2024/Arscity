@@ -147,9 +147,72 @@ export function createMalioboroMapData(): CitySaveData {
   // Helper for Ruko generation
   const wallColors = ['#f8fafc', '#f1f5f9', '#fef3c7', '#fde047', '#fed7aa', '#cbd5e1', '#e2e8f0'];
 
+  // Parametric corridor configuration for Malioboro urban blocks (T1.3)
+  const config = {
+    corridorZStart: -180,
+    corridorZEnd: 180,
+    arterialWidth: 26,
+    sidewalkWidth: 5.5,
+    frontSetback: 5.0,
+    lotWidth: 12,
+    lotDepth: 24,
+    rukoWidth: 8,
+    rukoLength: 14,
+  };
+
+  // Helper to compute parametric slot positions along corridor outside exclusion zones
+  const computeParametricSlots = (
+    zStart: number,
+    zEnd: number,
+    exclusions: { zMin: number; zMax: number }[],
+    spacing: number,
+    width: number
+  ): number[] => {
+    const slots: number[] = [];
+    const half = width / 2;
+    let z = zStart + spacing * 0.5;
+    while (z <= zEnd - spacing * 0.5) {
+      const zMin = z - half;
+      const zMax = z + half;
+      const collides = exclusions.some((ex) => !(zMax < ex.zMin || zMin > ex.zMax));
+      if (!collides) {
+        slots.push(Math.round(z));
+        z += spacing;
+      } else {
+        z += 2.0;
+      }
+    }
+    return slots;
+  };
+
   // A. West side Corridor (facing East: rotationY = Math.PI / 2)
-  // Featuring Pendopo Joglo Yogyakarta and Tropical Cafe KOPI & RASA at central view
-  const westZs = [-155, -135, -115, -65, -45, 45, 65, 85, 105, 125];
+  // Side roads on West:
+  // - Jl. Sosrowijayan (center -90, width 16 -> [-98, -82], buffer -> [-102, -78])
+  // - Jl. Dagen (center -20, width 9 -> [-24.5, -15.5], buffer -> [-27, -13])
+  // - Jl. Pajeksan (center 90, width 9 -> [85.5, 94.5], buffer -> [82, 98])
+  // Showcase West:
+  // - Pendopo Joglo Yogyakarta (center [-42, 0, -48], width 18, length 22, rot PI/2 -> Z [-57, -39], buffer -> [-59, -37])
+  // - Tropical Cafe KOPI & RASA (center [-35, 0, 16], width 14, length 18, rot PI/2 -> Z [9, 23], buffer -> [7, 25])
+  // - Gedung Pos Heritage Barat (center [-42, 0, 138], width 16, length 22, rot PI/2 -> Z [130, 146], buffer -> [127, 149])
+  const westExclusions = [
+    { zMin: -180, zMax: -168 },
+    { zMin: -102, zMax: -78 }, // Jl. Sosrowijayan
+    { zMin: -59, zMax: -37 },  // Pendopo Joglo Yogyakarta
+    { zMin: -27, zMax: -13 },  // Jl. Dagen
+    { zMin: 7, zMax: 25 },     // Cafe KOPI & RASA
+    { zMin: 82, zMax: 98 },    // Jl. Pajeksan
+    { zMin: 127, zMax: 149 },  // Gedung Pos Heritage Barat
+    { zMin: 162, zMax: 180 },  // Titik Nol intersection
+  ];
+
+  const westZs = computeParametricSlots(
+    config.corridorZStart,
+    config.corridorZEnd,
+    westExclusions,
+    13,
+    config.rukoWidth
+  );
+
   westZs.forEach((z, idx) => {
     const lotId = `lot_ruko_w_${idx + 1}`;
     const bldId = `bld_ruko_w_${idx + 1}`;
@@ -160,10 +223,10 @@ export function createMalioboroMapData(): CitySaveData {
       name: `Kavling Ruko Malioboro Barat #${idx + 1}`,
       zone: 'commercial',
       position: [-35, 0, z],
-      width: 24,
-      length: 18,
-      areaM2: 432,
-      gsbDistanceM: 5.0,
+      width: config.lotDepth,
+      length: config.lotWidth,
+      areaM2: config.lotDepth * config.lotWidth,
+      gsbDistanceM: config.frontSetback,
     });
 
     buildings.push({
@@ -173,8 +236,8 @@ export function createMalioboroMapData(): CitySaveData {
       category: 'commercial',
       position: [-35, 0, z],
       rotationY: Math.PI / 2, // Facing East towards Jl. Malioboro
-      width: 8,
-      length: 14,
+      width: config.rukoWidth,
+      length: config.rukoLength,
       floorCount: 2,
       floorHeight: 4.5,
       roofType: 'flat',
@@ -251,8 +314,29 @@ export function createMalioboroMapData(): CitySaveData {
   });
 
   // B. East side Corridor (facing West: rotationY = -Math.PI / 2)
-  // Featuring Industrial Noodle Restaurant "MIE NUSANTARA"
-  const eastZs = [-155, -135, -115, -65, -45];
+  // Side roads on East:
+  // - Jl. Suryatmajan / Kepatihan (center z = 30, width 16 -> [22, 38], buffer -> [18, 42])
+  // Showcase East:
+  // - Resto MIE NUSANTARA (center [36, 0, -4], width 16, length 20, rot -PI/2 -> Z [-12, 4], buffer -> [-15, 7])
+  // - Kompleks Kepatihan DIY frontage along Jl. Malioboro ([45, 95])
+  // - Gedung Cagar Budaya Titik Nol Timur (center [42, 0, 138], width 16, length 22, rot -PI/2 -> Z [130, 146], buffer -> [127, 149])
+  const eastExclusions = [
+    { zMin: -180, zMax: -168 },
+    { zMin: -15, zMax: 7 },    // Resto MIE NUSANTARA
+    { zMin: 18, zMax: 42 },    // Jl. Kepatihan
+    { zMin: 55, zMax: 95 },    // Kompleks Kepatihan front
+    { zMin: 127, zMax: 149 },  // Gedung Heritage Nol Timur
+    { zMin: 162, zMax: 180 },  // Titik Nol intersection
+  ];
+
+  const eastZs = computeParametricSlots(
+    config.corridorZStart,
+    config.corridorZEnd,
+    eastExclusions,
+    15,
+    config.rukoWidth
+  );
+
   eastZs.forEach((z, idx) => {
     const lotId = `lot_ruko_e_${idx + 1}`;
     const bldId = `bld_ruko_e_${idx + 1}`;
@@ -263,10 +347,10 @@ export function createMalioboroMapData(): CitySaveData {
       name: `Kavling Ruko Malioboro Wetan #${idx + 1}`,
       zone: 'commercial',
       position: [35, 0, z],
-      width: 24,
-      length: 18,
-      areaM2: 432,
-      gsbDistanceM: 5.0,
+      width: config.lotDepth,
+      length: config.lotWidth,
+      areaM2: config.lotDepth * config.lotWidth,
+      gsbDistanceM: config.frontSetback,
     });
 
     buildings.push({
@@ -276,8 +360,8 @@ export function createMalioboroMapData(): CitySaveData {
       category: 'commercial',
       position: [35, 0, z],
       rotationY: -Math.PI / 2, // Facing West towards Jl. Malioboro
-      width: 8,
-      length: 14,
+      width: config.rukoWidth,
+      length: config.rukoLength,
       floorCount: 2,
       floorHeight: 4.5,
       roofType: 'flat',
@@ -327,10 +411,10 @@ export function createMalioboroMapData(): CitySaveData {
     id: kepatihanLotId,
     name: 'Kawasan Cagar Budaya Kepatihan DIY',
     zone: 'public_facility',
-    position: [68, 0, 75],
-    width: 56,
+    position: [75, 0, 75],
+    width: 60,
     length: 50,
-    areaM2: 2800,
+    areaM2: 3000,
     gsbDistanceM: 6.0,
   });
 
@@ -354,13 +438,13 @@ export function createMalioboroMapData(): CitySaveData {
     lotId: kepatihanLotId,
   });
 
-  // Secondary Pavilion: Bale Danunegaran
+  // Secondary Pavilion: Bale Danunegaran (repositioned to x = 90 with 5m clearance from Pendopo Ageng)
   buildings.push({
     id: 'bld_bale_kepatihan',
     presetKey: 'community_hall',
     name: 'Bale Pertemuan Danunegaran',
     category: 'public',
-    position: [82, 0, 88],
+    position: [90, 0, 75],
     rotationY: 0,
     width: 14,
     length: 18,
