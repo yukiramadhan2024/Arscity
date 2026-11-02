@@ -288,9 +288,9 @@ export const TopHeader: React.FC = React.memo(() => {
                 alignItems: 'center',
                 gap: '6px',
                 padding: '4px 12px',
-                background: showWeatherMenu ? 'var(--accent-subtle)' : 'rgba(255, 255, 255, 0.92)',
-                border: 'none',
-                borderRadius: '12px',
+                background: showWeatherMenu ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                border: '1px solid var(--border)',
+                borderRadius: '9999px',
                 cursor: 'pointer',
                 color: 'var(--label)',
                 boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
@@ -298,7 +298,7 @@ export const TopHeader: React.FC = React.memo(() => {
               title="Klik untuk mengganti cuaca (Cerah, Berawan, Hujan)"
               aria-label={`Cuaca: ${currentWeather.label}`}
             >
-              <WeatherIcon size={15} strokeWidth={2} style={{ color: 'var(--accent)' }} />
+              <WeatherIcon size={15} strokeWidth={2} style={{ color: 'currentColor' }} />
               <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--label)', whiteSpace: 'nowrap' }}>
                 {currentWeather.label}
               </span>
@@ -498,10 +498,10 @@ export const TopHeader: React.FC = React.memo(() => {
               style={{
                 width: '28px',
                 height: '28px',
-                borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.92)',
-                border: 'none',
-                color: 'var(--icon)',
+                borderRadius: '50%',
+                background: 'var(--fill-control)',
+                border: '1px solid var(--border)',
+                color: 'var(--label)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -511,7 +511,7 @@ export const TopHeader: React.FC = React.memo(() => {
               title="Buka Pengaturan Kota"
               aria-label="Pengaturan Cepat"
             >
-              <Settings size={14} />
+              <Settings size={14} style={{ color: 'currentColor' }} />
             </motion.button>
 
             {/* Menu Popover Trigger Button tanpa border ganda */}
@@ -524,10 +524,10 @@ export const TopHeader: React.FC = React.memo(() => {
               style={{
                 width: '28px',
                 height: '28px',
-                borderRadius: '12px',
-                background: showUtilityMenu ? 'var(--accent-subtle)' : 'rgba(255, 255, 255, 0.92)',
-                border: 'none',
-                color: showUtilityMenu ? 'var(--accent)' : 'var(--icon)',
+                borderRadius: '50%',
+                background: showUtilityMenu ? 'var(--accent-subtle)' : 'var(--fill-control)',
+                border: '1px solid var(--border)',
+                color: showUtilityMenu ? 'var(--accent)' : 'var(--label)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -537,7 +537,7 @@ export const TopHeader: React.FC = React.memo(() => {
               title="Kontrol Cepat Viewport & Grid"
               aria-label="Kontrol Cepat"
             >
-              <MoreHorizontal size={14} />
+              <MoreHorizontal size={14} style={{ color: 'currentColor' }} />
             </motion.button>
           </div>
         </div>
@@ -644,7 +644,7 @@ export const TopHeader: React.FC = React.memo(() => {
                           style={{
                             padding: '4px 10px',
                             borderRadius: '12px',
-                            background: isSel ? 'var(--accent-subtle)' : 'rgba(255, 255, 255, 0.92)',
+                            background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
                             border: 'none',
                             color: isSel ? 'var(--accent)' : 'var(--label)',
                             fontSize: '11px',
@@ -669,7 +669,7 @@ export const TopHeader: React.FC = React.memo(() => {
                     justifyContent: 'space-between',
                     padding: '8px 12px',
                     borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.92)',
+                    background: 'var(--fill-control)',
                     border: 'none',
                     color: 'var(--label)',
                     fontSize: '11px',
@@ -698,7 +698,7 @@ export const TopHeader: React.FC = React.memo(() => {
                       gap: '5px',
                       padding: '8px 10px',
                       borderRadius: '12px',
-                      background: isTopDown ? 'var(--accent-subtle)' : 'rgba(255, 255, 255, 0.92)',
+                      background: isTopDown ? 'var(--accent-subtle)' : 'var(--fill-control)',
                       border: 'none',
                       color: isTopDown ? 'var(--accent)' : 'var(--label)',
                       fontSize: '11px',
@@ -725,7 +725,7 @@ export const TopHeader: React.FC = React.memo(() => {
                       gap: '5px',
                       padding: '8px 10px',
                       borderRadius: '12px',
-                      background: 'rgba(255, 255, 255, 0.92)',
+                      background: 'var(--fill-control)',
                       border: 'none',
                       color: 'var(--label)',
                       fontSize: '11px',
@@ -752,7 +752,7 @@ export const TopHeader: React.FC = React.memo(() => {
                     gap: '5px',
                     padding: '8px 10px',
                     borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.92)',
+                    background: 'var(--fill-control)',
                     border: 'none',
                     color: 'var(--label)',
                     fontSize: '11px',
