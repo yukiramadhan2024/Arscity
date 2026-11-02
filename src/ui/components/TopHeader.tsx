@@ -73,6 +73,50 @@ const FpsDisplay: React.FC = React.memo(() => {
   );
 });
 
+const LodTelemetryDisplay: React.FC = React.memo(() => {
+  const counts = useUIStore((s) => s.lodZoneCounts);
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '4px 10px',
+        borderRadius: '9999px',
+        background: 'rgba(59, 130, 246, 0.12)',
+        border: '1px solid rgba(59, 130, 246, 0.28)',
+        whiteSpace: 'nowrap',
+        flexShrink: 0
+      }}
+      title={`LOD 3-Zona: Z0 (<24m): ${counts.zone0} | Z1 (27-65m): ${counts.zone1} | Z2 (>65m): ${counts.zone2} (Total: ${counts.totalBuildings})`}
+    >
+      <span
+        style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '9999px',
+          background: '#3B82F6',
+          boxShadow: '0 0 8px rgba(59, 130, 246, 0.6)',
+          display: 'inline-block',
+          flexShrink: 0
+        }}
+      />
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: '11px',
+          fontWeight: 600,
+          color: 'var(--label)',
+          whiteSpace: 'nowrap',
+          lineHeight: 1
+        }}
+      >
+        LOD Z0:{counts.zone0} Z1:{counts.zone1} Z2:{counts.zone2}
+      </span>
+    </div>
+  );
+});
+
 export const TopHeader: React.FC = React.memo(() => {
   const timeOfDay = useUIStore((s) => s.timeOfDay);
   const setTimeOfDay = useUIStore((s) => s.setTimeOfDay);
@@ -92,6 +136,7 @@ export const TopHeader: React.FC = React.memo(() => {
   const cameraMode = useUIStore((s) => s.cameraMode);
   const setCameraMode = useUIStore((s) => s.setCameraMode);
   const showFps = useUIStore((s) => s.showFps);
+  const showLODOverlay = useUIStore((s) => s.showLODOverlay);
   const setShowSettings = useUIStore((s) => s.setShowSettings);
 
   const [showUtilityMenu, setShowUtilityMenu] = useState<boolean>(false);
@@ -487,6 +532,7 @@ export const TopHeader: React.FC = React.memo(() => {
             style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, whiteSpace: 'nowrap' }}
           >
             {showFps && <FpsDisplay />}
+            {showLODOverlay && <LodTelemetryDisplay />}
 
             {/* Tombol Pengaturan Cepat */}
             <motion.button

@@ -141,6 +141,13 @@ export class Engine {
   public onBuildingStatsChanged?: (count: number, areaM2: number) => void;
   public onSelectionChanged?: () => void;
   public onHistoryStateChanged?: (canUndo: boolean, canRedo: boolean) => void;
+  public onLODZoneCountsChanged?: (counts: {
+    zone0: number;
+    zone1: number;
+    zone2: number;
+    totalBuildings: number;
+    totalLandscape?: number;
+  }) => void;
 
   // Architectural Maquette Data Lens Mode
   public currentMaquetteLens: MaquetteDataLensType = 'none';
@@ -904,6 +911,10 @@ export class Engine {
       );
     }
 
+    if (this.onLODZoneCountsChanged) {
+      this.onLODZoneCountsChanged(this.getLODZoneCounts());
+    }
+
     // Lapis 1: Smart Hierarchical LOD (executed every 6 frames)
     this.lodFrameCount++;
     if (this.lodFrameCount % 6 === 0) {
@@ -1482,6 +1493,38 @@ export class Engine {
       );
     }
     return this.gpuDiagnostics;
+  }
+
+  /**
+   * Tahap 2 (T2.6): Real-time telemetry for 3-zone spatial LOD counts across buildings and landscape
+   */
+  public getLODZoneCounts(): {
+    zone0: number;
+    zone1: number;
+    zone2: number;
+    totalBuildings: number;
+    totalLandscape: number;
+  } {
+    const bCounts = this.buildingManager
+      ? this.buildingManager.currentLodZoneCounts
+      : { zone0: 0, zone1: 0, zone2: 0, totalBuildings: 0 };
+    let l0 = 0;
+    let l1 = 0;
+    let l2 = 0;
+    if (this.landscapeManager) {
+      for (const z of (this.landscapeManager as any).itemZones.values()) {
+        if (z === 0) l0++;
+        else if (z === 1) l1++;
+        else if (z === 2) l2++;
+      }
+    }
+    return {
+      zone0: bCounts.zone0,
+      zone1: bCounts.zone1,
+      zone2: bCounts.zone2,
+      totalBuildings: bCounts.totalBuildings,
+      totalLandscape: l0 + l1 + l2,
+    };
   }
 
   public dispose(): void {

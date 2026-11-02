@@ -12,7 +12,7 @@ export type { GraphicsQuality } from '../../core/engine/GraphicsPresets';
 import type { GraphicsQuality } from '../../core/engine/GraphicsPresets';
 export type ViewMode = 'perspective' | 'topdown' | 'inspect';
 export type AppScreen = 'auth' | 'login' | 'hub' | 'game';
-export type CameraMode = 'orbit' | 'first_person' | 'cinematic_drone';
+export type CameraMode = 'orbit' | 'first_person' | 'cinematic_drone' | 'drone' | '2d' | 'fps';
 export type ModalId =
   | 'glossary'
   | 'styles'
@@ -44,8 +44,8 @@ interface UIState {
   weather: WeatherType;
   setWeather: (weather: WeatherType) => void;
 
-  gridSnap: number; // 1, 5, 10
-  setGridSnap: (step: number) => void;
+  gridSnap: number | boolean; // 1, 5, 10 or boolean toggle
+  setGridSnap: (step: number | boolean) => void;
 
   gridVisible: boolean;
   toggleGridVisible: () => void;
@@ -76,6 +76,23 @@ interface UIState {
   showFps: boolean;
   setShowFps: (show: boolean) => void;
   toggleShowFps: () => void;
+  showLODOverlay: boolean;
+  setShowLODOverlay: (show: boolean) => void;
+  toggleShowLODOverlay: () => void;
+  lodZoneCounts: {
+    zone0: number;
+    zone1: number;
+    zone2: number;
+    totalBuildings: number;
+    totalLandscape?: number;
+  };
+  setLodZoneCounts: (counts: {
+    zone0: number;
+    zone1: number;
+    zone2: number;
+    totalBuildings: number;
+    totalLandscape?: number;
+  }) => void;
   showLotOverlays: boolean;
   setShowLotOverlays: (show: boolean) => void;
   toggleShowLotOverlays: () => void;
@@ -135,7 +152,9 @@ interface UIState {
   setShowGlossary: (val: boolean) => void;
   showStyles: boolean;
   setShowStyles: (val: boolean) => void;
+  /** @deprecated Deprecated in v4.0: missions feature removed; retained for unit test backward compatibility */
   showMissions: boolean;
+  /** @deprecated Deprecated in v4.0: missions feature removed; retained for unit test backward compatibility */
   setShowMissions: (val: boolean) => void;
   showTutorial: boolean;
   setShowTutorial: (val: boolean) => void;
@@ -179,13 +198,16 @@ interface UIState {
   toggleWalkMode: () => void;
 
   // Milestone T7: Architectural Pre/Post Quiz
+  /** @deprecated Deprecated in v4.0: quiz feature removed; retained for unit test backward compatibility */
   showQuiz: boolean;
+  /** @deprecated Deprecated in v4.0: quiz feature removed; retained for unit test backward compatibility */
   setShowQuiz: (val: boolean) => void;
 
   // Authentication & Screen Navigation
   isLoggedIn: boolean;
   userEmail: string | null;
   currentScreen: AppScreen;
+  setCurrentScreen: (screen: AppScreen) => void;
   login: (email: string) => void;
   loginAsGuest: () => void;
   logout: () => void;
@@ -265,8 +287,9 @@ const applyThemeTokensToDOM = (
   root.setAttribute('data-contrast', highContrast ? 'high' : 'normal');
   root.setAttribute('data-reduced-motion', reduceMotion ? 'true' : 'false');
   root.style.setProperty('--glass-opacity', opacity.toFixed(2));
-  root.style.setProperty('--glass-blur', quality === 'low' ? '0px' : quality === 'medium' ? '16px' : '24px');
-  root.style.setProperty('--font-scale', textScale.toFixed(2));
+  const blurValue = quality === 'low' ? '0px' : quality === 'ultra' ? '24px' : quality === 'high' ? '16px' : '12px';
+  root.style.setProperty('--glass-blur', blurValue);
+  root.style.setProperty('--font-scale', '1.0');
 };
 
 let lowFpsStartTime: number | null = null;
@@ -353,6 +376,11 @@ export const useUIStore = create<UIState>((set, get) => {
         engine.cinematicDroneController.onRecordingStateChanged = (isRecording, seconds) => {
           set({ isRecordingVideo: isRecording, recordingSeconds: seconds });
         };
+        engine.onLODZoneCountsChanged = (counts) => {
+          if (get().showLODOverlay) {
+            set({ lodZoneCounts: counts });
+          }
+        };
       }
     },
 
@@ -412,7 +440,9 @@ export const useUIStore = create<UIState>((set, get) => {
     gridSnap: 1,
     setGridSnap: (gridSnap) => {
       set({ gridSnap });
-      get().engine?.setGridSnap(gridSnap);
+      if (typeof gridSnap === 'number') {
+        get().engine?.setGridSnap(gridSnap);
+      }
     },
 
     gridVisible: true,
@@ -444,12 +474,25 @@ export const useUIStore = create<UIState>((set, get) => {
     setCameraMode: (mode) => {
       const engine = get().engine;
       if (engine) {
-        engine.setCameraMode(mode);
+        if (mode === '2d') {
+          if (!engine.cameraController.isOrthographic) {
+            engine.cameraController.toggleTopDown();
+            engine.set2DPlanMode(true);
+          }
+        } else {
+          if (engine.cameraController.isOrthographic) {
+            engine.cameraController.toggleTopDown();
+            engine.set2DPlanMode(false);
+          }
+          const engineMode = mode === 'drone' ? 'cinematic_drone' : (mode === 'fps' ? 'first_person' : mode);
+          engine.setCameraMode(engineMode);
+        }
       }
       set({
         cameraMode: mode,
-        isWalkMode: mode === 'first_person',
-        isDroneTour: mode === 'cinematic_drone'
+        isTopDown: mode === '2d',
+        isWalkMode: mode === 'first_person' || mode === 'fps',
+        isDroneTour: mode === 'cinematic_drone' || mode === 'drone'
       });
     },
 
@@ -534,9 +577,28 @@ export const useUIStore = create<UIState>((set, get) => {
       set({ fps, adaptiveGlass: nextAdaptive });
     },
 
-    showFps: false,
+    showFps: true,
     setShowFps: (showFps) => set({ showFps }),
     toggleShowFps: () => set((s) => ({ showFps: !s.showFps })),
+
+    showLODOverlay: false,
+    setShowLODOverlay: (showLODOverlay) => {
+      set({ showLODOverlay });
+      if (showLODOverlay) {
+        const counts = get().engine?.getLODZoneCounts?.();
+        if (counts) set({ lodZoneCounts: counts });
+      }
+    },
+    toggleShowLODOverlay: () => {
+      const next = !get().showLODOverlay;
+      set({ showLODOverlay: next });
+      if (next) {
+        const counts = get().engine?.getLODZoneCounts?.();
+        if (counts) set({ lodZoneCounts: counts });
+      }
+    },
+    lodZoneCounts: { zone0: 0, zone1: 0, zone2: 0, totalBuildings: 0, totalLandscape: 0 },
+    setLodZoneCounts: (lodZoneCounts) => set({ lodZoneCounts }),
 
     showLotOverlays: false,
     setShowLotOverlays: (showLotOverlays) => set({ showLotOverlays }),
@@ -832,6 +894,7 @@ export const useUIStore = create<UIState>((set, get) => {
     isLoggedIn: savedAuth.isLoggedIn,
     userEmail: savedAuth.userEmail,
     currentScreen: savedAuth.isLoggedIn ? 'hub' : 'auth',
+    setCurrentScreen: (currentScreen: AppScreen) => set({ currentScreen }),
     login: (email: string) => {
       try {
         localStorage.removeItem(STORAGE_KEY_AUTH);

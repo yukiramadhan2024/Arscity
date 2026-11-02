@@ -26,6 +26,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setShowLoadTest,
     showFps,
     toggleShowFps,
+    showLODOverlay,
+    toggleShowLODOverlay,
     engine
   } = useUIStore();
 
@@ -643,6 +645,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       type="checkbox"
                       checked={showFps}
                       onChange={toggleShowFps}
+                    />
+                    <span className="ios-switch-slider" />
+                  </label>
+                </div>
+
+                {/* Telemetri 3-Zona LOD (Tahap 2 / T2.6) */}
+                <div
+                  className="inset-row"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid rgba(15, 23, 42, 0.05)'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                      Telemetri 3-Zona LOD Real-Time
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                      Tampilkan jumlah gedung di Zona 0 (dekat), 1 (menengah), dan 2 (jauh) di bilah atas
+                    </div>
+                  </div>
+                  <label className="ios-switch">
+                    <input
+                      type="checkbox"
+                      checked={showLODOverlay}
+                      onChange={toggleShowLODOverlay}
                     />
                     <span className="ios-switch-slider" />
                   </label>

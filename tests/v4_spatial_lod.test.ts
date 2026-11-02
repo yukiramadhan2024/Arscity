@@ -506,6 +506,56 @@ describe('Tahap 2: Render Jarak Bertingkat (3-Zone Spatial LOD) - T2.1 Verificat
       expect(dynamicFur.children.find((c) => c.userData?.furnitureId === 'fur_matrix_chair')).toBeUndefined();
     });
   });
+
+  describe('T2.6: Developer Mode LOD Zone Telemetry Overlay', () => {
+    it('manages showLODOverlay state and updates real-time zone counts in useUIStore', async () => {
+      const { useUIStore } = await import('../src/ui/state/useUIStore');
+
+      // 1. Initial state
+      useUIStore.getState().setShowLODOverlay(false);
+      expect(useUIStore.getState().showLODOverlay).toBe(false);
+
+      // 2. Toggle overlay
+      useUIStore.getState().toggleShowLODOverlay();
+      expect(useUIStore.getState().showLODOverlay).toBe(true);
+
+      // 3. Set and verify zone counts
+      useUIStore.getState().setLodZoneCounts({
+        zone0: 5,
+        zone1: 12,
+        zone2: 30,
+        totalBuildings: 47,
+        totalLandscape: 85,
+      });
+
+      const counts = useUIStore.getState().lodZoneCounts;
+      expect(counts.zone0).toBe(5);
+      expect(counts.zone1).toBe(12);
+      expect(counts.zone2).toBe(30);
+      expect(counts.totalBuildings).toBe(47);
+      expect(counts.totalLandscape).toBe(85);
+
+      // 4. Verify BuildingManager.currentLodZoneCounts matches real-time spatial LOD calculations
+      // Camera close at (10, 2, 0) -> bld_lod_test in Zone 0
+      buildingManager.updateSpatialLOD(new THREE.Vector3(10, 2, 0), false, null, true);
+      const liveCountsZ0 = buildingManager.currentLodZoneCounts;
+      expect(liveCountsZ0.zone0).toBe(1);
+      expect(liveCountsZ0.zone1).toBe(0);
+      expect(liveCountsZ0.zone2).toBe(0);
+      expect(liveCountsZ0.totalBuildings).toBe(1);
+
+      // Camera far at (80, 2, 0) -> bld_lod_test in Zone 2
+      buildingManager.updateSpatialLOD(new THREE.Vector3(80, 2, 0), false, null, true);
+      const liveCountsZ2 = buildingManager.currentLodZoneCounts;
+      expect(liveCountsZ2.zone0).toBe(0);
+      expect(liveCountsZ2.zone1).toBe(0);
+      expect(liveCountsZ2.zone2).toBe(1);
+
+      // Reset overlay state
+      useUIStore.getState().setShowLODOverlay(false);
+    });
+  });
 });
+
 
 
