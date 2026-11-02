@@ -21,7 +21,7 @@ export class LightingSystem {
   public renderer: THREE.WebGLRenderer | null = null;
   public lastShadowCenter: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   public isShadowDirty: boolean = true;
-  private starPoints: THREE.Points | null = null;
+  public starPoints: THREE.Points | null = null;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -66,14 +66,16 @@ export class LightingSystem {
     // Atmospheric distant aerial perspective fog - blends seamlessly into sky horizon
     this.scene.fog = new THREE.FogExp2(0x7fb8f5, 0.0011);
 
-    // Star dome for Obsidian Night sky
-    const starCount = 600;
+    // Star dome for Obsidian Night sky (T1.2)
+    // Radius = 0.9 * camera.far (3600m) or 4000m if camera.far > 4500
+    const starCount = 800;
     const starGeom = new THREE.BufferGeometry();
     const starPos = new Float32Array(starCount * 3);
+    const cameraFar = 4000;
+    const r = cameraFar > 4500 ? 4000 : 0.9 * cameraFar;
     for (let i = 0; i < starCount; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 0.85 + 0.1);
-      const r = 380;
       starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
       starPos[i * 3 + 1] = r * Math.cos(phi);
       starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
@@ -81,12 +83,17 @@ export class LightingSystem {
     starGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
     const starMat = new THREE.PointsMaterial({
       color: 0xffffff,
-      size: 1.5,
+      size: 2.0,
+      sizeAttenuation: false,
       transparent: true,
       opacity: 0.0,
-      depthWrite: false
+      depthWrite: false,
+      depthTest: false,
+      fog: false
     });
     this.starPoints = new THREE.Points(starGeom, starMat);
+    this.starPoints.frustumCulled = false;
+    this.starPoints.renderOrder = -1000;
     scene.add(this.starPoints);
 
     // Initial update for 16:15 WIB (16.25)
@@ -401,7 +408,6 @@ export class LightingSystem {
       const starOpacity = THREE.MathUtils.clamp((nightGlowFactor - 0.35) / 0.65, 0, 0.95);
       (this.starPoints.material as THREE.PointsMaterial).opacity = starOpacity;
       this.starPoints.visible = starOpacity > 0.01;
-      this.starPoints.position.copy(targetCenter);
     }
 
     MaterialLibrary.getInstance().setNightGlow(nightGlowFactor);
@@ -412,6 +418,15 @@ export class LightingSystem {
     if (!skipShadowDirty) {
       this.markShadowsDirty();
     }
+  }
+
+  /**
+   * Updates star dome position to follow camera every frame (T1.2).
+   * Guarantees stars remain at infinite celestial distance and never intersect terrain.
+   */
+  public updateStarDome(camera: THREE.Camera): void {
+    if (!this.starPoints) return;
+    this.starPoints.position.copy(camera.position);
   }
 
   public updateCenter(targetCenter: THREE.Vector3, skipShadowDirty: boolean = false): void {

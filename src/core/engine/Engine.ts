@@ -118,8 +118,8 @@ export class Engine {
   // Human-Scale Walkthrough & Cinematic Drone Tour
   public firstPersonController: FirstPersonController;
   public cinematicDroneController: CinematicDroneController;
-  public currentCameraMode: 'orbit' | 'first_person' | 'cinematic_drone' = 'orbit';
-  public onCameraModeChanged?: (mode: 'orbit' | 'first_person' | 'cinematic_drone') => void;
+  public currentCameraMode: 'orbit' | 'first_person' | 'cinematic_drone' | '2d' = 'orbit';
+  public onCameraModeChanged?: (mode: 'orbit' | 'first_person' | 'cinematic_drone' | '2d') => void;
 
   public activeToolName: string = 'select';
   public isLowPowerMode: boolean = false;
@@ -157,12 +157,13 @@ export class Engine {
       depth: true
     });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.0; // Calibrated from 1.05 to prevent noon blowout and preserve texture relief
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    MaterialLibrary.getInstance().initKTX2(this.renderer);
 
     container.appendChild(this.renderer.domElement);
 
@@ -693,7 +694,36 @@ export class Engine {
     }
   }
 
-  public setCameraMode(mode: 'orbit' | 'first_person' | 'cinematic_drone'): void {
+  public is2DPlanMode: boolean = false;
+
+  public set2DPlanMode(enabled: boolean): void {
+    this.is2DPlanMode = enabled;
+    if (this.cameraController) {
+      this.cameraController.setOrthographicMode(enabled, 'plan');
+    }
+    if (this.sectionCutManager) {
+      if (enabled) {
+        this.sectionCutManager.setCutMode('floor_plan');
+        this.sectionCutManager.setCutHeight(2.4);
+      } else {
+        this.sectionCutManager.setCutMode('none');
+      }
+    }
+    if (this.landscapeManager) {
+      this.landscapeManager.set2DSymbolMode(enabled);
+    }
+  }
+
+  public setCameraMode(mode: 'orbit' | 'first_person' | 'cinematic_drone' | '2d'): void {
+    if (mode === '2d') {
+      this.set2DPlanMode(true);
+      this.currentCameraMode = '2d';
+      if (this.onCameraModeChanged) this.onCameraModeChanged('2d');
+      return;
+    } else if (this.is2DPlanMode) {
+      this.set2DPlanMode(false);
+    }
+
     if (this.currentCameraMode === mode) return;
 
     // Teardown previous mode
@@ -868,7 +898,8 @@ export class Engine {
         this.currentCameraMode,
         isSection,
         this.isSubsurfaceLensActive,
-        cutoff
+        cutoff,
+        this.currentQuality
       );
     }
 
@@ -900,11 +931,16 @@ export class Engine {
 
     // Lighting, Weather & Vegetation Wind
     this.lightingSystem.updateCenter(this.cameraController.target, this.isUIInteractionActive);
+    this.lightingSystem.updateStarDome(this.cameraController.camera);
     this.weatherSystem.update(deltaTime, this.cameraController.camera.position);
     updateWindTime(deltaTime);
 
-    // Render: Ultra uses PostProcessingManager with SSAO + Bloom + Output Tone Mapping
-    if (this.currentQuality === 'ultra' && this.postProcessingManager.isEnabled()) {
+    // Render: uses PostProcessingManager if enabled (GTAO + SMAA + Bloom + Tone Mapping), otherwise direct WebGLRenderer
+    if (this.postProcessingManager.isEnabled()) {
+      this.postProcessingManager.update(
+        this.cameraController.camera.position,
+        this.cameraController.target
+      );
       this.postProcessingManager.setCamera(this.cameraController.activeCamera);
       this.postProcessingManager.render();
     } else {
@@ -952,7 +988,9 @@ export class Engine {
       this.cameraController.camera.position,
       this.currentCameraMode,
       this.sectionCutManager.currentMode !== 'none',
-      enabled
+      enabled,
+      60,
+      this.currentQuality
     );
   }
 
@@ -1038,6 +1076,15 @@ export class Engine {
     const targetAniso = config.anisotropy === 'max' ? maxAniso : config.anisotropy;
     MaterialLibrary.getInstance().setMaxAnisotropy(targetAniso);
 
+    // Weathering shader intensity per graphics preset
+    const weatheringMap: Record<GraphicsQuality, number> = {
+      low: 0.0,
+      medium: 0.4,
+      high: 0.85,
+      ultra: 1.0,
+    };
+    MaterialLibrary.getInstance().setWeatheringIntensity(weatheringMap[level] ?? 0.85);
+
     if (level === 'low') {
       this.renderer.shadowMap.enabled = false;
       this.renderer.setPixelRatio(1);
@@ -1058,8 +1105,10 @@ export class Engine {
         this.scene,
         this.cameraController.activeCamera,
         w,
-        h
+        h,
+        level
       );
+      this.postProcessingManager.setQuality(level);
       this.postProcessingManager.setEnabled(success);
     } else {
       this.postProcessingManager.dispose();
