@@ -98,17 +98,17 @@ export const EmptyStateGuide: React.FC = () => {
               fontSize: 12,
               fontWeight: 500,
               color: 'var(--glass-text-primary, #0F172A)',
-              backgroundColor: 'rgba(0, 0, 0, 0.05)',
+              backgroundColor: 'var(--fill-control)',
               border: '1px solid var(--glass-border, rgba(0, 0, 0, 0.08))',
               borderRadius: 9999,
               cursor: 'pointer',
               transition: 'background-color 0.15s',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.09)';
+              e.currentTarget.style.backgroundColor = 'var(--fill-control-hover)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+              e.currentTarget.style.backgroundColor = 'var(--fill-control)';
             }}
           >
             <BookOpen size={13} strokeWidth={1.75} />
@@ -134,7 +134,7 @@ export const EmptyStateGuide: React.FC = () => {
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = 'var(--glass-text-primary, #0F172A)';
-              e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.06)';
+              e.currentTarget.style.backgroundColor = 'var(--fill-control)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = 'var(--glass-text-muted, #94A3B8)';

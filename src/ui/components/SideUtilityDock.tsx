@@ -6,15 +6,13 @@ import {
   Settings,
   HelpCircle,
   Share2,
-  Award,
   FolderOpen,
   LogOut,
   DraftingCompass,
-  BookOpen,
-  GraduationCap,
   Layers,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  Home
 } from 'lucide-react';
 import { CitySerializer } from '../../io/CitySerializer';
 import { IndexedDBStorage } from '../../io/IndexedDBStorage';
@@ -35,22 +33,61 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
   const setCustomBuildingModalOpen = useUIStore((s) => s.setCustomBuildingModalOpen);
   const setIsPhotoMode = useUIStore((s) => s.setIsPhotoMode);
   const setShowRealWorldExport = useUIStore((s) => s.setShowRealWorldExport);
-  const setShowMissions = useUIStore((s) => s.setShowMissions);
-  const setShowGlossary = useUIStore((s) => s.setShowGlossary);
-  const setShowQuiz = useUIStore((s) => s.setShowQuiz);
   const showLotOverlays = useUIStore((s) => s.showLotOverlays);
   const toggleShowLotOverlays = useUIStore((s) => s.toggleShowLotOverlays);
   const activeTool = useUIStore((s) => s.activeTool);
 
   const isExpanded = useUIStore((s) => s.isSideDockExpanded);
   const setIsExpanded = useUIStore((s) => s.setIsSideDockExpanded);
+  const canUndo = useUIStore((s) => s.canUndo);
+  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
 
-  // D1: Auto-collapse when Analysis is active so there's zero overlap
+  // Auto-collapse when Analysis is active so there's zero overlap
   React.useEffect(() => {
     if (activeTool === 'analyze') {
       setIsExpanded(false);
     }
   }, [activeTool, setIsExpanded]);
+
+  // B6: Global hotkey [ to toggle collapse/expand
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === '[') {
+        e.preventDefault();
+        proceduralAudio.playTaptic('selection');
+        setIsExpanded(!isExpanded);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpanded, setIsExpanded]);
+
+  const handleReturnHome = () => {
+    if (canUndo) {
+      setShowExitConfirm(true);
+    } else {
+      openMapHub();
+    }
+  };
+
+  const handleConfirmExitWithSave = () => {
+    if (engine) {
+      try {
+        const data = CitySerializer.serialize(engine, activeMapName || 'Kota Saat Ini');
+        IndexedDBStorage.saveSlot('autosave', data);
+      } catch (err) {
+        console.warn('Autosave before exit failed:', err);
+      }
+    }
+    setShowExitConfirm(false);
+    openMapHub();
+  };
+
+  const handleConfirmExitWithoutSave = () => {
+    setShowExitConfirm(false);
+    openMapHub();
+  };
 
   const handleSwitchMap = () => {
     if (engine) {
@@ -98,7 +135,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             style={{
               fontSize: '12px',
               fontWeight: isActive ? 700 : 500,
-              color: isActive ? '#007AFF' : '#1E293B',
+              color: isActive ? 'var(--accent)' : 'var(--label)',
               whiteSpace: 'nowrap'
             }}
           >
@@ -146,7 +183,11 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div
+            <button
+              onClick={() => {
+                proceduralAudio.playTaptic('selection');
+                setIsExpanded(!isExpanded);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -157,19 +198,22 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
                 background: 'linear-gradient(135deg, rgba(0, 122, 255, 0.16) 0%, rgba(56, 189, 248, 0.08) 100%)',
                 border: '1px solid rgba(0, 122, 255, 0.25)',
                 boxShadow: '0 2px 8px rgba(0, 122, 255, 0.15)',
-                flexShrink: 0
+                flexShrink: 0,
+                cursor: 'pointer',
+                padding: 0
               }}
-              title="Arscity - Studio Tata Kota Nusantara"
+              title={isExpanded ? 'Ciutkan Menu Kota ([)' : 'Perluas Menu Kota ([)'}
+              aria-label={isExpanded ? 'Ciutkan Menu Kota' : 'Perluas Menu Kota'}
             >
               <ArscityLogo size={20} />
-            </div>
+            </button>
 
             {isExpanded && (
               <span
                 style={{
                   fontSize: '12.5px',
                   fontWeight: 600,
-                  color: '#0F172A',
+                  color: 'var(--label)',
                   letterSpacing: '-0.01em'
                 }}
               >
@@ -203,7 +247,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             style={{
               fontSize: '10px',
               fontWeight: 700,
-              color: '#64748B',
+              color: 'var(--label-tertiary)',
               letterSpacing: '0.05em',
               padding: '16px 8px 6px',
               textTransform: 'uppercase'
@@ -212,7 +256,6 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             Berkas
           </div>
         )}
-        <div style={{ width: '100%', height: '1px', background: 'var(--separator)', margin: '4px 0' }} />
 
         {renderButton(
           <FolderOpen size={18} strokeWidth={1.75} />,
@@ -236,21 +279,23 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
         )}
 
         {/* ================= GRUP 2: TAMPILAN ================= */}
-        {isExpanded && (
+        {isExpanded ? (
           <div
             style={{
               fontSize: '10px',
               fontWeight: 700,
-              color: '#64748B',
+              color: 'var(--label-tertiary)',
               letterSpacing: '0.05em',
-              padding: '24px 8px 6px',
+              padding: '8px 8px 6px',
+              marginTop: '16px',
               textTransform: 'uppercase'
             }}
           >
             Tampilan
           </div>
+        ) : (
+          <div style={{ marginTop: '16px' }} />
         )}
-        <div style={{ width: '100%', height: '1px', background: 'var(--separator)', margin: '4px 0' }} />
 
         {renderButton(
           <DraftingCompass size={18} strokeWidth={1.75} />,
@@ -267,7 +312,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
         )}
 
         {renderButton(
-          <Layers size={18} strokeWidth={1.75} style={{ color: showLotOverlays ? '#007AFF' : undefined }} />,
+          <Layers size={18} strokeWidth={1.75} style={{ color: showLotOverlays ? 'var(--accent)' : undefined }} />,
           'Lapisan Kavling',
           'L',
           toggleShowLotOverlays,
@@ -281,44 +326,6 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
           () => setShowSettings(true)
         )}
 
-        {/* ================= GRUP 3: BELAJAR ================= */}
-        {isExpanded && (
-          <div
-            style={{
-              fontSize: '10px',
-              fontWeight: 700,
-              color: '#64748B',
-              letterSpacing: '0.05em',
-              padding: '24px 8px 6px',
-              textTransform: 'uppercase'
-            }}
-          >
-            Belajar
-          </div>
-        )}
-        <div style={{ width: '100%', height: '1px', background: 'var(--separator)', margin: '4px 0' }} />
-
-        {renderButton(
-          <Award size={18} strokeWidth={1.75} />,
-          'Misi Kota',
-          'U',
-          () => setShowMissions(true)
-        )}
-
-        {renderButton(
-          <BookOpen size={18} strokeWidth={1.75} />,
-          'Glosarium SNI',
-          'G',
-          () => setShowGlossary(true)
-        )}
-
-        {renderButton(
-          <GraduationCap size={18} strokeWidth={1.75} />,
-          'Kuis Arsitektur',
-          'K',
-          () => setShowQuiz(true)
-        )}
-
         {onOpenHelp &&
           renderButton(
             <HelpCircle size={18} strokeWidth={1.75} />,
@@ -327,14 +334,14 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             onOpenHelp
           )}
 
-        {/* ================= GRUP 4: KELUAR ================= */}
-        <div style={{ width: '100%', height: '1px', background: 'var(--separator)', margin: '4px 0' }} />
+        {/* ================= GRUP 3: KEMBALI KE LAYAR AWAL ================= */}
+        <div style={{ marginTop: '16px' }} />
 
         {renderButton(
-          <LogOut size={18} strokeWidth={1.75} style={{ color: '#E11D48' }} />,
-          'Keluar',
+          <Home size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />,
+          'Kembali ke Layar Awal',
           'Esc',
-          logout
+          handleReturnHome
         )}
 
         {/* Tombol Perluas saat Collapsed */}
@@ -358,6 +365,92 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
           </button>
         )}
       </div>
+
+      {/* Modal Konfirmasi Kembali ke Layar Awal (T7) */}
+      {showExitConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'var(--scrim)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+        >
+          <div
+            className="arscity-glass-bar"
+            style={{
+              width: '360px',
+              background: 'var(--surface-raised)',
+              border: '1px solid var(--border-glass)',
+              borderRadius: '20px',
+              padding: '20px',
+              boxShadow: 'var(--shadow-popover)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              color: 'var(--label)'
+            }}
+          >
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--label)' }}>
+              Kembali ke Layar Awal?
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--label-secondary)', lineHeight: 1.5 }}>
+              Ada perubahan tata kota yang belum disimpan. Apakah Anda ingin menyimpan perubahan ini ke slot penyimpanan otomatis?
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+              <button
+                onClick={handleConfirmExitWithSave}
+                style={{
+                  padding: '9px 14px',
+                  borderRadius: '10px',
+                  background: 'var(--accent)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Simpan & Kembali
+              </button>
+              <button
+                onClick={handleConfirmExitWithoutSave}
+                style={{
+                  padding: '9px 14px',
+                  borderRadius: '10px',
+                  background: 'var(--fill-control)',
+                  color: 'var(--bad)',
+                  border: '1px solid var(--border)',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Kembali Tanpa Menyimpan
+              </button>
+              <button
+                onClick={() => setShowExitConfirm(false)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  background: 'transparent',
+                  color: 'var(--label-secondary)',
+                  border: 'none',
+                  fontWeight: 500,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 });

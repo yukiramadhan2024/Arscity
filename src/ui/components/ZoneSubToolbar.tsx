@@ -95,12 +95,12 @@ export const ZoneSubToolbar: React.FC = () => {
           })}
         </div>
 
-        <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+        <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
 
         {/* Lot Size Segmented Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Kavling:</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#E2E8F0', padding: '2px', borderRadius: '9999px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+          <span style={{ fontSize: '11px', color: 'var(--label-secondary)', fontWeight: 600 }}>Kavling:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'var(--fill-control)', padding: '2px', borderRadius: '9999px', border: '1px solid var(--border)' }}>
             {[
               { w: 8, l: 15, label: '8x15m', title: 'Kavling Kecil 8x15m' },
               { w: 10, l: 20, label: '10x20m', title: 'Kavling Sedang 10x20m' },
@@ -118,7 +118,7 @@ export const ZoneSubToolbar: React.FC = () => {
                     borderRadius: '9999px',
                     border: 'none',
                     background: isSel ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
-                    color: isSel ? '#007AFF' : '#475569',
+                    color: isSel ? 'var(--accent)' : 'var(--label-secondary)',
                     boxShadow: isSel ? '0 1px 4px rgba(15, 23, 42, 0.12)' : 'none',
                     fontSize: '11px',
                     fontWeight: isSel ? 700 : 500,
@@ -132,7 +132,7 @@ export const ZoneSubToolbar: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+        <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
 
         {/* Smart Block Subdivider Button (Fitur v3.1) */}
         <button

@@ -3,12 +3,22 @@ import * as THREE from 'three';
 import { useUIStore } from '../state/useUIStore';
 import { CustomSelect } from './CustomSelect';
 import { RoofType, WallMaterialType, BuildingInstance } from '../../buildings/PrefabTypes';
+import { StudioCreationMode } from '../../buildings/CustomBuildingModel';
+import { registerCustomStudioFurniture } from '../../buildings/FirstPersonFurnitureCatalog';
 import {
   MassingShapeType,
   WindowStyleType,
   generateFloorsForMassingShape,
   calculateBuildingAreas
 } from '../../buildings/CustomBuildingModel';
+import {
+  TROPICAL_STYLE_PRESETS,
+  validateBuildingDesign,
+  generateCuratedRandomDesign,
+  formatMeters,
+  formatArea,
+  CustomBuildingConfig
+} from '../../buildings/CustomBuildingValidator';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { AddBuildingCommand } from '../../core/commands/CityCommands';
 import { MaterialLibrary } from '../../materials/MaterialLibrary';
@@ -46,6 +56,7 @@ import {
   AlertCircle,
   CheckCircle2
 } from 'lucide-react';
+import { ArscityLogo } from './ArscityLogo';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 /**
@@ -59,16 +70,16 @@ function createTextSprite(
   borderColor = '#007AFF'
 ): THREE.Sprite {
   const canvas = document.createElement('canvas');
-  canvas.width = 768;
-  canvas.height = 192;
+  canvas.width = 1024;
+  canvas.height = 256;
   const ctx = canvas.getContext('2d');
   if (ctx) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = bgColor;
     ctx.strokeStyle = borderColor;
-    ctx.lineWidth = 6;
-    const r = 36;
-    const x = 10, y = 10, w = canvas.width - 20, h = canvas.height - 20;
+    ctx.lineWidth = 8;
+    const r = 48;
+    const x = 12, y = 12, w = canvas.width - 24, h = canvas.height - 24;
     ctx.beginPath();
     ctx.moveTo(x + r, y);
     ctx.lineTo(x + w - r, y);
@@ -84,18 +95,21 @@ function createTextSprite(
     ctx.stroke();
 
     ctx.fillStyle = textColor;
-    ctx.font = 'bold 50px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
+    // T9: Font size crisp JetBrains Mono typography
+    ctx.font = 'bold 84px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, canvas.width / 2, canvas.height / 2);
   }
   const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = true;
-  const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+  // T9: Anti-collision: depthTest: true with depthWrite: false prevents sprites from covering each other blindly
+  const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false });
   const sprite = new THREE.Sprite(spriteMat);
-  sprite.scale.set(4.4, 1.1, 1);
+  const sprH = 1.65;
+  const sprW = Math.max(4.8, Math.min(10.0, text.length * 0.40));
+  sprite.scale.set(sprW, sprH, 1);
   return sprite;
 }
 
@@ -112,7 +126,7 @@ function createArchitecturalCompassRing(radius: number, theme: 'light' | 'bluepr
     color: theme === 'blueprint' ? 0x38bdf8 : 0x007aff,
     side: THREE.DoubleSide,
     transparent: true,
-    opacity: 0.65
+    opacity: 0.20
   });
   const ring = new THREE.Mesh(ringGeo, ringMat);
   ring.position.y = 0.02;
@@ -153,7 +167,7 @@ function createArchitecturalCompassRing(radius: number, theme: 'light' | 'bluepr
   const tickMat = new THREE.LineBasicMaterial({
     color: theme === 'blueprint' ? 0x38bdf8 : 0x007aff,
     transparent: true,
-    opacity: 0.6
+    opacity: 0.20
   });
   group.add(new THREE.LineSegments(tickGeo, tickMat));
 
@@ -185,7 +199,7 @@ function createSunCelestialArc(
     dashSize: 0.8,
     gapSize: 0.4,
     transparent: true,
-    opacity: 0.8
+    opacity: 0.20
   });
   const arcLine = new THREE.Line(arcGeo, arcMat);
   arcLine.computeLineDistances();
@@ -515,7 +529,7 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
     gridMinor.position.y = 0;
     const gridMatMinor = gridMinor.material as THREE.LineBasicMaterial;
     gridMatMinor.transparent = true;
-    gridMatMinor.opacity = 0.55;
+    gridMatMinor.opacity = 0.12;
     scene.add(gridMinor);
 
     // Major 5.0m grid (thick)
@@ -523,7 +537,7 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
     gridMajor.position.y = 0.005;
     const gridMatMajor = gridMajor.material as THREE.LineBasicMaterial;
     gridMatMajor.transparent = true;
-    gridMatMajor.opacity = 0.85;
+    gridMatMajor.opacity = 0.18;
     scene.add(gridMajor);
 
     // Coordinate Axes Helper (X: Red, Y: Green, Z: Blue)
@@ -1407,11 +1421,11 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
     const frontLine = new THREE.LineSegments(frontLineGeo, dimLineMat);
     buildingGroup.add(frontLine);
 
-    const widthSprite = createTextSprite(`<--- Lebar: ${width}.0 m --->`);
-    widthSprite.position.set(0, 0.55, frontZ);
+    const widthSprite = createTextSprite(`<--- Lebar: ${formatMeters(width, 1)} --->`);
+    widthSprite.position.set(0, 0.85, frontZ);
     buildingGroup.add(widthSprite);
 
-    // 2. Side Dimension Line: <--- Panjang: L.0 m --->
+    // 2. Side Dimension Line: <--- Panjang: L,0 m --->
     const sideX = -halfW - 1.4;
     const sideLineGeo = new THREE.BufferGeometry().setFromPoints([
       // Near extension
@@ -1433,8 +1447,8 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
     const sideLine = new THREE.LineSegments(sideLineGeo, dimLineMat);
     buildingGroup.add(sideLine);
 
-    const lengthSprite = createTextSprite(`<--- Panjang: ${length}.0 m --->`);
-    lengthSprite.position.set(sideX, 0.55, 0);
+    const lengthSprite = createTextSprite(`<--- Panjang: ${formatMeters(length, 1)} --->`);
+    lengthSprite.position.set(sideX, 0.85, 0);
     buildingGroup.add(lengthSprite);
 
     // 3. Vertical Elevation Pole with Floor Markers
@@ -1446,13 +1460,13 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
       new THREE.Vector3(poleX, totalBldHeight + 0.5, 0)
     ];
 
-    // ±0.00m Ground Floor
+    // ±0,00 m Ground Floor
     polePoints.push(
       new THREE.Vector3(poleX - 0.4, 0.05, 0),
       new THREE.Vector3(poleX + 0.4, 0.05, 0)
     );
-    const groundSprite = createTextSprite('±0.00m (Lt. 1)');
-    groundSprite.position.set(poleX + 2.0, 0.25, 0);
+    const groundSprite = createTextSprite('±0,00 m (Lt. 1)');
+    groundSprite.position.set(poleX + 2.5, 0.35, 0);
     buildingGroup.add(groundSprite);
 
     // Floor Level Markers (only display intermediate floors when floorCount <= 4 or detail enabled to avoid vertical label stacking)
@@ -1463,8 +1477,8 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
           new THREE.Vector3(poleX - 0.4, fY, 0),
           new THREE.Vector3(poleX + 0.4, fY, 0)
         );
-        const floorSprite = createTextSprite(`+${fY.toFixed(2)}m (Lt. ${f + 1})`);
-        floorSprite.position.set(poleX + 2.0, fY, 0);
+        const floorSprite = createTextSprite(`+${formatMeters(fY)} (Lt. ${f + 1})`);
+        floorSprite.position.set(poleX + 2.5, fY, 0);
         buildingGroup.add(floorSprite);
       }
     }
@@ -1474,8 +1488,8 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
       new THREE.Vector3(poleX - 0.4, totalBldHeight, 0),
       new THREE.Vector3(poleX + 0.4, totalBldHeight, 0)
     );
-    const roofSprite = createTextSprite(`+${totalBldHeight.toFixed(2)}m (Puncak Atap)`);
-    roofSprite.position.set(poleX + 2.0, totalBldHeight, 0);
+    const roofSprite = createTextSprite(`+${formatMeters(totalBldHeight)} (Puncak Atap)`);
+    roofSprite.position.set(poleX + 2.5, totalBldHeight, 0);
     buildingGroup.add(roofSprite);
 
     const poleGeo = new THREE.BufferGeometry().setFromPoints(polePoints);
@@ -1954,10 +1968,10 @@ const VisualOptionCard = <T extends string>({
       textAlign: 'center',
       padding: '10px 6px',
       borderRadius: '12px',
-      border: isSelected ? '2px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.12)',
-      background: isSelected ? 'rgba(10, 132, 255, 0.10)' : 'rgba(255, 255, 255, 0.90)',
+      border: isSelected ? '2px solid #007AFF' : 'none',
+      background: isSelected ? 'rgba(10, 132, 255, 0.10)' : '#FFFFFF',
       color: isSelected ? '#007AFF' : '#1E293B',
-      boxShadow: isSelected ? '0 2px 8px rgba(0, 122, 255, 0.20)' : '0 1px 3px rgba(15, 23, 42, 0.04)',
+      boxShadow: isSelected ? '0 2px 8px rgba(0, 122, 255, 0.20)' : '0 2px 10px rgba(15, 23, 42, 0.04)',
       cursor: 'pointer',
       transition: 'all 0.15s ease',
       minHeight: '74px',
@@ -1996,8 +2010,9 @@ const FacadeToggleRow: React.FC<{
       justifyContent: 'space-between',
       padding: '10px 12px',
       borderRadius: '12px',
-      background: checked ? 'rgba(10, 132, 255, 0.08)' : 'rgba(255, 255, 255, 0.90)',
-      border: checked ? '1.5px solid rgba(10, 132, 255, 0.35)' : '1px solid rgba(15, 23, 42, 0.08)',
+      background: checked ? 'rgba(10, 132, 255, 0.08)' : '#FFFFFF',
+      border: checked ? '1.5px solid rgba(10, 132, 255, 0.35)' : 'none',
+      boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
       cursor: 'pointer',
       transition: 'all 0.15s ease'
     }}
@@ -2277,10 +2292,11 @@ const NumberSliderControl: React.FC<NumberSliderControlProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: '6px',
-        background: 'rgba(255, 255, 255, 0.92)',
+        background: '#FFFFFF',
         padding: '10px 12px',
         borderRadius: '12px',
-        border: '1px solid rgba(15, 23, 42, 0.08)'
+        border: 'none',
+        boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)'
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2320,9 +2336,9 @@ const NumberSliderControl: React.FC<NumberSliderControlProps> = ({
               width: '20px',
               height: '20px',
               borderRadius: '5px',
-              background: 'rgba(15, 23, 42, 0.05)',
+              background: 'var(--fill-control)',
               border: 'none',
-              color: '#64748B',
+              color: 'var(--label-tertiary)',
               cursor: 'pointer'
             }}
           >
@@ -2364,6 +2380,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
   const [activeTab, setActiveTab] = useState<'massing' | 'facade' | 'roof' | 'material'>('massing');
 
   // Building General & Dimensions
+  const [studioMode, setStudioMode] = useState<StudioCreationMode>('building');
   const [buildingName, setBuildingName] = useState<string>('Villa Tropis Kustom');
   const [width, setWidth] = useState<number>(10);
   const [length, setLength] = useState<number>(12);
@@ -2747,189 +2764,108 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
     });
   };
 
-  // Preset Configurations (Bar Preset Cepat)
-  const PRESETS = [
-    {
-      id: 'villa_bali',
-      label: 'Villa Bali',
-      apply: () => {
-        setBuildingName('Villa Bali');
-        setMassingShape('l_shape');
-        setWidth(14);
-        setLength(16);
-        setFloorCount(2);
-        setWindowStyle('curtain_wall');
-        setRoofType('hip');
-        setRoofMaterial('dark_zinc');
-        setRoofOverhang(1.6);
-        setWallMaterial('plaster');
-        setWallColor('#f8fafc');
-        setHasBalcony(true);
-        setHasSunLouvers(true);
-        setHasVerticalGarden(true);
-        setHasFrontArcade(false);
-        setUseBasePlinthMaterial(true);
-        setBaseMaterial('andesite');
-        setHasSkylight(false);
-        setHasSolarPV(true);
-      }
-    },
-    {
-      id: 'ruko_kolonial',
-      label: 'Ruko Heritage',
-      apply: () => {
-        setBuildingName('Ruko Heritage');
-        setMassingShape('box');
-        setWidth(8);
-        setLength(18);
-        setFloorCount(3);
-        setWindowStyle('colonial_arch');
-        setRoofType('gable');
-        setRoofMaterial('clay_tile');
-        setRoofOverhang(0.8);
-        setWallMaterial('plaster');
-        setWallColor('#fef3c7');
-        setHasBalcony(true);
-        setHasSunLouvers(false);
-        setHasVerticalGarden(false);
-        setHasFrontArcade(true);
-        setUseBasePlinthMaterial(true);
-        setBaseMaterial('brick');
-        setHasSkylight(false);
-        setHasSolarPV(false);
-      }
-    },
-    {
-      id: 'kafe_industrial',
-      label: 'Kafe Industrial',
-      apply: () => {
-        setBuildingName('Kafe Industrial');
-        setMassingShape('cantilever');
-        setWidth(12);
-        setLength(14);
-        setFloorCount(2);
-        setWindowStyle('modern_ribbon');
-        setRoofType('flat');
-        setRoofMaterial('concrete_slab');
-        setRoofOverhang(0.6);
-        setWallMaterial('concrete');
-        setWallColor('#e2e8f0');
-        setHasBalcony(true);
-        setHasSunLouvers(true);
-        setHasVerticalGarden(true);
-        setHasFrontArcade(false);
-        setUseBasePlinthMaterial(false);
-        setBaseMaterial('brick');
-        setHasSkylight(true);
-        setHasSolarPV(false);
-      }
-    },
-    {
-      id: 'paviliun_joglo',
-      label: 'Joglo Modern',
-      apply: () => {
-        setBuildingName('Joglo Modern');
-        setMassingShape('box');
-        setWidth(12);
-        setLength(12);
-        setFloorCount(1);
-        setWindowStyle('javanese_krepyak');
-        setRoofType('joglo');
-        setRoofMaterial('clay_tile');
-        setRoofOverhang(1.8);
-        setWallMaterial('wood');
-        setWallColor('#78350f');
-        setHasBalcony(false);
-        setHasSunLouvers(false);
-        setHasVerticalGarden(true);
-        setHasFrontArcade(true);
-        setUseBasePlinthMaterial(false);
-        setBaseMaterial('andesite');
-        setHasSkylight(false);
-        setHasSolarPV(false);
-      }
+  // 6 Curated Tropical Architectural Style Presets (B4)
+  const PRESETS = TROPICAL_STYLE_PRESETS.map((style) => ({
+    id: style.id,
+    label: style.name,
+    apply: () => {
+      const c = style.config;
+      setBuildingName(c.buildingName);
+      setMassingShape(c.massingShape);
+      setWidth(c.width);
+      setLength(c.length);
+      setFloorCount(c.floorCount);
+      setWindowStyle(c.windowStyle);
+      setRoofType(c.roofType);
+      setRoofMaterial(c.roofMaterial);
+      setRoofOverhang(c.roofOverhang);
+      setWallMaterial(c.wallMaterial);
+      setWallColor(c.wallColor);
+      setHasBalcony(c.hasBalcony);
+      setHasSunLouvers(c.hasSunLouvers);
+      setHasVerticalGarden(c.hasVerticalGarden);
+      setHasFrontArcade(c.hasFrontArcade);
+      setUseBasePlinthMaterial(c.useBasePlinthMaterial);
+      setBaseMaterial(c.baseMaterial);
+      setHasSkylight(c.hasSkylight);
+      setHasSolarPV(c.hasSolarPV);
+      proceduralAudio.playTaptic('selection');
+      showSnackbar({
+        variant: 'info',
+        title: `Gaya ${style.name} Diterapkan`,
+        detail: style.description,
+        groupKey: 'cad_style_applied',
+      });
     }
-  ];
+  }));
 
-  // Randomizer Function
+  // Rule-Based Curated Generator (B4: always produces structurally sound designs)
   const handleRandomizeDesign = () => {
-    const shapes: MassingShapeType[] = ['box', 'l_shape', 'courtyard_u', 'stepped_podium', 'cantilever'];
-    const windows: WindowStyleType[] = ['modern_ribbon', 'curtain_wall', 'javanese_krepyak', 'colonial_arch', 'minimalist_slot'];
-    const roofs: RoofType[] = ['hip', 'joglo', 'gable', 'flat', 'sawtooth', 'butterfly'];
-    const wallMats: WallMaterialType[] = ['plaster', 'brick', 'concrete', 'wood'];
-    const colors = COLOR_PALETTES.map((p) => p.hex);
-    const roofMats = ['dark_zinc', 'clay_tile', 'concrete_slab'];
-
-    const chosenShape = shapes[Math.floor(Math.random() * shapes.length)];
-    const chosenWindow = windows[Math.floor(Math.random() * windows.length)];
-    const chosenRoof = roofs[Math.floor(Math.random() * roofs.length)];
-    const chosenWall = wallMats[Math.floor(Math.random() * wallMats.length)];
-    const chosenColor = colors[Math.floor(Math.random() * colors.length)];
-    const chosenRoofMat = roofMats[Math.floor(Math.random() * roofMats.length)];
-
-    const rW = 8 + Math.floor(Math.random() * 8) * 2;
-    const rL = 10 + Math.floor(Math.random() * 8) * 2;
-    const rF = 1 + Math.floor(Math.random() * 4);
-
-    setMassingShape(chosenShape);
-    setWindowStyle(chosenWindow);
-    setRoofType(chosenRoof);
-    setRoofMaterial(chosenRoofMat);
-    setWallMaterial(chosenWall);
-    setWallColor(chosenColor);
-    setWidth(rW);
-    setLength(rL);
-    setFloorCount(rF);
-    setRoofOverhang(0.6 + Math.round(Math.random() * 12) / 10);
-    setHasBalcony(Math.random() > 0.4);
-    setHasSunLouvers(Math.random() > 0.5);
-    setHasVerticalGarden(Math.random() > 0.4);
-    setHasFrontArcade(Math.random() > 0.6);
-    setUseBasePlinthMaterial(Math.random() > 0.5);
-    setHasSolarPV(Math.random() > 0.6);
-    setHasSkylight(Math.random() > 0.6);
-    setBuildingName(`Desain Eksperimental #${Math.floor(100 + Math.random() * 900)}`);
+    const randomized = generateCuratedRandomDesign();
+    setBuildingName(randomized.buildingName);
+    setMassingShape(randomized.massingShape);
+    setWidth(randomized.width);
+    setLength(randomized.length);
+    setFloorCount(randomized.floorCount);
+    setWindowStyle(randomized.windowStyle);
+    setRoofType(randomized.roofType);
+    setRoofMaterial(randomized.roofMaterial);
+    setRoofOverhang(randomized.roofOverhang);
+    setWallMaterial(randomized.wallMaterial);
+    setWallColor(randomized.wallColor);
+    setHasBalcony(randomized.hasBalcony);
+    setHasSunLouvers(randomized.hasSunLouvers);
+    setHasVerticalGarden(randomized.hasVerticalGarden);
+    setHasFrontArcade(randomized.hasFrontArcade);
+    setUseBasePlinthMaterial(randomized.useBasePlinthMaterial);
+    setBaseMaterial(randomized.baseMaterial);
+    setHasSkylight(randomized.hasSkylight);
+    setHasSolarPV(randomized.hasSolarPV);
 
     proceduralAudio.playTaptic('selection');
     showSnackbar({
       variant: 'info',
-      title: 'Desain Diacak',
-      detail: 'Kombinasi parameter baru diterapkan',
+      title: 'Desain Terkurasi Diterapkan',
+      detail: `${randomized.buildingName} • Parameter tervalidasi arsitektur`,
       groupKey: 'cad_randomized',
     });
   };
 
-  const handleCreateAndPlace = () => {
+  const [validationModal, setValidationModal] = useState<{
+    warnings: string[];
+    correctedConfig: CustomBuildingConfig;
+  } | null>(null);
+
+  const executePlacement = (cfg: CustomBuildingConfig) => {
     if (!engine) return;
 
     const customId = `custom_bld_${Date.now()}`;
     const instance: Partial<BuildingInstance> = {
       id: customId,
       presetKey: 'custom_designer',
-      name: buildingName || 'Bangunan Kustom',
+      name: cfg.buildingName || 'Bangunan Kustom',
       category: 'residential',
-      width,
-      length,
-      floorCount,
-      floorHeight,
-      roofType,
-      roofOverhang,
-      wallMaterial,
-      wallColor,
-      roofMaterial: roofMaterial as any,
-      massingShape,
-      windowStyle,
-      hasBalcony,
-      hasSunLouvers,
-      hasVerticalGarden,
-      hasFrontArcade,
-      useBasePlinthMaterial,
-      baseMaterial,
+      width: cfg.width,
+      length: cfg.length,
+      floorCount: cfg.floorCount,
+      floorHeight: cfg.floorHeight,
+      roofType: cfg.roofType,
+      roofOverhang: cfg.roofOverhang,
+      wallMaterial: cfg.wallMaterial,
+      wallColor: cfg.wallColor,
+      roofMaterial: cfg.roofMaterial as any,
+      massingShape: cfg.massingShape,
+      windowStyle: cfg.windowStyle,
+      hasBalcony: cfg.hasBalcony,
+      hasSunLouvers: cfg.hasSunLouvers,
+      hasVerticalGarden: cfg.hasVerticalGarden,
+      hasFrontArcade: cfg.hasFrontArcade,
+      useBasePlinthMaterial: cfg.useBasePlinthMaterial,
+      baseMaterial: cfg.baseMaterial,
       mullionColor,
-      hasSkylight
+      hasSkylight: cfg.hasSkylight
     };
 
-    // Integrasi Langsung ke Katalog Kota: serahkan custom template ke BuildingTool
     if (engine.buildingTool) {
       engine.buildingTool.setCustomTemplate(instance);
     }
@@ -2940,10 +2876,89 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
     showSnackbar({
       variant: 'success',
       title: 'Desain Kustom Siap Ditempatkan di Kota',
-      detail: `${buildingName || 'Bangunan Kustom'} • Klik di peta untuk membangun`,
+      detail: `${cfg.buildingName || 'Bangunan Kustom'} • Klik di peta untuk membangun`,
       groupKey: 'cad_ready_to_build',
     });
     onClose();
+  };
+
+  const handleCreateAndPlace = () => {
+    const currentConfig: CustomBuildingConfig = {
+      buildingName,
+      massingShape,
+      width,
+      length,
+      floorCount,
+      floorHeight,
+      windowStyle,
+      roofType,
+      roofMaterial,
+      roofOverhang,
+      wallMaterial,
+      wallColor,
+      hasBalcony,
+      hasSunLouvers,
+      hasVerticalGarden,
+      hasFrontArcade,
+      useBasePlinthMaterial,
+      baseMaterial,
+      hasSkylight,
+      hasSolarPV
+    };
+
+    const validation = validateBuildingDesign(currentConfig);
+    if (!validation.isValid) {
+      setValidationModal({
+        warnings: validation.warnings,
+        correctedConfig: validation.correctedConfig
+      });
+      return;
+    }
+
+    if (studioMode === 'furniture') {
+      registerCustomStudioFurniture({
+        id: `custom_fur_${Date.now()}`,
+        name: buildingName || 'Furnitur Kustom',
+        category: 'decor',
+        width: Math.min(3.0, width),
+        depth: Math.min(3.0, length),
+        height: Math.min(2.5, floorHeight),
+        color: wallColor
+      });
+      showSnackbar({
+        variant: 'success',
+        title: 'Furnitur Kustom Tersimpan',
+        detail: `"${buildingName}" berhasil ditambahkan ke Katalog Studio First-Person!`,
+        groupKey: 'furniture_saved'
+      });
+      proceduralAudio.playTaptic('medium');
+      onClose();
+      return;
+    }
+
+    if (studioMode === 'pavilion') {
+      if (engine) {
+        engine.landscapeManager.addItem({
+          id: `pavilion_${Date.now()}`,
+          type: 'pavilion_garden_gazebo',
+          position: engine.cameraController.target.clone(),
+          width,
+          length,
+          radius: Math.max(width, length) * 0.5
+        });
+        showSnackbar({
+          variant: 'success',
+          title: 'Paviliun Taman Berhasil Dibangun',
+          detail: `"${buildingName}" telah ditempatkan di lanskap kota!`,
+          groupKey: 'pavilion_placed'
+        });
+        proceduralAudio.playTaptic('medium');
+        onClose();
+        return;
+      }
+    }
+
+    executePlacement(currentConfig);
   };
 
   // The 4 Segmented Control Tabs
@@ -3311,18 +3326,12 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             <div
               style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'rgba(0, 122, 255, 0.12)',
-                border: '1px solid rgba(0, 122, 255, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: '#007AFF'
+                justifyContent: 'center'
               }}
             >
-              <Compass size={18} strokeWidth={1.75} />
+              <ArscityLogo size={22} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -3353,9 +3362,53 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                 </div>
               </div>
               <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px' }}>
-                {width}m × {length}m • {floorCount} Lantai • Puncak +{roofPeakHeight.toFixed(2)}m
+                {formatMeters(width, 1)} × {formatMeters(length, 1)} • {floorCount} Lantai • Puncak +{formatMeters(roofPeakHeight, 2)}
               </div>
             </div>
+          </div>
+
+          {/* Mode Studio Creation: 1. Gedung, 2. Furnitur Kustom, 3. Paviliun Taman */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px',
+              background: '#E2E8F0',
+              padding: '3px',
+              borderRadius: '9999px',
+              border: '1px solid rgba(15, 23, 42, 0.06)'
+            }}
+          >
+            {[
+              { id: 'building' as const, label: 'Mode Gedung' },
+              { id: 'furniture' as const, label: 'Mode Furnitur' },
+              { id: 'pavilion' as const, label: 'Mode Paviliun' }
+            ].map((m) => {
+              const isSel = studioMode === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    setStudioMode(m.id);
+                    proceduralAudio.playTaptic('selection');
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '9999px',
+                    border: 'none',
+                    background: isSel ? '#007AFF' : 'transparent',
+                    color: isSel ? '#FFFFFF' : '#334155',
+                    boxShadow: isSel ? '0 1px 3px rgba(0, 122, 255, 0.3)' : 'none',
+                    fontSize: '11px',
+                    fontWeight: isSel ? 700 : 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Center: Segmented Control Tampilan */}
@@ -3709,7 +3762,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                     <span>Dimensi Detail Lantai ({showDetailDims ? 'Tampil' : 'Sederhana'})</span>
                   </button>
 
-                  <div style={{ height: '1px', background: 'rgba(15, 23, 42, 0.08)', margin: '2px 0' }} />
+                  <div style={{ height: '1px', background: 'var(--separator)', margin: '2px 0' }} />
 
                   <button
                     type="button"
@@ -3761,7 +3814,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               }}
             >
               <Sparkles size={14} />
-              <span>Bangun di Kota</span>
+              <span>{studioMode === 'furniture' ? 'Simpan ke Katalog Furnitur' : studioMode === 'pavilion' ? 'Tempatkan Paviliun di Peta' : 'Bangun di Kota'}</span>
             </button>
 
             {/* 5. Keluar Studio */}
@@ -3860,34 +3913,29 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                 >
                   <div>
                     <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Luas Lantai Dasar</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>{footprintArea} m²</div>
+                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>{formatArea(footprintArea)}</div>
                   </div>
-                  <div style={{ width: '1px', height: '28px', background: 'rgba(15, 23, 42, 0.08)' }} />
                   <div>
                     <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Total Luas Lantai</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#007AFF' }}>{totalFloorArea} m²</div>
+                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#007AFF' }}>{formatArea(totalFloorArea)}</div>
                   </div>
-                  <div style={{ width: '1px', height: '28px', background: 'rgba(15, 23, 42, 0.08)' }} />
                   <div>
                     <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Koefisien KDB / KLB</div>
                     <div style={{ fontSize: '12px', fontWeight: 600, color: lotArea ? '#007AFF' : '#64748B' }}>
-                      {lotArea ? `KDB ${kdbPercent}% • KLB ${klbRatio}x` : 'Pilih kavling di kota'}
+                      {lotArea ? `KDB ${kdbPercent}% • KLB ${klbRatio?.replace('.', ',')}x` : 'Pilih kavling di kota'}
                     </div>
                   </div>
-                  <div style={{ width: '1px', height: '28px', background: 'rgba(15, 23, 42, 0.08)' }} />
                   <div title="Plafon tinggi (min 3.0 m) memfasilitasi efek cerobong termal untuk sirkulasi udara sejuk di iklim tropis">
                     <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Tinggi Dinding</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#248A3D' }}>{wallHeight.toFixed(2)} m</div>
+                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#248A3D' }}>{formatMeters(wallHeight, 2)}</div>
                   </div>
-                  <div style={{ width: '1px', height: '28px', background: 'rgba(15, 23, 42, 0.08)' }} />
                   <div title="Kemiringan atap curam mempercepat aliran air hujan lebat dan mengurangi akumulasi panas radiasi matahari">
                     <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Puncak Atap</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#007AFF' }}>+{roofPeakHeight.toFixed(2)} m</div>
+                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#007AFF' }}>+{formatMeters(roofPeakHeight, 2)}</div>
                   </div>
-                  <div style={{ width: '1px', height: '28px', background: 'rgba(15, 23, 42, 0.08)' }} />
                   <div title="Overhang min 1.0 m membayangi bukaan jendela dari terik matahari khatulistiwa dan tampias hujan lebat">
                     <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Teritisan Tropis</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#D97706' }}>{roofOverhang.toFixed(1)} m</div>
+                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#D97706' }}>{formatMeters(roofOverhang, 1)}</div>
                   </div>
                 </div>
               );
@@ -3905,6 +3953,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               WebkitBackdropFilter: 'blur(28px)',
               borderLeft: '1px solid rgba(15, 23, 42, 0.08)',
               height: '100%',
+              maxHeight: 'calc(100vh - 56px)',
               overflowY: 'auto',
               padding: '16px',
               display: 'flex',
@@ -3915,7 +3964,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
             }}
           >
             {/* Quick Inspiration Presets & Randomizer Bar */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '12px', borderBottom: '1px solid rgba(15, 23, 42, 0.08)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Preset Cepat & Koleksi
@@ -4114,7 +4163,8 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                 background: '#FFFFFF',
                 borderRadius: '12px',
                 padding: '12px',
-                border: '1px solid rgba(15, 23, 42, 0.08)',
+                border: 'none',
+                boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '8px'
@@ -4158,13 +4208,186 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
           </div>
         </div>
 
+        {/* Architectural Validation Warning Dialog (B4) */}
+        {validationModal && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'var(--scrim)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 100001
+            }}
+            onClick={() => setValidationModal(null)}
+          >
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                padding: '24px',
+                maxWidth: '440px',
+                width: '92%',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
+                border: '1px solid rgba(15, 23, 42, 0.1)',
+                textAlign: 'left'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: '#D97706',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  <AlertCircle size={22} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
+                    Catatan Validasi Arsitektur
+                  </h3>
+                  <div style={{ fontSize: '11px', color: '#64748B' }}>
+                    Ditemukan ketidaksesuaian proporsi atau standar tropis
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: 'rgba(245, 158, 11, 0.06)',
+                  border: '1px solid rgba(245, 158, 11, 0.2)',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  marginBottom: '18px',
+                  maxHeight: '160px',
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px'
+                }}
+              >
+                {validationModal.warnings.map((w, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '11.5px', color: '#92400E' }}>
+                    <span style={{ fontWeight: 700 }}>•</span>
+                    <span>{w}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const corrected = validationModal.correctedConfig;
+                    setValidationModal(null);
+                    setWidth(corrected.width);
+                    setLength(corrected.length);
+                    setFloorCount(corrected.floorCount);
+                    setRoofType(corrected.roofType);
+                    setRoofOverhang(corrected.roofOverhang);
+                    setHasBalcony(corrected.hasBalcony);
+                    setHasSunLouvers(corrected.hasSunLouvers);
+                    executePlacement(corrected);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '9px 16px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#007AFF',
+                    color: '#FFFFFF',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)'
+                  }}
+                >
+                  Perbaiki Otomatis & Bangun
+                </button>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cfg: CustomBuildingConfig = {
+                        buildingName,
+                        massingShape,
+                        width,
+                        length,
+                        floorCount,
+                        floorHeight,
+                        windowStyle,
+                        roofType,
+                        roofMaterial,
+                        roofOverhang,
+                        wallMaterial,
+                        wallColor,
+                        hasBalcony,
+                        hasSunLouvers,
+                        hasVerticalGarden,
+                        hasFrontArcade,
+                        useBasePlinthMaterial,
+                        baseMaterial,
+                        hasSkylight,
+                        hasSolarPV
+                      };
+                      setValidationModal(null);
+                      executePlacement(cfg);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(15, 23, 42, 0.15)',
+                      background: '#F8FAFC',
+                      color: '#475569',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Tetap Bangun dengan Catatan
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setValidationModal(null)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(15, 23, 42, 0.12)',
+                      background: 'transparent',
+                      color: '#64748B',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Exit Confirmation Dialog */}
         {showExitConfirm && (
           <div
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(15, 23, 42, 0.4)',
+              background: 'var(--scrim)',
               backdropFilter: 'blur(8px)',
               display: 'flex',
               alignItems: 'center',

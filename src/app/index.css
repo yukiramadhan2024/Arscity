@@ -1,61 +1,22 @@
-/* ====================================================
-   LOCAL FONTS (Inter SIL OFL 1.1)
-   ==================================================== */
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 300;
-  font-display: swap;
-  src: url('/assets/fonts/Inter-Light.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/assets/fonts/Inter-Regular.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('/assets/fonts/Inter-Medium.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('/assets/fonts/Inter-SemiBold.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/assets/fonts/Inter-Bold.woff2') format('woff2');
-}
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ====================================================
-   STANDAR WARNA & LIQUID GLASS TERANG ARSCITY
+   APPLE VISIONOS SPATIAL FROSTED GLASS BAR (v4.0)
    ==================================================== */
 .arscity-glass-bar {
-  background: rgba(244, 247, 251, 0.94) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.95) !important;
-  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08) !important;
-  color: #0F172A !important;
+  background: var(--surface) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur, 32px)) saturate(var(--glass-saturate, 200%)) !important;
+  backdrop-filter: blur(var(--glass-blur, 32px)) saturate(var(--glass-saturate, 200%)) !important;
+  border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.88)) !important;
+  box-shadow: var(--shadow-glass) !important;
+  color: var(--label) !important;
 }
 
 /* ====================================================
-   iOS 27 (LIQUID GLASS REFINED) DESIGN SYSTEM
-   Arscity - Pure architectural clarity, Unified Light Glass Theme
+   ARSCITY v4.0 — APPLE VISIONOS SPATIAL FROSTED GLASS
+   Pure architectural clarity, Unified Spatial Light Glass
    ==================================================== */
 
 :root {
@@ -63,96 +24,98 @@
   --background: #F1F5F9;
   --foreground: #0F172A;
   --card: #FFFFFF;
-  --border: #CBD5E1;
-  --primary: #007AFF;
+  --border: rgba(15, 23, 42, 0.08);
+  --primary: #0066FF;
   --primary-foreground: #FFFFFF;
   --muted-foreground: #475569;
   --destructive: #EF4444;
-  --color-primary: #007AFF;
+  --color-primary: #0066FF;
   --color-secondary: #10B981;
-  --color-accent: #0284C7;
+  --color-accent: #00D4FF;
   --color-destructive: #EF4444;
-  --color-chart-1: #007AFF;
+  --color-chart-1: #0066FF;
   --color-chart-2: #10B981;
   --color-chart-3: #0284C7;
   --color-chart-4: #D97706;
   --color-chart-5: #059669;
 
-  /* ---------- SURFACES (Unified Architectural Light Glass) ---------- */
+  /* ---------- SURFACES (Apple Spatial Frosted Glass) ---------- */
   --app-bg: #E2E8F0;
   --bg-grouped: #F1F5F9;
-  --surface: rgba(244, 247, 251, 0.94);
-  --surface-strong: rgba(244, 247, 251, 0.96);
+  --surface: rgba(248, 250, 252, 0.88);
+  --surface-strong: rgba(248, 250, 252, 0.94);
   --surface-solid: #FFFFFF;
   --surface-raised: #FFFFFF;
-  --surface-inset: #F8FAFC;
-  --scrim: rgba(15, 23, 42, 0.28);
-  --overlay: rgba(15, 23, 42, 0.35);
+  --surface-inset: rgba(255, 255, 255, 0.72);
+  --scrim: rgba(15, 23, 42, 0.24);
+  --overlay: rgba(15, 23, 42, 0.32);
 
-  /* ---------- LABELS (Tegas & Kontras Tinggi) ---------- */
+  /* ---------- LABELS (Crisp Charcoal & Medium Slate) ---------- */
   --label: #0F172A;
   --label-strong: #020617;
-  --label-muted: #334155;
+  --label-muted: #475569;
   --label-secondary: #475569;
   --label-tertiary: #64748B;
   --icon: #334155;
   --on-accent: #FFFFFF;
 
-  /* ---------- LINES & FILLS ---------- */
-  --separator: #CBD5E1;
-  --hairline: #CBD5E1;
-  --hairline-soft: #E2E8F0;
+  /* ---------- FILLS & SOFT ELEVATIONS (No Harsh Lines) ---------- */
+  --separator: rgba(15, 23, 42, 0.06);
+  --hairline: rgba(15, 23, 42, 0.06);
+  --hairline-soft: rgba(15, 23, 42, 0.04);
   --fill-subtle: rgba(15, 23, 42, 0.035);
-  --fill-control: #E2E8F0;
-  --fill-control-hover: #CBD5E1;
-  --fill-control-active: rgba(0, 122, 255, 0.14);
+  --fill-control: rgba(15, 23, 42, 0.06);
+  --fill-control-hover: rgba(15, 23, 42, 0.10);
+  --fill-control-active: rgba(0, 102, 255, 0.12);
 
   /* ---------- SEMANTIC COLORS ---------- */
-  --accent: #007AFF;
-  --accent-rgb: 0, 122, 255;
-  --accent-hover: #0066D6;
-  --accent-subtle: rgba(0, 122, 255, 0.14);
+  --accent: #0066FF;
+  --accent-rgb: 0, 102, 255;
+  --accent-hover: #0052CC;
+  --accent-subtle: rgba(0, 102, 255, 0.12);
   --info: #0284C7;
   --info-rgb: 2, 132, 199;
-  --good: #16A34A;
-  --good-rgb: 22, 163, 74;
-  --warn: #D97706;
-  --warn-rgb: 217, 119, 6;
-  --bad: #DC2626;
-  --bad-rgb: 220, 38, 38;
+  --good: #10B981;
+  --good-rgb: 16, 185, 129;
+  --warn: #F59E0B;
+  --warn-rgb: 245, 158, 11;
+  --bad: #EF4444;
+  --bad-rgb: 239, 68, 68;
 
-  /* ---------- GLASS MATERIAL ---------- */
-  --glass-base: 244, 247, 251;
-  --glass-opacity: 0.94;
-  --glass-blur: 24px;
-  --glass-saturate: 180%;
-  --specular-alpha: 0.6;
-  --shadow-glass: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
-  --shadow-card: 0 2px 8px rgba(15, 23, 42, 0.08);
-  --shadow-popover: 0 12px 36px rgba(15, 23, 42, 0.12);
-  --shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.16);
+  /* ---------- SPATIAL GLASS MATERIAL ---------- */
+  --glass-base: 248, 250, 252;
+  --glass-opacity: 0.88;
+  --glass-blur: 32px;
+  --glass-saturate: 200%;
+  --specular-alpha: 0.72;
+  --border-glass: rgba(255, 255, 255, 0.88);
+  --shadow-surface-boundary: 0 0 0 1px rgba(255, 255, 255, 0.88), 0 22px 54px -12px rgba(15, 23, 42, 0.15), 0 6px 18px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --shadow-glass: 0 18px 42px -10px rgba(15, 23, 42, 0.13), 0 4px 14px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --shadow-card: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-popover: 0 20px 48px -10px rgba(15, 23, 42, 0.15), 0 4px 14px rgba(15, 23, 42, 0.06);
+  --shadow-modal: 0 28px 68px -12px rgba(15, 23, 42, 0.18), 0 8px 24px rgba(15, 23, 42, 0.07);
 
   /* ---------- LABORATORIUM ANALISIS DESIGN TOKENS ---------- */
-  --lab-card-bg: rgba(244, 247, 251, 0.94);
-  --lab-card-blur: 24px;
-  --lab-card-saturate: 180%;
-  --lab-card-border: 1px solid rgba(255, 255, 255, 0.95);
+  --lab-card-bg: rgba(248, 250, 252, 0.88);
+  --lab-card-blur: 32px;
+  --lab-card-saturate: 200%;
+  --lab-card-border: 1px solid rgba(255, 255, 255, 0.88);
   --lab-card-radius: 24px;
-  --lab-card-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --lab-card-shadow: 0 18px 42px -10px rgba(15, 23, 42, 0.13), 0 4px 14px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.92);
 
-  --lab-badge-bg: rgba(0, 122, 255, 0.12);
-  --lab-badge-icon: #007AFF;
+  --lab-badge-bg: rgba(0, 102, 255, 0.10);
+  --lab-badge-icon: #0066FF;
   --lab-title-color: #0F172A;
   --lab-subtitle-color: #475569;
 
-  --lab-section-bg: #FFFFFF;
-  --lab-section-border: 1px solid #CBD5E1;
+  --lab-section-bg: rgba(255, 255, 255, 0.78);
+  --lab-section-border: 1px solid rgba(255, 255, 255, 0.92);
   --lab-section-radius: 18px;
-  --lab-section-divider: #E2E8F0;
+  --lab-section-divider: transparent;
 
-  --lab-pill-bg: #E2E8F0;
+  --lab-pill-bg: rgba(15, 23, 42, 0.06);
   --lab-pill-active-bg: #FFFFFF;
-  --lab-pill-active-text: #007AFF;
+  --lab-pill-active-text: #0066FF;
   --lab-pill-active-shadow: 0 2px 8px rgba(15, 23, 42, 0.10);
 
   /* ---------- RADIUS (Concentric Hierarchy) ---------- */
@@ -165,10 +128,10 @@
   --radius-sub: 12px;
   --radius-sm: 8px;
 
-  /* ---------- TYPOGRAPHY SCALE ---------- */
+  /* ---------- TYPOGRAPHY SCALE (Strict Modern 2-Font System) ---------- */
   --font-scale: 1;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
   --font-stack: var(--font-sans);
   --text-2xs: 10px;
   --text-xs: 11px;
@@ -215,81 +178,85 @@
 
 /* ====================================================
    UNIFIED LIGHT THEME (html[data-theme="light"] & standard)
-   Frosted architectural white glass, slate ink, iOS system colors
+   Apple VisionOS Spatial Frosted Glass
    ==================================================== */
 [data-theme="light"] {
   --background: #F1F5F9;
   --foreground: #0F172A;
   --card: #FFFFFF;
-  --border: #CBD5E1;
+  --border: rgba(15, 23, 42, 0.08);
   --muted-foreground: #475569;
 
   --app-bg: #E2E8F0;
   --bg-grouped: #F1F5F9;
-  --surface: rgba(244, 247, 251, 0.94);
-  --surface-strong: rgba(244, 247, 251, 0.96);
+  --surface: rgba(248, 250, 252, 0.88);
+  --surface-strong: rgba(248, 250, 252, 0.94);
   --surface-solid: #FFFFFF;
   --surface-raised: #FFFFFF;
-  --surface-inset: #F8FAFC;
-  --scrim: rgba(15, 23, 42, 0.28);
-  --overlay: rgba(15, 23, 42, 0.35);
+  --surface-inset: rgba(255, 255, 255, 0.72);
+  --scrim: rgba(15, 23, 42, 0.24);
+  --overlay: rgba(15, 23, 42, 0.32);
 
   --label: #0F172A;
   --label-strong: #020617;
-  --label-muted: #334155;
+  --label-muted: #475569;
   --label-secondary: #475569;
   --label-tertiary: #64748B;
   --icon: #334155;
   --on-accent: #FFFFFF;
 
-  --separator: #CBD5E1;
-  --hairline: #CBD5E1;
-  --hairline-soft: #E2E8F0;
+  --separator: rgba(15, 23, 42, 0.06);
+  --hairline: rgba(15, 23, 42, 0.06);
+  --hairline-soft: rgba(15, 23, 42, 0.04);
   --fill-subtle: rgba(15, 23, 42, 0.035);
-  --fill-control: #E2E8F0;
-  --fill-control-hover: #CBD5E1;
-  --fill-control-active: rgba(0, 122, 255, 0.14);
+  --fill-control: rgba(15, 23, 42, 0.06);
+  --fill-control-hover: rgba(15, 23, 42, 0.10);
+  --fill-control-active: rgba(0, 102, 255, 0.12);
 
-  --accent: #007AFF;
-  --accent-rgb: 0, 122, 255;
-  --accent-hover: #0066D6;
-  --accent-subtle: rgba(0, 122, 255, 0.14);
+  --accent: #0066FF;
+  --accent-rgb: 0, 102, 255;
+  --accent-hover: #0052CC;
+  --accent-subtle: rgba(0, 102, 255, 0.12);
   --info: #0284C7;
   --info-rgb: 2, 132, 199;
-  --good: #16A34A;
-  --good-rgb: 22, 163, 74;
-  --warn: #D97706;
-  --warn-rgb: 217, 119, 6;
-  --bad: #DC2626;
-  --bad-rgb: 220, 38, 38;
+  --good: #10B981;
+  --good-rgb: 16, 185, 129;
+  --warn: #F59E0B;
+  --warn-rgb: 245, 158, 11;
+  --bad: #EF4444;
+  --bad-rgb: 239, 68, 68;
 
-  --glass-base: 244, 247, 251;
-  --specular-alpha: 0.6;
-  --shadow-glass: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
-  --shadow-card: 0 2px 8px rgba(15, 23, 42, 0.08);
-  --shadow-popover: 0 12px 36px rgba(15, 23, 42, 0.12);
-  --shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.16);
+  --glass-base: 248, 250, 252;
+  --glass-blur: 32px;
+  --glass-saturate: 200%;
+  --specular-alpha: 0.72;
+  --border-glass: rgba(255, 255, 255, 0.88);
+  --shadow-surface-boundary: 0 0 0 1px rgba(255, 255, 255, 0.88), 0 22px 54px -12px rgba(15, 23, 42, 0.15), 0 6px 18px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --shadow-glass: 0 18px 42px -10px rgba(15, 23, 42, 0.13), 0 4px 14px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --shadow-card: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-popover: 0 20px 48px -10px rgba(15, 23, 42, 0.15), 0 4px 14px rgba(15, 23, 42, 0.06);
+  --shadow-modal: 0 28px 68px -12px rgba(15, 23, 42, 0.18), 0 8px 24px rgba(15, 23, 42, 0.07);
 
-  --lab-card-bg: rgba(244, 247, 251, 0.94);
-  --lab-card-blur: 24px;
-  --lab-card-saturate: 180%;
-  --lab-card-border: 1px solid rgba(255, 255, 255, 0.95);
+  --lab-card-bg: rgba(248, 250, 252, 0.88);
+  --lab-card-blur: 32px;
+  --lab-card-saturate: 200%;
+  --lab-card-border: 1px solid rgba(255, 255, 255, 0.88);
   --lab-card-radius: 24px;
-  --lab-card-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --lab-card-shadow: 0 18px 42px -10px rgba(15, 23, 42, 0.13), 0 4px 14px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.92);
 
-  --lab-badge-bg: rgba(0, 122, 255, 0.12);
-  --lab-badge-icon: #007AFF;
+  --lab-badge-bg: rgba(0, 102, 255, 0.10);
+  --lab-badge-icon: #0066FF;
   --lab-title-color: #0F172A;
   --lab-subtitle-color: #475569;
 
-  --lab-section-bg: #FFFFFF;
-  --lab-section-border: 1px solid #CBD5E1;
+  --lab-section-bg: rgba(255, 255, 255, 0.78);
+  --lab-section-border: 1px solid rgba(255, 255, 255, 0.92);
   --lab-section-radius: 18px;
-  --lab-section-divider: #E2E8F0;
+  --lab-section-divider: transparent;
 
-  --lab-pill-bg: #E2E8F0;
+  --lab-pill-bg: rgba(15, 23, 42, 0.06);
   --lab-pill-active-bg: #FFFFFF;
-  --lab-pill-active-text: #007AFF;
+  --lab-pill-active-text: #0066FF;
   --lab-pill-active-shadow: 0 2px 8px rgba(15, 23, 42, 0.10);
 
   color-scheme: light;
@@ -300,88 +267,99 @@
    True smoked liquid glass, high contrast crisp white & slate labels
    ==================================================== */
 [data-theme="dark"] {
-  --background: #0B0F19;
-  --foreground: #F8FAFC;
-  --card: #1E293B;
-  --border: #334155;
-  --muted-foreground: #94A3B8;
+  --background: #121214;
+  --foreground: #FFFFFF;
+  --card: #1C1C1E;
+  --border: rgba(84, 84, 88, 0.60);
+  --muted-foreground: rgba(235, 235, 245, 0.60);
 
-  --app-bg: #0F172A;
-  --bg-grouped: #1E293B;
-  --surface: rgba(15, 23, 42, 0.88);
-  --surface-strong: rgba(15, 23, 42, 0.94);
-  --surface-solid: #1E293B;
-  --surface-raised: #334155;
-  --surface-inset: #0F172A;
+  --app-bg: #000000;
+  --bg-grouped: #1C1C1E;
+  --surface: rgba(28, 28, 30, var(--glass-opacity, 0.92));
+  --surface-strong: rgba(28, 28, 30, 0.96);
+  --surface-solid: #1C1C1E;
+  --surface-raised: #2C2C2E;
+  --surface-inset: #121214;
   --scrim: rgba(0, 0, 0, 0.65);
   --overlay: rgba(0, 0, 0, 0.70);
 
-  --label: #F8FAFC;
+  --label: #FFFFFF;
   --label-strong: #FFFFFF;
-  --label-muted: #94A3B8;
-  --label-secondary: #CBD5E1;
-  --label-tertiary: #64748B;
-  --icon: #CBD5E1;
+  --label-muted: rgba(235, 235, 245, 0.60);
+  --label-secondary: rgba(235, 235, 245, 0.60);
+  --label-tertiary: rgba(235, 235, 245, 0.30);
+  --icon: rgba(235, 235, 245, 0.85);
   --on-accent: #FFFFFF;
 
-  --separator: #334155;
-  --hairline: #334155;
-  --hairline-soft: #1E293B;
+  --separator: rgba(84, 84, 88, 0.60);
+  --hairline: rgba(84, 84, 88, 0.60);
+  --hairline-soft: rgba(84, 84, 88, 0.35);
   --fill-subtle: rgba(255, 255, 255, 0.05);
-  --fill-control: #334155;
-  --fill-control-hover: #475569;
-  --fill-control-active: rgba(0, 122, 255, 0.25);
+  --fill-control: rgba(120, 120, 128, 0.24);
+  --fill-control-hover: rgba(120, 120, 128, 0.36);
+  --fill-control-active: rgba(10, 132, 255, 0.25);
 
-  --accent: #007AFF;
-  --accent-rgb: 0, 122, 255;
+  --accent: #0A84FF;
+  --accent-rgb: 10, 132, 255;
   --accent-hover: #38BDF8;
-  --accent-subtle: rgba(0, 122, 255, 0.20);
+  --accent-subtle: rgba(10, 132, 255, 0.20);
   --info: #38BDF8;
   --info-rgb: 56, 189, 248;
-  --good: #22C55E;
-  --good-rgb: 34, 197, 94;
-  --warn: #F59E0B;
-  --warn-rgb: 245, 158, 11;
-  --bad: #EF4444;
-  --bad-rgb: 239, 68, 68;
+  --good: #30D158;
+  --good-rgb: 48, 209, 88;
+  --warn: #FF9F0A;
+  --warn-rgb: 255, 159, 10;
+  --bad: #FF453A;
+  --bad-rgb: 255, 69, 58;
 
-  --glass-base: 15, 23, 42;
+  --glass-base: 28, 28, 30;
   --specular-alpha: 0.25;
+  --border-glass: rgba(255, 255, 255, 0.16);
+  --shadow-surface-boundary: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 20px 50px rgba(0, 0, 0, 0.65);
   --shadow-glass: 0 12px 36px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-popover: 0 12px 36px rgba(0, 0, 0, 0.5);
   --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.65);
 
-  --lab-card-bg: rgba(15, 23, 42, 0.88);
+  --lab-card-bg: rgba(28, 28, 30, 0.92);
   --lab-card-blur: 24px;
   --lab-card-saturate: 180%;
-  --lab-card-border: 1px solid rgba(255, 255, 255, 0.12);
+  --lab-card-border: 1px solid rgba(255, 255, 255, 0.16);
   --lab-card-radius: 24px;
   --lab-card-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
 
-  --lab-badge-bg: rgba(0, 122, 255, 0.2);
-  --lab-badge-icon: #38BDF8;
-  --lab-title-color: #F8FAFC;
-  --lab-subtitle-color: #94A3B8;
+  --lab-badge-bg: rgba(10, 132, 255, 0.2);
+  --lab-badge-icon: #0A84FF;
+  --lab-title-color: #FFFFFF;
+  --lab-subtitle-color: rgba(235, 235, 245, 0.60);
 
-  --lab-section-bg: #1E293B;
-  --lab-section-border: 1px solid #334155;
+  --lab-section-bg: #1C1C1E;
+  --lab-section-border: 1px solid rgba(84, 84, 88, 0.60);
   --lab-section-radius: 18px;
-  --lab-section-divider: #334155;
+  --lab-section-divider: rgba(84, 84, 88, 0.60);
 
-  --lab-pill-bg: #334155;
-  --lab-pill-active-bg: #0F172A;
-  --lab-pill-active-text: #38BDF8;
+  --lab-pill-bg: rgba(120, 120, 128, 0.24);
+  --lab-pill-active-bg: #2C2C2E;
+  --lab-pill-active-text: #0A84FF;
   --lab-pill-active-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 
   color-scheme: dark;
 }
 
+.arscity-glass-bar {
+  background: var(--surface);
+  backdrop-filter: blur(var(--glass-blur, 32px)) saturate(200%);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 32px)) saturate(200%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-glass);
+  color: var(--label);
+}
+
 [data-theme="dark"] .arscity-glass-bar {
-  background: rgba(15, 23, 42, 0.88) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3) !important;
-  color: #F8FAFC !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border-glass) !important;
+  box-shadow: var(--shadow-glass) !important;
+  color: var(--label) !important;
 }
 
 /* HIGH CONTRAST MODE */
@@ -441,11 +419,15 @@ html, body, #root {
   color: var(--label);
   font-family: var(--font-sans);
   font-size: calc(14px * var(--font-scale));
+  letter-spacing: -0.015em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Strict Typography Enforcement: Max 2 Fonts across all screens and components */
 .font-sans {
   font-family: var(--font-sans) !important;
+  letter-spacing: -0.015em;
 }
 
 .font-mono {
@@ -455,6 +437,13 @@ html, body, #root {
 
 .font-serif {
   font-family: var(--font-sans) !important;
+}
+
+/* Category Uppercase Labels (Futuristic Clean & Precise) */
+.category-label,
+[class*="uppercase"],
+.uppercase {
+  letter-spacing: 0.04em;
 }
 
 /* 3D CANVAS VIEWPORT (Layer 1: Content Layer) */
@@ -495,29 +484,28 @@ html, body, #root {
    ==================================================== */
 :root,
 html[data-theme="light"],
-[data-theme="light"],
-[data-theme="dark"] {
-  --lab-card-bg: rgba(244, 247, 251, 0.95);
-  --lab-card-blur: 24px;
-  --lab-card-saturate: 180%;
-  --lab-card-border: 1px solid rgba(255, 255, 255, 0.95);
+[data-theme="light"] {
+  --lab-card-bg: rgba(248, 250, 252, 0.88);
+  --lab-card-blur: 32px;
+  --lab-card-saturate: 200%;
+  --lab-card-border: 1px solid rgba(255, 255, 255, 0.88);
   --lab-card-radius: 24px;
-  --lab-card-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --lab-card-shadow: 0 18px 42px -10px rgba(15, 23, 42, 0.13), 0 4px 14px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.92);
 
-  --lab-badge-bg: rgba(0, 122, 255, 0.12);
-  --lab-badge-icon: #007AFF;
+  --lab-badge-bg: rgba(0, 102, 255, 0.10);
+  --lab-badge-icon: #0066FF;
   --lab-title-color: #0F172A;
   --lab-subtitle-color: #475569;
 
-  --lab-section-bg: #FFFFFF;
-  --lab-section-border: 1px solid #CBD5E1;
+  --lab-section-bg: rgba(255, 255, 255, 0.78);
+  --lab-section-border: 1px solid rgba(255, 255, 255, 0.92);
   --lab-section-radius: 18px;
-  --lab-section-divider: #E2E8F0;
+  --lab-section-divider: transparent;
 
-  --lab-pill-bg: #E2E8F0;
-  --lab-pill-active-bg: rgba(0, 122, 255, 0.14);
-  --lab-pill-active-text: #007AFF;
-  --lab-pill-active-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
+  --lab-pill-bg: rgba(15, 23, 42, 0.06);
+  --lab-pill-active-bg: #FFFFFF;
+  --lab-pill-active-text: #0066FF;
+  --lab-pill-active-shadow: 0 2px 8px rgba(15, 23, 42, 0.10);
 }
 
 .interactive {
@@ -538,7 +526,7 @@ html[data-theme="light"],
 }
 
 [data-glass="tinted"] .glass-surface {
-  background: color-mix(in srgb, var(--accent) 7%, rgba(235, 242, 250, 0.72));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }
 
 /* PERFORMANCE-ADAPTIVE GLASS SURFACE (Phase 5) */
@@ -547,8 +535,8 @@ html[data-theme="light"],
 [data-reduced-motion="true"] .glass-surface {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
-  background: rgba(235, 242, 250, 0.96) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+  background: var(--surface-raised) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
 }
 
 /* FLOATING CAPSULE TOOLBARS & BARS */
@@ -567,10 +555,14 @@ html[data-theme="light"],
 .inset-group {
   background: var(--lab-section-bg);
   border-radius: var(--lab-section-radius);
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   overflow: hidden;
   border: var(--lab-section-border);
   margin-bottom: 12px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .inset-header {
@@ -593,8 +585,9 @@ html[data-theme="light"],
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--lab-section-divider);
+  padding: 10px 12px;
+  border-bottom: none;
+  border-radius: 12px;
   font-size: 13px;
   color: var(--lab-title-color);
   background: transparent;
@@ -611,11 +604,11 @@ html[data-theme="light"],
 }
 
 .inset-row-clickable:hover {
-  background: rgba(15, 23, 42, 0.04);
+  background: var(--fill-subtle);
 }
 
 .inset-row-clickable:active {
-  background: rgba(15, 23, 42, 0.08);
+  background: var(--fill-control);
 }
 
 /* ====================================================
@@ -947,11 +940,11 @@ input[type="range"].ios-slider:focus-visible {
   padding: 6px 14px;
   border-radius: var(--radius-capsule);
   pointer-events: auto;
-  background: rgba(235, 242, 250, 0.82);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 16px 40px rgba(15, 23, 42, 0.14);
+  background: rgba(248, 250, 252, 0.88);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-surface-boundary);
   color: #0F172A;
 }
 
@@ -971,11 +964,11 @@ input[type="range"].ios-slider:focus-visible {
   padding: 8px 6px;
   gap: 4px;
   border-radius: 24px;
-  background: rgba(244, 247, 251, 0.94);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
+  background: rgba(248, 250, 252, 0.88);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-surface-boundary);
   color: #0F172A;
   max-height: calc(100vh - 180px);
   overflow-y: auto;
@@ -1004,7 +997,7 @@ input[type="range"].ios-slider:focus-visible {
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: #334155;
+  color: var(--label);
   cursor: pointer;
   outline: none;
   transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -1012,8 +1005,8 @@ input[type="range"].ios-slider:focus-visible {
 
 .side-dock-btn:hover,
 .side-dock-btn.active {
-  background: rgba(0, 122, 255, 0.12);
-  color: #007AFF;
+  background: var(--fill-control-active);
+  color: var(--accent);
   transform: scale(1.08);
 }
 
@@ -1038,8 +1031,8 @@ input[type="range"].ios-slider:focus-visible {
   left: calc(100% + 12px);
   top: 50%;
   transform: translateY(-50%) translateX(-6px);
-  background: #FFFFFF !important;
-  color: #0F172A !important;
+  background: var(--surface-raised) !important;
+  color: var(--label) !important;
   font-size: 12px;
   font-weight: 600;
   padding: 6px 12px;
@@ -1050,8 +1043,8 @@ input[type="range"].ios-slider:focus-visible {
   visibility: hidden;
   transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
               transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid #CBD5E1 !important;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.10) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-popover) !important;
   z-index: var(--z-hud-popover);
 }
 
@@ -1081,22 +1074,22 @@ input[type="range"].ios-slider:focus-visible {
   display: flex;
   flex-direction: column;
   z-index: 45;
-  background: rgba(244, 247, 251, 0.86);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: rgba(248, 250, 252, 0.88);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.88);
   border-radius: var(--lab-card-radius);
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10), 0 1px 2px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--shadow-surface-boundary);
   color: #0F172A;
 }
 
 .inspector-header {
-  padding: 14px 18px;
+  padding: 16px 18px 10px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--lab-section-divider);
+  border-bottom: none;
   background: transparent;
 }
 
@@ -1131,7 +1124,7 @@ input[type="range"].ios-slider:focus-visible {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.35);
+  background: var(--scrim);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   display: flex;
@@ -1155,9 +1148,9 @@ input[type="range"].ios-slider:focus-visible {
 }
 
 .modal-sheet-header {
-  padding: 16px 20px;
+  padding: 18px 22px 12px 22px;
   background: transparent;
-  border-bottom: 1px solid var(--lab-section-divider);
+  border-bottom: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1179,29 +1172,29 @@ input[type="range"].ios-slider:focus-visible {
 .inspector-panel,
 .top-header,
 .top-header-capsule {
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.09), 0 20px 50px rgba(15, 23, 42, 0.16) !important;
+  box-shadow: var(--shadow-surface-boundary) !important;
 }
 
 /* ====================================================
    3D VIEWPORT LABELS (Non-glass, solid, tabular numbers)
    ==================================================== */
 .viewport-label {
-  background: rgba(28, 28, 30, 0.88);
-  color: #FFFFFF;
-  border: 0.5px solid rgba(255, 255, 255, 0.16);
+  background: var(--surface-raised);
+  color: var(--label);
+  border: 0.5px solid var(--border);
   border-radius: var(--radius-capsule);
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="light"] .viewport-label {
-  background: rgba(255, 255, 255, 0.92);
-  color: #000000;
-  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  background: var(--surface-raised);
+  color: var(--label);
+  border: 0.5px solid var(--border);
 }
 
 /* ====================================================
@@ -1299,19 +1292,19 @@ input[type="range"].ios-slider:focus-visible {
   :root {
     --glass-blur: 0px !important;
     --glass-opacity: 0.98 !important;
-    --surface: #0f172a !important;
-    --surface-raised: #1e293b !important;
-    --dock-bg: #0f172a !important;
-    --inspector-bg: #0f172a !important;
+    --surface: #ffffff !important;
+    --surface-raised: #f8fafc !important;
+    --dock-bg: #ffffff !important;
+    --inspector-bg: #ffffff !important;
   }
   [data-theme="light"] {
     --surface: #ffffff !important;
-    --surface-raised: #f1f5f9 !important;
+    --surface-raised: #f8fafc !important;
     --dock-bg: #ffffff !important;
     --inspector-bg: #ffffff !important;
   }
   .modal-overlay {
-    background: rgba(0, 0, 0, 0.88) !important;
+    background: var(--scrim) !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
@@ -1327,10 +1320,10 @@ input[type="range"].ios-slider:focus-visible {
 
 @media (prefers-contrast: more) {
   :root {
-    --hairline: rgba(255, 255, 255, 0.55) !important;
-    --label: #ffffff !important;
-    --label-secondary: #e2e8f0 !important;
-    --separator: rgba(255, 255, 255, 0.4) !important;
+    --hairline: rgba(0, 0, 0, 0.55) !important;
+    --label: #000000 !important;
+    --label-secondary: #0f172a !important;
+    --separator: rgba(0, 0, 0, 0.4) !important;
   }
   [data-theme="light"] {
     --hairline: rgba(0, 0, 0, 0.55) !important;
@@ -1345,10 +1338,10 @@ input[type="range"].ios-slider:focus-visible {
 
 /* Explicit high-contrast attribute toggle */
 [data-high-contrast="true"] {
-  --hairline: rgba(255, 255, 255, 0.55) !important;
-  --label: #ffffff !important;
-  --label-secondary: #e2e8f0 !important;
-  --separator: rgba(255, 255, 255, 0.4) !important;
+  --hairline: rgba(0, 0, 0, 0.55) !important;
+  --label: #000000 !important;
+  --label-secondary: #0f172a !important;
+  --separator: rgba(0, 0, 0, 0.4) !important;
 }
 [data-high-contrast="true"][data-theme="light"] {
   --hairline: rgba(0, 0, 0, 0.55) !important;

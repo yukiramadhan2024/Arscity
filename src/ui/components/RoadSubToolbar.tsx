@@ -87,7 +87,7 @@ export const RoadSubToolbar: React.FC = () => {
           </button>
         </div>
 
-        <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+        <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
 
         {/* Road Type Chips */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

@@ -1,16 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useUIStore } from '../state/useUIStore';
 import { ScreenshotExporter } from '../../io/ScreenshotExporter';
-import { Camera, X } from 'lucide-react';
+import { Camera, X, Sliders, Stamp } from 'lucide-react';
 
 export const PhotoModeOverlay: React.FC = () => {
-  const { engine, isPhotoMode, setIsPhotoMode } = useUIStore();
+  const { engine, isPhotoMode, setIsPhotoMode, cameraMode } = useUIStore();
+  const [resolution, setResolution] = useState<'1080p' | '1440p' | '4k'>('1080p');
+  const [enableTiltShift, setEnableTiltShift] = useState<boolean>(false);
+  const [showWatermark, setShowWatermark] = useState<boolean>(true);
 
-  if (!isPhotoMode) return null;
+  if (!isPhotoMode || cameraMode !== 'orbit') return null;
 
   const handleCapture = () => {
     if (!engine) return;
-    ScreenshotExporter.captureScreenshot(engine);
+    ScreenshotExporter.captureHighResPhoto(engine, {
+      resolution,
+      enableTiltShift,
+      showWatermark,
+      accumulationPasses: resolution === '4k' ? 2 : 2
+    });
   };
 
   return (
@@ -51,7 +59,7 @@ export const PhotoModeOverlay: React.FC = () => {
             Mode Foto Arsitektur
           </span>
           <span style={{ fontSize: '11px', color: '#475569' }}>
-            (Resolusi Tinggi Tanpa Antarmuka)
+            (Resolusi Tinggi Hingga 4K Tanpa Antarmuka)
           </span>
         </div>
 
@@ -84,13 +92,13 @@ export const PhotoModeOverlay: React.FC = () => {
           pointerEvents: 'none'
         }}
       >
-        <div style={{ position: 'absolute', top: '33.3%', left: 0, width: '100%', height: '0.5px', background: 'rgba(15, 23, 42, 0.12)' }} />
-        <div style={{ position: 'absolute', top: '66.6%', left: 0, width: '100%', height: '0.5px', background: 'rgba(15, 23, 42, 0.12)' }} />
-        <div style={{ position: 'absolute', left: '33.3%', top: 0, height: '100%', width: '0.5px', background: 'rgba(15, 23, 42, 0.12)' }} />
-        <div style={{ position: 'absolute', left: '66.6%', top: 0, height: '100%', width: '0.5px', background: 'rgba(15, 23, 42, 0.12)' }} />
+        <div style={{ position: 'absolute', top: '33.3%', left: 0, width: '100%', height: '0.5px', background: 'var(--hairline)' }} />
+        <div style={{ position: 'absolute', top: '66.6%', left: 0, width: '100%', height: '0.5px', background: 'var(--hairline)' }} />
+        <div style={{ position: 'absolute', left: '33.3%', top: 0, height: '100%', width: '0.5px', background: 'var(--hairline)' }} />
+        <div style={{ position: 'absolute', left: '66.6%', top: 0, height: '100%', width: '0.5px', background: 'var(--hairline)' }} />
       </div>
 
-      {/* Bottom Shutter Bar */}
+      {/* Bottom Shutter & Controls Bar */}
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <div
           className="interactive"
@@ -107,17 +115,88 @@ export const PhotoModeOverlay: React.FC = () => {
             gap: '12px'
           }}
         >
+          {/* Resolution Selector */}
+          <div style={{ display: 'flex', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', gap: '2px' }}>
+            {(['1080p', '1440p', '4k'] as const).map((res) => (
+              <button
+                key={res}
+                onClick={() => setResolution(res)}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  borderRadius: '9999px',
+                  background: resolution === res ? '#007AFF' : 'transparent',
+                  color: resolution === res ? '#FFFFFF' : '#475569',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {res.toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ width: '1px', height: '20px', background: '#CBD5E1' }} />
+
+          {/* Tilt Shift Toggle */}
+          <button
+            onClick={() => setEnableTiltShift(!enableTiltShift)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '11px',
+              fontWeight: 600,
+              borderRadius: '9999px',
+              background: enableTiltShift ? '#E0F2FE' : 'transparent',
+              color: enableTiltShift ? '#0369A1' : '#475569',
+              border: enableTiltShift ? '1px solid #7DD3FC' : '1px solid transparent',
+              cursor: 'pointer'
+            }}
+          >
+            <Sliders size={13} strokeWidth={1.75} />
+            <span>Tilt-Shift Miniatur</span>
+          </button>
+
+          {/* Watermark Toggle */}
+          <button
+            onClick={() => setShowWatermark(!showWatermark)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '11px',
+              fontWeight: 600,
+              borderRadius: '9999px',
+              background: showWatermark ? '#F1F5F9' : 'transparent',
+              color: showWatermark ? '#0F172A' : '#94A3B8',
+              border: '1px solid transparent',
+              cursor: 'pointer'
+            }}
+          >
+            <Stamp size={13} strokeWidth={1.75} />
+            <span>Tanda Air Studio</span>
+          </button>
+
+          <div style={{ width: '1px', height: '20px', background: '#CBD5E1' }} />
+
+          {/* Shutter Button */}
           <button
             onClick={handleCapture}
             className="ios-btn ios-btn-primary"
             style={{
               padding: '8px 20px',
               fontSize: '13px',
-              fontWeight: 600
+              fontWeight: 600,
+              borderRadius: '9999px'
             }}
           >
             <Camera size={16} strokeWidth={1.75} />
-            <span>Ambil Foto PNG</span>
+            <span>Ambil Foto ({resolution.toUpperCase()})</span>
           </button>
         </div>
       </div>

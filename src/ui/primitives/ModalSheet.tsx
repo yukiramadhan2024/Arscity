@@ -60,7 +60,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             padding: '16px',
-            background: 'rgba(15, 23, 42, 0.35)',
+            background: 'var(--scrim)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
           }}
@@ -110,12 +110,12 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                       width: '32px',
                       height: '32px',
                       borderRadius: '8px',
-                      backgroundColor: '#FFFFFF',
-                      border: '1px solid #CBD5E1',
+                      backgroundColor: 'var(--surface-solid)',
+                      border: '1px solid var(--separator)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#007AFF',
+                      color: 'var(--accent)',
                       flexShrink: 0,
                     }}
                   >
@@ -128,7 +128,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                       margin: 0,
                       fontSize: '15px',
                       fontWeight: 600,
-                      color: '#0F172A',
+                      color: 'var(--label)',
                       letterSpacing: '-0.01em',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -142,7 +142,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                       style={{
                         margin: '2px 0 0 0',
                         fontSize: '11px',
-                        color: '#475569',
+                        color: 'var(--label-secondary)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',

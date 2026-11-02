@@ -460,9 +460,9 @@ export const LandscapeSubToolbar: React.FC = () => {
             width: '24px',
             height: '24px',
             borderRadius: '50%',
-            background: 'rgba(15, 23, 42, 0.06)',
+            background: 'var(--fill-control)',
             border: 'none',
-            color: '#64748B',
+            color: 'var(--label-tertiary)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -518,17 +518,17 @@ export const LandscapeSubToolbar: React.FC = () => {
                   width: '28px',
                   height: '28px',
                   borderRadius: '8px',
-                  background: isSel ? 'rgba(10, 132, 255, 0.20)' : 'rgba(15, 23, 42, 0.05)',
+                  background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: isSel ? '#007AFF' : '#475569'
+                  color: isSel ? 'var(--accent)' : 'var(--label-secondary)'
                 }}
               >
                 <Icon size={15} strokeWidth={1.8} />
               </div>
 
-              <span style={{ fontSize: '11px', fontWeight: isSel ? 700 : 600, color: '#0F172A', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: isSel ? 700 : 600, color: 'var(--label)', whiteSpace: 'nowrap' }}>
                 {item.label}
               </span>
             </motion.button>

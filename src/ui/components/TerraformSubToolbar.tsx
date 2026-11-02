@@ -152,12 +152,12 @@ export const TerraformSubToolbar: React.FC = () => {
             width: '24px',
             height: '24px',
             borderRadius: '50%',
-            background: 'rgba(15, 23, 42, 0.06)',
+            background: 'var(--fill-control)',
             border: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#64748B',
+            color: 'var(--label-tertiary)',
             cursor: 'pointer'
           }}
           title="Tutup Panel Terraform"
@@ -307,8 +307,8 @@ export const TerraformSubToolbar: React.FC = () => {
             fontSize: '11px',
             fontWeight: 600,
             border: contourActive ? '1px solid rgba(22, 163, 74, 0.4)' : '1px solid rgba(15, 23, 42, 0.1)',
-            background: contourActive ? 'rgba(34, 197, 94, 0.14)' : 'rgba(15, 23, 42, 0.05)',
-            color: contourActive ? '#15803D' : '#64748B',
+            background: contourActive ? 'var(--good-subtle)' : 'var(--fill-control)',
+            color: contourActive ? 'var(--good)' : 'var(--label-tertiary)',
             cursor: 'pointer',
             transition: 'all 0.15s ease'
           }}

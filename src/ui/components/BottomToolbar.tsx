@@ -107,6 +107,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
   const [roadDrawMode, setRoadDrawMode] = useState<'straight' | 'bezier'>('straight');
 
   // Zone Sub-tier state
+  const [hoveredToolIndex, setHoveredToolIndex] = useState<number | null>(null);
   const [activeZone, setActiveZone] = useState<ZoneType>('residential');
   const [activeLotSize, setActiveLotSize] = useState<string>('15×20m');
 
@@ -213,15 +214,19 @@ export const BottomToolbar: React.FC = React.memo(() => {
           zIndex: 'var(--z-hud)' as any
         }}
       >
-        {TOOLS.map((tool) => {
+        {TOOLS.map((tool, index) => {
           const Icon = tool.icon;
           const isActive = activeTool === tool.id;
+          const dist = hoveredToolIndex !== null ? Math.abs(index - hoveredToolIndex) : 999;
+          const dockScale = dist === 0 ? 1.20 : dist === 1 ? 1.10 : dist === 2 ? 1.04 : 1.0;
 
           return (
             <motion.button
               key={tool.id}
+              animate={{ scale: dockScale }}
+              transition={SPRING_TACTILE}
               whileTap={{ scale: 0.95 }}
-              whileHover={{ scale: 1.02 }}
+              onMouseEnter={() => setHoveredToolIndex(index)}
               onPointerDown={() => proceduralAudio.playTaptic('light')}
               onClick={() => {
                 if (activeTool === tool.id && tool.id !== 'select') {
@@ -241,7 +246,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
                 borderRadius: '9999px',
                 border: 'none',
                 background: 'transparent',
-                color: isActive ? '#007AFF' : '#334155',
+                color: isActive ? 'var(--accent)' : 'var(--label-secondary)',
                 cursor: 'pointer',
                 minWidth: '58px',
                 zIndex: 1
@@ -259,20 +264,20 @@ export const BottomToolbar: React.FC = React.memo(() => {
                     inset: 0,
                     borderRadius: '9999px',
                     border: '1px solid rgba(0, 122, 255, 0.40)',
-                    background: 'rgba(0, 122, 255, 0.14)',
+                    background: 'var(--accent-subtle)',
                     boxShadow: '0 1px 4px rgba(0, 122, 255, 0.15)',
                     zIndex: -1
                   }}
                 />
               )}
-              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? '#007AFF' : '#334155' }} />
+              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? 'var(--accent)' : 'currentColor' }} />
               <span
                 style={{
                   fontSize: '11px',
                   fontWeight: isActive ? 700 : 500,
                   whiteSpace: 'nowrap',
                   letterSpacing: '-0.01em',
-                  color: isActive ? '#007AFF' : '#334155'
+                  color: isActive ? 'var(--accent)' : 'currentColor'
                 }}
               >
                 {tool.label}
@@ -280,8 +285,6 @@ export const BottomToolbar: React.FC = React.memo(() => {
             </motion.button>
           );
         })}
-
-        <div style={{ width: '1px', height: '24px', background: '#CBD5E1', margin: '0 4px' }} />
 
         {/* Undo / Redo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -299,7 +302,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
               borderRadius: '50%',
               background: 'transparent',
               border: 'none',
-              color: '#334155',
+              color: 'var(--label)',
               opacity: canUndo ? 1 : 0.35,
               cursor: canUndo ? 'pointer' : 'not-allowed',
               display: 'flex',
@@ -309,7 +312,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
             title="Batal (Ctrl + Z)"
             aria-label="Batal"
           >
-            <Undo2 size={15} strokeWidth={2} style={{ color: '#334155' }} />
+            <Undo2 size={15} strokeWidth={2} style={{ color: 'currentColor' }} />
           </motion.button>
           <motion.button
             whileTap={canRedo ? { scale: 0.92 } : undefined}
@@ -325,7 +328,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
               borderRadius: '50%',
               background: 'transparent',
               border: 'none',
-              color: '#334155',
+              color: 'var(--label)',
               opacity: canRedo ? 1 : 0.35,
               cursor: canRedo ? 'pointer' : 'not-allowed',
               display: 'flex',
@@ -335,7 +338,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
             title="Ulangi (Ctrl + Y)"
             aria-label="Ulangi"
           >
-            <Redo2 size={15} strokeWidth={2} style={{ color: '#334155' }} />
+            <Redo2 size={15} strokeWidth={2} style={{ color: 'currentColor' }} />
           </motion.button>
         </div>
       </div>
@@ -523,9 +526,9 @@ export const BottomToolbar: React.FC = React.memo(() => {
                         width: '24px',
                         height: '24px',
                         borderRadius: '50%',
-                        background: 'rgba(15, 23, 42, 0.06)',
+                        background: 'var(--fill-control)',
                         border: 'none',
-                        color: '#64748B',
+                        color: 'var(--label-tertiary)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -701,7 +704,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
               </motion.button>
             </div>
 
-            <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+            <div style={{ width: '1px', height: '20px', background: 'var(--hairline)' }} />
 
             {/* Road Profiles */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto' }}>
@@ -736,7 +739,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
             <button
               onClick={() => setActiveTool('select')}
               onPointerDown={() => proceduralAudio.playTaptic('light')}
-              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(15, 23, 42, 0.06)', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <X size={12} />
             </button>
@@ -795,7 +798,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
               })}
             </div>
 
-            <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+            <div style={{ width: '1px', height: '20px', background: 'var(--hairline)' }} />
 
             {/* Lot Size Selector with layoutId indicator */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -847,7 +850,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
               </div>
             </div>
 
-            <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+            <div style={{ width: '1px', height: '20px', background: 'var(--hairline)' }} />
 
             <motion.button
               whileTap={{ scale: 0.95 }}
@@ -879,7 +882,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
             <button
               onClick={() => setActiveTool('select')}
               onPointerDown={() => proceduralAudio.playTaptic('light')}
-              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(15, 23, 42, 0.06)', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--fill-control)', border: 'none', color: 'var(--label-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <X size={12} />
             </button>

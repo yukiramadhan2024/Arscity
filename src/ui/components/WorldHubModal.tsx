@@ -372,11 +372,11 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           align-items: center;
           justify-content: center;
           padding: 20px;
-          background-color: rgba(15, 23, 42, 0.40);
+          background-color: var(--scrim);
           backdrop-filter: blur(28px) saturate(160%);
           -webkit-backdrop-filter: blur(28px) saturate(160%);
           box-sizing: border-box;
-          font-family: var(--font-sans, 'Inter', sans-serif);
+          font-family: var(--font-sans, 'Space Grotesk', sans-serif);
           user-select: none;
         }
         .wh-card-frame {
@@ -951,7 +951,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             position: 'fixed',
             inset: 0,
             zIndex: 200,
-            backgroundColor: 'rgba(15, 23, 42, 0.25)',
+            backgroundColor: 'var(--scrim)',
             backdropFilter: 'blur(28px)',
             WebkitBackdropFilter: 'blur(28px)',
             display: 'flex',

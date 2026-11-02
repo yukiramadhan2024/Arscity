@@ -1,0 +1,69 @@
+========================================================================
+AUDIT WARNA LATAR GELAP LITERAL ARSCITY (SRC/UI, SRC/APP)
+Total Temuan: 66
+Waktu Audit: 2026-11-02T04:41:00Z
+Target: T1.4 - Seragamkan seluruh antarmuka ke satu tema kaca putih terang
+========================================================================
+
+--- KATEGORI 1: OVERLAY / SCRIM MODAL (Ganti dengan var(--scrim) / var(--overlay)) ---
+src\app\index.css:1127 -> background: rgba(15, 23, 42, 0.35);
+src\app\index.css:1307 -> background: rgba(0, 0, 0, 0.88) !important;
+src\ui\components\SettingsModal.tsx:97 -> backgroundColor: 'rgba(15, 23, 42, 0.35)'
+src\ui\components\FirstPersonHUD.tsx:782 -> background: 'rgba(15, 23, 42, 0.32)'
+src\ui\components\FirstPersonHUD.tsx:1851 -> background: 'rgba(15, 23, 42, 0.35)'
+src\ui\components\FirstPersonHUD.tsx:1969 -> background: 'rgba(15, 23, 42, 0.45)'
+src\ui\components\FirstPersonHUD.tsx:2106 -> background: 'rgba(15, 23, 42, 0.4)'
+src\ui\components\SideUtilityDock.tsx:375 -> background: 'rgba(0, 0, 0, 0.45)'
+src\ui\components\WorldHubModal.tsx:375 -> background-color: rgba(15, 23, 42, 0.40)
+src\ui\components\WorldHubModal.tsx:954 -> backgroundColor: 'rgba(15, 23, 42, 0.25)'
+src\ui\primitives\ModalSheet.tsx:63 -> background: 'rgba(15, 23, 42, 0.35)'
+src\ui\components\CustomBuildingCreatorModal.tsx:4217 -> background: 'rgba(15, 23, 42, 0.45)'
+src\ui\components\CustomBuildingCreatorModal.tsx:4390 -> background: 'rgba(15, 23, 42, 0.4)'
+
+--- KATEGORI 2: TOMBOL & KONTROL (Ganti dengan var(--fill-control)) ---
+src\app\index.css:607 -> background: rgba(15, 23, 42, 0.04);
+src\app\index.css:611 -> background: rgba(15, 23, 42, 0.08);
+src\ui\components\SettingsModal.tsx:187 -> background: 'rgba(15, 23, 42, 0.06)'
+src\ui\components\BottomToolbar.tsx:529 -> background: 'rgba(15, 23, 42, 0.06)'
+src\ui\components\BottomToolbar.tsx:742 -> background: 'rgba(15, 23, 42, 0.06)'
+src\ui\components\BottomToolbar.tsx:885 -> background: 'rgba(15, 23, 42, 0.06)'
+src\ui\components\LandscapeSubToolbar.tsx:463 -> background: 'rgba(15, 23, 42, 0.06)'
+src\ui\components\LandscapeSubToolbar.tsx:521 -> background: isSel ? 'rgba(10, 132, 255, 0.20)' : 'rgba(15, 23, 42, 0.05)'
+src\ui\components\SnackbarHost.tsx:315 -> background: 'rgba(15, 23, 42, 0.06)'
+src\ui\components\TerraformSubToolbar.tsx:155 -> background: 'rgba(15, 23, 42, 0.06)'
+src\ui\components\TerraformSubToolbar.tsx:310 -> background: contourActive ? 'rgba(34, 197, 94, 0.14)' : 'rgba(15, 23, 42, 0.05)'
+src\ui\components\EmptyStateGuide.tsx:101 -> backgroundColor: 'rgba(0, 0, 0, 0.05)'
+src\ui\components\EmptyStateGuide.tsx:108 -> e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.09)'
+src\ui\components\EmptyStateGuide.tsx:111 -> e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)'
+src\ui\components\EmptyStateGuide.tsx:137 -> e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.06)'
+src\ui\components\CustomBuildingCreatorModal.tsx:2339 -> background: 'rgba(15, 23, 42, 0.05)'
+
+--- KATEGORI 3: PEMISAH / HAIRLINE (Ganti dengan var(--separator) / var(--hairline)) ---
+src\ui\components\BottomToolbar.tsx:707 -> background: 'rgba(15, 23, 42, 0.12)'
+src\ui\components\BottomToolbar.tsx:801 -> background: 'rgba(15, 23, 42, 0.12)'
+src\ui\components\BottomToolbar.tsx:853 -> background: 'rgba(15, 23, 42, 0.12)'
+src\ui\components\RoadSubToolbar.tsx:90 -> background: 'rgba(15, 23, 42, 0.12)'
+src\ui\components\ZoneSubToolbar.tsx:98 -> background: 'rgba(15, 23, 42, 0.12)'
+src\ui\components\ZoneSubToolbar.tsx:135 -> background: 'rgba(15, 23, 42, 0.12)'
+src\ui\components\CustomBuildingCreatorModal.tsx:3765 -> background: 'rgba(15, 23, 42, 0.08)'
+src\ui\components\SnackbarHost.tsx:184 -> background: 'rgba(15, 23, 42, 0.08)'
+src\ui\components\PhotoModeOverlay.tsx:95 -> background: 'rgba(15, 23, 42, 0.12)'
+src\ui\components\PhotoModeOverlay.tsx:96 -> background: 'rgba(15, 23, 42, 0.12)'
+src\ui\components\PhotoModeOverlay.tsx:97 -> background: 'rgba(15, 23, 42, 0.12)'
+src\ui\components\PhotoModeOverlay.tsx:98 -> background: 'rgba(15, 23, 42, 0.12)'
+
+--- KATEGORI 4: DEFECT INDEX.CSS PREFERS-REDUCED-TRANSPARENCY & THEME TOKENS ---
+src\app\index.css:1295 -> --surface: #0f172a !important; (BUG: mengunci surface gelap saat OS reduced transparency)
+src\app\index.css:1296 -> --surface-raised: #1e293b !important;
+src\app\index.css:1297 -> --dock-bg: #0f172a !important;
+src\app\index.css:1298 -> --inspector-bg: #0f172a !important;
+src\app\index.css:270 -> --background: #121214; (Struktur tema gelap - dipertahankan)
+src\app\index.css:1182 -> .viewport-label { background: rgba(28, 28, 30, 0.88); }
+
+--- KATEGORI 5: GLASS FOLDER CARDS DARK VARIANT ---
+src\components\ui\glass-folder-cards.tsx:998 -> background: rgba(0, 0, 0, .62);
+src\components\ui\glass-folder-cards.tsx:1006 -> background: linear-gradient(180deg, #2a2a2e 0%, #121214 100%);
+src\components\ui\glass-folder-cards.tsx:1076 -> background: linear-gradient(180deg, #2c2c30 0%, #1c1c1f 100%);
+src\components\ui\glass-folder-cards.tsx:1106 -> background: linear-gradient(180deg, rgba(0, 0, 0, .42) 0%, rgba(0, 0, 0, 0) 34%);
+src\components\ui\glass-folder-cards.tsx:1278 -> background: radial-gradient(120% 90% at 50% 0%, #3a3a3f 0%, #121214 55%, #050506 100%);
+src\components\ui\glass-folder-cards.tsx:1335 -> background: rgba(30, 30, 34, .72);
