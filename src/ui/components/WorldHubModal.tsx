@@ -50,7 +50,37 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [activeMenuMapId, setActiveMenuMapId] = useState<string | null>(null);
+  const [menuFlipUp, setMenuFlipUp] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!activeMenuMapId) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.wh-menu-popover') && !target.closest('.wh-menu-trigger')) {
+        setActiveMenuMapId(null);
+      }
+    };
+    window.addEventListener('mousedown', handleOutsideClick);
+    return () => window.removeEventListener('mousedown', handleOutsideClick);
+  }, [activeMenuMapId]);
+
+  const handleToggleMenu = (e: React.MouseEvent<HTMLButtonElement>, mapId: string) => {
+    e.stopPropagation();
+    if (activeMenuMapId === mapId) {
+      setActiveMenuMapId(null);
+      return;
+    }
+
+    const buttonRect = e.currentTarget.getBoundingClientRect();
+    const modalBody = e.currentTarget.closest('.wh-body') || e.currentTarget.closest('.wh-modal-content');
+    const containerBottom = modalBody ? modalBody.getBoundingClientRect().bottom : window.innerHeight;
+    const spaceBelow = containerBottom - buttonRect.bottom;
+
+    // Auto-flip upwards if remaining bottom space in modal is less than menu height (~160px)
+    setMenuFlipUp(spaceBelow < 160);
+    setActiveMenuMapId(mapId);
+  };
 
   useEffect(() => {
     refreshSavedMaps();
@@ -816,7 +846,8 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                       </button>
 
                       <button
-                        onClick={() => setActiveMenuMapId(activeMenuMapId === m.id ? null : m.id)}
+                        className="wh-menu-trigger"
+                        onClick={(e) => handleToggleMenu(e, m.id)}
                         style={{
                           width: '28px',
                           height: '28px',
@@ -836,10 +867,13 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
 
                       {activeMenuMapId === m.id && (
                         <div
+                          className="wh-menu-popover"
+                          data-flipped={menuFlipUp ? 'up' : 'down'}
                           style={{
                             position: 'absolute',
                             right: 0,
-                            top: '34px',
+                            top: menuFlipUp ? 'auto' : '34px',
+                            bottom: menuFlipUp ? '34px' : 'auto',
                             background: '#FFFFFF',
                             border: '1px solid #CBD5E1',
                             borderRadius: '12px',
@@ -847,6 +881,8 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                             padding: '4px',
                             zIndex: 30,
                             minWidth: '130px',
+                            maxHeight: 'min(180px, calc(100vh - 100px))',
+                            overflowY: 'auto',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '2px'
