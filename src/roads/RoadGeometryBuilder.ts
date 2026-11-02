@@ -15,6 +15,79 @@ export class RoadGeometryBuilder {
   private static tactileMaterial: THREE.MeshStandardMaterial | null = null;
   private static markingMaterial: THREE.MeshBasicMaterial | null = null;
   private static roadTextMaterial: THREE.MeshStandardMaterial | null = null;
+  private static roadTextMaterials: Map<string, THREE.MeshStandardMaterial> = new Map();
+
+  public static getRoadTextMaterial(roadName: string): THREE.MeshStandardMaterial {
+    const key = (roadName || 'JL. KOTA').toUpperCase().trim();
+    if (this.roadTextMaterials.has(key)) {
+      return this.roadTextMaterials.get(key)!;
+    }
+    const tex = ProceduralTextureGen.getRoadSurfaceNameTexture(key);
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0.95,
+      roughness: 0.85,
+      metalness: 0.05,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    });
+    this.roadTextMaterials.set(key, mat);
+    return mat;
+  }
+
+  public static resolveRoadName(edge: RoadEdge): string {
+    if (edge.name) return edge.name;
+
+    const ARTERIAL_NAMES = [
+      'JL. MALIOBORO',
+      'JL. MANGKUBUMI',
+      'JL. JEND. SUDIRMAN',
+      'JL. A. YANI',
+      'JL. DIPONEGORO',
+      'JL. VETERAN'
+    ];
+    const COLLECTOR_NAMES = [
+      'JL. KALIURANG',
+      'JL. GEJAYAN',
+      'JL. PALAGAN',
+      'JL. MATARAM',
+      'JL. SENOPATI',
+      'JL. KHA DAHLAN'
+    ];
+    const LOCAL_NAMES = [
+      'JL. KEMETIRAN',
+      'JL. DAGEN',
+      'JL. SOSROWIJAYAN',
+      'JL. PAJEKSAN',
+      'JL. PASAR KEMBANG'
+    ];
+    const ALLEY_NAMES = [
+      'GG. CEMPAKA',
+      'GG. KENANGA',
+      'GG. MAWAR',
+      'GG. MELATI'
+    ];
+
+    let hash = 0;
+    for (let i = 0; i < edge.id.length; i++) {
+      hash = (hash * 31 + edge.id.charCodeAt(i)) >>> 0;
+    }
+
+    if (edge.type === 'arterial') {
+      return ARTERIAL_NAMES[hash % ARTERIAL_NAMES.length];
+    } else if (edge.type === 'collector') {
+      return COLLECTOR_NAMES[hash % COLLECTOR_NAMES.length];
+    } else if (edge.type === 'local') {
+      return LOCAL_NAMES[hash % LOCAL_NAMES.length];
+    } else if (edge.type === 'alley') {
+      return ALLEY_NAMES[hash % ALLEY_NAMES.length];
+    }
+    return 'JL. KOTA';
+  }
 
   private static initMaterials(): void {
     if (this.asphaltMaterial) return;
@@ -38,7 +111,7 @@ export class RoadGeometryBuilder {
     this.curbMaterial = MaterialLibrary.getInstance().getMaterial('concrete', {
       roughness: 0.85,
       metalness: 0.05,
-      color: 0x94a3b8
+      color: 0x9e9e9e
     });
     this.curbMaterial.side = THREE.DoubleSide;
 
@@ -419,8 +492,12 @@ export class RoadGeometryBuilder {
       });
     }
 
-    // 2c. Clean White Stencil Road Text "MALIOBORO" on asphalt surface
-    if (edge.length >= 24 && this.roadTextMaterial && (edge.type === 'arterial' || edge.type === 'collector')) {
+    // 2c. Clean White Stencil Road Text on asphalt surface
+    if (edge.length >= 20 && (edge.type === 'arterial' || edge.type === 'collector' || edge.type === 'local')) {
+      const roadName = RoadGeometryBuilder.resolveRoadName(edge);
+      const textMat = RoadGeometryBuilder.getRoadTextMaterial(roadName);
+      const planeW = Math.max(5.5, Math.min(10.0, roadName.length * 0.42));
+      const planeH = 1.4;
       const step = Math.min(45, edge.length * 0.5);
       let d = step;
       while (d < edge.length) {
@@ -429,7 +506,8 @@ export class RoadGeometryBuilder {
         const segIdx = Math.min(segments, Math.floor(t * segments));
         const tan = tangents[segIdx];
 
-        const textPlane = new THREE.Mesh(new THREE.PlaneGeometry(6.5, 1.6), this.roadTextMaterial);
+        const textPlane = new THREE.Mesh(new THREE.PlaneGeometry(planeW, planeH), textMat);
+        textPlane.name = 'RoadSurfaceLabel';
         textPlane.rotateX(-Math.PI / 2);
         const roadAngle = Math.atan2(tan.x, tan.z);
         textPlane.rotateZ(-roadAngle + Math.PI / 2);
@@ -824,6 +902,19 @@ export class RoadGeometryBuilder {
     subsurfaceGroup.name = 'SubsurfaceDrainage';
     subsurfaceGroup.visible = false;
     group.add(subsurfaceGroup);
+
+    // Tahap 2 (T2.5): Freeze static matrices for road ribbon, curbs, markings, and static props
+    group.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        if (!child.userData?.isAnimated && !child.userData?.isDynamic) {
+          child.matrixAutoUpdate = false;
+          child.updateMatrix();
+        }
+      }
+    });
+    group.updateMatrix();
+    group.updateMatrixWorld(true);
+
     return group;
   }
 }

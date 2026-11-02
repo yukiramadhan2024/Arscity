@@ -8,13 +8,16 @@ import { BuildingCatalogRegistry, BuildingCatalogItem } from './BuildingCatalogR
 import { TectonicComponents } from './TectonicComponents';
 import { RoofMeshBuilder } from './builders/RoofMeshBuilder';
 import { FacadeMeshBuilder } from './builders/FacadeMeshBuilder';
+import { RoofEquipmentBuilder } from './builders/RoofEquipmentBuilder';
+import { LotContextBuilder } from './builders/LotContextBuilder';
+import { BuildingVariantGenerator } from './BuildingVariantGenerator';
 import { FirstPersonFurnitureBuilder, FIRST_PERSON_FURNITURE_CATALOG } from './FirstPersonFurnitureCatalog';
 import { InteriorInteractiveSystem } from './InteriorInteractiveSystem';
 
 export interface CachedMeshTemplate {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
-  layer?: 'exterior' | 'interior' | 'subsurface';
+  layer?: 'exterior' | 'detail_props' | 'interior' | 'subsurface' | 'lod2_massing';
 }
 
 /**
@@ -73,7 +76,7 @@ export class PrefabMeshBuilder {
    */
   public static optimizeBuildingGroup(
     group: THREE.Group,
-    layer: 'exterior' | 'interior' | 'subsurface' = 'exterior'
+    layer: 'exterior' | 'detail_props' | 'interior' | 'subsurface' | 'lod2_massing' = 'exterior'
   ): CachedMeshTemplate[] {
     group.updateMatrixWorld(true);
     const rootInv = group.matrixWorld.clone().invert();
@@ -135,6 +138,29 @@ export class PrefabMeshBuilder {
           }
         }
 
+        // Harmonize attributes (position, normal, uv, color) to guarantee mergeGeometries succeeds
+        const anyHasNormal = transformedGeos.some((g) => g.hasAttribute('normal'));
+        const anyHasUv = transformedGeos.some((g) => g.hasAttribute('uv'));
+        const allHaveUv = transformedGeos.every((g) => g.hasAttribute('uv'));
+        const anyHasColor = transformedGeos.some((g) => g.hasAttribute('color'));
+        const allHaveColor = transformedGeos.every((g) => g.hasAttribute('color'));
+
+        for (const g of transformedGeos) {
+          if (anyHasNormal && !g.hasAttribute('normal')) {
+            g.computeVertexNormals();
+          }
+          if (anyHasUv && !allHaveUv && !g.hasAttribute('uv')) {
+            const count = g.attributes.position.count;
+            g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(count * 2), 2));
+          }
+          if (anyHasColor && !allHaveColor && !g.hasAttribute('color')) {
+            const count = g.attributes.position.count;
+            const colors = new Float32Array(count * 3);
+            colors.fill(1.0);
+            g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+          }
+        }
+
         const merged = mergeGeometries(transformedGeos, false);
         for (const tg of transformedGeos) {
           tg.dispose();
@@ -181,11 +207,14 @@ export class PrefabMeshBuilder {
       const templates = this.geometryCache.get(cacheKey)!;
       this.instantiateFromTemplates(group, templates);
       this.attachPlacedFurniture(group, building);
+      this.attachEntrancePavingPath(group, building);
+      this.freezeStaticBuildingMeshes(group);
       return group;
     }
 
-    // 1. Build raw exterior shell
+    // 1. Build raw exterior shell & detail props
     const rawExterior = new THREE.Group();
+    const rawDetailProps = new THREE.Group();
 
     const item = BuildingCatalogRegistry.getBuilding(building.presetKey);
 
@@ -253,6 +282,19 @@ export class PrefabMeshBuilder {
         break;
     }
 
+    // 1b. Scatter realistic architectural rooftop equipment into rawDetailProps
+    const totalFloors = Math.max(1, building.floorCount || 1);
+    const flHeight = building.floorHeight || 3.8;
+    const roofBaseElev = 0.35 + totalFloors * flHeight;
+    RoofEquipmentBuilder.scatterRooftopEquipment(
+      rawDetailProps,
+      building,
+      building.width,
+      building.length,
+      roofBaseElev,
+      building.roofType || 'flat'
+    );
+
     // Foundation skirt belongs to exterior shell (Adaptive Terrain Plinth: 1.5m depth)
     const foundationSkirt = this.buildFoundationSkirt(
       building.width,
@@ -261,6 +303,18 @@ export class PrefabMeshBuilder {
       building.wallMaterial === 'brick' ? 'brick' : 'concrete'
     );
     rawExterior.add(foundationSkirt);
+
+    // Extract any facade micro-devices from rawExterior into rawDetailProps
+    const detailMeshes: THREE.Object3D[] = [];
+    rawExterior.traverse((child) => {
+      if (child.userData?.isDetailProp) {
+        detailMeshes.push(child);
+      }
+    });
+    for (const d of detailMeshes) {
+      if (d.parent) d.parent.remove(d);
+      rawDetailProps.add(d);
+    }
 
     // 2. Build raw interior details (Only for Floor 1 / Ground Floor to prevent duplicating furniture across upper floors)
     const rawInterior = new THREE.Group();
@@ -304,21 +358,108 @@ export class PrefabMeshBuilder {
     // 3. Subsurface foundation group: 0 polygons underground, 0 GPU draw calls
     const rawSubsurface = new THREE.Group();
 
+    // 4. Build raw LOD2 massing shell (12-20 triangles)
+    const rawLOD2 = this.buildLOD2MassingGroup(building);
+
     // Consolidate geometries per layer
     const extTemplates = this.optimizeBuildingGroup(rawExterior, 'exterior');
+    const detailTemplates = this.optimizeBuildingGroup(rawDetailProps, 'detail_props');
     const intTemplates = this.optimizeBuildingGroup(rawInterior, 'interior');
     const subTemplates = this.optimizeBuildingGroup(rawSubsurface, 'subsurface');
-    const allTemplates = [...extTemplates, ...intTemplates, ...subTemplates];
+    const lod2Templates = this.optimizeBuildingGroup(rawLOD2, 'lod2_massing');
+    const allTemplates = [
+      ...extTemplates,
+      ...detailTemplates,
+      ...intTemplates,
+      ...subTemplates,
+      ...lod2Templates
+    ];
     this.geometryCache.set(cacheKey, allTemplates);
 
     this.instantiateFromTemplates(group, allTemplates);
     this.attachPlacedFurniture(group, building);
+    this.attachEntrancePavingPath(group, building);
+    this.freezeStaticBuildingMeshes(group);
     return group;
+  }
+
+  /**
+   * Ultra-low-poly bounding massing shell for LOD2 (> 250m distance).
+   * Generates a 12-20 triangle bounding shell with baked facade impostor texture,
+   * completely replacing exterior shell, equipment, lot context, and interior.
+   */
+  public static buildLOD2MassingGroup(building: BuildingInstance): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'LOD2MassingGroup';
+    const w = building.width || 10;
+    const l = building.length || 10;
+    const floors = Math.max(1, building.floorCount || 1);
+    const flH = building.floorHeight || 3.8;
+    const plinthH = 0.35;
+    const totalH = plinthH + floors * flH;
+    const roofType = building.roofType || 'flat';
+
+    const wallColor = building.wallColor || '#f8fafc';
+    const impostorMat = MaterialLibrary.getInstance().getMaterial('impostor_facade', { color: wallColor });
+    const roofMat = this.getMaterial(building.roofMaterial || 'clay_tile');
+
+    // 1. Main Massing Box (12 triangles)
+    const boxGeo = new THREE.BoxGeometry(w, totalH, l);
+    MaterialLibrary.applyWorldScaleUVs(boxGeo, 4.0);
+    boxGeo.translate(0, totalH * 0.5, 0);
+
+    const boxMesh = new THREE.Mesh(boxGeo, [
+      impostorMat, // +X
+      impostorMat, // -X
+      roofMat,     // +Y (Roof deck)
+      impostorMat, // -Y (Bottom)
+      impostorMat, // +Z
+      impostorMat, // -Z
+    ]);
+    boxMesh.castShadow = true;
+    boxMesh.receiveShadow = true;
+    group.add(boxMesh);
+
+    // 2. Simplified Roof Cap if pitched (4-8 triangles)
+    if (roofType !== 'flat') {
+      const roofH = Math.min(6, w * 0.35);
+      const capGeo = RoofMeshBuilder.buildSimplifiedRoofCap(w, l, roofH, roofType);
+      if (capGeo) {
+        MaterialLibrary.applyWorldScaleUVs(capGeo, 2.0);
+        capGeo.translate(0, totalH, 0);
+        const capMesh = new THREE.Mesh(capGeo, roofMat);
+        capMesh.castShadow = true;
+        capMesh.receiveShadow = true;
+        group.add(capMesh);
+      }
+    }
+
+    return group;
+  }
+
+  /**
+   * Tahap 2 (T2.5): Freezes static meshes in building hierarchy to prevent per-frame CPU matrix recomputation.
+   * Keeps animated objects (doors, fans) dynamic.
+   */
+  public static freezeStaticBuildingMeshes(group: THREE.Group): void {
+    group.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        if (!child.userData?.isAnimated && !child.userData?.isDynamic) {
+          child.matrixAutoUpdate = false;
+          child.updateMatrix();
+        }
+      }
+    });
+    group.updateMatrix();
+    group.updateMatrixWorld(true);
   }
 
   public static instantiateFromTemplates(group: THREE.Group, templates: CachedMeshTemplate[]): void {
     const exteriorShell = new THREE.Group();
     exteriorShell.name = 'ExteriorShell';
+
+    const detailPropsGroup = new THREE.Group();
+    detailPropsGroup.name = 'DetailPropsGroup';
 
     const interiorDetails = new THREE.Group();
     interiorDetails.name = 'InteriorDetails';
@@ -327,9 +468,20 @@ export class PrefabMeshBuilder {
     subsurfaceFoundation.name = 'SubsurfaceFoundation';
     subsurfaceFoundation.visible = false; // Hidden underground by default until lens/section cut active
 
+    const dynamicFurnitureGroup = new THREE.Group();
+    dynamicFurnitureGroup.name = 'DynamicFurnitureGroup';
+
+    const lod2MassingGroup = new THREE.Group();
+    lod2MassingGroup.name = 'LOD2MassingGroup';
+    lod2MassingGroup.visible = false; // Hidden by default, only shown at distance >= 250m
+
     for (const it of templates) {
       const mesh = new THREE.Mesh(it.geometry, it.material);
       mesh.userData = { isSharedGeometry: true, layerType: it.layer || 'exterior' };
+
+      // Tahap 2 (T2.5): Freeze static matrix for consolidated non-animated meshes
+      mesh.matrixAutoUpdate = false;
+      mesh.updateMatrix();
 
       if (it.layer === 'interior') {
         mesh.castShadow = false; // Zero shadow map overdraw for indoor furniture
@@ -339,6 +491,14 @@ export class PrefabMeshBuilder {
         mesh.castShadow = false;
         mesh.receiveShadow = false;
         subsurfaceFoundation.add(mesh);
+      } else if (it.layer === 'detail_props') {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        detailPropsGroup.add(mesh);
+      } else if (it.layer === 'lod2_massing') {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        lod2MassingGroup.add(mesh);
       } else {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -346,12 +506,19 @@ export class PrefabMeshBuilder {
       }
     }
 
+    interiorDetails.add(dynamicFurnitureGroup);
     group.add(exteriorShell);
+    group.add(detailPropsGroup);
     group.add(interiorDetails);
     group.add(subsurfaceFoundation);
+    group.add(lod2MassingGroup);
+
     group.userData.exteriorShell = exteriorShell;
+    group.userData.detailPropsGroup = detailPropsGroup;
     group.userData.interiorDetails = interiorDetails;
     group.userData.subsurfaceFoundation = subsurfaceFoundation;
+    group.userData.dynamicFurnitureGroup = dynamicFurnitureGroup;
+    group.userData.lod2MassingGroup = lod2MassingGroup;
   }
 
   /**
@@ -360,14 +527,56 @@ export class PrefabMeshBuilder {
    * furniture is always rendered immediately, retains its individual userData/materials,
    * supports raycast hovering and deletion, and registers interactive seats.
    */
+  /**
+   * Adds ground paving access path from main entrance portal to nearest road / sidewalk.
+   */
+  public static attachEntrancePavingPath(group: THREE.Group, building: BuildingInstance | any): void {
+    if (group.getObjectByName('EntrancePavingPath')) return;
+
+    // Attach authentic lot ground context (commercial parking lot with striping & wheel stops, residential driveway & fence, public plaza)
+    LotContextBuilder.attachLotGroundContext(group, building, {
+      showParkedVehicles: false, // Strictly OFF by default
+      seed: building.userData?.variantSeed,
+    });
+
+    // Provide legacy EntrancePavingPath marker for compatibility
+    const halfL = (building.length || 10) * 0.5;
+    const pathW = Math.min(3.2, Math.max(1.8, (building.width || 10) * 0.35));
+    const pathL = 3.6;
+    const pathGeo = new THREE.BoxGeometry(pathW, 0.04, pathL);
+    const pathMat = MaterialLibrary.getInstance().getMaterial('paving', { color: '#94a3b8' });
+    const pathMesh = new THREE.Mesh(pathGeo, pathMat);
+    pathMesh.name = 'EntrancePavingPath';
+    pathMesh.position.set(0, 0.02, halfL + pathL * 0.5);
+    pathMesh.receiveShadow = true;
+    pathMesh.visible = false;
+    group.add(pathMesh);
+  }
+
   public static attachPlacedFurniture(group: THREE.Group, building: BuildingInstance | any): void {
     const placed = building.userData?.placedFurniture;
     if (!placed || !Array.isArray(placed) || placed.length === 0) return;
 
-    const interiorDetails = group.userData.interiorDetails || group;
+    let dynamicGroup = (group.getObjectByName('DynamicFurnitureGroup') || group.userData.dynamicFurnitureGroup) as THREE.Group;
+    if (!dynamicGroup) {
+      dynamicGroup = new THREE.Group();
+      dynamicGroup.name = 'DynamicFurnitureGroup';
+      if (group.userData.interiorDetails) {
+        group.userData.interiorDetails.add(dynamicGroup);
+      } else {
+        group.add(dynamicGroup);
+      }
+      group.userData.dynamicFurnitureGroup = dynamicGroup;
+    }
+
     const plinthH = building.plinthHeight ?? 0.35;
 
     for (const fur of placed) {
+      const existing = dynamicGroup.children.find((c) => c.userData?.furnitureId === fur.id);
+      if (existing) {
+        dynamicGroup.remove(existing);
+      }
+
       const furMesh = FirstPersonFurnitureBuilder.buildFurniture(fur.type);
       furMesh.position.set(fur.position[0], fur.position[1] + plinthH, fur.position[2]);
       furMesh.rotation.y = fur.rotationY || 0;
@@ -380,10 +589,12 @@ export class PrefabMeshBuilder {
         child.userData = {
           furnitureId: fur.id,
           type: fur.type,
-          buildingId: building.id
+          buildingId: building.id,
+          isSharedGeometry: true,
+          isSharedMaterial: true
         };
       });
-      interiorDetails.add(furMesh);
+      dynamicGroup.add(furMesh);
 
       // Register interactive seats if applicable
       const furItem = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === fur.type);
@@ -487,6 +698,12 @@ export class PrefabMeshBuilder {
     const rl = l + 1.4;
     const roofY = plinthH + h;
     this.buildModernGableRoof(group, rw, rl, roofY, 1.5, zincRoofMat);
+
+    // 8. Facade Equipment & Indonesian Elements
+    FacadeMeshBuilder.buildSplitACOutdoor(group, w * 0.5, plinthH + 1.2, -l * 0.2, 1);
+    FacadeMeshBuilder.buildDownspoutPipe(group, -w * 0.5 - 0.05, plinthH, plinthH + h, l * 0.5, 1);
+    FacadeMeshBuilder.buildElectricMeterPLN(group, w * 0.38, plinthH + 1.6, l * 0.5, 1);
+    FacadeMeshBuilder.buildExteriorWallSconce(group, -0.6, plinthH + 2.5, l * 0.5, 1);
   }
 
   // ==========================================================================
@@ -862,8 +1079,8 @@ export class PrefabMeshBuilder {
 
     const plinthH = 0.35;
     this.addBox(group, w + 0.6, plinthH, l + 0.6, 0, plinthH * 0.5, 0, plinthMat);
-    // Floor 1 slab
-    this.addBox(group, w - 0.1, 0.05, l - 0.1, 0, plinthH + 0.025, 0, floorWoodMat);
+    // Floor 1 structural subfloor slab (sits flush beneath interior finished floor, eliminating z-fighting)
+    this.addBox(group, w - 0.1, 0.05, l - 0.1, 0, plinthH - 0.025, 0, concreteMat);
     // Floor 2 structural slab
     this.addBox(group, w, 0.22, l, 0, plinthH + flH, 0, concreteMat);
 
@@ -1042,6 +1259,13 @@ export class PrefabMeshBuilder {
 
     // Commercial Signage Fascia Band above arcade entrance
     this.addBox(group, w + 0.2, 0.75, 0.3, 0, plinthH + flH - 0.2, l * 0.5 + 0.1, frameMat);
+    const signMat = this.getMaterial('storefront_sign', String(bld.id || 0));
+    this.addBox(group, w * 0.85, 0.60, 0.04, 0, plinthH + flH - 0.2, l * 0.5 + 0.26, signMat);
+    FacadeMeshBuilder.buildDownspoutPipe(group, -w * 0.5 - 0.05, plinthH, plinthH + totalH, l * 0.5, 1);
+    FacadeMeshBuilder.buildSplitACOutdoor(group, w * 0.38, plinthH + flH + 1.2, l * 0.5 + 0.05, 1);
+    FacadeMeshBuilder.buildElectricMeterPLN(group, -w * 0.42, plinthH + 1.5, l * 0.5 - arcadeSetback + 0.05, 1);
+    FacadeMeshBuilder.buildExteriorWallSconce(group, -w * 0.42, plinthH + flH * 0.5, colZ + 0.22, 1);
+    FacadeMeshBuilder.buildExteriorWallSconce(group, w * 0.42, plinthH + flH * 0.5, colZ + 0.22, 1);
 
     // 5. Floor 2: Tropical Timber Louvers
     const louver2 = TectonicComponents.buildTimberLouverScreen(w * 0.8, flH * 0.7, 10, 25);

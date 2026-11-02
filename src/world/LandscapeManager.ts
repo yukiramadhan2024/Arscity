@@ -101,6 +101,19 @@ export class LandscapeManager {
     this.items.set(item.id, item);
 
     const group = this.buildMeshForItem(item);
+
+    // Tahap 2 (T2.5): Freeze static matrix for landscape items
+    group.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        if (!child.userData?.isAnimated && !child.userData?.isDynamic) {
+          child.matrixAutoUpdate = false;
+          child.updateMatrix();
+        }
+      }
+    });
+    group.updateMatrix();
+    group.updateMatrixWorld(true);
+
     this.masterGroup.add(group);
     this.itemGroups.set(item.id, group);
 
@@ -155,6 +168,8 @@ export class LandscapeManager {
     const group = this.itemGroups.get(id);
     if (group) {
       group.position.copy(newPos);
+      group.updateMatrix();
+      group.updateMatrixWorld(true);
     }
     if (this.onLandscapeUpdated) {
       this.onLandscapeUpdated();

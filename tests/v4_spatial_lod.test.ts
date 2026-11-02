@@ -416,5 +416,96 @@ describe('Tahap 2: Render Jarak Bertingkat (3-Zone Spatial LOD) - T2.1 Verificat
       scene.remove(group);
     });
   });
+
+  describe('T2.5: Static Mesh Matrix Freezing', () => {
+    it('sets matrixAutoUpdate = false on static building meshes, roads, and landscape meshes', () => {
+      const bldGroup = buildingManager.getBuildingGroup('bld_lod_test')!;
+      const exterior = bldGroup.getObjectByName('ExteriorShell')!;
+
+      let staticMeshCount = 0;
+      exterior.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          expect(child.matrixAutoUpdate, 'Static building mesh must have matrixAutoUpdate === false').toBe(false);
+          staticMeshCount++;
+        }
+      });
+      expect(staticMeshCount).toBeGreaterThan(0);
+
+      // Verify landscape static meshes
+      const landscapeManager = new LandscapeManager(scene);
+      landscapeManager.addItem({
+        id: 'tree_static_test',
+        type: 'tree_tabebuya_pink',
+        position: new THREE.Vector3(5, 0, 5),
+      });
+
+      const treeGroup = landscapeManager.getItemGroup('tree_static_test')!;
+      let landscapeMeshCount = 0;
+      treeGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          expect(child.matrixAutoUpdate, 'Static landscape mesh must have matrixAutoUpdate === false').toBe(false);
+          landscapeMeshCount++;
+        }
+      });
+      expect(landscapeMeshCount).toBeGreaterThan(0);
+      landscapeManager.dispose();
+    });
+
+    it('does NOT freeze animated objects (door leaves, fan blades)', async () => {
+      const { InteriorMeshBuilder } = await import('../src/buildings/InteriorMeshBuilder');
+      const { InteriorLayoutFactory } = await import('../src/buildings/InteriorLayoutFactory');
+
+      const layouts = InteriorLayoutFactory.getLayoutForBuilding('house_36', 10, 10, 3.2, 1);
+      expect(layouts.length).toBeGreaterThan(0);
+
+      const floorGroup = InteriorMeshBuilder.buildFloorInterior(
+        layouts[0],
+        0.35,
+        3.2,
+        'bld_animated_test',
+        'residential',
+        new THREE.Vector3(0, 0, 0)
+      );
+
+      const doorLeaf = floorGroup.getObjectByName('DoorLeafMesh');
+      if (doorLeaf) {
+        expect(doorLeaf.userData?.isAnimated, 'Door leaf must be tagged as animated').toBe(true);
+        expect(doorLeaf.matrixAutoUpdate, 'Animated door leaf must have matrixAutoUpdate === true').toBe(true);
+      }
+
+      const fanBlade = floorGroup.getObjectByName('FanBlade_0');
+      if (fanBlade) {
+        expect(fanBlade.userData?.isAnimated, 'Fan blade must be tagged as animated').toBe(true);
+        expect(fanBlade.matrixAutoUpdate, 'Animated fan blade must have matrixAutoUpdate === true').toBe(true);
+      }
+    });
+
+    it('freezes attached placed furniture while keeping matrixWorld updated', () => {
+      buildingManager.attachFurniture('bld_lod_test', {
+        id: 'fur_matrix_chair',
+        type: 'dining_chair',
+        name: 'Kursi Makan',
+        position: [1, 0, 1],
+        rotationY: 0,
+        floorIndex: 1,
+      });
+
+      const bldGroup = buildingManager.getBuildingGroup('bld_lod_test')!;
+      const dynamicFur = bldGroup.getObjectByName('DynamicFurnitureGroup')!;
+      const chairGroup = dynamicFur.children.find((c) => c.userData?.furnitureId === 'fur_matrix_chair')!;
+      expect(chairGroup).toBeDefined();
+
+      chairGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          expect(child.matrixAutoUpdate, 'Placed furniture mesh must have matrixAutoUpdate === false').toBe(false);
+        }
+      });
+
+      // Detach furniture and ensure group updates
+      expect(buildingManager.detachFurniture('bld_lod_test', 'fur_matrix_chair')).toBe(true);
+      expect(dynamicFur.children.find((c) => c.userData?.furnitureId === 'fur_matrix_chair')).toBeUndefined();
+    });
+  });
 });
+
 

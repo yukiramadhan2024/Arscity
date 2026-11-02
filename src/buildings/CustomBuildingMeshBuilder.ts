@@ -21,7 +21,7 @@ export class CustomBuildingMeshBuilder {
 
     const wallMat = this.getMaterial(building.wallMaterial, building.wallColor);
     const plinthMat = this.getMaterial('concrete', '#475569');
-    const slabMat = this.getMaterial('concrete', '#94a3b8');
+    const slabMat = this.getMaterial(building.wallMaterial, building.wallColor || '#F8FAFC');
     const roofMat = this.getMaterial(building.roof?.material || 'roof_tile');
     const frameMat = this.getMaterial('frame');
     const glassMat = this.getMaterial('glass');
@@ -62,9 +62,9 @@ export class CustomBuildingMeshBuilder {
       const flH = floor.height;
       const poly = floor.footprint;
 
-      // Floor intermediate slab
+      // Floor intermediate slab (flush with wall in matching bright tone to prevent dark belt stripes)
       if (floor.floorIndex > 0) {
-        const slab = this.createExtrudedFloorPolygon(poly, flBaseY, 0.25, slabMat, 0.1);
+        const slab = this.createExtrudedFloorPolygon(poly, flBaseY, 0.25, slabMat, 0.0);
         rawExterior.add(slab);
       }
 
@@ -153,18 +153,33 @@ export class CustomBuildingMeshBuilder {
       (building as any).stairZones = stairZones;
     }
 
-    // 6. Optimize and instantiate into 3-group hierarchy (ExteriorShell, InteriorDetails, SubsurfaceFoundation)
+    // 6. Optimize and instantiate into group hierarchy (ExteriorShell, DetailProps, InteriorDetails, SubsurfaceFoundation, LOD2Massing)
+    const rawLOD2 = PrefabMeshBuilder.buildLOD2MassingGroup({
+      ...building,
+      width: groundFootprint.length >= 2 ? Math.max(...groundFootprint.map((p) => Math.abs(p.x))) * 2 : 10,
+      length: groundFootprint.length >= 2 ? Math.max(...groundFootprint.map((p) => Math.abs(p.y))) * 2 : 10,
+      floorCount: building.floors.length,
+      floorHeight: building.floors[0]?.height || 3.2,
+      roofType: building.roof?.type || 'flat',
+      wallMaterial: building.wallMaterial,
+      wallColor: building.wallColor,
+      roofMaterial: building.roof?.material || 'clay_tile',
+    } as any);
+
     const extTemplates = PrefabMeshBuilder.optimizeBuildingGroup(rawExterior, 'exterior');
     const intTemplates = PrefabMeshBuilder.optimizeBuildingGroup(rawInterior, 'interior');
     const subTemplates = PrefabMeshBuilder.optimizeBuildingGroup(rawSubsurface, 'subsurface');
+    const lod2Templates = PrefabMeshBuilder.optimizeBuildingGroup(rawLOD2, 'lod2_massing');
 
     PrefabMeshBuilder.instantiateFromTemplates(group, [
       ...extTemplates,
       ...intTemplates,
-      ...subTemplates
+      ...subTemplates,
+      ...lod2Templates,
     ]);
 
     PrefabMeshBuilder.attachPlacedFurniture(group, building as any);
+    PrefabMeshBuilder.freezeStaticBuildingMeshes(group);
 
     group.userData.stairZones = stairZones;
     return group;

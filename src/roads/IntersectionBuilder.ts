@@ -123,6 +123,11 @@ export class IntersectionBuilder {
     mesh.name = `Intersection_${node.id}`;
     mesh.userData = { nodeId: node.id, type: 'intersection' };
 
+    // Tahap 2 (T2.5): Freeze static matrix for road intersections
+    mesh.matrixAutoUpdate = false;
+    mesh.updateMatrix();
+    mesh.updateMatrixWorld(true);
+
     return mesh;
   }
 }

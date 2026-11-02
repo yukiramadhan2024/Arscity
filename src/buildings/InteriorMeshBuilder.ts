@@ -301,22 +301,45 @@ export class InteriorMeshBuilder {
         const doorLeafH = doorH - 0.02;
 
         if (doorType === 'swing') {
+          // 3D Door Frame (Jambs & Header)
+          const frameMat = darkSteelMat;
+          const jambGeo = new THREE.BoxGeometry(0.04, doorH, th + 0.02);
+          const jambL = new THREE.Mesh(jambGeo, frameMat);
+          jambL.position.set(doorCenter - doorW * 0.5 + 0.02, doorH * 0.5, 0);
+          subGroup.add(jambL);
+          const jambR = new THREE.Mesh(jambGeo, frameMat);
+          jambR.position.set(doorCenter + doorW * 0.5 - 0.02, doorH * 0.5, 0);
+          subGroup.add(jambR);
+          const headerGeo = new THREE.BoxGeometry(doorW, 0.04, th + 0.02);
+          const headerMesh = new THREE.Mesh(headerGeo, frameMat);
+          headerMesh.position.set(doorCenter, doorH - 0.02, 0);
+          subGroup.add(headerMesh);
+
           // HINGED SWING DOOR: Pivot group at the jamb edge
           const doorPivot = new THREE.Group();
+          doorPivot.name = 'DoorPivot';
+          doorPivot.userData = { isAnimated: true };
           doorPivot.position.set(doorCenter - doorW * 0.5 + 0.02, 0, 0);
 
           const leafGeo = new THREE.BoxGeometry(doorLeafW, doorLeafH, 0.04);
           const leafMesh = new THREE.Mesh(leafGeo, darkWoodMat);
+          leafMesh.name = 'DoorLeafMesh';
+          leafMesh.userData = { isAnimated: true };
           leafMesh.position.set(doorLeafW * 0.5, doorLeafH * 0.5, 0);
           leafMesh.castShadow = true;
           doorPivot.add(leafMesh);
 
-          // Brass/Steel door handle
+          // Metal door handle (both sides: front and back)
           const handleGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.12, 8);
-          const handleMesh = new THREE.Mesh(handleGeo, stainlessMat);
-          handleMesh.rotation.z = Math.PI * 0.5;
-          handleMesh.position.set(doorLeafW - 0.08, doorLeafH * 0.45, 0.035);
-          doorPivot.add(handleMesh);
+          const handleFront = new THREE.Mesh(handleGeo, stainlessMat);
+          handleFront.rotation.z = Math.PI * 0.5;
+          handleFront.position.set(doorLeafW - 0.08, doorLeafH * 0.45, 0.035);
+          doorPivot.add(handleFront);
+
+          const handleBack = new THREE.Mesh(handleGeo, stainlessMat);
+          handleBack.rotation.z = Math.PI * 0.5;
+          handleBack.position.set(doorLeafW - 0.08, doorLeafH * 0.45, -0.035);
+          doorPivot.add(handleBack);
 
           subGroup.add(doorPivot);
 
@@ -340,17 +363,23 @@ export class InteriorMeshBuilder {
         } else {
           // SLIDING GLASS DOOR: Two glass panels that slide horizontally left & right
           const slideGroup = new THREE.Group();
+          slideGroup.name = 'SlideDoorGroup';
+          slideGroup.userData = { isAnimated: true };
           slideGroup.position.set(doorCenter, 0, 0);
 
           const halfLeafW = doorLeafW * 0.5;
           const leftGeo = new THREE.BoxGeometry(halfLeafW, doorLeafH, 0.03);
           const leftMesh = new THREE.Mesh(leftGeo, glassMat);
+          leftMesh.name = 'SlideDoorLeft';
+          leftMesh.userData = { isAnimated: true };
           leftMesh.position.set(-halfLeafW * 0.5, doorLeafH * 0.5, 0);
           leftMesh.castShadow = true;
           slideGroup.add(leftMesh);
 
           const rightGeo = new THREE.BoxGeometry(halfLeafW, doorLeafH, 0.03);
           const rightMesh = new THREE.Mesh(rightGeo, glassMat);
+          rightMesh.name = 'SlideDoorRight';
+          rightMesh.userData = { isAnimated: true };
           rightMesh.position.set(halfLeafW * 0.5, doorLeafH * 0.5, 0);
           rightMesh.castShadow = true;
           slideGroup.add(rightMesh);
@@ -445,9 +474,13 @@ export class InteriorMeshBuilder {
 
         // 4 Wooden Fan Blades
         const bladesGroup = new THREE.Group();
+        bladesGroup.name = 'CeilingFanBlades';
+        bladesGroup.userData = { isAnimated: true };
         for (let bIdx = 0; bIdx < 4; bIdx++) {
           const bAngle = (bIdx * Math.PI) / 2;
           const blade = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.012, 0.12), woodMat);
+          blade.name = `FanBlade_${bIdx}`;
+          blade.userData = { isAnimated: true };
           blade.position.set(Math.cos(bAngle) * 0.38, -0.02, Math.sin(bAngle) * 0.38);
           blade.rotation.y = -bAngle;
           bladesGroup.add(blade);

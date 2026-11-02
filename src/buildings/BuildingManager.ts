@@ -141,6 +141,8 @@ export class BuildingManager {
     this.buildings.set(building.id, building);
 
     const group = this.buildMeshForInstance(building);
+    group.updateMatrix();
+    group.updateMatrixWorld(true);
     this.masterGroup.add(group);
     this.buildingGroups.set(building.id, group);
 
@@ -220,6 +222,8 @@ export class BuildingManager {
     }
 
     const newGroup = this.buildMeshForInstance(building);
+    newGroup.updateMatrix();
+    newGroup.updateMatrixWorld(true);
     this.masterGroup.add(newGroup);
     this.buildingGroups.set(building.id, newGroup);
 
@@ -284,9 +288,15 @@ export class BuildingManager {
         isSharedGeometry: true,
         isSharedMaterial: true
       };
+      if ((child as THREE.Mesh).isMesh) {
+        child.matrixAutoUpdate = false;
+        child.updateMatrix();
+      }
     });
 
     dynamicGroup.add(furMesh);
+    grp.updateMatrix();
+    grp.updateMatrixWorld(true);
 
     // Register interactive seats if applicable
     const furItem = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === furData.type);
@@ -333,6 +343,9 @@ export class BuildingManager {
         dynamicGroup.remove(child);
       }
     }
+
+    grp.updateMatrix();
+    grp.updateMatrixWorld(true);
 
     InteriorInteractiveSystem.getInstance().unregisterSeat(`seat_${furnitureId}`);
     return true;
