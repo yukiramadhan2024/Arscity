@@ -9,6 +9,9 @@ import type { BBox2D } from '../core/engine/SpatialHashGrid';
 
 import { springAnimator } from '../core/engine/SpringAnimator';
 import { InteriorInteractiveSystem } from './InteriorInteractiveSystem';
+import { MaterialLibrary } from '../materials/MaterialLibrary';
+import { FirstPersonFurnitureBuilder, FIRST_PERSON_FURNITURE_CATALOG } from './FirstPersonFurnitureCatalog';
+import type { PlacedFurnitureData } from '../core/commands/CityCommands';
 
 export class BuildingManager {
   public buildings: Map<string, BuildingInstance> = new Map();
@@ -21,6 +24,17 @@ export class BuildingManager {
 
   // Spatial Hash & Raycasting reference
   private raycastManager: RaycastManager | null = null;
+
+  // Tahap 2: 3-Zone Spatial LOD tracking & throttling
+  public lastLodTime: number = 0;
+  public lastLodCameraPosition: THREE.Vector3 = new THREE.Vector3(Infinity, Infinity, Infinity);
+  public buildingZones: Map<string, 0 | 1 | 2> = new Map();
+  public currentLodZoneCounts: { zone0: number; zone1: number; zone2: number; totalBuildings: number } = {
+    zone0: 0,
+    zone1: 0,
+    zone2: 0,
+    totalBuildings: 0,
+  };
 
   // Chunk-based Partitioning & BatchedMesh Optimization
   public static readonly CHUNK_SIZE: number = 64;
@@ -223,6 +237,107 @@ export class BuildingManager {
     this.notifyStatsChanged();
   }
 
+  /**
+   * B2: Dynamically attaches placed furniture directly into the building's DynamicFurnitureGroup
+   * without rebuilding the whole building group or invalidating caches.
+   */
+  public attachFurniture(buildingId: string, furData: PlacedFurnitureData): THREE.Group | null {
+    const bld = this.buildings.get(buildingId);
+    const grp = this.buildingGroups.get(buildingId);
+    if (!bld || !grp) return null;
+
+    bld.userData = bld.userData || {};
+    bld.userData.placedFurniture = bld.userData.placedFurniture || [];
+    if (!bld.userData.placedFurniture.some((f: PlacedFurnitureData) => f.id === furData.id)) {
+      bld.userData.placedFurniture.push(furData);
+    }
+
+    let dynamicGroup = grp.getObjectByName('DynamicFurnitureGroup') as THREE.Group;
+    if (!dynamicGroup) {
+      dynamicGroup = new THREE.Group();
+      dynamicGroup.name = 'DynamicFurnitureGroup';
+      grp.add(dynamicGroup);
+      grp.userData.dynamicFurnitureGroup = dynamicGroup;
+    }
+
+    // Remove old mesh with same id if already present
+    const existing = dynamicGroup.children.find((c) => c.userData?.furnitureId === furData.id);
+    if (existing) {
+      dynamicGroup.remove(existing);
+    }
+
+    const furMesh = FirstPersonFurnitureBuilder.buildFurniture(furData.type);
+    const plinthH = bld.plinthHeight ?? 0.35;
+    furMesh.position.set(furData.position[0], furData.position[1] + plinthH, furData.position[2]);
+    furMesh.rotation.y = furData.rotationY || 0;
+    furMesh.userData = {
+      furnitureId: furData.id,
+      type: furData.type,
+      buildingId: bld.id
+    };
+    furMesh.traverse((child) => {
+      child.userData = {
+        furnitureId: furData.id,
+        isFurniture: true,
+        type: furData.type,
+        buildingId: bld.id,
+        isSharedGeometry: true,
+        isSharedMaterial: true
+      };
+    });
+
+    dynamicGroup.add(furMesh);
+
+    // Register interactive seats if applicable
+    const furItem = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === furData.type);
+    if (furItem?.isSeat) {
+      const rot = bld.rotationY || 0;
+      const bldPos = bld.position || new THREE.Vector3();
+      const worldX = bldPos.x + (furData.position[0] * Math.cos(rot) - furData.position[2] * Math.sin(rot));
+      const worldZ = bldPos.z + (furData.position[0] * Math.sin(rot) + furData.position[2] * Math.cos(rot));
+      const worldY = bldPos.y + plinthH + furData.position[1];
+
+      InteriorInteractiveSystem.getInstance().registerSeat({
+        id: `seat_${furData.id}`,
+        type: (furData.type.includes('sofa') ? 'sofa' : 'chair') as any,
+        buildingId: bld.id,
+        label: furItem.name,
+        worldPosition: new THREE.Vector3(worldX, worldY, worldZ),
+        facingAngle: (furData.rotationY || 0) + rot,
+        floorIndex: furData.floorIndex || 1
+      });
+    }
+
+    springAnimator.triggerLocalFurnitureSpring(furMesh, false, 200);
+    return furMesh;
+  }
+
+  /**
+   * B2: Dynamically detaches placed furniture from the building's DynamicFurnitureGroup
+   */
+  public detachFurniture(buildingId: string, furnitureId: string): boolean {
+    const bld = this.buildings.get(buildingId);
+    const grp = this.buildingGroups.get(buildingId);
+    if (!bld || !grp) return false;
+
+    if (bld.userData?.placedFurniture) {
+      bld.userData.placedFurniture = bld.userData.placedFurniture.filter(
+        (f: PlacedFurnitureData) => f.id !== furnitureId
+      );
+    }
+
+    const dynamicGroup = grp.getObjectByName('DynamicFurnitureGroup') as THREE.Group;
+    if (dynamicGroup) {
+      const child = dynamicGroup.children.find((c) => c.userData?.furnitureId === furnitureId);
+      if (child) {
+        dynamicGroup.remove(child);
+      }
+    }
+
+    InteriorInteractiveSystem.getInstance().unregisterSeat(`seat_${furnitureId}`);
+    return true;
+  }
+
   private previewBackup: Map<string, Partial<BuildingInstance>> = new Map();
 
   public previewBuildingChanges(id: string, tempParams: Partial<BuildingInstance>): void {
@@ -314,6 +429,10 @@ export class BuildingManager {
     return this.buildings.get(this.selectedBuildingId) || null;
   }
 
+  public getBuilding(id: string): BuildingInstance | undefined {
+    return this.buildings.get(id);
+  }
+
   public getBuildingGroup(id: string): THREE.Group | undefined {
     return this.buildingGroups.get(id);
   }
@@ -385,6 +504,41 @@ export class BuildingManager {
       x: building.position.x + (v.x * cos - v.y * sin),
       y: building.position.z + (v.x * sin + v.y * cos),
     }));
+  }
+
+  /**
+   * Calculates the shortest distance in meters from camera (x, z) to the nearest edge
+   * of the building's 2D footprint polygon.
+   * Returns 0 if camera (x, z) is inside the building's footprint polygon.
+   */
+  public static getDistanceToBuildingFootprint(
+    building: BuildingInstance,
+    cameraPos: THREE.Vector3
+  ): number {
+    const footprint = BuildingManager.getBuildingWorldFootprint(building);
+    if (!footprint || footprint.length < 3) {
+      const halfDiag = Math.hypot(building.width, building.length) * 0.5;
+      const centerDist = Math.hypot(cameraPos.x - building.position.x, cameraPos.z - building.position.z);
+      return Math.max(0, centerDist - halfDiag);
+    }
+
+    const camPt: Vec2D = { x: cameraPos.x, y: cameraPos.z };
+    if (PolygonMath.isPointInPolygon(camPt, footprint)) {
+      return 0;
+    }
+
+    let minDist = Infinity;
+    const n = footprint.length;
+    for (let i = 0; i < n; i++) {
+      const p1 = footprint[i];
+      const p2 = footprint[(i + 1) % n];
+      const d = PolygonMath.distancePointToSegment(camPt, p1, p2);
+      if (d < minDist) {
+        minDist = d;
+      }
+    }
+
+    return minDist;
   }
 
   private notifyStatsChanged(): void {
@@ -484,41 +638,313 @@ export class BuildingManager {
   }
 
   /**
-   * Smart Hierarchical Distance & Mode LOD Culling (Lapis 1):
-   * - Hides interior details (stairs, furniture, partition walls) when distance >= lodCutoffDistance (default 60m),
-   *   unless in First-Person, Drone, or Section Cut mode.
-   * - Keeps subsurface foundation hidden unless X-Ray lens or Section Cut is active.
+   * Computes LOD zone with dual hysteresis to prevent flickering / thrashing:
+   * - Zone 0 (near): enter < 24m, exit > 27m
+   * - Zone 1 (mid): 27m to 65m (exit to Z2 > 68m, return to Z0 < 24m)
+   * - Zone 2 (far): > 65m (return to Z1 < 62m, return to Z0 < 24m)
+   */
+  public computeLODZoneWithHysteresis(currentZone: 0 | 1 | 2, dist: number): 0 | 1 | 2 {
+    if (currentZone === 0) {
+      if (dist > 27.0) {
+        return dist > 68.0 ? 2 : 1;
+      }
+      return 0;
+    } else if (currentZone === 1) {
+      if (dist < 24.0) return 0;
+      if (dist > 68.0) return 2;
+      return 1;
+    } else { // currentZone === 2
+      if (dist < 24.0) return 0;
+      if (dist < 62.0) return 1;
+      return 2;
+    }
+  }
+
+  /**
+   * Applies layer visibility and shared glass material references per building zone.
+   * G6 invariant: Visibility only alters rendering, never deletes data or changes collision.
+   */
+  public applyBuildingZoneVisibility(
+    grp: THREE.Group,
+    zone: 0 | 1 | 2,
+    currentIndoorBuildingId: string | null = null,
+    isIndoorHost: boolean = false,
+    kacaDekat?: THREE.Material,
+    kacaJauh?: THREE.Material
+  ): void {
+    const isSelected = grp.userData?.buildingId === this.selectedBuildingId;
+    const forceFullDetail = isSelected || isIndoorHost;
+
+    // 1. LOD2 Massing Check (> 250m)
+    const lod2Massing = grp.getObjectByName('LOD2MassingGroup') || grp.userData?.lod2MassingGroup;
+    const isLOD2Far = !forceFullDetail && zone === 2;
+
+    if (lod2Massing) {
+      lod2Massing.visible = isLOD2Far;
+    }
+
+    // Exterior shell visible in Zone 0, 1, or if LOD2 massing is not active
+    const ext = grp.getObjectByName('ExteriorShell') || grp.userData?.exteriorShell;
+    if (ext) {
+      ext.visible = !isLOD2Far || !lod2Massing;
+    }
+
+    // Detail props (window frames, balcony railings, equipment): visible in Zone 0 and 1
+    const details = grp.getObjectByName('DetailPropsGroup') || grp.userData?.detailPropsGroup;
+    if (details) {
+      details.visible = forceFullDetail || zone === 0 || zone === 1;
+    }
+
+    // Lot Ground Context: base visible in Zone 0 and 1, micro-props only in Zone 0
+    const lotContext = grp.getObjectByName('LotGroundContextGroup') || grp.userData?.lotGroundContext;
+    if (lotContext) {
+      lotContext.visible = forceFullDetail || zone !== 2;
+      const lotDetails = lotContext.getObjectByName('LotDetailProps') || lotContext.userData?.detailPropsGroup;
+      if (lotDetails) {
+        lotDetails.visible = forceFullDetail || zone === 0;
+      }
+    }
+
+    // Interior and placed furniture:
+    // When indoor focus is active (currentIndoorBuildingId !== null), ONLY host building gets interior/furniture visible.
+    // Otherwise, visible in Zone 0.
+    const showInteriorAndFurniture =
+      forceFullDetail ||
+      (currentIndoorBuildingId !== null ? isIndoorHost : zone === 0);
+
+    const interiorGroup = grp.getObjectByName('InteriorDetails') || grp.userData?.interiorDetails;
+    if (interiorGroup) {
+      interiorGroup.visible = showInteriorAndFurniture;
+    }
+
+    const dynamicFurniture = grp.getObjectByName('DynamicFurnitureGroup') || grp.userData?.dynamicFurnitureGroup;
+    if (dynamicFurniture) {
+      dynamicFurniture.visible = showInteriorAndFurniture;
+    }
+
+    // Glass material switching: Zone 0 uses kacaDekat, Zone 1 & 2 use kacaJauh
+    const matLib = MaterialLibrary.getInstance();
+    const glassNear = kacaDekat || matLib.kacaDekat;
+    const glassFar = kacaJauh || matLib.kacaJauh;
+
+    let glassMeshes: THREE.Mesh[] = grp.userData.windowGlassMeshes;
+    if (!glassMeshes) {
+      glassMeshes = [];
+      grp.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          const m = obj as THREE.Mesh;
+          const matName = (m.material as any)?.name;
+          if (
+            m.name === 'WindowGlass' ||
+            m.userData?.isWindowGlass ||
+            matName === 'kacaDekat' ||
+            matName === 'kacaJauh' ||
+            matName === 'glass' ||
+            matName === 'glass_lit' ||
+            matName === 'glass_dark'
+          ) {
+            m.userData.isWindowGlass = true;
+            glassMeshes.push(m);
+          }
+        }
+      });
+      grp.userData.windowGlassMeshes = glassMeshes;
+    }
+
+    const targetGlass = zone === 0 ? glassNear : glassFar;
+    for (const gm of glassMeshes) {
+      if (gm.material !== targetGlass) {
+        gm.material = targetGlass;
+      }
+    }
+  }
+
+  /**
+   * Tahap 2 (T2.1): Render Jarak Bertingkat (3-Zone Spatial LOD).
+   * - Throttled: runs every 120ms OR when camera displacement > 1.5m.
+   * - Calculates distance from camera (x, z) to nearest edge of the footprint polygon.
+   * - Three distance zones with dual hysteresis:
+   *   * Zone 0 (< 24m / 27m): Full detail, interior, furniture, window frames, shared kacaDekat.
+   *   * Zone 1 (27m - 65m, hysteresis 62m/68m): Shell & exterior details, hidden interior/furniture, shared kacaJauh.
+   *   * Zone 2 (> 65m): Masses, roof, culls small props/frames.
+   * - Indoor focus: host building forced to Zone 0, hides all other interiors.
+   */
+  public updateSpatialLOD(
+    cameraPosition: THREE.Vector3,
+    isFirstPerson: boolean = false,
+    currentIndoorBuildingId: string | null = null,
+    forceUpdate: boolean = false
+  ): boolean {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const displacement = cameraPosition.distanceTo(this.lastLodCameraPosition);
+    const timeElapsed = now - this.lastLodTime;
+
+    if (!forceUpdate && timeElapsed < 120 && displacement <= 1.5) {
+      return false; // Throttled: skipped LOD evaluation
+    }
+
+    this.lastLodTime = now;
+    this.lastLodCameraPosition.copy(cameraPosition);
+
+    let z0 = 0;
+    let z1 = 0;
+    let z2 = 0;
+
+    const matLib = MaterialLibrary.getInstance();
+    const kacaDekat = matLib.kacaDekat;
+    const kacaJauh = matLib.kacaJauh;
+
+    for (const [id, bld] of this.buildings.entries()) {
+      const grp = this.buildingGroups.get(id);
+      if (!grp) continue;
+
+      const isSelected = id === this.selectedBuildingId;
+      const isIndoorHost = currentIndoorBuildingId !== null && id === currentIndoorBuildingId;
+
+      // Distance to footprint edge (0 if inside footprint)
+      const dist = BuildingManager.getDistanceToBuildingFootprint(bld, cameraPosition);
+
+      // Determine LOD zone with dual hysteresis
+      let zone: 0 | 1 | 2;
+      if (isSelected || isIndoorHost) {
+        zone = 0;
+      } else {
+        const prevZone = this.buildingZones.get(id) ?? (dist < 24.0 ? 0 : dist > 65.0 ? 2 : 1);
+        zone = this.computeLODZoneWithHysteresis(prevZone, dist);
+      }
+
+      this.buildingZones.set(id, zone);
+      grp.userData.currentZone = zone;
+
+      if (zone === 0) z0++;
+      else if (zone === 1) z1++;
+      else z2++;
+
+      this.applyBuildingZoneVisibility(grp, zone, currentIndoorBuildingId, isIndoorHost, kacaDekat, kacaJauh);
+    }
+
+    this.currentLodZoneCounts = {
+      zone0: z0,
+      zone1: z1,
+      zone2: z2,
+      totalBuildings: this.buildings.size,
+    };
+
+    return true;
+  }
+
+  /**
+   * 3-Tier Architectural LOD & Micro-Prop Culling (Tahap V6):
+   * - LOD0 (< 80m): Full modular detail, facade equipment (AC outdoor, PLN meter, downspouts),
+   *   rooftop equipment (toren, solar arrays, chillers, vents), lot micro-props (wheel stops, grates),
+   *   and interior details (if < 60m or in first-person).
+   * - LOD1 (80m - 250m): Consolidated structural shell per material. Core walls, windows, roof, plinth,
+   *   and lot apron remain visible and sharp, but micro-equipment and props are culled.
+   * - LOD2 (> 250m): Simplified bounding massing shell (12-20 triangles) with baked facade impostor texture.
+   *   Culls full exterior shell, equipment, lot context, and interior for massive GPU polygon reduction.
+   * - Selected buildings and active section cuts force full LOD0.
    */
   public updateLOD(
     cameraPosition: THREE.Vector3,
     cameraMode: string = 'orbit',
     isSectionCutActive: boolean = false,
     isSubsurfaceLensActive: boolean = false,
-    lodCutoffDistance: number = 60
+    lodCutoffDistance: number = 60,
+    graphicsPreset: string = 'high'
   ): void {
     const cutoffSq = lodCutoffDistance * lodCutoffDistance;
     const fpThresholdSq = 80 * 80;
+
+    // Physical LOD thresholds in meters
+    const isEco = graphicsPreset === 'low';
+    const lod0Dist = isEco ? 60 : 80;
+    const lod1Dist = isEco ? 180 : 250;
+    const lod0DistSq = lod0Dist * lod0Dist;
+    const lod1DistSq = lod1Dist * lod1Dist;
 
     for (const [id, bld] of this.buildings.entries()) {
       const grp = this.buildingGroups.get(id);
       if (!grp) continue;
 
+      const isSelected = id === this.selectedBuildingId;
       const distSq = bld.position.distanceToSquared(cameraPosition);
 
-      // CULLING OPTIMIZATION: Drone mode must NOT enable all 300 interiors simultaneously!
-      // Only true if camera distance < 60m (Orbit or Drone), OR first_person < 80m, OR section cut active
-      const showInterior = isSectionCutActive ||
-        (distSq < cutoffSq) ||
+      // Force full detail if selected or section cut active
+      const forceFullDetail = isSelected || isSectionCutActive;
+
+      // 1. LOD2 Massing Check (> 250m)
+      const isLOD2 = !forceFullDetail && distSq >= lod1DistSq;
+      const lod2Massing = grp.getObjectByName('LOD2MassingGroup') || grp.userData?.lod2MassingGroup;
+
+      if (isLOD2 && lod2Massing) {
+        lod2Massing.visible = true;
+
+        const ext = grp.getObjectByName('ExteriorShell') || grp.userData?.exteriorShell;
+        if (ext) ext.visible = false;
+
+        const details = grp.getObjectByName('DetailPropsGroup') || grp.userData?.detailPropsGroup;
+        if (details) details.visible = false;
+
+        const lotContext = grp.getObjectByName('LotGroundContextGroup') || grp.userData?.lotGroundContext;
+        if (lotContext) lotContext.visible = false;
+
+        const interior = grp.getObjectByName('InteriorDetails') || grp.userData?.interiorDetails;
+        if (interior) interior.visible = false;
+
+        const dynamicFurniture = grp.getObjectByName('DynamicFurnitureGroup') || grp.userData?.dynamicFurnitureGroup;
+        if (dynamicFurniture) dynamicFurniture.visible = false;
+
+        const subsurface = grp.getObjectByName('SubsurfaceFoundation') || grp.userData?.subsurfaceFoundation;
+        if (subsurface) subsurface.visible = false;
+
+        continue;
+      }
+
+      // Not in LOD2: hide LOD2 massing shell
+      if (lod2Massing) {
+        lod2Massing.visible = false;
+      }
+
+      // Exterior shell is visible for LOD0 and LOD1
+      const ext = grp.getObjectByName('ExteriorShell') || grp.userData?.exteriorShell;
+      if (ext) ext.visible = true;
+
+      // 2. LOD0 vs LOD1 Check (< 80m vs 80m-250m)
+      const isLOD0 = forceFullDetail || distSq < lod0DistSq;
+      const details = grp.getObjectByName('DetailPropsGroup') || grp.userData?.detailPropsGroup;
+      if (details) {
+        details.visible = isLOD0;
+      }
+
+      // Lot Ground Context: base visible in LOD0/LOD1, micro-props only in LOD0
+      const lotContext = grp.getObjectByName('LotGroundContextGroup') || grp.userData?.lotGroundContext;
+      if (lotContext) {
+        lotContext.visible = true;
+        const lotDetails = lotContext.getObjectByName('LotDetailProps') || lotContext.userData?.detailPropsGroup;
+        if (lotDetails) {
+          lotDetails.visible = isLOD0;
+        }
+      }
+
+      // 3. Interior visibility (< 60m, or first_person / section cut)
+      const showInterior =
+        forceFullDetail ||
+        distSq < cutoffSq ||
         (cameraMode === 'first_person' && distSq < fpThresholdSq);
 
-      const showSubsurface = isSubsurfaceLensActive || isSectionCutActive;
-
-      const interiorGroup = grp.getObjectByName('InteriorDetails') || grp.userData.interiorDetails;
+      const interiorGroup = grp.getObjectByName('InteriorDetails') || grp.userData?.interiorDetails;
       if (interiorGroup) {
         interiorGroup.visible = showInterior;
       }
 
-      const subsurfaceGroup = grp.getObjectByName('SubsurfaceFoundation') || grp.userData.subsurfaceFoundation;
+      const dynamicFurniture = grp.getObjectByName('DynamicFurnitureGroup') || grp.userData?.dynamicFurnitureGroup;
+      if (dynamicFurniture) {
+        dynamicFurniture.visible = showInterior;
+      }
+
+      // Subsurface visibility
+      const showSubsurface = isSubsurfaceLensActive || isSectionCutActive;
+      const subsurfaceGroup = grp.getObjectByName('SubsurfaceFoundation') || grp.userData?.subsurfaceFoundation;
       if (subsurfaceGroup) {
         subsurfaceGroup.visible = showSubsurface;
       }

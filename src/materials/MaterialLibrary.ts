@@ -206,8 +206,52 @@ export class MaterialLibrary {
     colorAttr.needsUpdate = true;
   }
 
+  // Shared Singleton Glass Materials for 3-Zone Spatial LOD (Tahap 2)
+  public readonly kacaDekat: THREE.MeshPhysicalMaterial;
+  public readonly kacaJauh: THREE.MeshPhysicalMaterial;
+
   private constructor() {
-    // Singleton
+    this.kacaDekat = new THREE.MeshPhysicalMaterial({
+      name: 'kacaDekat',
+      color: new THREE.Color(0xdbeafe),
+      transparent: true,
+      opacity: 0.32,
+      roughness: 0.04,
+      metalness: 0.1,
+      transmission: 0.65,
+      ior: 1.52,
+      reflectivity: 0.90,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.03,
+      envMapIntensity: 2.2,
+      depthWrite: false,
+    });
+    this.kacaDekat.userData.isSharedMaterial = true;
+
+    this.kacaJauh = new THREE.MeshPhysicalMaterial({
+      name: 'kacaJauh',
+      color: new THREE.Color(0x94a3b8),
+      transparent: true,
+      opacity: 0.88,
+      roughness: 0.10,
+      metalness: 0.15,
+      transmission: 0.10,
+      ior: 1.52,
+      reflectivity: 0.95,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.05,
+      envMapIntensity: 2.0,
+      depthWrite: true,
+    });
+    this.kacaJauh.userData.isSharedMaterial = true;
+  }
+
+  public static getKacaDekat(): THREE.MeshPhysicalMaterial {
+    return MaterialLibrary.getInstance().kacaDekat;
+  }
+
+  public static getKacaJauh(): THREE.MeshPhysicalMaterial {
+    return MaterialLibrary.getInstance().kacaJauh;
   }
 
   public static getInstance(): MaterialLibrary {
@@ -888,6 +932,12 @@ export class MaterialLibrary {
           opacity: options.opacity ?? 0.75,
         });
       }
+
+      case 'kacaDekat':
+        return this.kacaDekat as any;
+
+      case 'kacaJauh':
+        return this.kacaJauh as any;
 
       // Architectural PBR Glass (Ultra-Clear Reflective Sky Glass with Fresnel)
       case 'glass':

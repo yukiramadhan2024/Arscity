@@ -887,6 +887,15 @@ export class Engine {
     // Spring animations & Interactive 3D Handles
     this.springAnimator.update();
 
+    // Tahap 2 (T2.1): 3-Zone Spatial LOD with 120ms / 1.5m displacement throttling
+    const isFirstPerson = this.currentCameraMode === 'first_person';
+    const indoorId = this.firstPersonController ? this.firstPersonController.getInsideBuildingId() : null;
+    this.buildingManager.updateSpatialLOD(
+      this.cameraController.camera.position,
+      isFirstPerson,
+      indoorId
+    );
+
     // Lapis 1: Smart Hierarchical LOD (executed every 6 frames)
     this.lodFrameCount++;
     if (this.lodFrameCount % 6 === 0) {
