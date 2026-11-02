@@ -61,10 +61,17 @@ export interface InteractiveRoomFixture {
  */
 export class InteriorInteractiveSystem {
   private static instance: InteriorInteractiveSystem | null = null;
+  public static readonly MAX_ACTIVE_CEILING_LIGHTS: number = 0;
 
   public doors: Map<string, InteractiveDoor> = new Map();
   public seats: Map<string, InteractiveSeat> = new Map();
   public fixtures: Map<string, InteractiveRoomFixture> = new Map();
+  public ceilingLightPool: THREE.PointLight[] = [];
+  public ceilingLightMasterEnabled: boolean = false;
+  public activeIndoorBuildingId: string | null = null;
+
+  private scene: THREE.Scene | null = null;
+  private readonly _scratchLightPos: THREE.Vector3 = new THREE.Vector3();
 
   // Cached door open factor per building for physics analyzers (0.0 = all closed, 1.0 = all open)
   private buildingDoorFactors: Map<string, number> = new Map();
@@ -76,12 +83,54 @@ export class InteriorInteractiveSystem {
     return InteriorInteractiveSystem.instance;
   }
 
+  public setScene(scene: THREE.Scene): void {
+    this.scene = scene;
+    this.ensureCeilingLightPool();
+  }
+
+  private ensureCeilingLightPool(fallbackRoot?: THREE.Object3D | null): void {
+    while (this.ceilingLightPool.length < InteriorInteractiveSystem.MAX_ACTIVE_CEILING_LIGHTS) {
+      const light = new THREE.PointLight(0xffecd2, 2.2, 14, 1.4);
+      light.castShadow = false;
+      light.visible = false;
+      light.name = `PooledCeilingLight_${this.ceilingLightPool.length + 1}`;
+      this.ceilingLightPool.push(light);
+    }
+
+    const targetParent = this.scene || fallbackRoot || null;
+    if (targetParent) {
+      for (const light of this.ceilingLightPool) {
+        if (light.parent !== targetParent) {
+          targetParent.add(light);
+        }
+      }
+    }
+  }
+
+  public disableCeilingLights(): void {
+    for (const light of this.ceilingLightPool) {
+      light.visible = false;
+    }
+  }
+
+  public getActiveCeilingLightCount(): number {
+    return this.ceilingLightPool.filter((l) => l.visible).length;
+  }
+
   public registerDoor(door: InteractiveDoor): void {
     this.doors.set(door.id, door);
   }
 
   public registerSeat(seat: InteractiveSeat): void {
     this.seats.set(seat.id, seat);
+  }
+
+  public unregisterSeat(seatId: string): void {
+    this.seats.delete(seatId);
+  }
+
+  public unregisterDoor(doorId: string): void {
+    this.doors.delete(doorId);
   }
 
   public registerFixture(fixture: InteractiveRoomFixture): void {
@@ -112,14 +161,47 @@ export class InteriorInteractiveSystem {
     this.seats.clear();
     this.fixtures.clear();
     this.buildingDoorFactors.clear();
+    this.ceilingLightMasterEnabled = false;
+    this.activeIndoorBuildingId = null;
+    this.disableCeilingLights();
+  }
+
+  private resolveRootScene(obj?: THREE.Object3D | null): THREE.Object3D | null {
+    let cur: THREE.Object3D | null | undefined = obj;
+    let last: THREE.Object3D | null = null;
+    while (cur) {
+      last = cur;
+      cur = cur.parent;
+    }
+    return last;
+  }
+
+  /**
+   * Deactivated per T1.1: Ceiling PointLight pool is disabled to ensure active PointLight count is 0.
+   * Primary lighting uses single DirectionalLight (sun/moon) + HemisphereLight with emissive materials.
+   */
+  public updateCeilingLights(
+    playerPos: THREE.Vector3,
+    enabled: boolean,
+    activeBuildingId?: string | null
+  ): void {
+    this.disableCeilingLights();
   }
 
   /**
    * Evaluates proximity of player to all doors, seats, and room fixtures.
    * Updates animations smoothly with THREE.MathUtils.damp.
    */
-  public update(deltaTime: number, playerPos: THREE.Vector3, isFirstPerson: boolean): void {
+  public update(
+    deltaTime: number,
+    playerPos: THREE.Vector3,
+    isFirstPerson: boolean,
+    isCeilingLightOn?: boolean,
+    activeBuildingId?: string | null
+  ): void {
     const dt = Math.min(deltaTime, 0.1);
+    const effectiveLightOn = isCeilingLightOn !== undefined ? isCeilingLightOn : this.ceilingLightMasterEnabled;
+    const effectiveBldId = activeBuildingId !== undefined ? activeBuildingId : this.activeIndoorBuildingId;
 
     // 1. Process Doors
     const buildingRatios: Record<string, { sum: number; count: number }> = {};
@@ -208,12 +290,25 @@ export class InteriorInteractiveSystem {
       // Modulate light intensity
       if (fix.lightMesh && fix.lightMesh.material) {
         const mat = fix.lightMesh.material as THREE.MeshBasicMaterial;
-        const targetAlpha = fix.isOccupied ? 1.0 : 0.25;
+        const targetAlpha = fix.isOccupied || effectiveLightOn ? 1.0 : 0.25;
         if (mat.opacity !== undefined) {
           mat.opacity = THREE.MathUtils.damp(mat.opacity, targetAlpha, 4.0, dt);
         }
       }
     }
+
+    // 3. Update bounded max-2 ceiling PointLight pool
+    const shouldEnableLights =
+      isFirstPerson &&
+      effectiveLightOn &&
+      (activeBuildingId !== undefined
+        ? activeBuildingId === null
+          ? false
+          : true
+        : this.activeIndoorBuildingId === null && isCeilingLightOn === undefined
+          ? false
+          : true);
+    this.updateCeilingLights(playerPos, shouldEnableLights, effectiveBldId);
   }
 
   /**

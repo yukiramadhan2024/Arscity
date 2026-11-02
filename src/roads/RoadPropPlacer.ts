@@ -23,7 +23,7 @@ export interface RoadPropPlacementContext {
 export class RoadPropPlacer {
   private static lightPoleGeom: THREE.BufferGeometry | null = null;
   private static lightPoleMat: THREE.MeshStandardMaterial | null = null;
-  private static lampGlowMat: THREE.MeshBasicMaterial | null = null;
+  private static lampGlowMat: THREE.MeshStandardMaterial | THREE.MeshBasicMaterial | null = null;
   private static bulbGeom: THREE.BufferGeometry | null = null;
 
   private static treeTrunkGeom: THREE.BufferGeometry | null = null;
@@ -225,8 +225,12 @@ export class RoadPropPlacer {
       roughness: 0.35
     });
 
-    this.lampGlowMat = new THREE.MeshBasicMaterial({
-      color: 0xfef08a
+    this.lampGlowMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      emissive: new THREE.Color(0xfef08a),
+      emissiveIntensity: 0.05,
+      roughness: 0.25,
+      metalness: 0.1
     });
 
     // 2. Tropical Umbrella Shade Tree (Pohon Trembesi Malioboro Multi-Cluster)
@@ -299,16 +303,20 @@ export class RoadPropPlacer {
 
   /**
    * Sets street lamp glow state based on solar elevation angle.
-   * During evening/night, activates warm amber glow (0xfef08a).
+   * Smoothly ramps emissive intensity between dusk and night.
    */
   public static setNightGlow(factor: number): void {
     this.initMaterials();
     if (!this.lampGlowMat) return;
 
-    if (factor > 0) {
-      this.lampGlowMat.color.setHex(0xfef08a);
+    const clamped = THREE.MathUtils.clamp(factor, 0, 1);
+    if ('emissiveIntensity' in this.lampGlowMat) {
+      const mat = this.lampGlowMat as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = clamped * 2.5;
+      mat.emissive.setHex(0xfef08a);
+      mat.color.lerpColors(new THREE.Color(0x334155), new THREE.Color(0xfef08a), clamped);
     } else {
-      this.lampGlowMat.color.setHex(0x334155);
+      (this.lampGlowMat as any).color.setHex(clamped > 0 ? 0xfef08a : 0x334155);
     }
   }
 

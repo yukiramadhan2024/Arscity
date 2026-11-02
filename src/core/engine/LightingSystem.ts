@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { calculateSolarPosition, SolarCoordinates } from '../math/SolarPosition';
 import { GraphicsQuality } from './GraphicsPresets';
 import { MaterialLibrary } from '../../materials/MaterialLibrary';
@@ -62,8 +63,8 @@ export class LightingSystem {
     this.sunHelperMesh = new THREE.Mesh(sunGeom, sunMat);
     scene.add(this.sunHelperMesh);
 
-    // Atmospheric distant aerial perspective fog
-    this.scene.fog = new THREE.FogExp2(0xd8e2dc, 0.0008);
+    // Atmospheric distant aerial perspective fog - blends seamlessly into sky horizon
+    this.scene.fog = new THREE.FogExp2(0x7fb8f5, 0.0011);
 
     // Star dome for Obsidian Night sky
     const starCount = 600;
@@ -112,8 +113,8 @@ export class LightingSystem {
       if (ctx) {
         const grad = ctx.createLinearGradient(0, 0, 0, 256);
         // Zenit sky to twilight horizon to ground bounce
-        grad.addColorStop(0.0, '#3a7bd5'); // Deep sky blue
-        grad.addColorStop(0.45, '#87ceeb'); // Warm blue
+        grad.addColorStop(0.0, '#7292b8'); // Soft neutral architectural sky blue (prevents lavender tint)
+        grad.addColorStop(0.45, '#a4c2db'); // Warm neutral sky
         grad.addColorStop(0.70, '#ffd194'); // Golden sunset horizon
         grad.addColorStop(0.85, '#ff9a76'); // Warm terracotta dusk
         grad.addColorStop(1.0, '#4a5d23'); // Ground bounce reflection
@@ -142,6 +143,31 @@ export class LightingSystem {
         this.envMapRenderTarget = this.pmremGenerator.fromEquirectangular(canvasTexture);
         this.scene.environment = this.envMapRenderTarget.texture;
         canvasTexture.dispose();
+
+        // 2. Stream authentic Poly Haven 1K CC0 pure sky HDRI for photorealistic reflections & PBR bounce
+        try {
+          const rgbeLoader = new RGBELoader();
+          rgbeLoader.load(
+            '/assets/textures/sky/autumn_field_puresky_1k.hdr',
+            (hdrTexture) => {
+              if (!this.pmremGenerator) return;
+              hdrTexture.mapping = THREE.EquirectangularReflectionMapping;
+              const hdrTarget = this.pmremGenerator.fromEquirectangular(hdrTexture);
+              if (this.envMapRenderTarget) {
+                this.envMapRenderTarget.dispose();
+              }
+              this.envMapRenderTarget = hdrTarget;
+              this.scene.environment = this.envMapRenderTarget.texture;
+              hdrTexture.dispose();
+            },
+            undefined,
+            (err) => {
+              console.warn('[LightingSystem] Poly Haven CC0 HDRI load fallback:', err);
+            }
+          );
+        } catch {
+          // Procedural fallback environment remains safely active
+        }
       }
     } catch (err) {
       console.warn('[LightingSystem] PMREM Environment initialization error:', err);
@@ -191,50 +217,50 @@ export class LightingSystem {
       sun: new THREE.Color(0x2d3a55),
       sunIntensity: 0.10,
       ambient: new THREE.Color(0x111c33),
-      ambientIntensity: 0.18,
+      ambientIntensity: 0.15,
       hemiSky: new THREE.Color(0x162035),
       hemiGround: new THREE.Color(0x0a0f1d),
-      hemiIntensity: 0.25,
+      hemiIntensity: 0.20,
       fog: new THREE.Color(0x0b101e),
-      fogDensity: 0.0009
+      fogDensity: 0.0010
     };
 
     const C_DAWN = {
       sky: new THREE.Color(0x82a8cc), // Soft morning tropical sky blue
       sun: new THREE.Color(0xffd5b3), // Gentle warm sunrise gold
       sunIntensity: 2.2,
-      ambient: new THREE.Color(0x5e5c58), // Balanced warm neutral ambient
-      ambientIntensity: 0.38,
+      ambient: new THREE.Color(0x524e47), // Balanced warm neutral ambient
+      ambientIntensity: 0.35,
       hemiSky: new THREE.Color(0x9cb4cb), // Neutral soft sky hemisphere
-      hemiGround: new THREE.Color(0x423e32), // Neutral warm earth bounce
+      hemiGround: new THREE.Color(0x38342e), // Neutral warm earth bounce
       hemiIntensity: 0.85,
-      fog: new THREE.Color(0x94a8bc), // Atmospheric distant aerial haze
-      fogDensity: 0.0008
+      fog: new THREE.Color(0x8aa8c8),
+      fogDensity: 0.0009
     };
 
     const C_MIDDAY = {
       sky: new THREE.Color(0x5294e2), // Crisp clean tropical sky blue
       sun: new THREE.Color(0xfffaec), // Balanced natural sunlight
-      sunIntensity: 3.2,
-      ambient: new THREE.Color(0xfcfcfc),
-      ambientIntensity: 0.52,
+      sunIntensity: 3.2,              // Calibrated natural tropical sun
+      ambient: new THREE.Color(0x55524d), // Neutral warm ambient fill
+      ambientIntensity: 0.38,
       hemiSky: new THREE.Color(0x9ac4e6), // Natural daylight sky bounce
-      hemiGround: new THREE.Color(0x425826), // Foliage lawn ground bounce
-      hemiIntensity: 1.2,
-      fog: new THREE.Color(0xd8e2dc),
+      hemiGround: new THREE.Color(0x383e30), // Neutral foliage/earth bounce (no saturated tint)
+      hemiIntensity: 1.1,
+      fog: new THREE.Color(0x7fb8f5),
       fogDensity: 0.0008
     };
 
     const C_SENJA = {
-      sky: new THREE.Color(0xe28743), // Senja Emas Yogyakarta / Golden Hour
-      sun: new THREE.Color(0xff8c42), // Low golden orange #FF8C42
-      sunIntensity: 3.2,
-      ambient: new THREE.Color(0x7c5438), // Warm golden dusk
-      ambientIntensity: 0.45,
-      hemiSky: new THREE.Color(0xff8c42),
-      hemiGround: new THREE.Color(0x4e3620), // Warm terracotta and soil bounce
-      hemiIntensity: 1.3,
-      fog: new THREE.Color(0xe6a578),
+      sky: new THREE.Color(0xdc8a4d), // Senja Emas Yogyakarta / Golden Hour
+      sun: new THREE.Color(0xf5a265), // Warm natural golden sun
+      sunIntensity: 3.2,              // Balanced golden hour contrast
+      ambient: new THREE.Color(0x5a4d42), // Neutral warm dusk (zero purple cast)
+      ambientIntensity: 0.35,
+      hemiSky: new THREE.Color(0xff8c42), // Golden Hour sky bounce (Yogyakarta)
+      hemiGround: new THREE.Color(0x38342e), // Neutral warm soil/earth bounce
+      hemiIntensity: 1.1,
+      fog: new THREE.Color(0xd98b5a),
       fogDensity: 0.0008
     };
 
@@ -359,15 +385,16 @@ export class LightingSystem {
     }
 
     // Night Glow Factor for interior lights, streetlights, and stars
+    // Rises smoothly 17:30 to 18:30 (17.5 to 18.5), falls smoothly 05:00 to 06:00 (5.0 to 6.0)
     let nightGlowFactor = 0;
-    if (h >= 18.0 || h <= 5.0) {
+    if (h >= 18.5 || h <= 5.0) {
       nightGlowFactor = 1.0;
-    } else if (h > 5.0 && h < 6.5) {
-      nightGlowFactor = THREE.MathUtils.clamp(1.0 - (h - 5.0) / 1.5, 0, 1);
-    } else if (h >= 6.5 && h <= 17.25) {
+    } else if (h > 5.0 && h < 6.0) {
+      nightGlowFactor = THREE.MathUtils.clamp(1.0 - (h - 5.0) / 1.0, 0, 1);
+    } else if (h >= 6.0 && h <= 17.5) {
       nightGlowFactor = 0.0;
-    } else if (h > 17.25 && h < 18.0) {
-      nightGlowFactor = THREE.MathUtils.clamp((h - 17.25) / 0.75, 0, 1);
+    } else if (h > 17.5 && h < 18.5) {
+      nightGlowFactor = THREE.MathUtils.clamp((h - 17.5) / 1.0, 0, 1);
     }
 
     if (this.starPoints) {
@@ -389,16 +416,26 @@ export class LightingSystem {
 
   public updateCenter(targetCenter: THREE.Vector3, skipShadowDirty: boolean = false): void {
     const distSq = this.lastShadowCenter.distanceToSquared(targetCenter);
-    if (distSq > 4.0) { // > 2.0 meters shift threshold
+    if (distSq > 1.0) { // Snappier threshold for texel pinning
       this.lastShadowCenter.copy(targetCenter);
       const sunDistance = 220;
       const coords = this.currentSolarCoords;
-      const sunX = targetCenter.x + coords.direction.x * sunDistance;
-      const sunY = Math.max(2, targetCenter.y + coords.direction.y * sunDistance);
-      const sunZ = targetCenter.z + coords.direction.z * sunDistance;
+
+      // Shadow camera texel snapping:
+      // Snapping the light position & target to texel increments prevents crawling shadow shimmering
+      const mapSize = this.sunLight.shadow.mapSize.width || 2048;
+      const frustumSpan = (this.sunLight.shadow.camera.right - this.sunLight.shadow.camera.left) || 150;
+      const texelSize = Math.max(0.01, frustumSpan / mapSize);
+      const snappedX = Math.round(targetCenter.x / texelSize) * texelSize;
+      const snappedZ = Math.round(targetCenter.z / texelSize) * texelSize;
+      const snappedTarget = new THREE.Vector3(snappedX, targetCenter.y, snappedZ);
+
+      const sunX = snappedTarget.x + coords.direction.x * sunDistance;
+      const sunY = Math.max(2, snappedTarget.y + coords.direction.y * sunDistance);
+      const sunZ = snappedTarget.z + coords.direction.z * sunDistance;
 
       this.sunLight.position.set(sunX, sunY, sunZ);
-      this.sunLight.target.position.copy(targetCenter);
+      this.sunLight.target.position.copy(snappedTarget);
       this.sunLight.target.updateMatrixWorld();
 
       this.sunHelperMesh.position.set(sunX, sunY, sunZ);
@@ -429,14 +466,14 @@ export class LightingSystem {
       this.sunLight.shadow.normalBias = 0.02;
     } else if (preset === 'high') {
       mapSize = 2048;
-      shadowD = 65;
+      shadowD = 75;
       this.sunLight.shadow.bias = -0.0002;
-      this.sunLight.shadow.normalBias = 0.03;
+      this.sunLight.shadow.normalBias = 0.025;
     } else {
       mapSize = 1024;
       shadowD = 85;
-      this.sunLight.shadow.bias = -0.0005;
-      this.sunLight.shadow.normalBias = 0.05;
+      this.sunLight.shadow.bias = -0.0004;
+      this.sunLight.shadow.normalBias = 0.035;
     }
 
     this.sunLight.shadow.mapSize.width = mapSize;

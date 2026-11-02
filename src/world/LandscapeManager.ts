@@ -78,7 +78,12 @@ export class LandscapeManager {
   private itemGroups: Map<string, THREE.Group> = new Map();
   private nextId: number = 1;
 
+  public is2DSymbolMode: boolean = false;
   public onLandscapeUpdated?: () => void;
+
+  public set2DSymbolMode(enabled: boolean): void {
+    this.is2DSymbolMode = enabled;
+  }
 
   public get elements(): LandscapeItem[] {
     return Array.from(this.items.values());
@@ -108,6 +113,39 @@ export class LandscapeManager {
 
   public getItemMesh(id: string): THREE.Group | undefined {
     return this.itemGroups.get(id);
+  }
+
+  /**
+   * Checks whether a 2D position (x, z) falls inside any body of water, retention pond, or pool.
+   */
+  public isPositionInWater(x: number, z: number, padding: number = 0.5): boolean {
+    for (const item of this.items.values()) {
+      if (item.type === 'retention_pond') {
+        const hw = ((item.width || 16) / 2) + padding;
+        const hl = ((item.length || 16) / 2) + padding;
+        const dx = Math.abs(x - item.position.x);
+        const dz = Math.abs(z - item.position.z);
+        if (dx <= hw && dz <= hl) {
+          return true;
+        }
+      } else if (item.type === 'fountain_reflecting_pool') {
+        const rad = (item.radius || 4.2) + padding;
+        const dx = x - item.position.x;
+        const dz = z - item.position.z;
+        if (dx * dx + dz * dz <= rad * rad) {
+          return true;
+        }
+      } else if (item.type === 'river_segment') {
+        const hw = ((item.width || 12) / 2) + padding;
+        const hl = ((item.length || 20) / 2) + padding;
+        const dx = Math.abs(x - item.position.x);
+        const dz = Math.abs(z - item.position.z);
+        if (dx <= hw && dz <= hl) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   public updateItemPosition(id: string, newPos: THREE.Vector3): void {
@@ -660,7 +698,6 @@ export class LandscapeManager {
             const hexColor = mat.userData?.nightColor || m.userData?.nightColor || 0xffb347;
             mat.emissive.setHex(hexColor);
             mat.emissiveIntensity = clamped * 1.8;
-            mat.needsUpdate = true;
           }
         }
       });
