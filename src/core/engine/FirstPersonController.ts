@@ -4,6 +4,7 @@ import { Terrain } from '../../world/Terrain';
 import { InteriorInteractiveSystem, InteractiveSeat } from '../../buildings/InteriorInteractiveSystem';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { PolygonMath } from '../math/PolygonMath';
+import { isObjectHierarchyVisible } from './RaycastManager';
 import { BuildingInstance, PREFAB_CATALOG } from '../../buildings/PrefabTypes';
 import { LandscapeItem } from '../../world/LandscapeManager';
 import {
@@ -793,8 +794,19 @@ export class FirstPersonController {
       }
     }
 
-    // Query nearby chair/sofa
-    this.nearbySeat = InteriorInteractiveSystem.getInstance().getNearestSeat(this.position);
+    // Query nearby chair/sofa (must be hierarchy visible)
+    const seatCandidate = InteriorInteractiveSystem.getInstance().getNearestSeat(this.position);
+    if (seatCandidate && this.buildingManager) {
+      const seatBldGroup = this.buildingManager.getBuildingGroup(seatCandidate.buildingId);
+      const furGroup = seatBldGroup?.getObjectByName('DynamicFurnitureGroup') || seatBldGroup?.userData?.dynamicFurnitureGroup;
+      if (furGroup && !isObjectHierarchyVisible(furGroup)) {
+        this.nearbySeat = null;
+      } else {
+        this.nearbySeat = seatCandidate;
+      }
+    } else {
+      this.nearbySeat = seatCandidate;
+    }
 
     // Smooth horizontal velocity acceleration & deceleration (lambda = 14.0)
     const isSprinting = this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight');
@@ -1367,7 +1379,8 @@ export class FirstPersonController {
     if (isInside && this.insideBuildingId && this.buildingManager && !this.grabbedFurniture) {
       const bldGroup = this.buildingManager.getBuildingGroup(this.insideBuildingId);
       if (bldGroup) {
-        const hits = this.centerRaycaster.intersectObjects(bldGroup.children, true);
+        const hits = this.centerRaycaster.intersectObjects(bldGroup.children, true)
+          .filter((h) => isObjectHierarchyVisible(h.object));
         for (const hit of hits) {
           let cur: THREE.Object3D | null = hit.object;
           while (cur && cur !== bldGroup) {
@@ -1395,7 +1408,8 @@ export class FirstPersonController {
       const targets: THREE.Object3D[] = [];
       if (this.buildingManager) targets.push(this.buildingManager.masterGroup);
       if (this.terrain) targets.push(this.terrain.mesh);
-      const hits = this.centerRaycaster.intersectObjects(targets, true);
+      const hits = this.centerRaycaster.intersectObjects(targets, true)
+        .filter((h) => isObjectHierarchyVisible(h.object));
       if (hits.length > 0) {
         const hit = hits[0];
         this.currentPlacementTarget.copy(hit.point);
@@ -1409,7 +1423,8 @@ export class FirstPersonController {
     // 3. Active Tool: Material Painter
     if (this.activeTool === 'material_painter') {
       if (this.buildingManager) {
-        const hits = this.centerRaycaster.intersectObjects(this.buildingManager.masterGroup.children, true);
+        const hits = this.centerRaycaster.intersectObjects(this.buildingManager.masterGroup.children, true)
+          .filter((h) => isObjectHierarchyVisible(h.object));
         if (hits.length > 0) {
           const hit = hits[0];
           const isFloor = hit.face ? Math.abs(hit.face.normal.y) > 0.6 : false;
@@ -1435,7 +1450,8 @@ export class FirstPersonController {
       const bldGroup = this.buildingManager?.getBuildingGroup(this.insideBuildingId);
       if (!bld || !bldGroup) return;
 
-      const hits = this.centerRaycaster.intersectObjects(bldGroup.children, true);
+      const hits = this.centerRaycaster.intersectObjects(bldGroup.children, true)
+        .filter((h) => isObjectHierarchyVisible(h.object));
       const floorHit = hits.find(
         (h) => h.face && h.face.normal.y > 0.7 && !this.isPlacedFurnitureObject(h.object)
       );

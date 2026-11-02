@@ -345,4 +345,76 @@ describe('Tahap 2: Render Jarak Bertingkat (3-Zone Spatial LOD) - T2.1 Verificat
       expect(bld.userData?.placedFurniture.length).toBe(1);
     });
   });
+
+  describe('T2.4: Raycaster Filtering for Hidden Objects', () => {
+    it('isObjectHierarchyVisible returns false if any ancestor has visible = false', async () => {
+      const { isObjectHierarchyVisible } = await import('../src/core/engine/RaycastManager');
+
+      const root = new THREE.Group();
+      const parent = new THREE.Group();
+      const child = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+
+      root.add(parent);
+      parent.add(child);
+
+      expect(isObjectHierarchyVisible(child)).toBe(true);
+
+      // Hide parent: child.visible is still true, but hierarchy visibility is false
+      parent.visible = false;
+      expect(child.visible).toBe(true);
+      expect(isObjectHierarchyVisible(child)).toBe(false);
+
+      // Restore parent, hide root
+      parent.visible = true;
+      root.visible = false;
+      expect(isObjectHierarchyVisible(child)).toBe(false);
+
+      // Restore root
+      root.visible = true;
+      expect(isObjectHierarchyVisible(child)).toBe(true);
+    });
+
+    it('RaycastManager filters out objects inside hidden parent groups', async () => {
+      const { RaycastManager } = await import('../src/core/engine/RaycastManager');
+      const { GridSystem } = await import('../src/world/GridSystem');
+
+      const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+      camera.position.set(0, 0, 10);
+      camera.lookAt(0, 0, 0);
+
+      const mockDom = {
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+      } as unknown as HTMLElement;
+      const grid = new GridSystem(scene);
+      const raycastMgr = new RaycastManager(mockDom, camera, grid, scene);
+
+      const group = new THREE.Group();
+      const geom = new THREE.BoxGeometry(2, 2, 2);
+      const mat = new THREE.MeshBasicMaterial();
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(0, 0, 0);
+      group.add(mesh);
+      scene.add(group);
+
+      // Point mouse at center of screen (400, 300) -> NDC (0, 0)
+      raycastMgr.updateMousePosition(400, 300);
+
+      // Raycast objects
+      const hitsVisible = raycastMgr.raycastObjects([group]);
+      expect(hitsVisible.length).toBeGreaterThan(0);
+      expect(hitsVisible[0].object).toBe(mesh);
+
+      // Hide the parent group (LOD culled interior or furniture)
+      group.visible = false;
+
+      const hitsHidden = raycastMgr.raycastObjects([group]);
+      expect(hitsHidden.length).toBe(0);
+
+      raycastMgr.dispose();
+      scene.remove(group);
+    });
+  });
 });
+

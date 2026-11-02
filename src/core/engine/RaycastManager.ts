@@ -2,7 +2,21 @@ import * as THREE from 'three';
 import { GridSystem } from '../../world/GridSystem';
 import { SpatialHashGrid, BBox2D } from './SpatialHashGrid';
 
+/**
+ * Tahap 2 (T2.4): Checks whether an Object3D and all its ancestors up to root scene have visible === true.
+ * Three.js raycasting does NOT check parent/ancestor visibility when traversing child hierarchies.
+ */
+export function isObjectHierarchyVisible(obj: THREE.Object3D | null): boolean {
+  let curr: THREE.Object3D | null = obj;
+  while (curr) {
+    if (!curr.visible) return false;
+    curr = curr.parent;
+  }
+  return true;
+}
+
 export class RaycastManager {
+  public static isObjectHierarchyVisible = isObjectHierarchyVisible;
   private raycaster: THREE.Raycaster;
   private mouse: THREE.Vector2;
   private groundPlane: THREE.Plane;
@@ -149,12 +163,14 @@ export class RaycastManager {
         }
 
         if (filteredTargets.length > 0) {
-          return this.raycaster.intersectObjects(filteredTargets, true);
+          const hits = this.raycaster.intersectObjects(filteredTargets, true);
+          return hits.filter((h) => isObjectHierarchyVisible(h.object));
         }
       }
     }
 
-    return this.raycaster.intersectObjects(objects, true);
+    const hits = this.raycaster.intersectObjects(objects, true);
+    return hits.filter((h) => isObjectHierarchyVisible(h.object));
   }
 
   public dispose(): void {
