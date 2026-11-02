@@ -744,7 +744,107 @@ export class LandscapeManager {
     }
     this.items.clear();
     this.itemGroups.clear();
+    this.itemZones.clear();
     if (this.onLandscapeUpdated) this.onLandscapeUpdated();
+  }
+
+  public getItemGroup(id: string): THREE.Group | undefined {
+    return this.itemGroups.get(id);
+  }
+
+  // Tahap 2: 3-Zone Spatial LOD tracking for Landscape
+  public itemZones: Map<string, 0 | 1 | 2> = new Map();
+
+  /**
+   * Computes LOD zone with dual hysteresis for landscape objects:
+   * - Zone 0 (near): enter < 24m, exit > 27m
+   * - Zone 1 (mid): 27m to 65m (exit to Z2 > 68m, return to Z0 < 24m)
+   * - Zone 2 (far): > 65m (return to Z1 < 62m, return to Z0 < 24m)
+   */
+  public computeLODZoneWithHysteresis(currentZone: 0 | 1 | 2, dist: number): 0 | 1 | 2 {
+    if (currentZone === 0) {
+      if (dist > 27.0) {
+        return dist > 68.0 ? 2 : 1;
+      }
+      return 0;
+    } else if (currentZone === 1) {
+      if (dist < 24.0) return 0;
+      if (dist > 68.0) return 2;
+      return 1;
+    } else { // currentZone === 2
+      if (dist < 24.0) return 0;
+      if (dist < 62.0) return 1;
+      return 2;
+    }
+  }
+
+  /**
+   * Updates spatial LOD across all landscape items:
+   * - Zone 0 (< 24m / 27m): Full tree foliage (canopy clusters + fallen petal carpets / micro-twigs).
+   * - Zone 1 (27m - 65m, hysteresis 62m/68m): Trunk + main canopy clusters visible; micro-petals & twigs hidden.
+   * - Zone 2 (> 65m): Trunk + simplified canopy silhouette; accessories hidden.
+   * - Indoor focus: if player is inside building (currentIndoorBuildingId !== null),
+   *   small landscape props located > 35m from host building are hidden.
+   */
+  public updateSpatialLOD(
+    cameraPosition: THREE.Vector3,
+    currentIndoorBuildingId: string | null = null,
+    hostBuildingPos: THREE.Vector3 | null = null
+  ): void {
+    for (const [id, item] of this.items.entries()) {
+      const grp = this.itemGroups.get(id);
+      if (!grp) continue;
+
+      // 1. Indoor Room Focus check (T2.3):
+      if (currentIndoorBuildingId !== null && hostBuildingPos) {
+        const isSmallProp =
+          item.type.startsWith('street_') ||
+          item.type.startsWith('flora_') ||
+          item.type === 'biopore' ||
+          item.type === 'well' ||
+          item.type === 'shrub' ||
+          item.type === 'stepping_stones';
+
+        if (isSmallProp) {
+          const distToHost = item.position.distanceTo(hostBuildingPos);
+          if (distToHost > 35.0) {
+            grp.visible = false;
+            continue;
+          }
+        }
+      }
+
+      // 2. Standard 3-Zone distance calculation
+      const dist = item.position.distanceTo(cameraPosition);
+      const prevZone = this.itemZones.get(id) ?? (dist < 24.0 ? 0 : dist > 65.0 ? 2 : 1);
+      const zone = this.computeLODZoneWithHysteresis(prevZone, dist);
+      this.itemZones.set(id, zone);
+      grp.userData.currentZone = zone;
+      grp.visible = true;
+
+      // 3. Foliage micro-culling for trees
+      const isTree =
+        item.type === 'tree' ||
+        item.type === 'shade_tree' ||
+        item.type.startsWith('tree_');
+
+      if (isTree) {
+        grp.traverse((child) => {
+          if (child === grp) return;
+          const isDetail =
+            child.name === 'PetalMesh' ||
+            child.name.includes('Petal') ||
+            child.name.includes('Detail') ||
+            child.userData?.isDetail;
+
+          if (isDetail) {
+            child.visible = zone === 0;
+          } else {
+            child.visible = true;
+          }
+        });
+      }
+    }
   }
 
   public dispose(): void {
@@ -754,6 +854,7 @@ export class LandscapeManager {
     }
     this.items.clear();
     this.itemGroups.clear();
+    this.itemZones.clear();
     this.scene.remove(this.masterGroup);
   }
 }

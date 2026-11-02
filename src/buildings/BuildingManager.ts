@@ -733,16 +733,20 @@ export class BuildingManager {
       grp.traverse((obj) => {
         if ((obj as THREE.Mesh).isMesh) {
           const m = obj as THREE.Mesh;
-          const matName = (m.material as any)?.name;
-          if (
+          const mat = m.material as any;
+          const matName = mat?.name;
+          const isGlass =
             m.name === 'WindowGlass' ||
             m.userData?.isWindowGlass ||
             matName === 'kacaDekat' ||
             matName === 'kacaJauh' ||
             matName === 'glass' ||
             matName === 'glass_lit' ||
-            matName === 'glass_dark'
-          ) {
+            matName === 'glass_dark' ||
+            (mat && 'transmission' in mat && mat.transmission > 0) ||
+            (mat?.transparent && mat?.opacity < 0.8 && !m.name.includes('Petal'));
+
+          if (isGlass) {
             m.userData.isWindowGlass = true;
             glassMeshes.push(m);
           }

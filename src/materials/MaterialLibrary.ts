@@ -944,6 +944,7 @@ export class MaterialLibrary {
       case 'glass_lit':
       case 'architectural_glass': {
         const mat = new THREE.MeshPhysicalMaterial({
+          name: 'glass',
           color: options.color !== undefined ? new THREE.Color(options.color) : new THREE.Color(0xdbeafe),
           roughness: options.roughness ?? 0.04,
           metalness: options.metalness ?? 0.1,
@@ -964,6 +965,7 @@ export class MaterialLibrary {
       // Unlit Night Window Pane (Dark Interior)
       case 'glass_dark': {
         const mat = new THREE.MeshPhysicalMaterial({
+          name: 'glass_dark',
           color: options.color !== undefined ? new THREE.Color(options.color) : new THREE.Color(0x0f172a),
           roughness: options.roughness ?? 0.08,
           metalness: options.metalness ?? 0.2,

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { BuildingManager } from '../src/buildings/BuildingManager';
 import { BuildingInstance } from '../src/buildings/PrefabTypes';
 import { MaterialLibrary } from '../src/materials/MaterialLibrary';
+import { LandscapeManager } from '../src/world/LandscapeManager';
 
 describe('Tahap 2: Render Jarak Bertingkat (3-Zone Spatial LOD) - T2.1 Verification', () => {
   let scene: THREE.Scene;
@@ -87,6 +88,126 @@ describe('Tahap 2: Render Jarak Bertingkat (3-Zone Spatial LOD) - T2.1 Verificat
       const grp = buildingManager.getBuildingGroup('bld_lod_test')!;
       expect(grp).toBeDefined();
       expect(grp.visible).toBe(true);
+    });
+  });
+
+  describe('T2.2: Three Zones with Dual Hysteresis & Shared Glass Materials', () => {
+    it('switches between Zone 0, Zone 1, and Zone 2 with dual hysteresis stability', () => {
+      const bldGroup = buildingManager.getBuildingGroup('bld_lod_test')!;
+      const interior = bldGroup.getObjectByName('InteriorDetails')!;
+      const dynamicFur = bldGroup.getObjectByName('DynamicFurnitureGroup')!;
+      const details = bldGroup.getObjectByName('DetailPropsGroup')!;
+
+      // 1. Start at distance = 15m (< 24m) -> Zone 0
+      // Edge is at X=5, so position at X=20 gives edge distance = 15m.
+      buildingManager.updateSpatialLOD(new THREE.Vector3(20, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test')).toBe(0);
+      expect(interior.visible, 'Interior visible in Zone 0').toBe(true);
+      expect(dynamicFur.visible, 'Furniture visible in Zone 0').toBe(true);
+      expect(details.visible, 'Detail props visible in Zone 0').toBe(true);
+
+      // Check glass material reference
+      const glassMeshes = bldGroup.userData.windowGlassMeshes as THREE.Mesh[];
+      expect(glassMeshes.length).toBeGreaterThan(0);
+      expect(glassMeshes[0].material).toBe(MaterialLibrary.getInstance().kacaDekat);
+      expect((glassMeshes[0].material as THREE.MeshPhysicalMaterial).opacity).toBeCloseTo(0.32, 2);
+
+      // 2. Move to distance = 25m (between 24m and 27m). Hysteresis ensures it STAYS in Zone 0!
+      // X = 5 + 25 = 30m.
+      buildingManager.updateSpatialLOD(new THREE.Vector3(30, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test'), 'Hysteresis keeps Z0 at 25m').toBe(0);
+      expect(interior.visible).toBe(true);
+
+      // Move to distance = 26m. Still in Zone 0 (< 27m exit threshold).
+      buildingManager.updateSpatialLOD(new THREE.Vector3(31, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test'), 'Hysteresis keeps Z0 at 26m').toBe(0);
+
+      // 3. Move to distance = 28m (> 27m exit threshold). Now exits to Zone 1!
+      // X = 5 + 28 = 33m.
+      buildingManager.updateSpatialLOD(new THREE.Vector3(33, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test')).toBe(1);
+      expect(interior.visible, 'Interior culled in Zone 1').toBe(false);
+      expect(dynamicFur.visible, 'Furniture culled in Zone 1').toBe(false);
+      expect(details.visible, 'Exterior details remain visible in Zone 1').toBe(true);
+
+      // Glass material swaps to kacaJauh (opacity 0.88, roughness 0.1)
+      expect(glassMeshes[0].material).toBe(MaterialLibrary.getInstance().kacaJauh);
+      expect((glassMeshes[0].material as THREE.MeshPhysicalMaterial).opacity).toBeCloseTo(0.88, 2);
+
+      // 4. Move back into the 24m-27m boundary zone at distance = 25m.
+      // Because it entered from Zone 1, hysteresis ensures it STAYS in Zone 1 (doesn't enter Z0 until < 24m)!
+      buildingManager.updateSpatialLOD(new THREE.Vector3(30, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test'), 'Hysteresis keeps Z1 at 25m').toBe(1);
+      expect(interior.visible, 'Interior stays culled at 25m coming from Z1').toBe(false);
+
+      // 5. Move to distance = 22m (< 24m enter threshold). Now enters Zone 0!
+      buildingManager.updateSpatialLOD(new THREE.Vector3(27, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test')).toBe(0);
+      expect(interior.visible).toBe(true);
+      expect(glassMeshes[0].material).toBe(MaterialLibrary.getInstance().kacaDekat);
+
+      // 6. Test upper hysteresis boundary (Zone 1 <-> Zone 2):
+      // Move to distance = 50m -> Zone 1
+      buildingManager.updateSpatialLOD(new THREE.Vector3(55, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test')).toBe(1);
+
+      // Move to distance = 66m (between 62m and 68m). Hysteresis ensures it STAYS in Zone 1 (< 68m)!
+      buildingManager.updateSpatialLOD(new THREE.Vector3(71, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test'), 'Hysteresis keeps Z1 at 66m').toBe(1);
+
+      // Move to distance = 70m (> 68m enter threshold for Zone 2). Enters Zone 2!
+      buildingManager.updateSpatialLOD(new THREE.Vector3(75, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test')).toBe(2);
+      expect(details.visible, 'Detail props culled in Zone 2').toBe(false);
+      expect(interior.visible).toBe(false);
+
+      // Move back to distance = 65m (between 62m and 68m). Hysteresis ensures it STAYS in Zone 2 (> 62m)!
+      buildingManager.updateSpatialLOD(new THREE.Vector3(70, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test'), 'Hysteresis keeps Z2 at 65m').toBe(2);
+
+      // Move back to distance = 55m (< 62m return threshold). Returns to Zone 1!
+      buildingManager.updateSpatialLOD(new THREE.Vector3(60, 2, 0), false, null, true);
+      expect(buildingManager.buildingZones.get('bld_lod_test')).toBe(1);
+      expect(details.visible, 'Detail props restored in Zone 1').toBe(true);
+    });
+
+    it('culls tree petals in Zone 1/2 while preserving trunk and canopy clusters', () => {
+      const landscapeManager = new LandscapeManager(scene);
+
+      const treeItem = {
+        id: 'tree_lod_test',
+        type: 'tree_tabebuya_pink' as const,
+        position: new THREE.Vector3(0, 0, 0),
+        radius: 3.0,
+      };
+      landscapeManager.addItem(treeItem);
+      const treeGroup = landscapeManager.getItemGroup('tree_lod_test')!;
+      expect(treeGroup).toBeDefined();
+
+      const petalMesh = treeGroup.getObjectByName('PetalMesh')!;
+      expect(petalMesh).toBeDefined();
+
+      // 1. Camera close (15m < 24m) -> Zone 0: petals visible
+      landscapeManager.updateSpatialLOD(new THREE.Vector3(15, 2, 0));
+      expect(treeGroup.userData.currentZone).toBe(0);
+      expect(petalMesh.visible, 'Petal carpet visible in Zone 0').toBe(true);
+
+      // 2. Camera mid distance (35m) -> Zone 1: petals culled
+      landscapeManager.updateSpatialLOD(new THREE.Vector3(35, 2, 0));
+      expect(treeGroup.userData.currentZone).toBe(1);
+      expect(petalMesh.visible, 'Petal carpet culled in Zone 1').toBe(false);
+
+      // 3. Camera far distance (80m) -> Zone 2: petals culled
+      landscapeManager.updateSpatialLOD(new THREE.Vector3(80, 2, 0));
+      expect(treeGroup.userData.currentZone).toBe(2);
+      expect(petalMesh.visible, 'Petal carpet culled in Zone 2').toBe(false);
+
+      // 4. Return to close distance (15m) -> Zone 0: petals restored
+      landscapeManager.updateSpatialLOD(new THREE.Vector3(15, 2, 0));
+      expect(treeGroup.userData.currentZone).toBe(0);
+      expect(petalMesh.visible, 'Petal carpet restored in Zone 0').toBe(true);
+
+      landscapeManager.dispose();
     });
   });
 });

@@ -895,6 +895,14 @@ export class Engine {
       isFirstPerson,
       indoorId
     );
+    if (this.landscapeManager) {
+      const hostBuilding = indoorId ? this.buildingManager.getBuilding(indoorId) : null;
+      this.landscapeManager.updateSpatialLOD(
+        this.cameraController.camera.position,
+        indoorId,
+        hostBuilding ? hostBuilding.position : null
+      );
+    }
 
     // Lapis 1: Smart Hierarchical LOD (executed every 6 frames)
     this.lodFrameCount++;
