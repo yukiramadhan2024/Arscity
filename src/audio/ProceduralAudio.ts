@@ -1,7 +1,11 @@
+export type FootstepMaterial = 'grass' | 'asphalt' | 'paving' | 'wood' | 'ceramic' | 'dirt';
+
 export class ProceduralAudio {
   private ctx: AudioContext | null = null;
   public enabled: boolean = true;
   public volume: number = 0.5;
+  private activeFootstepVoiceCount: number = 0;
+  public static readonly MAX_FOOTSTEP_VOICES: number = 4;
 
   public toggleMute(): boolean {
     this.enabled = !this.enabled;
@@ -576,6 +580,250 @@ export class ProceduralAudio {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + durationSec);
     } catch {}
+  }
+
+  /**
+   * T3.5: Surface material footstep procedural audio with Web Audio API.
+   * Synthesizes distinct filtered noise profiles per material:
+   * 'grass', 'asphalt', 'paving', 'wood', 'ceramic', 'dirt'.
+   * Limits concurrent voices to maximum 4.
+   */
+  public playFootstep(material: FootstepMaterial = 'paving'): void {
+    if (!this.enabled || this.volume <= 0) return;
+    if (this.activeFootstepVoiceCount >= ProceduralAudio.MAX_FOOTSTEP_VOICES) {
+      return;
+    }
+
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    this.activeFootstepVoiceCount++;
+    const releaseVoice = () => {
+      this.activeFootstepVoiceCount = Math.max(0, this.activeFootstepVoiceCount - 1);
+    };
+
+    try {
+      const now = ctx.currentTime;
+      let duration = 0.05;
+
+      switch (material) {
+        case 'grass': {
+          // Soft filtered noise rustle
+          duration = 0.06;
+          const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
+          }
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(1800, now);
+          filter.Q.setValueAtTime(1.2, now);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.12 * this.volume, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          noise.start(now);
+          noise.stop(now + duration);
+          noise.onended = releaseVoice;
+          break;
+        }
+
+        case 'asphalt': {
+          // Coarse granular pavement thud
+          duration = 0.05;
+          const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+          }
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(600, now);
+          filter.Q.setValueAtTime(1.8, now);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.18 * this.volume, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          noise.start(now);
+          noise.stop(now + duration);
+          noise.onended = releaseVoice;
+          break;
+        }
+
+        case 'paving': {
+          // Crisp solid stone impact
+          duration = 0.045;
+          const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.25));
+          }
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(1100, now);
+          filter.Q.setValueAtTime(2.2, now);
+
+          const osc = ctx.createOscillator();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(120, now);
+          osc.frequency.exponentialRampToValueAtTime(50, now + duration);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.22 * this.volume, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          noise.start(now);
+          noise.stop(now + duration);
+          osc.start(now);
+          osc.stop(now + duration);
+          noise.onended = releaseVoice;
+          break;
+        }
+
+        case 'wood': {
+          // Hollow resonant wooden knock
+          duration = 0.06;
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(210, now);
+          osc.frequency.exponentialRampToValueAtTime(90, now + duration);
+
+          const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+          }
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(380, now);
+          filter.Q.setValueAtTime(3.5, now);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.20 * this.volume, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          osc.connect(gain);
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + duration);
+          noise.start(now);
+          noise.stop(now + duration);
+          osc.onended = releaseVoice;
+          break;
+        }
+
+        case 'ceramic': {
+          // Sharp high-frequency hard click (tile/marble)
+          duration = 0.035;
+          const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+          }
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(2800, now);
+          filter.Q.setValueAtTime(3.0, now);
+
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.exponentialRampToValueAtTime(300, now + duration);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.22 * this.volume, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          noise.start(now);
+          noise.stop(now + duration);
+          osc.start(now);
+          osc.stop(now + duration);
+          noise.onended = releaseVoice;
+          break;
+        }
+
+        case 'dirt':
+        default: {
+          // Low dull crunch / earth impact
+          duration = 0.055;
+          const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+          }
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(350, now);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.18 * this.volume, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          noise.start(now);
+          noise.stop(now + duration);
+          noise.onended = releaseVoice;
+          break;
+        }
+      }
+    } catch {
+      releaseVoice();
+    }
+  }
+
+  public getActiveFootstepVoiceCount(): number {
+    return this.activeFootstepVoiceCount;
   }
 }
 
