@@ -141,7 +141,7 @@ describe('CitySerializer - Validation, Migrations & Roundtrip Safety', () => {
     };
 
     const migrated = CitySerializer.migrateCityData(oldV1Data);
-    expect(migrated.version).toBe('2.0.0');
+    expect(migrated.version).toBe('2.1.0');
     expect(migrated.customBuildings).toBeDefined();
     expect(migrated.lots[0].gsbDistanceM).toBe(3.5);
     expect(migrated.environment).toBeDefined();

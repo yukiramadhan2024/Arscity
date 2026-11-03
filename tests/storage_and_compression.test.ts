@@ -71,7 +71,7 @@ describe('Phase 4: Non-blocking Storage & Compressed File Portability', () => {
     expect(compressedBlob.size).toBeGreaterThan(0);
 
     const importedData = await RealWorldExporter.importFromArscity(compressedBlob);
-    expect(importedData.version).toBe('2.0.0');
+    expect(importedData.version).toBe('2.1.0');
     expect(importedData.cityTitle).toBe('Kota Tropis Nusantara');
     expect(importedData.roads.edges.length).toBe(1);
     expect(importedData.buildings.length).toBe(1);

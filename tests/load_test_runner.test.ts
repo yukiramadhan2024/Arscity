@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { LoadTestRunner } from '../src/dev/LoadTestRunner';
+import { BuildingManager } from '../src/buildings/BuildingManager';
+import { PREFAB_CATALOG, BuildingInstance } from '../src/buildings/PrefabTypes';
 
 describe('LoadTestRunner Verification (300 Buildings + 3.0 km Roads)', () => {
   it('generates exactly 300 buildings and 3.0 km roads without leaks, and clears cleanly', () => {
@@ -67,5 +69,96 @@ describe('LoadTestRunner Verification (300 Buildings + 3.0 km Roads)', () => {
     expect(LoadTestRunner.isBenchmarkActive).toBe(false);
     expect(buildingsMap.size).toBe(0); // 0 memory leak on reset
     expect(roadEdgesMap.size).toBe(0);
+  });
+
+  it('measures empirical triangle and draw call reduction across LOD tiers on 300 buildings', () => {
+    const scene = new THREE.Scene();
+    const bm = new BuildingManager(scene);
+
+    const presetKeys = Object.keys(PREFAB_CATALOG);
+    // Add 300 buildings distributed across blocks
+    for (let i = 0; i < 300; i++) {
+      const presetKey = presetKeys[i % presetKeys.length];
+      const preset = PREFAB_CATALOG[presetKey];
+      const col = i % 15;
+      const row = Math.floor(i / 15);
+      const bld: BuildingInstance = {
+        id: `bench_${i + 1}`,
+        presetKey: preset.key,
+        name: `${preset.name} #${i + 1}`,
+        category: preset.category,
+        position: new THREE.Vector3((col - 7) * 20, 0, (row - 10) * 20),
+        rotationY: (i % 4) * (Math.PI / 2),
+        width: preset.defaultWidth,
+        length: preset.defaultLength,
+        floorCount: preset.defaultFloorCount,
+        floorHeight: preset.floorHeight,
+        roofType: preset.defaultRoofType,
+        roofOverhang: preset.defaultRoofOverhang,
+        wallMaterial: preset.defaultWallMaterial,
+        wallColor: preset.defaultWallColor,
+        roofMaterial: preset.defaultRoofMaterial,
+      };
+      bm.addBuilding(bld);
+    }
+
+    expect(bm.buildings.size).toBe(300);
+
+    const countVisibleTriangles = () => {
+      let tris = 0;
+      let visibleMeshes = 0;
+      bm.masterGroup.traverse((obj) => {
+        if (!obj.visible) return;
+        // Check ancestry visibility
+        let p = obj.parent;
+        let isFullyVisible = true;
+        while (p && p !== scene) {
+          if (!p.visible) {
+            isFullyVisible = false;
+            break;
+          }
+          p = p.parent;
+        }
+        if (!isFullyVisible) return;
+
+        if ((obj as THREE.Mesh).isMesh) {
+          const m = obj as THREE.Mesh;
+          visibleMeshes++;
+          if (m.geometry && m.geometry.index) {
+            tris += m.geometry.index.count / 3;
+          } else if (m.geometry && m.geometry.attributes.position) {
+            tris += m.geometry.attributes.position.count / 3;
+          }
+        }
+      });
+      return { tris, visibleMeshes };
+    };
+
+    // 1. Far Overview (LOD2): Camera at (0, 350, 350) -> distance > 250m for all buildings
+    bm.updateLOD(new THREE.Vector3(0, 350, 350), 'orbit', false, false, 60, 'high');
+    const lod2Stats = countVisibleTriangles();
+
+    // 2. Mid Distance (LOD1): Camera at (0, 120, 120) -> buildings at 80m-250m
+    bm.updateLOD(new THREE.Vector3(0, 120, 120), 'orbit', false, false, 60, 'high');
+    const lod1Stats = countVisibleTriangles();
+
+    // 3. Close Zoom (LOD0 forced for nearby)
+    bm.updateLOD(new THREE.Vector3(0, 20, 0), 'orbit', false, false, 60, 'high');
+    const lod0Stats = countVisibleTriangles();
+
+    console.log('[LoadTest 300 Buildings Empirical Telemetry]', {
+      LOD2_Far_Overview: lod2Stats,
+      LOD1_Mid_Distance: lod1Stats,
+      LOD0_Close_Zoom: lod0Stats,
+      Triangle_Reduction_LOD2_vs_LOD0: `${(((lod0Stats.tris - lod2Stats.tris) / lod0Stats.tris) * 100).toFixed(1)}%`,
+    });
+
+    expect(lod2Stats.tris).toBeLessThan(lod1Stats.tris);
+    expect(lod1Stats.tris).toBeLessThan(lod0Stats.tris);
+    // LOD2 triangle reduction must exceed 70% compared to LOD0
+    expect((lod0Stats.tris - lod2Stats.tris) / lod0Stats.tris).toBeGreaterThan(0.70);
+
+    bm.clearAll();
+    expect(bm.buildings.size).toBe(0);
   });
 });

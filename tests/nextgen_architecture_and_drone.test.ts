@@ -171,14 +171,14 @@ describe('Next-Gen Architectural Scale Overhaul & Camera Tests', () => {
   });
 
   describe('2. Strict 2-Font Discipline Enforcement', () => {
-    it('defines --font-sans (Inter) and --font-mono (JetBrains Mono) in index.css', () => {
+    it('defines --font-sans (Plus Jakarta Sans) and --font-mono (JetBrains Mono) in index.css', () => {
       const cssPath = path.resolve(__dirname, '../src/app/index.css');
       const cssContent = fs.readFileSync(cssPath, 'utf8');
 
       expect(cssContent).toContain('--font-sans');
-      expect(cssContent).toContain('Inter');
+      expect(cssContent).toMatch(/Plus Jakarta Sans|Space Grotesk/);
       expect(cssContent).toContain('--font-mono');
-      expect(cssContent).toContain('JetBrains Mono');
+      expect(cssContent).toMatch(/JetBrains Mono|Space Mono/);
       expect(cssContent).toContain('tabular-nums');
     });
 

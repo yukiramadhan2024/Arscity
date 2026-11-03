@@ -697,6 +697,8 @@ export class BuildingManager {
       this.walkwaysGroup = new THREE.Group();
       this.walkwaysGroup.name = 'WalkwaysMasterGroup';
       this.masterGroup.add(this.walkwaysGroup);
+    } else if (!this.walkwaysGroup.parent) {
+      this.masterGroup.add(this.walkwaysGroup);
     }
 
     // Remove existing walkway for this building
@@ -835,6 +837,8 @@ export class BuildingManager {
     if (!this.arcadeMasterGroup) {
       this.arcadeMasterGroup = new THREE.Group();
       this.arcadeMasterGroup.name = 'ArcadeCanopiesMasterGroup';
+      this.masterGroup.add(this.arcadeMasterGroup);
+    } else if (!this.arcadeMasterGroup.parent) {
       this.masterGroup.add(this.arcadeMasterGroup);
     }
 
@@ -977,6 +981,9 @@ export class BuildingManager {
         this.walkwaysGroup.remove(child);
         if (child.geometry) child.geometry.dispose();
       }
+      if (this.walkwaysGroup.parent === this.masterGroup) {
+        this.masterGroup.remove(this.walkwaysGroup);
+      }
     }
     if (this.arcadeMasterGroup) {
       while (this.arcadeMasterGroup.children.length > 0) {
@@ -985,6 +992,9 @@ export class BuildingManager {
         child.traverse((c) => {
           if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).geometry?.dispose();
         });
+      }
+      if (this.arcadeMasterGroup.parent === this.masterGroup) {
+        this.masterGroup.remove(this.arcadeMasterGroup);
       }
     }
     if (this.highlightMesh) {

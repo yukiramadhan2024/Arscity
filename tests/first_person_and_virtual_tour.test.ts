@@ -55,7 +55,7 @@ describe('Mode Eksplorasi Skala Manusia & Tur Virtual (First-Person, Drone & Aud
       controller.update(0.5); // 0.5s forward
 
       expect(controller.position.z).toBeGreaterThan(15); // Moved forward
-      expect(controller.position.y).toBeCloseTo(1.65, 1); // Maintained human eye height
+      expect(Math.abs(controller.position.y - 1.65)).toBeLessThan(0.12); // Maintained human eye height with bobbing
 
       // Reset keys and test KeyD (strafe right) vs KeyA (strafe left)
       (controller as any).keysDown.clear();
@@ -113,7 +113,7 @@ describe('Mode Eksplorasi Skala Manusia & Tur Virtual (First-Person, Drone & Aud
         controller.update(0.08);
       }
       expect((controller as any).isGrounded).toBe(true);
-      expect(controller.position.y).toBeCloseTo(1.65, 1);
+      expect(Math.abs(controller.position.y - 1.65)).toBeLessThan(0.12);
 
       controller.dispose();
     });

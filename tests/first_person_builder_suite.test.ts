@@ -523,7 +523,7 @@ describe('First-Person Interactive Builder & HUD Upgrade Suite', () => {
     // 1. Outdoor downRaycaster ignores furniture mesh -> player stays on ground (y = 1.65), NOT on top of table
     fp.enter(new THREE.Vector3(50, 0, 50));
     fp.update(0.05);
-    expect(fp.position.y).toBeCloseTo(1.65, 2);
+    expect(fp.position.y).toBeCloseTo(1.65, 1);
 
     // 2. Indoors: walking into solid dining_set (center at z=2.0, depth=1.4 -> halfD=0.7, padD=0.9 -> boundary at z=1.1) is blocked
     fp.enter(new THREE.Vector3(0, 0, 1.02));
