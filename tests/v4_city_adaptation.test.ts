@@ -238,4 +238,213 @@ describe('Tahap 5: Adaptasi Kota, Fasad, Ekologi, Denah 2D', () => {
       expect(buildingManager.walkwaysGroup.getObjectByName('Walkway_bld_move_test')).toBeUndefined();
     });
   });
+
+  describe('T5.2: Arkade Ruko (Shophouse Arcade Canopy Merge)', () => {
+    it('merges ground terrace canopy into unified arcade corridor with joint column when two rukos are < 1.5m apart', () => {
+      // Ruko A: 6m wide at (0, 0, 15), facing Math.PI
+      const rukoA: BuildingInstance = {
+        id: 'ruko_a',
+        presetKey: 'ruko_3fl',
+        name: 'Ruko A',
+        category: 'commercial',
+        position: new THREE.Vector3(0, 0, 15),
+        rotationY: Math.PI,
+        width: 6,
+        length: 10,
+        floorCount: 3,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      };
+
+      // Ruko B: 6m wide at (6.8, 0, 15). Gap between sides is 6.8 - 6.0 = 0.8m (< 1.5m)
+      const rukoB: BuildingInstance = {
+        id: 'ruko_b',
+        presetKey: 'ruko_3fl',
+        name: 'Ruko B',
+        category: 'commercial',
+        position: new THREE.Vector3(6.8, 0, 15),
+        rotationY: Math.PI,
+        width: 6,
+        length: 10,
+        floorCount: 3,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      };
+
+      buildingManager.addBuilding(rukoA);
+      buildingManager.addBuilding(rukoB);
+
+      const bridge = buildingManager.arcadeMasterGroup.getObjectByName('ArcadeBridge_ruko_a_ruko_b') as THREE.Group;
+      expect(bridge).toBeDefined();
+
+      // Check canopy slab and joint column exist in bridge
+      const slab = bridge.getObjectByName('ArcadeCanopySlab') as THREE.Mesh;
+      const column = bridge.getObjectByName('ArcadeJointColumn') as THREE.Mesh;
+      expect(slab).toBeDefined();
+      expect(column).toBeDefined();
+
+      // Check gap width
+      expect(bridge.userData.sideGap).toBeCloseTo(0.8, 1);
+    });
+
+    it('does NOT create arcade bridge if gap between rukos exceeds 1.5m', () => {
+      const rukoA: BuildingInstance = {
+        id: 'ruko_far_a',
+        presetKey: 'ruko_3fl',
+        name: 'Ruko Jauh A',
+        category: 'commercial',
+        position: new THREE.Vector3(0, 0, 15),
+        rotationY: Math.PI,
+        width: 6,
+        length: 10,
+        floorCount: 3,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      };
+
+      // Ruko B: 6m wide at (8.5, 0, 15). Gap between sides is 8.5 - 6.0 = 2.5m (> 1.5m)
+      const rukoB: BuildingInstance = {
+        id: 'ruko_far_b',
+        presetKey: 'ruko_3fl',
+        name: 'Ruko Jauh B',
+        category: 'commercial',
+        position: new THREE.Vector3(8.5, 0, 15),
+        rotationY: Math.PI,
+        width: 6,
+        length: 10,
+        floorCount: 3,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      };
+
+      buildingManager.addBuilding(rukoA);
+      buildingManager.addBuilding(rukoB);
+
+      const bridge = buildingManager.arcadeMasterGroup.getObjectByName('ArcadeBridge_ruko_far_a_ruko_far_b');
+      expect(bridge).toBeUndefined();
+    });
+
+    it('regenerates dynamically when one ruko moves', () => {
+      const rukoA: BuildingInstance = {
+        id: 'ruko_dyn_a',
+        presetKey: 'ruko_3fl',
+        name: 'Ruko Dyn A',
+        category: 'commercial',
+        position: new THREE.Vector3(0, 0, 15),
+        rotationY: Math.PI,
+        width: 6,
+        length: 10,
+        floorCount: 3,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      };
+
+      const rukoB: BuildingInstance = {
+        id: 'ruko_dyn_b',
+        presetKey: 'ruko_3fl',
+        name: 'Ruko Dyn B',
+        category: 'commercial',
+        position: new THREE.Vector3(6.6, 0, 15), // gap 0.6m
+        rotationY: Math.PI,
+        width: 6,
+        length: 10,
+        floorCount: 3,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      };
+
+      buildingManager.addBuilding(rukoA);
+      buildingManager.addBuilding(rukoB);
+      expect(buildingManager.arcadeMasterGroup.getObjectByName('ArcadeBridge_ruko_dyn_a_ruko_dyn_b')).toBeDefined();
+
+      // Move Ruko B to 10m away (gap = 4.0m > 1.5m)
+      rukoB.position.set(10, 0, 15);
+      buildingManager.updateBuilding(rukoB);
+      expect(buildingManager.arcadeMasterGroup.getObjectByName('ArcadeBridge_ruko_dyn_a_ruko_dyn_b')).toBeUndefined();
+
+      // Move Ruko B back to 6.8m (gap = 0.8m <= 1.5m)
+      rukoB.position.set(6.8, 0, 15);
+      buildingManager.updateBuilding(rukoB);
+      expect(buildingManager.arcadeMasterGroup.getObjectByName('ArcadeBridge_ruko_dyn_a_ruko_dyn_b')).toBeDefined();
+    });
+
+    it('sets warning if arcade crosses boundary between two different lots', () => {
+      // Lot 1 at (-3.5, 0, 15), Lot 2 at (3.5, 0, 15)
+      const lot1 = lotManager.createLot(new THREE.Vector3(-3.5, 0, 15), 7, 16, 'commercial');
+      const lot2 = lotManager.createLot(new THREE.Vector3(3.5, 0, 15), 7, 16, 'commercial');
+
+      const rukoA: BuildingInstance = {
+        id: 'ruko_warn_a',
+        presetKey: 'ruko_3fl',
+        name: 'Ruko Kavling 1',
+        category: 'commercial',
+        position: new THREE.Vector3(-3.5, 0, 15),
+        rotationY: Math.PI,
+        width: 6,
+        length: 10,
+        floorCount: 3,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      };
+
+      // Ruko B at (3.1, 0, 15) in Lot 2.
+      // Gap between sides: 3.1 - (-3.5) = 6.6m -> sideGap = 6.6 - 6.0 = 0.6m (< 1.5m)
+      const rukoB: BuildingInstance = {
+        id: 'ruko_warn_b',
+        presetKey: 'ruko_3fl',
+        name: 'Ruko Kavling 2',
+        category: 'commercial',
+        position: new THREE.Vector3(3.1, 0, 15),
+        rotationY: Math.PI,
+        width: 6,
+        length: 10,
+        floorCount: 3,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      };
+
+      buildingManager.addBuilding(rukoA);
+      buildingManager.addBuilding(rukoB);
+      lotManager.evaluateAllLots();
+
+      expect(rukoA.userData?.arcadeWarning).toContain('melintasi batas kavling');
+      expect(rukoB.userData?.arcadeWarning).toContain('melintasi batas kavling');
+
+      // KDB and KLB must not change from the canopy
+      expect(lot1.metrics.groundFootprintM2).toBe(rukoA.width * rukoA.length);
+      expect(lot2.metrics.groundFootprintM2).toBe(rukoB.width * rukoB.length);
+    });
+  });
 });

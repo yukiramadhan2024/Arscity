@@ -47,6 +47,7 @@ export class BuildingManager {
 
   // Tahap 5: Automatic Entrance Walkways & City Adaptation
   public walkwaysGroup: THREE.Group;
+  public arcadeMasterGroup: THREE.Group;
   public roadManager?: any;
   public lotManager?: any;
 
@@ -59,12 +60,17 @@ export class BuildingManager {
     this.walkwaysGroup = new THREE.Group();
     this.walkwaysGroup.name = 'WalkwaysMasterGroup';
     this.masterGroup.add(this.walkwaysGroup);
+
+    this.arcadeMasterGroup = new THREE.Group();
+    this.arcadeMasterGroup.name = 'ArcadeCanopiesMasterGroup';
+    this.masterGroup.add(this.arcadeMasterGroup);
   }
 
   public setDependencies(roadManager?: any, lotManager?: any): void {
     if (roadManager) this.roadManager = roadManager;
     if (lotManager) this.lotManager = lotManager;
     this.updateAllEntranceWalkways();
+    this.updateArcadeCanopies();
   }
 
   public setRaycastManager(rm: RaycastManager): void {
@@ -180,6 +186,7 @@ export class BuildingManager {
     this.markChunkDirty(chunkKey);
 
     this.updateEntranceWalkway(building.id);
+    this.updateArcadeCanopies();
     this.notifyStatsChanged();
     return building;
   }
@@ -241,6 +248,7 @@ export class BuildingManager {
     }
 
     this.buildings.delete(id);
+    this.updateArcadeCanopies();
     this.notifyStatsChanged();
     return true;
   }
@@ -278,6 +286,7 @@ export class BuildingManager {
     }
 
     this.updateEntranceWalkway(building.id);
+    this.updateArcadeCanopies();
     this.notifyStatsChanged();
   }
 
@@ -665,6 +674,7 @@ export class BuildingManager {
     }
 
     this.updateAllEntranceWalkways();
+    this.updateArcadeCanopies();
     this.refreshHighlight();
     this.notifyStatsChanged();
   }
@@ -821,12 +831,160 @@ export class BuildingManager {
     }
   }
 
+  public updateArcadeCanopies(): void {
+    if (!this.arcadeMasterGroup) {
+      this.arcadeMasterGroup = new THREE.Group();
+      this.arcadeMasterGroup.name = 'ArcadeCanopiesMasterGroup';
+      this.masterGroup.add(this.arcadeMasterGroup);
+    }
+
+    // Clean old arcade meshes
+    while (this.arcadeMasterGroup.children.length > 0) {
+      const child = this.arcadeMasterGroup.children[0] as THREE.Group;
+      this.arcadeMasterGroup.remove(child);
+      child.traverse((c) => {
+        if ((c as THREE.Mesh).isMesh) {
+          (c as THREE.Mesh).geometry?.dispose();
+        }
+      });
+    }
+
+    const bldArray = Array.from(this.buildings.values());
+    const processedPairs = new Set<string>();
+
+    for (let i = 0; i < bldArray.length; i++) {
+      const bldA = bldArray[i];
+      const isRukoA =
+        bldA.category === 'commercial' ||
+        (bldA.presetKey && bldA.presetKey.includes('ruko')) ||
+        Boolean(bldA.hasFrontArcade);
+
+      if (!isRukoA) continue;
+
+      for (let j = i + 1; j < bldArray.length; j++) {
+        const bldB = bldArray[j];
+        const isRukoB =
+          bldB.category === 'commercial' ||
+          (bldB.presetKey && bldB.presetKey.includes('ruko')) ||
+          Boolean(bldB.hasFrontArcade);
+
+        if (!isRukoB) continue;
+
+        // Check if orientations are reasonably parallel
+        const rotA = bldA.rotationY || 0;
+        const rotB = bldB.rotationY || 0;
+        if (Math.abs(Math.sin(rotA - rotB)) > 0.35) continue;
+
+        const wA = bldA.width || 6;
+        const wB = bldB.width || 6;
+        const lA = bldA.length || 10;
+        const lB = bldB.length || 10;
+
+        // Transform B into A's local space
+        const dx = bldB.position.x - bldA.position.x;
+        const dz = bldB.position.z - bldA.position.z;
+        const localX = Math.cos(-rotA) * dx - Math.sin(-rotA) * dz;
+        const localZ = Math.sin(-rotA) * dx + Math.cos(-rotA) * dz;
+
+        // Check if side-by-side (fronts roughly aligned)
+        if (Math.abs(localZ) > Math.min(lA, lB) * 0.4) continue;
+
+        // Distance between side edges
+        const sideGap = Math.abs(localX) - (wA * 0.5 + wB * 0.5);
+
+        // Prompt requirement: "Dua ruko berdampingan kurang dari 1,5 m"
+        if (sideGap < -0.2 || sideGap > 1.5) continue;
+
+        const pairKey = [bldA.id, bldB.id].sort().join('_');
+        if (processedPairs.has(pairKey)) continue;
+        processedPairs.add(pairKey);
+
+        // Lot boundary crossing check:
+        // "tidak boleh melewati batas kavling tanpa peringatan"
+        if (this.lotManager && typeof this.lotManager.getLotForBuilding === 'function') {
+          const lotA = this.lotManager.getLotForBuilding(bldA.id);
+          const lotB = this.lotManager.getLotForBuilding(bldB.id);
+          if (lotA && lotB && lotA.id !== lotB.id) {
+            const warnMsg = 'Arkade ruko melintasi batas kavling antar-pemilik';
+            if (!bldA.userData) bldA.userData = {};
+            if (!bldB.userData) bldB.userData = {};
+            bldA.userData.arcadeWarning = warnMsg;
+            bldB.userData.arcadeWarning = warnMsg;
+          } else {
+            if (bldA.userData?.arcadeWarning) delete bldA.userData.arcadeWarning;
+            if (bldB.userData?.arcadeWarning) delete bldB.userData.arcadeWarning;
+          }
+        }
+
+        // Create unified arcade canopy connecting the two rukos with joint column
+        const bridgeGroup = new THREE.Group();
+        bridgeGroup.name = `ArcadeBridge_${bldA.id}_${bldB.id}`;
+
+        const gapWidth = Math.max(0.2, sideGap + 0.1);
+        const canopyDepth = 2.0;
+        const canopyThick = 0.15;
+        const flH = Math.min(bldA.floorHeight || 3.5, bldB.floorHeight || 3.5);
+
+        const canopyMat = MaterialLibrary.getInstance().getMaterial('concrete') ||
+          new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.8 });
+        const columnMat = MaterialLibrary.getInstance().getMaterial('concrete_board') ||
+          new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.7 });
+
+        // 1. Canopy Slab bridging across the gap
+        const slabGeom = new THREE.BoxGeometry(gapWidth, canopyThick, canopyDepth);
+        const slabMesh = new THREE.Mesh(slabGeom, canopyMat);
+        slabMesh.name = 'ArcadeCanopySlab';
+        slabMesh.castShadow = true;
+        slabMesh.receiveShadow = true;
+
+        const gapCenterX = Math.sign(localX) * (wA * 0.5 + sideGap * 0.5);
+        const canopyLocalZ = lA * 0.5 + canopyDepth * 0.5;
+        slabMesh.position.set(gapCenterX, flH + canopyThick * 0.5, canopyLocalZ);
+        bridgeGroup.add(slabMesh);
+
+        // 2. Joint Column at the front junction
+        const colSize = 0.3;
+        const colGeom = new THREE.BoxGeometry(colSize, flH, colSize);
+        const colMesh = new THREE.Mesh(colGeom, columnMat);
+        colMesh.name = 'ArcadeJointColumn';
+        colMesh.castShadow = true;
+        colMesh.receiveShadow = true;
+
+        const colLocalZ = lA * 0.5 + canopyDepth - colSize * 0.5;
+        colMesh.position.set(gapCenterX, flH * 0.5, colLocalZ);
+        bridgeGroup.add(colMesh);
+
+        // Orient bridge in A's frame and place at A's world position
+        bridgeGroup.position.copy(bldA.position);
+        bridgeGroup.rotation.y = rotA;
+
+        bridgeGroup.userData = {
+          type: 'arcade_canopy_bridge',
+          buildingAId: bldA.id,
+          buildingBId: bldB.id,
+          sideGap,
+        };
+
+        this.arcadeMasterGroup.add(bridgeGroup);
+      }
+    }
+  }
+
   public clearAll(): void {
     if (this.walkwaysGroup) {
       while (this.walkwaysGroup.children.length > 0) {
         const child = this.walkwaysGroup.children[0] as THREE.Mesh;
         this.walkwaysGroup.remove(child);
         if (child.geometry) child.geometry.dispose();
+      }
+    }
+    if (this.arcadeMasterGroup) {
+      while (this.arcadeMasterGroup.children.length > 0) {
+        const child = this.arcadeMasterGroup.children[0] as THREE.Group;
+        this.arcadeMasterGroup.remove(child);
+        child.traverse((c) => {
+          if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).geometry?.dispose();
+        });
       }
     }
     if (this.highlightMesh) {

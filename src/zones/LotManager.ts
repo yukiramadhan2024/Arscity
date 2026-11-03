@@ -503,6 +503,9 @@ export class LotManager {
       this.evaluateBuildingCode(lot);
       this.rebuildLotMesh(lot);
     }
+    if (this.buildingManager && typeof (this.buildingManager as any).updateArcadeCanopies === 'function') {
+      (this.buildingManager as any).updateArcadeCanopies();
+    }
   }
 
   public rebuildLotMesh(lot: LotParcel): void {
@@ -724,12 +727,31 @@ export class LotManager {
     }
     const bld = this.buildingManager.buildings.get(buildingId);
     if (!bld) return null;
+
+    // Check if building position is inside lot 2D bounding box
     for (const lot of this.lots.values()) {
-      if (lot.position.distanceTo(bld.position) <= Math.max(lot.width, lot.length) * 0.6) {
+      const hw = lot.width * 0.5;
+      const hl = lot.length * 0.5;
+      if (
+        bld.position.x >= lot.position.x - hw &&
+        bld.position.x <= lot.position.x + hw &&
+        bld.position.z >= lot.position.z - hl &&
+        bld.position.z <= lot.position.z + hl
+      ) {
         return lot;
       }
     }
-    return null;
+
+    let nearest: LotParcel | null = null;
+    let minDist = Infinity;
+    for (const lot of this.lots.values()) {
+      const d = lot.position.distanceTo(bld.position);
+      if (d < minDist) {
+        minDist = d;
+        nearest = lot;
+      }
+    }
+    return nearest;
   }
 
   public getLotAtPosition(x: number, z: number): LotParcel | null {
