@@ -878,11 +878,12 @@ export class RemoveFurnitureCommand implements ICommand {
   private engine: Engine;
   private buildingId: string;
   private furniture: PlacedFurnitureData;
+  private removedChildren: PlacedFurnitureData[] = [];
 
   constructor(engine: Engine, buildingId: string, furniture: PlacedFurnitureData) {
     this.engine = engine;
     this.buildingId = buildingId;
-    this.furniture = furniture;
+    this.furniture = { ...furniture };
     this.description = `Hapus ${furniture.name}`;
   }
 
@@ -896,13 +897,22 @@ export class RemoveFurnitureCommand implements ICommand {
       this.furniture = { ...existingFur };
     }
 
+    // Cascade delete: find all child furniture placed on this parent
+    this.removedChildren = bld.userData.placedFurniture.filter(
+      (f: PlacedFurnitureData) => f.parentId === this.furniture.id
+    );
+
+    const idsToRemove = new Set([this.furniture.id, ...this.removedChildren.map((c) => c.id)]);
+
     bld.userData.placedFurniture = bld.userData.placedFurniture.filter(
-      (f: PlacedFurnitureData) => f.id !== this.furniture.id
+      (f: PlacedFurnitureData) => !idsToRemove.has(f.id)
     );
 
     if (typeof this.engine.buildingManager.detachFurniture === 'function') {
-      const detached = this.engine.buildingManager.detachFurniture(this.buildingId, this.furniture.id);
-      if (!detached) return;
+      this.engine.buildingManager.detachFurniture(this.buildingId, this.furniture.id);
+      for (const child of this.removedChildren) {
+        this.engine.buildingManager.detachFurniture(this.buildingId, child.id);
+      }
     }
 
     try {
@@ -923,9 +933,15 @@ export class RemoveFurnitureCommand implements ICommand {
       if (!bld.userData) bld.userData = {};
       if (!bld.userData.placedFurniture) bld.userData.placedFurniture = [];
       bld.userData.placedFurniture.push(this.furniture);
+      for (const child of this.removedChildren) {
+        bld.userData.placedFurniture.push(child);
+      }
     }
     if (typeof this.engine.buildingManager.attachFurniture === 'function') {
       this.engine.buildingManager.attachFurniture(this.buildingId, this.furniture);
+      for (const child of this.removedChildren) {
+        this.engine.buildingManager.attachFurniture(this.buildingId, child);
+      }
     }
     try {
       proceduralAudio.playClick();
@@ -1036,6 +1052,7 @@ export class MoveFurnitureCommand implements ICommand {
   private buildingId: string;
   private prevFurniture: PlacedFurnitureData;
   private nextFurniture: PlacedFurnitureData;
+  private childMoves: { prev: PlacedFurnitureData; next: PlacedFurnitureData }[] = [];
 
   constructor(
     engine: Engine,
@@ -1054,6 +1071,30 @@ export class MoveFurnitureCommand implements ICommand {
       position: [...nextFurniture.position] as [number, number, number]
     };
     this.description = `Geser ${nextFurniture.name}`;
+
+    // Translation delta
+    const dx = this.nextFurniture.position[0] - this.prevFurniture.position[0];
+    const dy = this.nextFurniture.position[1] - this.prevFurniture.position[1];
+    const dz = this.nextFurniture.position[2] - this.prevFurniture.position[2];
+
+    const bld = engine.buildingManager.buildings.get(buildingId);
+    const placed = bld?.userData?.placedFurniture || [];
+    this.childMoves = placed
+      .filter((f: PlacedFurnitureData) => f.parentId === prevFurniture.id)
+      .map((child: PlacedFurnitureData) => {
+        const nextChild: PlacedFurnitureData = {
+          ...child,
+          position: [
+            child.position[0] + dx,
+            child.position[1] + dy,
+            child.position[2] + dz
+          ] as [number, number, number]
+        };
+        return {
+          prev: { ...child, position: [...child.position] as [number, number, number] },
+          next: nextChild
+        };
+      });
   }
 
   public execute(): void {
@@ -1080,6 +1121,20 @@ export class MoveFurnitureCommand implements ICommand {
 
     if (typeof this.engine.buildingManager.attachFurniture === 'function') {
       this.engine.buildingManager.attachFurniture(this.buildingId, this.nextFurniture);
+    }
+
+    // Cascade move all children
+    for (const cm of this.childMoves) {
+      const cIdx = bld.userData.placedFurniture.findIndex((f: PlacedFurnitureData) => f.id === cm.next.id);
+      if (cIdx >= 0) {
+        bld.userData.placedFurniture[cIdx] = {
+          ...cm.next,
+          position: [...cm.next.position] as [number, number, number]
+        };
+      }
+      if (typeof this.engine.buildingManager.attachFurniture === 'function') {
+        this.engine.buildingManager.attachFurniture(this.buildingId, cm.next);
+      }
     }
 
     try {
@@ -1118,6 +1173,20 @@ export class MoveFurnitureCommand implements ICommand {
 
     if (typeof this.engine.buildingManager.attachFurniture === 'function') {
       this.engine.buildingManager.attachFurniture(this.buildingId, this.prevFurniture);
+    }
+
+    // Restore all children to previous position
+    for (const cm of this.childMoves) {
+      const cIdx = bld.userData.placedFurniture.findIndex((f: PlacedFurnitureData) => f.id === cm.prev.id);
+      if (cIdx >= 0) {
+        bld.userData.placedFurniture[cIdx] = {
+          ...cm.prev,
+          position: [...cm.prev.position] as [number, number, number]
+        };
+      }
+      if (typeof this.engine.buildingManager.attachFurniture === 'function') {
+        this.engine.buildingManager.attachFurniture(this.buildingId, cm.prev);
+      }
     }
 
     try {

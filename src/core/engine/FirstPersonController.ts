@@ -13,6 +13,7 @@ import {
   FIRST_PERSON_FURNITURE_CATALOG,
   FIRST_PERSON_EXTERIOR_CATALOG,
   FIRST_PERSON_MATERIAL_PALETTE,
+  FurnitureCatalogItem,
   FurnitureSlotType,
   computeRotatedFurnitureHalfExtents,
   getIndoorHotbarItems,
@@ -1967,6 +1968,61 @@ export class FirstPersonController {
             localZ = -innerHalfL + effectiveHalfD;
           }
 
+          // T4.4: Chair magnet to nearest table (< 1.3m), bypass if holding Alt
+          const isAltHeld = this.keysDown.has('AltLeft') || this.keysDown.has('AltRight');
+          let chairMagnetActive = false;
+
+          if (curFurItem?.isChair && !isAltHeld && bld.userData?.placedFurniture) {
+            let nearestTable: { data: PlacedFurnitureData; spec: FurnitureCatalogItem; dist: number } | null = null;
+            for (const other of bld.userData.placedFurniture as PlacedFurnitureData[]) {
+              if (this.grabbedFurniture && other.id === this.grabbedFurniture.data.id) continue;
+              const spec = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === other.type);
+              if (spec?.hasTopSurface) {
+                const dist = Math.hypot(other.position[0] - localX, other.position[2] - localZ);
+                if (dist < 1.3 && (!nearestTable || dist < nearestTable.dist)) {
+                  nearestTable = { data: other, spec, dist };
+                }
+              }
+            }
+
+            if (nearestTable) {
+              const tableX = nearestTable.data.position[0];
+              const tableZ = nearestTable.data.position[2];
+              const tableRot = nearestTable.data.rotationY || 0;
+
+              const halfW = (nearestTable.spec.width || 1.2) * 0.5;
+              const halfD = (nearestTable.spec.depth || 0.8) * 0.5;
+
+              // Relative to table center in table's local coordinates
+              const relX = localX - tableX;
+              const relZ = localZ - tableZ;
+              const tableLocalX = Math.cos(-tableRot) * relX - Math.sin(-tableRot) * relZ;
+              const tableLocalZ = Math.sin(-tableRot) * relX + Math.cos(-tableRot) * relZ;
+
+              let snappedTableLocalX = tableLocalX;
+              let snappedTableLocalZ = tableLocalZ;
+
+              if (Math.abs(tableLocalZ) >= Math.abs(tableLocalX)) {
+                const sign = Math.sign(tableLocalZ) || 1;
+                snappedTableLocalZ = sign * (halfD + 0.45);
+                snappedTableLocalX = Math.max(-halfW * 0.7, Math.min(halfW * 0.7, tableLocalX));
+              } else {
+                const sign = Math.sign(tableLocalX) || 1;
+                snappedTableLocalX = sign * (halfW + 0.45);
+                snappedTableLocalZ = Math.max(-halfD * 0.7, Math.min(halfD * 0.7, tableLocalZ));
+              }
+
+              // Transform back to building local coordinates
+              localX = tableX + (Math.cos(tableRot) * snappedTableLocalX - Math.sin(tableRot) * snappedTableLocalZ);
+              localZ = tableZ + (Math.sin(tableRot) * snappedTableLocalX + Math.cos(tableRot) * snappedTableLocalZ);
+
+              // Auto-rotate chair to face the table center
+              const finalFacing = Math.atan2(tableX - localX, tableZ - localZ);
+              this.placementRotation = ((rot + finalFacing) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+              chairMagnetActive = true;
+            }
+          }
+
           targetPos.x = bld.position.x + (localX * Math.cos(rot) - localZ * Math.sin(rot));
           targetPos.z = bld.position.z + (localX * Math.sin(rot) + localZ * Math.cos(rot));
           this.currentPlacementTarget.copy(targetPos);
@@ -1976,7 +2032,7 @@ export class FirstPersonController {
             localX,
             localZ,
             this.selectedFurnitureId,
-            localRotY,
+            chairMagnetActive ? (this.placementRotation - rot) : localRotY,
             this.currentFloor,
             this.grabbedFurniture?.data.id
           );
@@ -1990,10 +2046,11 @@ export class FirstPersonController {
           } else {
             this.isPlacementValid = true;
             const name = curFurItem?.name || 'Perabot';
+            const magnetHint = chairMagnetActive ? ' (Magnet Meja - Tahan Alt untuk Bebas)' : '';
             if (this.grabbedFurniture) {
-              this.reticleActionLabel = `[Klik Kiri] Pindahkan ${name}  [R] Putar  [Esc] Batal`;
+              this.reticleActionLabel = `[Klik Kiri] Pindahkan ${name}${magnetHint}  [R] Putar  [Esc] Batal`;
             } else {
-              this.reticleActionLabel = `[Klik Kiri] Taruh ${name}  [R / Scroll] Putar`;
+              this.reticleActionLabel = `[Klik Kiri] Taruh ${name}${magnetHint}  [R / Scroll] Putar`;
             }
           }
         } else {

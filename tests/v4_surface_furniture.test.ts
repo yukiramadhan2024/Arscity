@@ -429,4 +429,273 @@ describe('Tahap 4 (T4.1 - T4.4): Perabot Berpermukaan dan Magnet Kursi', () => {
       expect(mesh1.geometry).toBe(mesh2.geometry);
     });
   });
+
+  // =========================================================================
+  // T4.4: MAGNET KURSI & RELASI INDUK ANAK
+  // =========================================================================
+  describe('T4.4: Magnet Kursi & Relasi Induk Anak', () => {
+    let mockEngine: any;
+    let bldData: any;
+
+    beforeEach(() => {
+      bldData = {
+        id: 'bld_t44_test',
+        name: 'Gedung Uji T4.4',
+        position: new THREE.Vector3(0, 0, 0),
+        rotationY: 0,
+        width: 12,
+        length: 12,
+        floorHeight: 3.2,
+        plinthHeight: 0.35,
+        userData: {
+          placedFurniture: []
+        }
+      };
+
+      mockEngine = {
+        buildingManager: {
+          buildings: new Map([['bld_t44_test', bldData]]),
+          buildingGroups: new Map(),
+          attachFurniture: vi.fn((bldId: string, fur: PlacedFurnitureData) => {
+            const bld = mockEngine.buildingManager.buildings.get(bldId);
+            if (!bld.userData) bld.userData = {};
+            bld.userData.placedFurniture = bld.userData.placedFurniture || [];
+            const idx = bld.userData.placedFurniture.findIndex((f: PlacedFurnitureData) => f.id === fur.id);
+            if (idx >= 0) {
+              bld.userData.placedFurniture[idx] = fur;
+            } else {
+              bld.userData.placedFurniture.push(fur);
+            }
+          }),
+          detachFurniture: vi.fn((bldId: string, furId: string) => {
+            const bld = mockEngine.buildingManager.buildings.get(bldId);
+            if (!bld?.userData?.placedFurniture) return false;
+            bld.userData.placedFurniture = bld.userData.placedFurniture.filter((f: PlacedFurnitureData) => f.id !== furId);
+            return true;
+          })
+        }
+      };
+    });
+
+    it('1. Chair magnet auto-rotates chair to face table center and snaps 0.45m from table edge', async () => {
+      const { FirstPersonController } = await import('../src/core/engine/FirstPersonController');
+      const camera = new THREE.PerspectiveCamera(75, 16 / 9, 0.1, 1000);
+      const mockDomElement = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
+
+      const bldGroup = new THREE.Group();
+      const floorGeo = new THREE.PlaneGeometry(12, 12);
+      floorGeo.rotateX(-Math.PI / 2);
+      const floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshBasicMaterial());
+      bldGroup.add(floorMesh);
+
+      // Table placed at center (0, 0, 0), width 1.5m, depth 0.8m
+      const tableData: PlacedFurnitureData = {
+        id: 'table_1',
+        type: 'desk_office',
+        name: 'Meja Kerja',
+        position: [0, 0, 0],
+        rotationY: 0,
+        floorIndex: 1,
+        slot: 'floor'
+      };
+      bldData.userData.placedFurniture = [tableData];
+
+      const bldMgr = {
+        buildings: new Map([['bld_t44_test', bldData]]),
+        buildingGroups: new Map([['bld_t44_test', bldGroup]]),
+        getBuildingGroup: () => bldGroup,
+        masterGroup: new THREE.Group()
+      };
+      bldMgr.masterGroup.add(bldGroup);
+      bldGroup.updateMatrixWorld(true);
+
+      const controller = new FirstPersonController(camera, mockDomElement as any, bldMgr as any);
+      controller.isActive = true;
+      controller.insideBuildingId = 'bld_t44_test';
+      controller.activeDockTab = 'furniture';
+      controller.selectedFurnitureId = 'chair_dining'; // isChair: true
+
+      // Aim at floor point (0, 0, 0.95m) - 0.95m is < 1.3m from table center
+      camera.position.set(0, 1.65, 2.0);
+      camera.lookAt(0, 0, 0.95);
+      camera.updateMatrixWorld(true);
+
+      controller['updateCenterRaycast']();
+
+      expect(controller.isPlacementValid).toBe(true);
+      expect(controller.reticleActionLabel).toContain('Magnet Meja');
+
+      // Table half-depth is 0.75m/2 = 0.375m or 0.8m/2 = 0.40m. Edge + 0.45m = ~0.85m
+      expect(controller.currentPlacementTarget.z).toBeCloseTo(0.85, 1);
+      // Auto-rotated chair faces table center (towards -Z, rotation ~0 or Math.PI)
+      const chairFacing = Math.cos(controller.placementRotation);
+      expect(Math.abs(chairFacing)).toBeGreaterThan(0.9);
+    });
+
+    it('2. Holding Alt bypasses chair magnet and preserves manual rotation', async () => {
+      const { FirstPersonController } = await import('../src/core/engine/FirstPersonController');
+      const camera = new THREE.PerspectiveCamera(75, 16 / 9, 0.1, 1000);
+      const mockDomElement = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
+
+      const bldGroup = new THREE.Group();
+      const floorGeo = new THREE.PlaneGeometry(12, 12);
+      floorGeo.rotateX(-Math.PI / 2);
+      bldGroup.add(new THREE.Mesh(floorGeo, new THREE.MeshBasicMaterial()));
+
+      const tableData: PlacedFurnitureData = {
+        id: 'table_1',
+        type: 'desk_office',
+        name: 'Meja Kerja',
+        position: [0, 0, 0],
+        rotationY: 0,
+        floorIndex: 1,
+        slot: 'floor'
+      };
+      bldData.userData.placedFurniture = [tableData];
+
+      const bldMgr = {
+        buildings: new Map([['bld_t44_test', bldData]]),
+        buildingGroups: new Map([['bld_t44_test', bldGroup]]),
+        getBuildingGroup: () => bldGroup,
+        masterGroup: new THREE.Group()
+      };
+      bldMgr.masterGroup.add(bldGroup);
+      bldGroup.updateMatrixWorld(true);
+
+      const controller = new FirstPersonController(camera, mockDomElement as any, bldMgr as any);
+      controller.isActive = true;
+      controller.insideBuildingId = 'bld_t44_test';
+      controller.activeDockTab = 'furniture';
+      controller.selectedFurnitureId = 'chair_dining';
+
+      // Hold Alt key
+      controller['keysDown'].add('AltLeft');
+      controller.placementRotation = 1.23;
+
+      camera.position.set(0, 1.65, 2.0);
+      camera.lookAt(0, 0, 0.95);
+      camera.updateMatrixWorld(true);
+
+      controller['updateCenterRaycast']();
+
+      // Magnet should NOT activate
+      expect(controller.reticleActionLabel).not.toContain('Magnet Meja');
+      expect(controller.placementRotation).toBe(1.23);
+    });
+
+    it('3. MoveFurnitureCommand cascades translation delta to all children with atomic undo/redo', () => {
+      const parentTable: PlacedFurnitureData = {
+        id: 'table_p1',
+        type: 'desk_office',
+        name: 'Meja Kantor',
+        position: [0, 0, 0],
+        rotationY: 0,
+        floorIndex: 1,
+        slot: 'floor'
+      };
+      const childMonitor: PlacedFurnitureData = {
+        id: 'mon_c1',
+        type: 'monitor_pc',
+        name: 'Monitor PC',
+        position: [0, 0.74, 0],
+        rotationY: 0,
+        floorIndex: 1,
+        slot: 'tabletop',
+        parentId: 'table_p1'
+      };
+      const childLamp: PlacedFurnitureData = {
+        id: 'lamp_c2',
+        type: 'table_lamp',
+        name: 'Lampu Meja',
+        position: [0.3, 0.74, 0],
+        rotationY: 0,
+        floorIndex: 1,
+        slot: 'tabletop',
+        parentId: 'table_p1'
+      };
+
+      bldData.userData.placedFurniture = [parentTable, childMonitor, childLamp];
+
+      const nextTable: PlacedFurnitureData = {
+        ...parentTable,
+        position: [2.0, 0, 1.5]
+      };
+
+      const moveCmd = new MoveFurnitureCommand(mockEngine, 'bld_t44_test', parentTable, nextTable);
+      moveCmd.execute();
+
+      // Verify parent moved
+      const placed = bldData.userData.placedFurniture as PlacedFurnitureData[];
+      const movedTable = placed.find((f) => f.id === 'table_p1');
+      expect(movedTable?.position).toEqual([2.0, 0, 1.5]);
+
+      // Verify all children moved by exact delta (+2.0, 0, +1.5)
+      const movedMon = placed.find((f) => f.id === 'mon_c1');
+      expect(movedMon?.position).toEqual([2.0, 0.74, 1.5]);
+
+      const movedLamp = placed.find((f) => f.id === 'lamp_c2');
+      expect(movedLamp?.position).toEqual([2.3, 0.74, 1.5]);
+
+      // Test atomic Undo
+      moveCmd.undo();
+      const undoneTable = placed.find((f) => f.id === 'table_p1');
+      expect(undoneTable?.position).toEqual([0, 0, 0]);
+      const undoneMon = placed.find((f) => f.id === 'mon_c1');
+      expect(undoneMon?.position).toEqual([0, 0.74, 0]);
+      const undoneLamp = placed.find((f) => f.id === 'lamp_c2');
+      expect(undoneLamp?.position).toEqual([0.3, 0.74, 0]);
+
+      // Test Redo
+      moveCmd.redo();
+      expect(placed.find((f) => f.id === 'table_p1')?.position).toEqual([2.0, 0, 1.5]);
+      expect(placed.find((f) => f.id === 'mon_c1')?.position).toEqual([2.0, 0.74, 1.5]);
+      expect(placed.find((f) => f.id === 'lamp_c2')?.position).toEqual([2.3, 0.74, 1.5]);
+    });
+
+    it('4. RemoveFurnitureCommand cascades deletion to all children with atomic undo/redo', () => {
+      const parentTable: PlacedFurnitureData = {
+        id: 'table_p2',
+        type: 'desk_office',
+        name: 'Meja Kantor',
+        position: [1, 0, 1],
+        rotationY: 0,
+        floorIndex: 1,
+        slot: 'floor'
+      };
+      const childItem: PlacedFurnitureData = {
+        id: 'coffee_c1',
+        type: 'coffee_machine',
+        name: 'Mesin Kopi',
+        position: [1, 0.74, 1],
+        rotationY: 0,
+        floorIndex: 1,
+        slot: 'tabletop',
+        parentId: 'table_p2'
+      };
+
+      bldData.userData.placedFurniture = [parentTable, childItem];
+
+      const removeCmd = new RemoveFurnitureCommand(mockEngine, 'bld_t44_test', parentTable);
+      removeCmd.execute();
+
+      // Both table and child coffee machine should be deleted
+      let placed = bldData.userData.placedFurniture as PlacedFurnitureData[];
+      expect(placed.some((f) => f.id === 'table_p2')).toBe(false);
+      expect(placed.some((f) => f.id === 'coffee_c1')).toBe(false);
+
+      // Atomic Undo restores both table and child
+      removeCmd.undo();
+      placed = bldData.userData.placedFurniture as PlacedFurnitureData[];
+      expect(placed.some((f) => f.id === 'table_p2')).toBe(true);
+      expect(placed.some((f) => f.id === 'coffee_c1')).toBe(true);
+      const restoredChild = placed.find((f) => f.id === 'coffee_c1');
+      expect(restoredChild?.parentId).toBe('table_p2');
+
+      // Redo deletes both again
+      removeCmd.redo();
+      placed = bldData.userData.placedFurniture as PlacedFurnitureData[];
+      expect(placed.some((f) => f.id === 'table_p2')).toBe(false);
+      expect(placed.some((f) => f.id === 'coffee_c1')).toBe(false);
+    });
+  });
 });
