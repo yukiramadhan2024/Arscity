@@ -172,7 +172,7 @@ export interface DeserializationResult {
 }
 
 export class CitySerializer {
-  public static readonly CURRENT_VERSION = '2.0.0';
+  public static readonly CURRENT_VERSION = '2.1.0';
 
   /**
    * Migrate old versions sequentially up to CURRENT_VERSION
@@ -212,6 +212,19 @@ export class CitySerializer {
       migrated.lots.forEach((lot) => {
         if (lot.gsbDistanceM === undefined) {
           lot.gsbDistanceM = 3.5;
+        }
+      });
+    }
+
+    // v2.0.0 -> v2.1.0 (T4.1): Migrate legacy furniture without slot to 'floor'
+    if (version === '1.0.0' || version === '2.0.0') {
+      migrated.buildings.forEach((bld: any) => {
+        if (Array.isArray(bld.placedFurniture)) {
+          bld.placedFurniture = bld.placedFurniture.map((fur: any) => ({
+            ...fur,
+            slot: fur.slot || 'floor',
+            parentId: fur.parentId || undefined
+          }));
         }
       });
     }
@@ -599,7 +612,11 @@ export class CitySerializer {
           mullionColor: b.mullionColor,
           hasSkylight: b.hasSkylight,
           userData: {
-            placedFurniture: b.placedFurniture || [],
+            placedFurniture: (b.placedFurniture || []).map((fur: any) => ({
+            ...fur,
+            slot: fur.slot || 'floor',
+            parentId: fur.parentId || undefined
+          })),
             floorMaterial: b.floorMaterial
           }
         };

@@ -7,6 +7,7 @@ import { LotParcel, ZoneType } from '../../zones/ZoneTypes';
 import { LandscapeItem } from '../../world/LandscapeManager';
 import { showSnackbar } from '../../ui/state/useSnackbarStore';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
+import { FIRST_PERSON_MATERIAL_PALETTE } from '../../buildings/FirstPersonFurnitureCatalog';
 
 function formatLandscapeTitle(type: string): string {
   const titles: Record<string, string> = {
@@ -788,6 +789,8 @@ export class DuplicateDistrictCommand extends CompositeCommand {
   }
 }
 
+export type FurnitureSlotType = 'floor' | 'tabletop' | 'wall';
+
 export interface PlacedFurnitureData {
   id: string;
   type: string;
@@ -795,6 +798,8 @@ export interface PlacedFurnitureData {
   position: [number, number, number];
   rotationY: number;
   floorIndex: number;
+  slot?: FurnitureSlotType;
+  parentId?: string;
 }
 
 /**
@@ -816,16 +821,29 @@ export class PlaceFurnitureCommand implements ICommand {
   public execute(): void {
     const bld = this.engine.buildingManager.buildings.get(this.buildingId);
     if (!bld) return;
-    bld.userData = bld.userData || {};
-    bld.userData.placedFurniture = bld.userData.placedFurniture || [];
-    bld.userData.placedFurniture.push(this.furniture);
 
-    this.engine.buildingManager.updateBuilding(bld);
+    if (!bld.userData) bld.userData = {};
+    if (!bld.userData.placedFurniture) bld.userData.placedFurniture = [];
+    const existingIdx = bld.userData.placedFurniture.findIndex(
+      (f: PlacedFurnitureData) => f.id === this.furniture.id
+    );
+    if (existingIdx >= 0) {
+      bld.userData.placedFurniture[existingIdx] = this.furniture;
+    } else {
+      bld.userData.placedFurniture.push(this.furniture);
+    }
+
+    if (typeof this.engine.buildingManager.attachFurniture === 'function') {
+      const mesh = this.engine.buildingManager.attachFurniture(this.buildingId, this.furniture);
+      if (!mesh) return;
+    }
+
     try {
       proceduralAudio.playClick();
       showSnackbar({
         variant: 'info',
         title: 'Perabot Dipasang',
+        groupKey: 'fp_place_furniture',
         detail: this.furniture.name,
         undoable: true
       });
@@ -834,11 +852,14 @@ export class PlaceFurnitureCommand implements ICommand {
 
   public undo(): void {
     const bld = this.engine.buildingManager.buildings.get(this.buildingId);
-    if (!bld || !bld.userData?.placedFurniture) return;
-    bld.userData.placedFurniture = bld.userData.placedFurniture.filter(
-      (f: PlacedFurnitureData) => f.id !== this.furniture.id
-    );
-    this.engine.buildingManager.updateBuilding(bld);
+    if (bld && bld.userData?.placedFurniture) {
+      bld.userData.placedFurniture = bld.userData.placedFurniture.filter(
+        (f: PlacedFurnitureData) => f.id !== this.furniture.id
+      );
+    }
+    if (typeof this.engine.buildingManager.detachFurniture === 'function') {
+      this.engine.buildingManager.detachFurniture(this.buildingId, this.furniture.id);
+    }
     try {
       proceduralAudio.playClick();
     } catch {}
@@ -868,15 +889,28 @@ export class RemoveFurnitureCommand implements ICommand {
   public execute(): void {
     const bld = this.engine.buildingManager.buildings.get(this.buildingId);
     if (!bld || !bld.userData?.placedFurniture) return;
+    const existingFur = bld.userData.placedFurniture.find(
+      (f: PlacedFurnitureData) => f.id === this.furniture.id
+    );
+    if (existingFur) {
+      this.furniture = { ...existingFur };
+    }
+
     bld.userData.placedFurniture = bld.userData.placedFurniture.filter(
       (f: PlacedFurnitureData) => f.id !== this.furniture.id
     );
-    this.engine.buildingManager.updateBuilding(bld);
+
+    if (typeof this.engine.buildingManager.detachFurniture === 'function') {
+      const detached = this.engine.buildingManager.detachFurniture(this.buildingId, this.furniture.id);
+      if (!detached) return;
+    }
+
     try {
       proceduralAudio.playDemolish();
       showSnackbar({
         variant: 'warning',
         title: 'Perabot Dihapus',
+        groupKey: 'fp_remove_furniture',
         detail: this.furniture.name,
         undoable: true
       });
@@ -885,11 +919,14 @@ export class RemoveFurnitureCommand implements ICommand {
 
   public undo(): void {
     const bld = this.engine.buildingManager.buildings.get(this.buildingId);
-    if (!bld) return;
-    bld.userData = bld.userData || {};
-    bld.userData.placedFurniture = bld.userData.placedFurniture || [];
-    bld.userData.placedFurniture.push(this.furniture);
-    this.engine.buildingManager.updateBuilding(bld);
+    if (bld) {
+      if (!bld.userData) bld.userData = {};
+      if (!bld.userData.placedFurniture) bld.userData.placedFurniture = [];
+      bld.userData.placedFurniture.push(this.furniture);
+    }
+    if (typeof this.engine.buildingManager.attachFurniture === 'function') {
+      this.engine.buildingManager.attachFurniture(this.buildingId, this.furniture);
+    }
     try {
       proceduralAudio.playClick();
     } catch {}
@@ -993,6 +1030,106 @@ export class AutoFurnishRoomCommand implements ICommand {
 /**
  * PaintSurfaceCommand: Paints wall or floor material for building with Undo/Redo
  */
+export class MoveFurnitureCommand implements ICommand {
+  public description: string;
+  private engine: Engine;
+  private buildingId: string;
+  private prevFurniture: PlacedFurnitureData;
+  private nextFurniture: PlacedFurnitureData;
+
+  constructor(
+    engine: Engine,
+    buildingId: string,
+    prevFurniture: PlacedFurnitureData,
+    nextFurniture: PlacedFurnitureData
+  ) {
+    this.engine = engine;
+    this.buildingId = buildingId;
+    this.prevFurniture = {
+      ...prevFurniture,
+      position: [...prevFurniture.position] as [number, number, number]
+    };
+    this.nextFurniture = {
+      ...nextFurniture,
+      position: [...nextFurniture.position] as [number, number, number]
+    };
+    this.description = `Geser ${nextFurniture.name}`;
+  }
+
+  public execute(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+
+    if (!bld.userData) bld.userData = {};
+    if (!bld.userData.placedFurniture) bld.userData.placedFurniture = [];
+
+    const existingIdx = bld.userData.placedFurniture.findIndex(
+      (f: PlacedFurnitureData) => f.id === this.prevFurniture.id || f.id === this.nextFurniture.id
+    );
+    if (existingIdx >= 0) {
+      bld.userData.placedFurniture[existingIdx] = {
+        ...this.nextFurniture,
+        position: [...this.nextFurniture.position] as [number, number, number]
+      };
+    } else {
+      bld.userData.placedFurniture.push({
+        ...this.nextFurniture,
+        position: [...this.nextFurniture.position] as [number, number, number]
+      });
+    }
+
+    if (typeof this.engine.buildingManager.attachFurniture === 'function') {
+      this.engine.buildingManager.attachFurniture(this.buildingId, this.nextFurniture);
+    }
+
+    try {
+      proceduralAudio.playClick();
+      showSnackbar({
+        variant: 'success',
+        title: 'Perabot Dipindahkan',
+        detail: this.nextFurniture.name,
+        undoable: true,
+        groupKey: 'fp_move_furniture'
+      });
+    } catch {}
+  }
+
+  public undo(): void {
+    const bld = this.engine.buildingManager.buildings.get(this.buildingId);
+    if (!bld) return;
+
+    if (!bld.userData) bld.userData = {};
+    if (!bld.userData.placedFurniture) bld.userData.placedFurniture = [];
+
+    const existingIdx = bld.userData.placedFurniture.findIndex(
+      (f: PlacedFurnitureData) => f.id === this.nextFurniture.id || f.id === this.prevFurniture.id
+    );
+    if (existingIdx >= 0) {
+      bld.userData.placedFurniture[existingIdx] = {
+        ...this.prevFurniture,
+        position: [...this.prevFurniture.position] as [number, number, number]
+      };
+    } else {
+      bld.userData.placedFurniture.push({
+        ...this.prevFurniture,
+        position: [...this.prevFurniture.position] as [number, number, number]
+      });
+    }
+
+    if (typeof this.engine.buildingManager.attachFurniture === 'function') {
+      this.engine.buildingManager.attachFurniture(this.buildingId, this.prevFurniture);
+    }
+
+    try {
+      proceduralAudio.playClick();
+    } catch {}
+  }
+
+  public redo(): void {
+    this.execute();
+  }
+}
+
 export class PaintSurfaceCommand implements ICommand {
   public description: string;
   private engine: Engine;
@@ -1008,7 +1145,8 @@ export class PaintSurfaceCommand implements ICommand {
     this.newMaterial = material;
 
     const bld = engine.buildingManager.buildings.get(buildingId);
-    this.prevMaterial = (surface === 'wall' ? bld?.wallMaterial : bld?.roofMaterial) || 'concrete';
+    this.prevMaterial = (surface === 'wall' ? bld?.wallMaterial : bld?.userData?.floorMaterial || bld?.roofMaterial) || 'concrete';
+    (this as any)._prevFloorMaterial = bld?.userData?.floorMaterial;
     this.description = `Kuas Material ${material} (${surface})`;
   }
 
@@ -1027,7 +1165,8 @@ export class PaintSurfaceCommand implements ICommand {
       showSnackbar({
         variant: 'info',
         title: 'Material Diperbarui',
-        detail: `${this.surface === 'wall' ? 'Dinding' : 'Lantai'}: ${this.newMaterial}`,
+        detail: `${this.surface === 'wall' ? 'Dinding' : 'Lantai'}: ${FIRST_PERSON_MATERIAL_PALETTE.find((m) => m.id === this.newMaterial)?.name || this.newMaterial}`,
+        groupKey: 'fp_paint_surface',
         undoable: true
       });
     } catch {}
@@ -1040,7 +1179,7 @@ export class PaintSurfaceCommand implements ICommand {
       bld.wallMaterial = this.prevMaterial as any;
     } else {
       bld.userData = bld.userData || {};
-      bld.userData.floorMaterial = undefined;
+      bld.userData.floorMaterial = (this as any)._prevFloorMaterial;
     }
     this.engine.buildingManager.updateBuilding(bld);
     try {
