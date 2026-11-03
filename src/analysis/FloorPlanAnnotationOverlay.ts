@@ -3,12 +3,14 @@ import { BuildingManager } from '../buildings/BuildingManager';
 import { RoomDefinition, RoomType } from '../buildings/InteriorTypes';
 import { BuildingInstance } from '../buildings/PrefabTypes';
 import { roomStandardsRegistry } from '../buildings/RoomStandards';
+import { InteriorLayoutFactory } from '../buildings/InteriorLayoutFactory';
 
 export class FloorPlanAnnotationOverlay {
   private scene: THREE.Scene;
   private buildingManager: BuildingManager;
   private overlayGroup: THREE.Group;
   public isActive: boolean = false;
+  public activeFloorIndex: number = 0;
   private createdTextures: THREE.Texture[] = [];
   private createdGeometries: THREE.BufferGeometry[] = [];
   private createdMaterials: THREE.Material[] = [];
@@ -21,78 +23,155 @@ export class FloorPlanAnnotationOverlay {
     this.scene.add(this.overlayGroup);
   }
 
-  public setVisible(visible: boolean, sliceHeight: number = 1.8): void {
+  public setActiveFloor(floorIndex: number): void {
+    this.activeFloorIndex = Math.max(0, floorIndex);
+  }
+
+  public setVisible(visible: boolean, sliceHeight?: number): void {
     this.isActive = visible;
     this.clear();
 
     if (!visible) return;
 
     for (const bld of this.buildingManager.buildings.values()) {
-      if (!bld.interiorLayouts || bld.interiorLayouts.length === 0) continue;
+      // Ensure interior layouts exist
+      if (!bld.interiorLayouts || bld.interiorLayouts.length === 0) {
+        bld.interiorLayouts = InteriorLayoutFactory.getLayoutForBuilding(
+          bld.presetKey,
+          bld.width,
+          bld.length,
+          bld.floorHeight || 3.2,
+          bld.floorCount || 1
+        );
+      }
+
+      const totalFloors = bld.floorCount || 1;
+      if (this.activeFloorIndex >= totalFloors) continue;
+
+      const floorH = bld.floorHeight || 3.2;
+      const floorElevation = this.activeFloorIndex * floorH;
+      const cutHeight = sliceHeight !== undefined ? sliceHeight : (floorElevation + 1.2);
 
       const group = new THREE.Group();
-      group.position.copy(bld.position);
+      group.position.set(bld.position.x, 0, bld.position.z);
       group.rotation.y = bld.rotationY;
 
-      // Annotate ground floor (floorIndex = 0)
-      const layout = bld.interiorLayouts[0];
-      if (!layout) continue;
+      const layout = (bld.interiorLayouts && bld.interiorLayouts[this.activeFloorIndex])
+        || (bld.interiorLayouts && bld.interiorLayouts[0]);
 
-      for (const room of layout.rooms) {
-        // 1. Subtle Translucent Room Zone Surface
-        const b = room.boundary;
-        if (b.length >= 3) {
-          const shape = new THREE.Shape();
-          shape.moveTo(b[0].x, b[0].y);
-          for (let i = 1; i < b.length; i++) {
-            shape.lineTo(b[i].x, b[i].y);
+      if (layout) {
+        // 1. Room zones & translucent surface
+        for (const room of layout.rooms) {
+          const b = room.boundary;
+          if (b.length >= 3) {
+            const shape = new THREE.Shape();
+            shape.moveTo(b[0].x, b[0].y);
+            for (let i = 1; i < b.length; i++) {
+              shape.lineTo(b[i].x, b[i].y);
+            }
+            shape.closePath();
+
+            const geo = new THREE.ShapeGeometry(shape);
+            this.createdGeometries.push(geo);
+
+            const zoneColor = this.getRoomColor(room.type);
+            const mat = new THREE.MeshBasicMaterial({
+              color: zoneColor,
+              transparent: true,
+              opacity: 0.16,
+              side: THREE.DoubleSide,
+              depthWrite: false
+            });
+            this.createdMaterials.push(mat);
+
+            const surfaceMesh = new THREE.Mesh(geo, mat);
+            surfaceMesh.rotation.x = Math.PI * 0.5;
+            surfaceMesh.position.y = floorElevation + 0.04;
+            group.add(surfaceMesh);
+
+            // Room boundary lines
+            const points: THREE.Vector3[] = [];
+            for (let i = 0; i <= b.length; i++) {
+              const pt = b[i % b.length];
+              points.push(new THREE.Vector3(pt.x, floorElevation + 0.06, pt.y));
+            }
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            this.createdGeometries.push(lineGeo);
+
+            const lineMat = new THREE.LineBasicMaterial({
+              color: zoneColor,
+              transparent: true,
+              opacity: 0.60
+            });
+            this.createdMaterials.push(lineMat);
+
+            const boundaryLine = new THREE.Line(lineGeo, lineMat);
+            group.add(boundaryLine);
           }
-          shape.closePath();
 
-          const geo = new THREE.ShapeGeometry(shape);
-          this.createdGeometries.push(geo);
-
-          const zoneColor = this.getRoomColor(room.type);
-          const mat = new THREE.MeshBasicMaterial({
-            color: zoneColor,
-            transparent: true,
-            opacity: 0.18,
-            side: THREE.DoubleSide,
-            depthWrite: false
-          });
-          this.createdMaterials.push(mat);
-
-          const surfaceMesh = new THREE.Mesh(geo, mat);
-          surfaceMesh.rotation.x = Math.PI * 0.5;
-          surfaceMesh.position.y = 0.38; // Just above plinth
-          group.add(surfaceMesh);
-
-          // 2. Room Boundary Dimension Lines
-          const points: THREE.Vector3[] = [];
-          for (let i = 0; i <= b.length; i++) {
-            const pt = b[i % b.length];
-            points.push(new THREE.Vector3(pt.x, 0.4, pt.y));
+          // Room badge sprite
+          const sprite = this.createRoomBadgeSprite(room);
+          if (sprite) {
+            sprite.position.set(room.labelPosition.x, floorElevation + 1.15, room.labelPosition.y);
+            group.add(sprite);
           }
-          const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-          this.createdGeometries.push(lineGeo);
-
-          const lineMat = new THREE.LineBasicMaterial({
-            color: zoneColor,
-            transparent: true,
-            opacity: 0.65
-          });
-          this.createdMaterials.push(lineMat);
-
-          const boundaryLine = new THREE.Line(lineGeo, lineMat);
-          group.add(boundaryLine);
         }
 
-        // 3. Room Label & Area Badge Text Sprite
-        const sprite = this.createRoomBadgeSprite(room);
-        if (sprite) {
-          sprite.position.set(room.labelPosition.x, Math.min(sliceHeight - 0.2, 1.6), room.labelPosition.y);
-          group.add(sprite);
+        // 2. Thick wall section cut outlines (dinding terpotong tebal)
+        const cutY = floorElevation + 1.18;
+        const wallCutMat = new THREE.MeshBasicMaterial({
+          color: 0x0f172a, // Dark slate section cut hatch (#0F172A)
+          depthTest: true
+        });
+        this.createdMaterials.push(wallCutMat);
+
+        // A. Interior partition walls
+        if (layout.walls && layout.walls.length > 0) {
+          for (const wall of layout.walls) {
+            const dx = wall.end.x - wall.start.x;
+            const dz = wall.end.y - wall.start.y;
+            const wallLen = Math.hypot(dx, dz);
+            if (wallLen < 0.05) continue;
+            const angle = Math.atan2(dz, dx);
+            const midX = (wall.start.x + wall.end.x) / 2;
+            const midZ = (wall.start.y + wall.end.y) / 2;
+
+            const wallBoxGeom = new THREE.BoxGeometry(wallLen, 0.03, wall.thickness || 0.15);
+            wallBoxGeom.rotateY(-angle);
+            this.createdGeometries.push(wallBoxGeom);
+
+            const wallMesh = new THREE.Mesh(wallBoxGeom, wallCutMat);
+            wallMesh.position.set(midX, cutY, midZ);
+            group.add(wallMesh);
+          }
         }
+
+        // B. Exterior perimeter walls (0.20m thick section cut ribbon)
+        const hw = bld.width / 2;
+        const hl = bld.length / 2;
+        const wallThickness = 0.20;
+
+        // Front & Back perimeter walls
+        const fbGeom = new THREE.BoxGeometry(bld.width, 0.03, wallThickness);
+        this.createdGeometries.push(fbGeom);
+        const frontWall = new THREE.Mesh(fbGeom, wallCutMat);
+        frontWall.position.set(0, cutY, hl - wallThickness / 2);
+        group.add(frontWall);
+
+        const backWall = new THREE.Mesh(fbGeom, wallCutMat);
+        backWall.position.set(0, cutY, -hl + wallThickness / 2);
+        group.add(backWall);
+
+        // Left & Right perimeter walls
+        const lrGeom = new THREE.BoxGeometry(wallThickness, 0.03, bld.length - 2 * wallThickness);
+        this.createdGeometries.push(lrGeom);
+        const leftWall = new THREE.Mesh(lrGeom, wallCutMat);
+        leftWall.position.set(-hw + wallThickness / 2, cutY, 0);
+        group.add(leftWall);
+
+        const rightWall = new THREE.Mesh(lrGeom, wallCutMat);
+        rightWall.position.set(hw - wallThickness / 2, cutY, 0);
+        group.add(rightWall);
       }
 
       this.overlayGroup.add(group);
@@ -125,9 +204,9 @@ export class FloorPlanAnnotationOverlay {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Background pill rounded box
-    ctx.fillStyle = 'rgba(28, 28, 30, 0.88)';
-    ctx.strokeStyle = room.isCompliant ? 'rgba(52, 199, 89, 0.7)' : 'rgba(255, 59, 48, 0.8)';
+    // Background pill frosted glass (Aturan G3)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+    ctx.strokeStyle = room.isCompliant ? '#16a34a' : '#dc2626';
     ctx.lineWidth = 4;
 
     const x = 10, y = 10, w = 360, h = 140, r = 24;
@@ -145,24 +224,26 @@ export class FloorPlanAnnotationOverlay {
     ctx.fill();
     ctx.stroke();
 
-    // Text: Room Name (Display Sans)
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 26px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
+    // Text: Room Name (Display Sans, Aturan G3 & G2)
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(room.name, 190, 52);
 
-    // Text: Area m² & Ceiling Height (Technical Metrics Mono)
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '600 22px "JetBrains Mono", "SF Mono", Consolas, monospace';
-    ctx.fillText(`${room.areaM2.toFixed(1)} m²  •  Plafon ${room.ceilingHeight.toFixed(1)}m`, 190, 92);
+    // Text: Area m² & Ceiling Height (Indonesian numbers, Aturan G2)
+    ctx.fillStyle = '#475569';
+    ctx.font = '600 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const areaStr = room.areaM2.toFixed(1).replace('.', ',');
+    const ceilStr = room.ceilingHeight.toFixed(1).replace('.', ',');
+    ctx.fillText(`${areaStr} m²  •  Plafon ${ceilStr} m`, 190, 92);
 
-    // Compliance Badge (Technical Telemetry Mono)
-    ctx.font = '600 17px "JetBrains Mono", "SF Mono", Consolas, monospace';
+    // Compliance Badge
+    ctx.font = '600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     if (room.isCompliant) {
-      ctx.fillStyle = '#34C759';
+      ctx.fillStyle = '#16a34a';
       ctx.fillText('[SNI 03-1733: STANDAR TERPENUHI]', 190, 126);
     } else {
-      ctx.fillStyle = '#FF3B30';
+      ctx.fillStyle = '#dc2626';
       ctx.fillText('[SNI 03-1733: DI BAWAH STANDAR]', 190, 126);
     }
 
@@ -281,15 +362,16 @@ export class FloorPlanAnnotationOverlay {
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, 512, 64);
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    // Frosted white glass background (Aturan G3)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
     ctx.fillRect(4, 4, 504, 56);
 
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.strokeRect(4, 4, 504, 56);
 
-    ctx.fillStyle = color;
-    ctx.font = 'bold 22px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, 18, 32);

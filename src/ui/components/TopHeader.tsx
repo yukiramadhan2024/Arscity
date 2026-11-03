@@ -135,6 +135,8 @@ export const TopHeader: React.FC = React.memo(() => {
   const setShowTutorial = useUIStore((s) => s.setShowTutorial);
   const cameraMode = useUIStore((s) => s.cameraMode);
   const setCameraMode = useUIStore((s) => s.setCameraMode);
+  const active2DFloorIndex = useUIStore((s) => s.active2DFloorIndex);
+  const set2DFloorIndex = useUIStore((s) => s.set2DFloorIndex);
   const showFps = useUIStore((s) => s.showFps);
   const showLODOverlay = useUIStore((s) => s.showLODOverlay);
   const setShowSettings = useUIStore((s) => s.setShowSettings);
@@ -525,6 +527,51 @@ export const TopHeader: React.FC = React.memo(() => {
               );
             })}
           </div>
+
+          {/* T5.6: Pemilih Lantai Denah 2D Bertingkat (Lt. 1, Lt. 2, Lt. 3, Lt. 4) */}
+          {cameraMode === '2d' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px',
+                background: 'var(--fill-control)',
+                borderRadius: '9999px',
+                padding: '2px 4px',
+                border: '1px solid var(--border)'
+              }}
+            >
+              {[1, 2, 3, 4].map((fl) => {
+                const isSelected = active2DFloorIndex === fl - 1;
+                return (
+                  <motion.button
+                    key={fl}
+                    onClick={() => {
+                      set2DFloorIndex(fl - 1);
+                      proceduralAudio.playTaptic('selection');
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '9999px',
+                      background: isSelected ? 'var(--accent)' : 'transparent',
+                      color: isSelected ? '#FFFFFF' : 'var(--label)',
+                      fontSize: '11px',
+                      fontWeight: isSelected ? 700 : 500,
+                      border: 'none',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title={`Potongan horizontal lantai ${fl} (+${((fl - 1) * 3.2 + 1.2).toFixed(1).replace('.', ',')} m)`}
+                    aria-label={`Lantai ${fl}`}
+                  >
+                    Lt. {fl}
+                  </motion.button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Bagian Kanan: Status FPS & Tombol Menu Kontrol Cepat */}
           <div

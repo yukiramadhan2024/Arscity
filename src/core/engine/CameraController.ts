@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
 
-export type OrthographicViewMode = 'top' | 'front' | 'side' | 'section';
+export type OrthographicViewMode = 'top' | 'front' | 'side' | 'section' | 'plan';
 
 export interface CameraOptions {
   fov?: number;
@@ -109,6 +109,18 @@ export class CameraController {
   public droneMaxSpeed: number = 35.0;
   public minDroneY: number = 0.8;
   public onDroneModeChanged?: (isDrone: boolean) => void;
+  public onTopDownToggled?: (enabled: boolean) => void;
+
+  // Saved Orbit State for Orthographic / 2D Denah Mode (T5.6)
+  private savedOrthoOrbitState?: {
+    polar: number;
+    polarGoal: number;
+    azimuth: number;
+    azimuthGoal: number;
+    distance: number;
+    distanceGoal: number;
+    target: THREE.Vector3;
+  };
 
   constructor(domElement: HTMLElement, options: CameraOptions = {}) {
     this.domElement = domElement;
@@ -131,6 +143,8 @@ export class CameraController {
 
     this.bindEvents();
     this.updateCameraTransform(1.0); // Immediate snap
+    this.camera.near = 0.06;
+    this.camera.updateProjectionMatrix();
   }
 
   public get activeCamera(): THREE.Camera {
@@ -252,7 +266,14 @@ export class CameraController {
       this.lastDeltaPanX = pX / dt;
       this.lastDeltaPanY = pY / dt;
     } else if (this.isRightDragging || this.isAltOrbitDragging) {
-      if (e.shiftKey || this.isShiftDragging) {
+      if (this.isOrthographic && (this.orthoMode === 'top' || this.orthoMode === 'plan')) {
+        // In 2D Top-Down mode, right/alt drag smoothly pans or rotates compass without breaking 90-deg projection
+        const pX = deltaX * 0.12 * (this.distance / 50) * this.mousepadSensitivity;
+        const pY = deltaY * 0.12 * (this.distance / 50) * this.mousepadSensitivity;
+        this.pan(pX, pY);
+        this.lastDeltaPanX = pX / dt;
+        this.lastDeltaPanY = pY / dt;
+      } else if (e.shiftKey || this.isShiftDragging) {
         // Shift + Drag = Pitch tilt adjust
         this.polarGoal += deltaY * 0.006 * this.mousepadSensitivity;
         this.polarGoal = Math.max(this.minPolar, Math.min(this.maxPolar, this.polarGoal));
@@ -488,11 +509,14 @@ export class CameraController {
   }
 
   public toggleTopDown(): void {
-    this.isOrthographic = !this.isOrthographic;
-    if (this.isOrthographic) {
-      this.polarGoal = 0.05; // Straight down
+    const nextOrtho = !this.isOrthographic;
+    if (nextOrtho) {
+      this.setOrthographicMode(true, 'top', this.target, Math.max(40, this.distance));
     } else {
-      this.polarGoal = (40 * Math.PI) / 180; // 50 deg incline
+      this.setOrthographicMode(false, 'top');
+    }
+    if (this.onTopDownToggled) {
+      this.onTopDownToggled(nextOrtho);
     }
   }
 
@@ -692,6 +716,7 @@ export class CameraController {
       // Keep target synchronized ahead of drone for sun lighting & audio
       this.target.copy(this.dronePosition).addScaledVector(forwardDir, 25);
       this.target.y = 0;
+      this.updateAdaptiveNearPlane();
       return;
     }
 
@@ -726,6 +751,7 @@ export class CameraController {
       this.camera.lookAt(this._scratchLookTarget);
 
       this.target.set(this.walkPosition.x, 0, this.walkPosition.z);
+      this.updateAdaptiveNearPlane();
       return;
     }
 
@@ -811,6 +837,8 @@ export class CameraController {
     this.camera.position.set(eyeX, eyeY, eyeZ);
     this.camera.lookAt(this.target);
 
+    this.updateAdaptiveNearPlane();
+
     // Sync orthographic camera
     if (this.isOrthographic) {
       const orthoSize = this.distance * 0.9;
@@ -820,14 +848,18 @@ export class CameraController {
       this.orthoCamera.top = orthoSize / 2;
       this.orthoCamera.bottom = -orthoSize / 2;
       if (this.orthoMode === 'front' || this.orthoMode === 'section') {
+        this.orthoCamera.up.set(0, 1, 0);
         this.orthoCamera.position.set(this.target.x, this.target.y, this.target.z + 180);
         this.orthoCamera.lookAt(this.target.x, this.target.y, this.target.z);
       } else if (this.orthoMode === 'side') {
+        this.orthoCamera.up.set(0, 1, 0);
         this.orthoCamera.position.set(this.target.x + 180, this.target.y, this.target.z);
         this.orthoCamera.lookAt(this.target.x, this.target.y, this.target.z);
       } else {
+        // Straight 90-degree Top-Down Orthographic ('top' | 'plan')
+        this.orthoCamera.up.set(-Math.sin(this.azimuth), 0, -Math.cos(this.azimuth)).normalize();
         this.orthoCamera.position.set(this.target.x, 250, this.target.z);
-        this.orthoCamera.lookAt(this.target);
+        this.orthoCamera.lookAt(this.target.x, this.target.y, this.target.z);
       }
       this.orthoCamera.updateProjectionMatrix();
     }
@@ -839,15 +871,85 @@ export class CameraController {
     focusTarget?: THREE.Vector3,
     approxDistance?: number
   ): void {
-    this.isOrthographic = enabled;
-    this.orthoMode = mode;
-    if (focusTarget) {
-      this.target.copy(focusTarget);
-      this.targetGoal.copy(focusTarget);
+    if (enabled) {
+      if (!this.savedOrthoOrbitState && !this.isOrthographic) {
+        this.savedOrthoOrbitState = {
+          polar: this.polar,
+          polarGoal: this.polarGoal,
+          azimuth: this.azimuth,
+          azimuthGoal: this.azimuthGoal,
+          distance: this.distance,
+          distanceGoal: this.distanceGoal,
+          target: this.target.clone()
+        };
+      }
+      this.isOrthographic = true;
+      this.orthoMode = mode;
+      if (focusTarget) {
+        this.target.copy(focusTarget);
+        this.targetGoal.copy(focusTarget);
+      }
+      if (approxDistance) {
+        this.distance = approxDistance;
+        this.distanceGoal = approxDistance;
+      }
+      if (mode === 'top' || mode === 'plan') {
+        this.polarGoal = 0.001;
+        this.polar = 0.001;
+      }
+    } else {
+      this.isOrthographic = false;
+      if (this.savedOrthoOrbitState) {
+        this.polar = this.savedOrthoOrbitState.polar;
+        this.polarGoal = this.savedOrthoOrbitState.polarGoal;
+        this.azimuth = this.savedOrthoOrbitState.azimuth;
+        this.azimuthGoal = this.savedOrthoOrbitState.azimuthGoal;
+        this.distance = this.savedOrthoOrbitState.distance;
+        this.distanceGoal = this.savedOrthoOrbitState.distanceGoal;
+        this.target.copy(this.savedOrthoOrbitState.target);
+        this.targetGoal.copy(this.savedOrthoOrbitState.target);
+        this.savedOrthoOrbitState = undefined;
+      }
     }
-    if (approxDistance) {
-      this.distance = approxDistance;
-      this.distanceGoal = approxDistance;
+    this.updateCameraTransform(1.0);
+  }
+
+  public setOrbitView(
+    focusTarget: THREE.Vector3,
+    distance: number,
+    azimuth: number,
+    polar: number,
+    immediate: boolean = true
+  ): void {
+    this.isOrthographic = false;
+    this.targetGoal.copy(focusTarget);
+    this.distanceGoal = distance;
+    this.azimuthGoal = azimuth;
+    this.polarGoal = polar;
+    if (immediate) {
+      this.target.copy(focusTarget);
+      this.distance = distance;
+      this.azimuth = azimuth;
+      this.polar = polar;
+      this.updateCameraTransform(1.0);
+    }
+  }
+
+  private updateAdaptiveNearPlane(): void {
+    let targetNear = 0.08;
+    if (this.isWalkMode) {
+      targetNear = 0.06;
+    } else if (this.isDroneMode) {
+      targetNear = Math.max(0.1, Math.min(this.camera.position.y * 0.005, 1.2));
+    } else {
+      // Orbit God-Eye Mode: scale near plane from 0.15m up to 1.5m at high altitude/distance
+      const alt = this.camera.position.y;
+      targetNear = Math.max(0.15, Math.min(alt * 0.006 + this.distance * 0.002, 1.5));
+    }
+
+    if (Math.abs(this.camera.near - targetNear) > 0.01) {
+      this.camera.near = targetNear;
+      this.camera.updateProjectionMatrix();
     }
   }
 

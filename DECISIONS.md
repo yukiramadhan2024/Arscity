@@ -669,3 +669,8 @@ Dokumen ini mencatat setiap keputusan arsitektur penting (*Architecture Decision
    - Rumus termal: baseline khatulistiwa 28.0 °C, gedung +0.35 °C per lantai (radius 25m), pohon peneduh -1.5 °C (radius 18m), dan koridor sungai -1.8 °C (radius 35m).
    - Rona rumput kavling disesuaikan secara visual berdasarkan suhu: sejuk (<= 27.5 °C, hijau segar #22c55e), sedang (27.5 - 29.0 °C, hijau standar #65a30d), dan gersang (> 29.0 °C, agak kekuningan #d97706).
    - Waktu kalkulasi kota 300 bangunan tercatat di bawah 15ms.
+6. **T5.6 Mode Denah 2D (Potongan Horizontal / Blueprint)**:
+   - Kamera ortografis tampak atas 90 derajat dengan bidang potongan horizontal pada elevasi 1.2 m di atas permukaan lantai aktif (+1.2m Lt. 1, +4.4m Lt. 2, +7.6m Lt. 3).
+   - Atap dan lantai atas terpotong bersih, dinding perimeter dan partisi dipotong tebal (ketebalan visual 0.15m - 0.20m, warna slate gelap #0F172A), perabot dan lantai bawah terlihat jelas.
+   - Pemilih lantai bertingkat terpadu (Lt. 1, Lt. 2, Lt. 3, Lt. 4) pada bilah kaca atas (`TopHeader.tsx`).
+   - Keluar dari mode 2D mengembalikan kamera ke sudut pandang orbit dan mode kamera sebelumnya (`savedOrthoOrbitState`).

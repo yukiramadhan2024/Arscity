@@ -59,6 +59,8 @@ interface UIState {
   // Camera Modes: Orbit (God-View), First-Person Walkthrough, Cinematic Drone Tour
   cameraMode: CameraMode;
   setCameraMode: (mode: CameraMode) => void;
+  active2DFloorIndex: number;
+  set2DFloorIndex: (index: number) => void;
   isDroneTour: boolean;
   toggleDroneTour: () => void;
 
@@ -476,17 +478,23 @@ export const useUIStore = create<UIState>((set, get) => {
     },
 
     cameraMode: 'orbit',
+    active2DFloorIndex: 0,
+    set2DFloorIndex: (index: number) => {
+      const engine = get().engine;
+      if (engine && typeof engine.set2DFloor === 'function') {
+        engine.set2DFloor(index);
+      }
+      set({ active2DFloorIndex: index });
+    },
     setCameraMode: (mode) => {
       const engine = get().engine;
       if (engine) {
         if (mode === '2d') {
-          if (!engine.cameraController.isOrthographic) {
-            engine.cameraController.toggleTopDown();
-            engine.set2DPlanMode(true);
+          if (!engine.is2DPlanMode) {
+            engine.setCameraMode('2d');
           }
         } else {
-          if (engine.cameraController.isOrthographic) {
-            engine.cameraController.toggleTopDown();
+          if (engine.is2DPlanMode) {
             engine.set2DPlanMode(false);
           }
           const engineMode = mode === 'drone' ? 'cinematic_drone' : (mode === 'fps' ? 'first_person' : mode);

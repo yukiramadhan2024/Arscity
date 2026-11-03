@@ -8,6 +8,9 @@ import { LotManager } from '../src/zones/LotManager';
 import { LandscapeManager } from '../src/world/LandscapeManager';
 import { RiverManager } from '../src/world/RiverManager';
 import { ThermalComfortEngine, DEFAULT_THERMAL_CONSTANTS } from '../src/world/ThermalComfortEngine';
+import { SectionCutManager } from '../src/analysis/SectionCutManager';
+import { FloorPlanAnnotationOverlay } from '../src/analysis/FloorPlanAnnotationOverlay';
+import { CameraController } from '../src/core/engine/CameraController';
 import { BuildingInstance } from '../src/buildings/PrefabTypes';
 
 describe('Tahap 5: Adaptasi Kota, Fasad, Ekologi, Denah 2D', () => {
@@ -764,6 +767,141 @@ describe('Tahap 5: Adaptasi Kota, Fasad, Ekologi, Denah 2D', () => {
       // Must complete in under 15ms
       expect(elapsed).toBeLessThan(15);
       expect(thermalEngine.lastRecalculateDurationMs).toBeLessThan(15);
+    });
+  });
+
+  describe('T5.6: Mode Denah 2D (Potongan Horizontal / Blueprint)', () => {
+    let renderer: THREE.WebGLRenderer;
+    let sectionCutManager: SectionCutManager;
+    let annotationOverlay: FloorPlanAnnotationOverlay;
+    let cameraController: CameraController;
+    let container: HTMLDivElement;
+
+    beforeEach(() => {
+      // Mock minimal DOM element for CameraController
+      container = {
+        clientWidth: 1920,
+        clientHeight: 1080,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        requestPointerLock: () => {}
+      } as any;
+
+      // Mock renderer with clippingPlanes
+      renderer = {
+        clippingPlanes: [],
+        localClippingEnabled: false,
+      } as unknown as THREE.WebGLRenderer;
+
+      sectionCutManager = new SectionCutManager(renderer, scene);
+      annotationOverlay = new FloorPlanAnnotationOverlay(scene, buildingManager);
+      cameraController = new CameraController(container);
+    });
+
+    it('sets horizontal clipping plane to 1.2m on ground floor (Lt. 1) and enables orthographic top-down camera', () => {
+      // Enter 2D mode: set orthographic top-down and horizontal floor plan cut at 1.2m
+      cameraController.setOrthographicMode(true, 'plan');
+      sectionCutManager.setCutMode('floor_plan');
+      sectionCutManager.setCutHeight(1.2);
+      annotationOverlay.setActiveFloor(0);
+      annotationOverlay.setVisible(true, 1.2);
+
+      expect(cameraController.isOrthographic).toBe(true);
+      expect(renderer.clippingPlanes).toHaveLength(1);
+
+      const clipPlane = renderer.clippingPlanes[0];
+      // Normal pointing down (0, -1, 0)
+      expect(clipPlane.normal.x).toBe(0);
+      expect(clipPlane.normal.y).toBe(-1);
+      expect(clipPlane.normal.z).toBe(0);
+      // Constant is 1.2m
+      expect(clipPlane.constant).toBe(1.2);
+    });
+
+    it('updates horizontal clipping height cleanly via floor selector (Lt. 1 = 1.2m, Lt. 2 = 4.4m, Lt. 3 = 7.6m)', () => {
+      sectionCutManager.setCutMode('floor_plan');
+
+      // Lt. 1: index 0 -> 0 * 3.2 + 1.2 = 1.2m
+      sectionCutManager.setCutHeight(0 * 3.2 + 1.2);
+      expect(renderer.clippingPlanes[0].constant).toBeCloseTo(1.2, 2);
+
+      // Lt. 2: index 1 -> 1 * 3.2 + 1.2 = 4.4m
+      sectionCutManager.setCutHeight(1 * 3.2 + 1.2);
+      expect(renderer.clippingPlanes[0].constant).toBeCloseTo(4.4, 2);
+
+      // Lt. 3: index 2 -> 2 * 3.2 + 1.2 = 7.6m
+      sectionCutManager.setCutHeight(2 * 3.2 + 1.2);
+      expect(renderer.clippingPlanes[0].constant).toBeCloseTo(7.6, 2);
+    });
+
+    it('renders thick wall section cut outlines and room badges in FloorPlanAnnotationOverlay', () => {
+      // Add a 2-story building with rooms
+      buildingManager.addBuilding({
+        id: 'bld_denah_test',
+        presetKey: 'house_2fl',
+        name: 'Rumah Tingkat Denah',
+        category: 'residential',
+        position: new THREE.Vector3(0, 0, 0),
+        rotationY: 0,
+        width: 8,
+        length: 12,
+        floorCount: 2,
+        floorHeight: 3.2,
+        roofType: 'gable',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'clay_tile',
+      });
+
+      annotationOverlay.setActiveFloor(0);
+      annotationOverlay.setVisible(true, 1.2);
+
+      // The overlay group must contain meshes for the building
+      expect(annotationOverlay.isActive).toBe(true);
+      const bldGroup = scene.getObjectByName('FloorPlanAnnotationOverlayGroup');
+      expect(bldGroup).toBeDefined();
+      expect(bldGroup!.children.length).toBeGreaterThan(0);
+
+      // Verify that thick wall section cut meshes exist (color 0x0F172A)
+      let foundDarkWallMesh = false;
+      bldGroup!.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          const mat = mesh.material as THREE.MeshBasicMaterial;
+          if (mat && mat.color && mat.color.getHex() === 0x0f172a) {
+            foundDarkWallMesh = true;
+          }
+        }
+      });
+      expect(foundDarkWallMesh).toBe(true);
+    });
+
+    it('restores previous orbit vantage and clears clipping planes when exiting 2D mode', () => {
+      // Set initial orbit vantage
+      cameraController.setOrbitView(new THREE.Vector3(10, 0, 10), 65, 1.25, 0.85, true);
+
+      // Enter 2D mode
+      cameraController.setOrthographicMode(true, 'plan');
+      sectionCutManager.setCutMode('floor_plan');
+      annotationOverlay.setVisible(true);
+
+      expect(cameraController.isOrthographic).toBe(true);
+      expect(renderer.clippingPlanes).toHaveLength(1);
+
+      // Exit 2D mode
+      cameraController.setOrthographicMode(false);
+      sectionCutManager.setCutMode('none');
+      annotationOverlay.setVisible(false);
+
+      expect(cameraController.isOrthographic).toBe(false);
+      // Orbit polar, azimuth, distance must be restored to prior state
+      expect(cameraController.polar).toBeCloseTo(0.85, 2);
+      expect(cameraController.azimuth).toBeCloseTo(1.25, 2);
+      expect(cameraController.distance).toBeCloseTo(65, 2);
+      // Clipping planes array cleared
+      expect(renderer.clippingPlanes).toHaveLength(0);
+      expect(annotationOverlay.isActive).toBe(false);
     });
   });
 });

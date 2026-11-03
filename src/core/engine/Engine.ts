@@ -719,6 +719,8 @@ export class Engine {
   }
 
   public is2DPlanMode: boolean = false;
+  public active2DFloorIndex: number = 0;
+  public previousCameraMode: 'orbit' | 'first_person' | 'cinematic_drone' = 'orbit';
 
   public set2DPlanMode(enabled: boolean): void {
     this.is2DPlanMode = enabled;
@@ -728,18 +730,40 @@ export class Engine {
     if (this.sectionCutManager) {
       if (enabled) {
         this.sectionCutManager.setCutMode('floor_plan');
-        this.sectionCutManager.setCutHeight(2.4);
+        this.sectionCutManager.visualizerGroup.visible = false;
+        this.set2DFloor(this.active2DFloorIndex);
       } else {
         this.sectionCutManager.setCutMode('none');
       }
+    }
+    if (this.floorPlanAnnotationOverlay) {
+      this.floorPlanAnnotationOverlay.setActiveFloor(this.active2DFloorIndex);
+      this.floorPlanAnnotationOverlay.setVisible(enabled, (this.active2DFloorIndex * 3.2) + 1.2);
     }
     if (this.landscapeManager) {
       this.landscapeManager.set2DSymbolMode(enabled);
     }
   }
 
+  public set2DFloor(floorIndex: number): void {
+    this.active2DFloorIndex = Math.max(0, floorIndex);
+    const floorHeight = 3.2;
+    // Potongan horizontal 1.2 m di atas permukaan lantai aktif (T5.6)
+    const cutHeight = (this.active2DFloorIndex * floorHeight) + 1.2;
+    if (this.sectionCutManager) {
+      this.sectionCutManager.setCutHeight(cutHeight);
+    }
+    if (this.floorPlanAnnotationOverlay) {
+      this.floorPlanAnnotationOverlay.setActiveFloor(this.active2DFloorIndex);
+      this.floorPlanAnnotationOverlay.setVisible(true, cutHeight);
+    }
+  }
+
   public setCameraMode(mode: 'orbit' | 'first_person' | 'cinematic_drone' | '2d'): void {
     if (mode === '2d') {
+      if (this.currentCameraMode !== '2d') {
+        this.previousCameraMode = this.currentCameraMode;
+      }
       this.set2DPlanMode(true);
       this.currentCameraMode = '2d';
       if (this.onCameraModeChanged) this.onCameraModeChanged('2d');
