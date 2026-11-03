@@ -166,6 +166,7 @@ export const FirstPersonHUD: React.FC = () => {
   const insideBuildingName = fp?.insideBuildingName ?? '';
   const roomMetrics = isInsideBuilding ? fp?.getCurrentRoomMetrics() : null;
   const isSeated = fp?.isSeated ?? false;
+  const isFloorFading = fp?.isFloorFading ?? false;
 
   const activeDockTab = fp?.activeDockTab ?? (isInsideBuilding ? 'furniture' : 'exterior');
   const selectedFurnitureId = fp?.selectedFurnitureId ?? 'sofa_l';
@@ -250,6 +251,21 @@ export const FirstPersonHUD: React.FC = () => {
         fontFamily: FONT_SANS
       }}
     >
+      {/* T3.4: 150ms screen fade overlay during floor teleportation */}
+      {isFloorFading && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.40)',
+            backdropFilter: 'blur(8px)',
+            pointerEvents: 'none',
+            zIndex: 999,
+            transition: 'opacity 150ms ease-out'
+          }}
+        />
+      )}
+
       {/* 1. Futuristic Keybinds Capsule (Top Center — Zero Divider Lines) */}
       {isFirstPerson && !isPhotoMode && (
         <div
@@ -1590,17 +1606,33 @@ export const FirstPersonHUD: React.FC = () => {
                   padding: '4px 7px'
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: FONT_MONO,
-                    fontVariantNumeric: 'tabular-nums',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    color: 'var(--accent)'
-                  }}
-                >
-                  Lt.{currentFloor}/{totalFloors}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  {Array.from({ length: totalFloors }, (_, i) => i + 1).map((fl) => (
+                    <button
+                      key={fl}
+                      type="button"
+                      onClick={() => {
+                        fp?.goToFloor(fl);
+                        fp?.lockPointer();
+                        triggerRefresh();
+                      }}
+                      style={{
+                        background: fl === currentFloor ? 'var(--accent)' : 'transparent',
+                        color: fl === currentFloor ? '#FFFFFF' : 'var(--label)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '2px 5px',
+                        cursor: 'pointer',
+                        fontSize: '10px',
+                        fontWeight: fl === currentFloor ? 700 : 500,
+                        fontFamily: FONT_MONO
+                      }}
+                      title={`Pindah ke Lantai ${fl}`}
+                    >
+                      Lt. {fl}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={() => {
