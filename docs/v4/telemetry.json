@@ -1,0 +1,62 @@
+{
+  "gpu": {
+    "vendor": "Google Inc. (NVIDIA)",
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Laptop GPU (0x000024DD) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "results": {
+    "scenarioA": {
+      "avgFps": 58,
+      "p50Ms": 16.6,
+      "p95Ms": 16.8,
+      "avgDrawCalls": 1,
+      "triangles": 1,
+      "pointLights": 0,
+      "sampleFrames": 3481
+    },
+    "scenarioB": {
+      "avgFps": 57.2,
+      "p50Ms": 16.7,
+      "p95Ms": 32.5,
+      "avgDrawCalls": 1,
+      "triangles": 1,
+      "pointLights": 0,
+      "sampleFrames": 3432
+    },
+    "scenarioC": {
+      "avgFps": 55.9,
+      "p50Ms": 16.7,
+      "p95Ms": 33.3,
+      "avgDrawCalls": 1,
+      "triangles": 1,
+      "pointLights": 0,
+      "sampleFrames": 3354
+    },
+    "scenarioD": {
+      "avgFps": 55.2,
+      "p50Ms": 16.7,
+      "p95Ms": 33.3,
+      "avgDrawCalls": 1,
+      "triangles": 1,
+      "pointLights": 0,
+      "sampleFrames": 3310
+    },
+    "scenarioE": {
+      "avgFps": 50.3,
+      "p50Ms": 16.7,
+      "p95Ms": 33.3,
+      "avgDrawCalls": 1,
+      "triangles": 1,
+      "pointLights": 0,
+      "sampleFrames": 3017
+    },
+    "scenarioF": {
+      "avgFps": 21.8,
+      "p50Ms": 49.9,
+      "p95Ms": 66.6,
+      "avgDrawCalls": 1,
+      "triangles": 1,
+      "pointLights": 0,
+      "sampleFrames": 1309
+    }
+  }
+}

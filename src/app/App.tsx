@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { Engine } from '../core/engine/Engine';
 import { useUIStore } from '../ui/state/useUIStore';
 import { HudLayout } from '../ui/components/HudLayout';
 import { HelpModal } from '../ui/components/HelpModal';
 import { GlossaryModal } from '../ui/components/GlossaryModal';
 import { StyleLibraryModal } from '../ui/components/StyleLibraryModal';
-import { MissionModal } from '../ui/components/MissionModal';
 import { TutorialOverlay } from '../ui/components/TutorialOverlay';
 import { SaveLoadModal } from '../ui/components/SaveLoadModal';
 import { SettingsModal } from '../ui/components/SettingsModal';
@@ -14,7 +14,6 @@ import { OnboardingModal } from '../ui/components/OnboardingModal';
 import { PhotoModeOverlay } from '../ui/components/PhotoModeOverlay';
 import { LoadTestModal } from '../ui/components/LoadTestModal';
 import { RealWorldExportModal } from '../ui/components/RealWorldExportModal';
-import { ArchitectureQuizModal } from '../education/ArchitectureQuizModal';
 import { LoginPage } from '../ui/components/LoginPage';
 import { WorldHubModal } from '../ui/components/WorldHubModal';
 import { FirstPersonHUD } from '../ui/components/FirstPersonHUD';
@@ -37,8 +36,6 @@ export const App: React.FC = () => {
     setShowGlossary,
     showStyles,
     setShowStyles,
-    showMissions,
-    setShowMissions,
     showTutorial,
     setShowTutorial,
     showSaveLoad,
@@ -57,8 +54,6 @@ export const App: React.FC = () => {
     setShowRealWorldExport,
     isWalkMode,
     toggleWalkMode,
-    showQuiz,
-    setShowQuiz,
     showHelp,
     setShowHelp,
   } = useUIStore();
@@ -78,6 +73,33 @@ export const App: React.FC = () => {
     engine.start();
 
     setEngine(engine);
+    if (typeof window !== 'undefined') {
+      (window as any).__ARSCITY_ENGINE__ = engine;
+      (window as any).__ARSCITY_UI_STORE__ = useUIStore;
+      (window as any).__ARSCITY_THREE__ = THREE;
+      (window as any).THREE = THREE;
+    }
+
+    // QA & Visual Benchmarking Automation (?autoload=malioboro&time=16.25&azimuth=45&elevation=35)
+    if (typeof window !== 'undefined' && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const autoMap = params.get('autoload');
+      if (autoMap) {
+        useUIStore.setState({ isLoggedIn: true, currentScreen: 'game', isMapHubOpen: false });
+        engine.loadMap(autoMap as any).then(() => {
+          const t = parseFloat(params.get('time') || '16.25');
+          engine.setTimeOfDay(t, 172);
+          useUIStore.setState({ timeOfDay: t });
+          const cam = engine.cameraController;
+          const azDeg = parseFloat(params.get('azimuth') || '45');
+          const elDeg = parseFloat(params.get('elevation') || '35');
+          const dist = parseFloat(params.get('dist') || '85');
+          const az = (azDeg * Math.PI) / 180;
+          const pol = ((90 - elDeg) * Math.PI) / 180;
+          cam.setOrbitView(new THREE.Vector3(0, 0, 0), dist, az, pol, true);
+        });
+      }
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if user is typing in input
@@ -106,7 +128,7 @@ export const App: React.FC = () => {
         if (useUIStore.getState().activeTool !== 'select') {
           useUIStore.getState().setActiveTool('select');
         }
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && useUIStore.getState().cameraMode === 'orbit') {
         // Quick Tool Switching Hotkeys (1-8)
         const toolMap: Record<string, import('../ui/state/useUIStore').MainToolType> = {
           '1': 'select',
@@ -167,7 +189,6 @@ export const App: React.FC = () => {
           {/* Architectural Education Modals */}
           <GlossaryModal isOpen={showGlossary} onClose={() => setShowGlossary(false)} />
           <StyleLibraryModal isOpen={showStyles} onClose={() => setShowStyles(false)} />
-          <MissionModal isOpen={showMissions} onClose={() => setShowMissions(false)} />
           <TutorialOverlay isOpen={showTutorial} onClose={() => setShowTutorial(false)} />
 
           {/* Polish Modals & Photo Mode */}
@@ -178,10 +199,6 @@ export const App: React.FC = () => {
           <RealWorldExportModal
             isOpen={showRealWorldExport}
             onClose={() => setShowRealWorldExport(false)}
-          />
-          <ArchitectureQuizModal
-            isOpen={showQuiz}
-            onClose={() => setShowQuiz(false)}
           />
         </>
       )}
