@@ -252,8 +252,11 @@ export class BuildingManager {
 
     bld.userData = bld.userData || {};
     bld.userData.placedFurniture = bld.userData.placedFurniture || [];
-    if (!bld.userData.placedFurniture.some((f: PlacedFurnitureData) => f.id === furData.id)) {
+    const existingIdx = bld.userData.placedFurniture.findIndex((f: PlacedFurnitureData) => f.id === furData.id);
+    if (existingIdx === -1) {
       bld.userData.placedFurniture.push(furData);
+    } else {
+      bld.userData.placedFurniture[existingIdx] = furData;
     }
 
     let dynamicGroup = grp.getObjectByName('DynamicFurnitureGroup') as THREE.Group;
@@ -277,7 +280,9 @@ export class BuildingManager {
     furMesh.userData = {
       furnitureId: furData.id,
       type: furData.type,
-      buildingId: bld.id
+      buildingId: bld.id,
+      slot: furData.slot || 'floor',
+      parentId: furData.parentId
     };
     furMesh.traverse((child) => {
       child.userData = {
@@ -286,7 +291,9 @@ export class BuildingManager {
         type: furData.type,
         buildingId: bld.id,
         isSharedGeometry: true,
-        isSharedMaterial: true
+        isSharedMaterial: true,
+        slot: furData.slot || 'floor',
+        parentId: furData.parentId
       };
       if ((child as THREE.Mesh).isMesh) {
         child.matrixAutoUpdate = false;

@@ -13,6 +13,7 @@ import {
   FIRST_PERSON_FURNITURE_CATALOG,
   FIRST_PERSON_EXTERIOR_CATALOG,
   FIRST_PERSON_MATERIAL_PALETTE,
+  FurnitureSlotType,
   computeRotatedFurnitureHalfExtents,
   getIndoorHotbarItems,
   getOutdoorHotbarItems
@@ -69,6 +70,8 @@ export interface FirstPersonState {
   hoveredFurnitureName: string | null;
   laserDistanceM: number | null;
   reticleActionLabel: string | null;
+  pendingFurnitureSlot?: FurnitureSlotType;
+  pendingParentId?: string;
   isDrawerOpen: boolean;
   isGrabbingFurniture?: boolean;
   isFloorFading?: boolean;
@@ -169,6 +172,8 @@ export class FirstPersonController {
   public laserLineMesh: THREE.Line | null = null;
   public laserLabelSprite: THREE.Sprite | null = null;
   public reticleActionLabel: string | null = null;
+  public pendingFurnitureSlot: FurnitureSlotType = 'floor';
+  public pendingParentId?: string;
 
   private currentGhostType: string = '';
   private currentGhostValid: boolean | null = null;
@@ -1081,6 +1086,17 @@ export class FirstPersonController {
     return false;
   }
 
+  public getPlacedFurnitureFromObject(obj: THREE.Object3D | null): { id: string; type: string } | null {
+    let cur: THREE.Object3D | null = obj;
+    while (cur) {
+      if (cur.userData?.furnitureId) {
+        return { id: cur.userData.furnitureId, type: cur.userData.type || '' };
+      }
+      cur = cur.parent;
+    }
+    return null;
+  }
+
   /**
    * 2D bounding-box collision test against placed furniture with height > 0.4m
    * (tables, beds, cafe counters, wardrobes), allowing smooth sliding along sides.
@@ -1673,8 +1689,15 @@ export class FirstPersonController {
     this.hoveredSurface = null;
     this.isPlacementValid = false;
 
-    // 1. Check hovered placed furniture if inside building (and not currently moving a grabbed piece)
-    if (isInside && this.insideBuildingId && this.buildingManager && !this.grabbedFurniture) {
+    // 1. Check hovered placed furniture if inside building (and not currently moving a grabbed piece or placing a tabletop item)
+    const isPlacingTabletop =
+      this.activeDockTab === 'furniture' &&
+      Boolean(
+        FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === this.selectedFurnitureId)?.allowedSlots?.includes('tabletop') &&
+        !FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === this.selectedFurnitureId)?.allowedSlots?.includes('floor')
+      );
+
+    if (isInside && this.insideBuildingId && this.buildingManager && !this.grabbedFurniture && !isPlacingTabletop) {
       const bldGroup = this.buildingManager.getBuildingGroup(this.insideBuildingId);
       if (bldGroup) {
         const hits = this.centerRaycaster.intersectObjects(bldGroup.children, true)
@@ -1748,95 +1771,235 @@ export class FirstPersonController {
       const bldGroup = this.buildingManager?.getBuildingGroup(this.insideBuildingId);
       if (!bld || !bldGroup) return;
 
+      bldGroup.updateMatrixWorld(true);
+
+      const curFurItem = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === this.selectedFurnitureId);
+      const allowedSlots = curFurItem?.allowedSlots || ['floor'];
+      const isTabletopOnly = allowedSlots.includes('tabletop') && !allowedSlots.includes('floor');
+      const isWallOnly = allowedSlots.includes('wall') && !allowedSlots.includes('floor');
+      const plinthH = bld.plinthHeight ?? 0.35;
+      const rot = bld.rotationY || 0;
+
       const hits = this.centerRaycaster.intersectObjects(bldGroup.children, true)
         .filter((h) => isObjectHierarchyVisible(h.object));
-      const floorHit = hits.find(
-        (h) => h.face && h.face.normal.y > 0.7 && !this.isPlacedFurnitureObject(h.object)
-      );
-      if (floorHit) {
-        const targetPos = floorHit.point.clone();
 
-        const dx = targetPos.x - bld.position.x;
-        const dz = targetPos.z - bld.position.z;
-        const rot = bld.rotationY || 0;
-        const cos = Math.cos(-rot);
-        const sin = Math.sin(-rot);
-        let localX = cos * dx - sin * dz;
-        let localZ = sin * dx + cos * dz;
+      if (hits.length === 0) {
+        this.isPlacementValid = false;
+        return;
+      }
 
-        const innerHalfW = (bld.width || 10) * 0.5 - 0.18;
-        const innerHalfL = (bld.length || 10) * 0.5 - 0.18;
+      if (isTabletopOnly) {
+        // Tabletop placement: Must target the top surface of a piece with hasTopSurface === true
+        const furHit = hits.find((h) => this.isPlacedFurnitureObject(h.object));
+        let validTabletop = false;
+        if (furHit && furHit.face && furHit.face.normal.y > 0.6) {
+          const parentInfo = this.getPlacedFurnitureFromObject(furHit.object);
+          const parentFur = bld.userData?.placedFurniture?.find((f: PlacedFurnitureData) => f.id === parentInfo?.id);
+          const parentSpec = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === parentFur?.type);
 
-        const furItem = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === this.selectedFurnitureId);
-        let snapped = false;
-        let autoSnapLocalRot = 0;
+          if (parentFur && parentSpec?.hasTopSurface) {
+            // Local coordinates relative to building
+            const dx = furHit.point.x - bld.position.x;
+            const dz = furHit.point.z - bld.position.z;
+            const localHitX = Math.cos(-rot) * dx - Math.sin(-rot) * dz;
+            const localHitZ = Math.sin(-rot) * dx + Math.cos(-rot) * dz;
 
-        if (Math.abs(localX - innerHalfW) < 0.6) {
-          autoSnapLocalRot = -Math.PI * 0.5;
-          snapped = true;
-        } else if (Math.abs(localX - (-innerHalfW)) < 0.6) {
-          autoSnapLocalRot = Math.PI * 0.5;
-          snapped = true;
-        } else if (Math.abs(localZ - innerHalfL) < 0.6) {
-          autoSnapLocalRot = Math.PI;
-          snapped = true;
-        } else if (Math.abs(localZ - (-innerHalfL)) < 0.6) {
-          autoSnapLocalRot = 0;
-          snapped = true;
-        }
+            // Coordinates relative to parent table center
+            const parentRot = parentFur.rotationY || 0;
+            const relX = localHitX - parentFur.position[0];
+            const relZ = localHitZ - parentFur.position[2];
 
-        if (snapped && !this.hasManualPlacementRotation) {
-          this.placementRotation = ((rot + autoSnapLocalRot) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-        }
+            const tableLocalX = Math.cos(-parentRot) * relX - Math.sin(-parentRot) * relZ;
+            const tableLocalZ = Math.sin(-parentRot) * relX + Math.cos(-parentRot) * relZ;
 
-        const localRotY = this.placementRotation - rot;
-        const { effectiveHalfW, effectiveHalfD } = computeRotatedFurnitureHalfExtents(
-          furItem?.width ?? 0.8,
-          furItem?.depth ?? 0.8,
-          localRotY
-        );
+            // Snap to 0.05m local grid
+            const snappedX = Math.round(tableLocalX / 0.05) * 0.05;
+            const snappedZ = Math.round(tableLocalZ / 0.05) * 0.05;
 
-        // Snap flush against inner wall using rotated effective half-extents so 90° items never pierce walls
-        if (Math.abs(localX - innerHalfW) < 0.6 && innerHalfW > effectiveHalfW) {
-          localX = innerHalfW - effectiveHalfW;
-        } else if (Math.abs(localX - (-innerHalfW)) < 0.6 && innerHalfW > effectiveHalfW) {
-          localX = -innerHalfW + effectiveHalfW;
-        }
+            // Clamp within surface bounds without overflowing edges
+            const bounds = parentSpec.topSurfaceBounds || {
+              width: (parentSpec.width || 1.0) * 0.9,
+              depth: (parentSpec.depth || 0.6) * 0.9
+            };
+            const itemHalfW = (curFurItem?.width || 0.3) * 0.5;
+            const itemHalfD = (curFurItem?.depth || 0.3) * 0.5;
+            const maxHalfX = Math.max(0, (bounds.width * 0.5) - itemHalfW);
+            const maxHalfZ = Math.max(0, (bounds.depth * 0.5) - itemHalfD);
+            const clampedX = Math.max(-maxHalfX, Math.min(maxHalfX, snappedX));
+            const clampedZ = Math.max(-maxHalfZ, Math.min(maxHalfZ, snappedZ));
 
-        if (Math.abs(localZ - innerHalfL) < 0.6 && innerHalfL > effectiveHalfD) {
-          localZ = innerHalfL - effectiveHalfD;
-        } else if (Math.abs(localZ - (-innerHalfL)) < 0.6 && innerHalfL > effectiveHalfD) {
-          localZ = -innerHalfL + effectiveHalfD;
-        }
+            // Convert back to building local coordinates
+            const newRelX = Math.cos(parentRot) * clampedX - Math.sin(parentRot) * clampedZ;
+            const newRelZ = Math.sin(parentRot) * clampedX + Math.cos(parentRot) * clampedZ;
+            const finalLocalX = parentFur.position[0] + newRelX;
+            const finalLocalZ = parentFur.position[2] + newRelZ;
+            const topElevation = parentSpec.topSurfaceHeight ?? parentSpec.height;
+            const finalLocalY = parentFur.position[1] + topElevation;
 
-        targetPos.x = bld.position.x + (localX * Math.cos(rot) - localZ * Math.sin(rot));
-        targetPos.z = bld.position.z + (localX * Math.sin(rot) + localZ * Math.cos(rot));
-        this.currentPlacementTarget.copy(targetPos);
+            const worldX = bld.position.x + (finalLocalX * Math.cos(rot) - finalLocalZ * Math.sin(rot));
+            const worldZ = bld.position.z + (finalLocalX * Math.sin(rot) + finalLocalZ * Math.cos(rot));
+            const worldY = bld.position.y + plinthH + finalLocalY;
 
-        const validity = this.checkFurniturePlacementValidity(
-          bld,
-          localX,
-          localZ,
-          this.selectedFurnitureId,
-          localRotY,
-          this.currentFloor,
-          this.grabbedFurniture?.data.id
-        );
-
-        if (!validity.valid) {
-          this.isPlacementValid = false;
-          this.reticleActionLabel =
-            validity.reason === 'wall'
-              ? 'Terlalu dekat dengan dinding ruangan'
-              : 'Area terhalang oleh perabot lain';
-        } else {
-          this.isPlacementValid = true;
-          const name = furItem?.name || 'Perabot';
-          if (this.grabbedFurniture) {
-            this.reticleActionLabel = `[Klik Kiri] Pindahkan ${name}  [R] Putar  [Esc] Batal`;
-          } else {
-            this.reticleActionLabel = `[Klik Kiri] Taruh ${name}  [R / Scroll] Putar`;
+            this.currentPlacementTarget.set(worldX, worldY, worldZ);
+            this.pendingFurnitureSlot = 'tabletop';
+            this.pendingParentId = parentFur.id;
+            this.isPlacementValid = true;
+            this.reticleActionLabel = `[Klik Kiri] Taruh ${curFurItem?.name || 'Perabot'} di atas meja  [R] Putar`;
+            validTabletop = true;
           }
+        }
+
+        if (!validTabletop) {
+          this.isPlacementValid = false;
+          this.pendingFurnitureSlot = 'tabletop';
+          this.pendingParentId = undefined;
+          this.currentPlacementTarget.copy(hits[0].point);
+          this.reticleActionLabel = 'Membutuhkan permukaan meja (tabletop)';
+        }
+      } else if (isWallOnly) {
+        // Wall placement: Must target vertical wall surfaces at 0.8m - 2.2m height
+        const wallHit = hits.find((h) => {
+          if (this.isPlacedFurnitureObject(h.object)) return false;
+          return h.face && Math.abs(h.face.normal.y) < 0.2;
+        });
+
+        let validWall = false;
+        if (wallHit && wallHit.face) {
+          const floorBaseY = (this.currentFloor - 1) * (bld.floorHeight || 3.2);
+          const heightFromFloor = (wallHit.point.y - bld.position.y - plinthH) - floorBaseY;
+
+          if (heightFromFloor >= 0.8 && heightFromFloor <= 2.2) {
+            const worldNormal = wallHit.face.normal.clone()
+              .applyQuaternion(wallHit.object.getWorldQuaternion(new THREE.Quaternion()))
+              .normalize();
+
+            // Offset 0.02m along normal flush with wall
+            const targetPos = wallHit.point.clone().add(worldNormal.clone().multiplyScalar(0.02));
+            this.currentPlacementTarget.copy(targetPos);
+            this.placementRotation = Math.atan2(worldNormal.x, worldNormal.z);
+            this.pendingFurnitureSlot = 'wall';
+            this.pendingParentId = undefined;
+            this.isPlacementValid = true;
+            this.reticleActionLabel = `[Klik Kiri] Pasang ${curFurItem?.name || 'Hiasan'} pada dinding`;
+            validWall = true;
+          }
+        }
+
+        if (!validWall) {
+          this.isPlacementValid = false;
+          this.pendingFurnitureSlot = 'wall';
+          this.pendingParentId = undefined;
+          this.currentPlacementTarget.copy(hits[0].point);
+          this.reticleActionLabel = 'Membutuhkan dinding vertikal (wall) (0,8 m - 2,2 m)';
+        }
+      } else {
+        // Floor placement: Must target horizontal floor
+        const firstHit = hits[0];
+        const isAimingAtWall = firstHit && firstHit.face && Math.abs(firstHit.face.normal.y) < 0.2;
+        const isAimingAtFurniture = firstHit && this.isPlacedFurnitureObject(firstHit.object);
+
+        if (isAimingAtWall || isAimingAtFurniture) {
+          this.isPlacementValid = false;
+          this.pendingFurnitureSlot = 'floor';
+          this.pendingParentId = undefined;
+          this.currentPlacementTarget.copy(firstHit.point);
+          this.reticleActionLabel = 'Membutuhkan lantai (floor)';
+          return;
+        }
+
+        const floorHit = hits.find(
+          (h) => h.face && h.face.normal.y > 0.7 && !this.isPlacedFurnitureObject(h.object)
+        );
+
+        if (floorHit) {
+          this.pendingFurnitureSlot = 'floor';
+          this.pendingParentId = undefined;
+          const targetPos = floorHit.point.clone();
+
+          const dx = targetPos.x - bld.position.x;
+          const dz = targetPos.z - bld.position.z;
+          const cos = Math.cos(-rot);
+          const sin = Math.sin(-rot);
+          let localX = cos * dx - sin * dz;
+          let localZ = sin * dx + cos * dz;
+
+          const innerHalfW = (bld.width || 10) * 0.5 - 0.18;
+          const innerHalfL = (bld.length || 10) * 0.5 - 0.18;
+
+          let snapped = false;
+          let autoSnapLocalRot = 0;
+
+          if (Math.abs(localX - innerHalfW) < 0.6) {
+            autoSnapLocalRot = -Math.PI * 0.5;
+            snapped = true;
+          } else if (Math.abs(localX - (-innerHalfW)) < 0.6) {
+            autoSnapLocalRot = Math.PI * 0.5;
+            snapped = true;
+          } else if (Math.abs(localZ - innerHalfL) < 0.6) {
+            autoSnapLocalRot = Math.PI;
+            snapped = true;
+          } else if (Math.abs(localZ - (-innerHalfL)) < 0.6) {
+            autoSnapLocalRot = 0;
+            snapped = true;
+          }
+
+          if (snapped && !this.hasManualPlacementRotation) {
+            this.placementRotation = ((rot + autoSnapLocalRot) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+          }
+
+          const localRotY = this.placementRotation - rot;
+          const { effectiveHalfW, effectiveHalfD } = computeRotatedFurnitureHalfExtents(
+            curFurItem?.width ?? 0.8,
+            curFurItem?.depth ?? 0.8,
+            localRotY
+          );
+
+          // Snap flush against inner wall using rotated effective half-extents so 90° items never pierce walls
+          if (Math.abs(localX - innerHalfW) < 0.6 && innerHalfW > effectiveHalfW) {
+            localX = innerHalfW - effectiveHalfW;
+          } else if (Math.abs(localX - (-innerHalfW)) < 0.6 && innerHalfW > effectiveHalfW) {
+            localX = -innerHalfW + effectiveHalfW;
+          }
+
+          if (Math.abs(localZ - innerHalfL) < 0.6 && innerHalfL > effectiveHalfD) {
+            localZ = innerHalfL - effectiveHalfD;
+          } else if (Math.abs(localZ - (-innerHalfL)) < 0.6 && innerHalfL > effectiveHalfD) {
+            localZ = -innerHalfL + effectiveHalfD;
+          }
+
+          targetPos.x = bld.position.x + (localX * Math.cos(rot) - localZ * Math.sin(rot));
+          targetPos.z = bld.position.z + (localX * Math.sin(rot) + localZ * Math.cos(rot));
+          this.currentPlacementTarget.copy(targetPos);
+
+          const validity = this.checkFurniturePlacementValidity(
+            bld,
+            localX,
+            localZ,
+            this.selectedFurnitureId,
+            localRotY,
+            this.currentFloor,
+            this.grabbedFurniture?.data.id
+          );
+
+          if (!validity.valid) {
+            this.isPlacementValid = false;
+            this.reticleActionLabel =
+              validity.reason === 'wall'
+                ? 'Terlalu dekat dengan dinding ruangan'
+                : 'Area terhalang oleh perabot lain';
+          } else {
+            this.isPlacementValid = true;
+            const name = curFurItem?.name || 'Perabot';
+            if (this.grabbedFurniture) {
+              this.reticleActionLabel = `[Klik Kiri] Pindahkan ${name}  [R] Putar  [Esc] Batal`;
+            } else {
+              this.reticleActionLabel = `[Klik Kiri] Taruh ${name}  [R / Scroll] Putar`;
+            }
+          }
+        } else {
+          this.isPlacementValid = false;
+          this.currentPlacementTarget.copy(firstHit.point);
+          this.reticleActionLabel = 'Membutuhkan lantai (floor)';
         }
       }
     } else if (this.activeDockTab === 'exterior') {
@@ -2024,6 +2187,7 @@ export class FirstPersonController {
       const bld = this.buildingManager?.buildings.get(this.insideBuildingId);
       if (!bld) return;
 
+      const plinthH = bld.plinthHeight ?? 0.35;
       const dx = this.currentPlacementTarget.x - bld.position.x;
       const dz = this.currentPlacementTarget.z - bld.position.z;
       const rot = bld.rotationY || 0;
@@ -2031,6 +2195,9 @@ export class FirstPersonController {
       const localZ = Math.sin(-rot) * dx + Math.cos(-rot) * dz;
       const furItem = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === this.selectedFurnitureId);
       const floorY = (this.currentFloor - 1) * (bld.floorHeight || 3.2);
+      const localY = this.pendingFurnitureSlot === 'floor'
+        ? floorY
+        : (this.currentPlacementTarget.y - bld.position.y - plinthH);
 
       if (this.grabbedFurniture && this.grabbedFurniture.buildingId === bld.id) {
         const prevData = this.grabbedFurniture.data;
@@ -2038,9 +2205,11 @@ export class FirstPersonController {
           id: prevData.id,
           type: prevData.type,
           name: prevData.name,
-          position: [localX, floorY, localZ],
+          position: [localX, localY, localZ],
           rotationY: this.placementRotation - rot,
-          floorIndex: this.currentFloor
+          floorIndex: this.currentFloor,
+          slot: this.pendingFurnitureSlot || prevData.slot || 'floor',
+          parentId: this.pendingParentId ?? prevData.parentId
         };
         this.grabbedFurniture = null;
         this.engine.executeCommand(new MoveFurnitureCommand(this.engine, bld.id, prevData, nextData));
@@ -2052,9 +2221,11 @@ export class FirstPersonController {
         id: `fur_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
         type: this.selectedFurnitureId,
         name: furItem?.name || 'Perabot',
-        position: [localX, floorY, localZ],
+        position: [localX, localY, localZ],
         rotationY: this.placementRotation - rot,
-        floorIndex: this.currentFloor
+        floorIndex: this.currentFloor,
+        slot: this.pendingFurnitureSlot || 'floor',
+        parentId: this.pendingParentId
       };
 
       // Local spring animation (0.75 -> 1.0 over 200ms) runs directly on the furniture mesh inside attachFurniture;
@@ -2419,6 +2590,8 @@ export class FirstPersonController {
       hoveredFurnitureName: this.hoveredFurniture ? this.hoveredFurniture.name : null,
       laserDistanceM: this.laserDistanceM,
       reticleActionLabel: this.reticleActionLabel,
+      pendingFurnitureSlot: this.pendingFurnitureSlot,
+      pendingParentId: this.pendingParentId,
       isDrawerOpen: this.isDrawerOpen,
       isGrabbingFurniture: Boolean(this.grabbedFurniture),
       isFloorFading: this.isFloorFading
