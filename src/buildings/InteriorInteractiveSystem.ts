@@ -21,6 +21,8 @@ export interface InteractiveDoor {
   targetRatio: number;
   swingAngle: number;
   slideDist: number;
+  swingDirection?: number; // T3.3: -1 or +1 (swings away from player approach)
+  closeDistance?: number; // Close threshold distance (default 3.2m for T3.3, or 2.8m for standard 90 deg)
 }
 
 export interface InteractiveSeat {
@@ -213,15 +215,34 @@ export class InteriorInteractiveSystem {
       }
 
       if (isFirstPerson) {
-        // Vertical distance check (same floor, +/- 1.8m)
+        // Vertical distance check (same floor, +/- 2.2m)
         const dY = Math.abs(playerPos.y - door.worldPosition.y);
         const dHorizontal = Math.hypot(playerPos.x - door.worldPosition.x, playerPos.z - door.worldPosition.z);
 
         if (dY < 2.2) {
           if (dHorizontal < 2.2) {
+            // T3.3: Two-way swing door: dot product of (player pos - door pos) against door normal
+            if (door.targetRatio === 0) {
+              const doorNormal = new THREE.Vector3(0, 0, 1);
+              if (door.group) {
+                const q = new THREE.Quaternion();
+                door.group.getWorldQuaternion(q);
+                doorNormal.applyQuaternion(q).normalize();
+              }
+              const toPlayerX = playerPos.x - door.worldPosition.x;
+              const toPlayerZ = playerPos.z - door.worldPosition.z;
+              const dot = toPlayerX * doorNormal.x + toPlayerZ * doorNormal.z;
+              // Swings AWAY from player around edge hinge axis:
+              // If dot >= 0 (player in front / along normal), swing backwards (-1)
+              // If dot < 0 (player behind / opposite normal), swing forwards (+1)
+              door.swingDirection = dot >= 0 ? -1 : 1;
+            }
             door.targetRatio = 1.0;
-          } else if (dHorizontal > 2.8) {
-            door.targetRatio = 0.0;
+          } else {
+            const closeDist = door.closeDistance ?? (door.swingAngle && Math.abs(door.swingAngle) > 1.65 ? 3.2 : 2.8);
+            if (dHorizontal > closeDist) {
+              door.targetRatio = 0.0;
+            }
           }
         } else {
           door.targetRatio = 0.0;
@@ -230,9 +251,9 @@ export class InteriorInteractiveSystem {
         door.targetRatio = 0.0;
       }
 
-      // Smooth interpolation
+      // Smooth interpolation (~0.35s with easing: lambda ~8.5)
       const prevRatio = door.currentRatio;
-      door.currentRatio = THREE.MathUtils.damp(door.currentRatio, door.targetRatio, 9.0, dt);
+      door.currentRatio = THREE.MathUtils.damp(door.currentRatio, door.targetRatio, 8.5, dt);
 
       // Trigger audio events at threshold
       if (prevRatio < 0.15 && door.currentRatio >= 0.15 && !door.isOpen) {
@@ -245,8 +266,10 @@ export class InteriorInteractiveSystem {
 
       // Animate Geometry
       if (door.type === 'swing') {
-        // Swing door leaves around hinge pivot (Y axis)
-        const angle = door.currentRatio * door.swingAngle;
+        // T3.3: Swing door leaf around edge hinge axis (~100 degrees, ~1.745 rad) AWAY from player
+        const maxSwingRad = 100 * (Math.PI / 180);
+        const dir = door.swingDirection !== undefined ? door.swingDirection : -1;
+        const angle = door.currentRatio * maxSwingRad * dir;
         door.leftLeafMesh.rotation.y = angle;
       } else if (door.type === 'sliding') {
         // Slide left and right leaves apart horizontally
