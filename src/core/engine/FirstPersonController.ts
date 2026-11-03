@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { BuildingManager } from '../../buildings/BuildingManager';
 import { Terrain } from '../../world/Terrain';
 import { InteriorInteractiveSystem, InteractiveSeat } from '../../buildings/InteriorInteractiveSystem';
-import { proceduralAudio } from '../../audio/ProceduralAudio';
+import { proceduralAudio, FootstepMaterial } from '../../audio/ProceduralAudio';
 import { PolygonMath } from '../math/PolygonMath';
 import { isObjectHierarchyVisible } from './RaycastManager';
 import { BuildingInstance, PREFAB_CATALOG } from '../../buildings/PrefabTypes';
 import { LandscapeItem } from '../../world/LandscapeManager';
+import { useUIStore } from '../../ui/state/useUIStore';
 import {
   FirstPersonFurnitureBuilder,
   FIRST_PERSON_FURNITURE_CATALOG,
@@ -70,6 +71,7 @@ export interface FirstPersonState {
   reticleActionLabel: string | null;
   isDrawerOpen: boolean;
   isGrabbingFurniture?: boolean;
+  isFloorFading?: boolean;
 }
 
 export class FirstPersonController {
@@ -96,13 +98,19 @@ export class FirstPersonController {
   public currentVelocityX: number = 0;
   public currentVelocityZ: number = 0;
   private velocityY: number = 0;
-  private isGrounded: boolean = true;
+  public isGrounded: boolean = true;
   private isOnStairs: boolean = false;
   private smoothedCameraY: number = 1.65;
 
   // Throttled roof check (every 150ms)
   public isUnderRoof: boolean = false;
   private roofCheckAccumulatorMs: number = 150;
+
+  // T3.1: Eye Light Adaptation Exposure Module
+  public currentExposure: number = 1.05;
+  public targetExposure: number = 1.05;
+  public baseDiurnalExposure: number = 1.05;
+  public indoorExposureFactor: number = 1.2190476; // 1.05 * 1.2190476 = 1.28
 
   // Interactive Seating (0.45m Ergonomic Height)
   public isSeated: boolean = false;
@@ -118,6 +126,20 @@ export class FirstPersonController {
   public totalFloors: number = 1;
   public floorHeight: number = 3.2;
   private targetFloorGroundY: number = 0;
+
+  // T3.4: Dual Floor Navigation & 150ms screen fade
+  public isFloorFading: boolean = false;
+  private floorFadeTimeout: any = null;
+
+  // T3.5: Surface Material Footstep Audio Accumulator
+  public traversedDistance: number = 0;
+
+  // T3.6: Smooth Camera Bobbing (Vertical Amplitude ~0.015m)
+  public cameraBobbingEnabled: boolean = true;
+  public bobbingPhase: number = 0;
+  public currentBobbingOffset: number = 0;
+  public bobbingAmplitude: number = 0.015;
+  public smoothedBobbingTarget: number = 0;
 
   // Keyboard and mouse input state
   private keysDown: Set<string> = new Set();
@@ -168,6 +190,7 @@ export class FirstPersonController {
 
   // Scratchpad vectors
   private readonly _scratchMoveDir: THREE.Vector3 = new THREE.Vector3();
+  private readonly _scratchOriginLow: THREE.Vector3 = new THREE.Vector3();
   private readonly _scratchOriginWaist: THREE.Vector3 = new THREE.Vector3();
   private readonly _scratchOriginChest: THREE.Vector3 = new THREE.Vector3();
   private readonly _scratchLookTarget: THREE.Vector3 = new THREE.Vector3();
@@ -193,7 +216,7 @@ export class FirstPersonController {
     this.downRaycaster = new THREE.Raycaster();
     this.downRaycaster.far = 100.0;
     this.upRaycaster = new THREE.Raycaster();
-    this.upRaycaster.far = 30.0;
+    this.upRaycaster.far = 6.0;
     this.horizontalRaycaster = new THREE.Raycaster();
     this.horizontalRaycaster.far = 0.55;
 
@@ -218,7 +241,7 @@ export class FirstPersonController {
       document.addEventListener('pointerlockchange', this.onPointerLockChange);
       document.addEventListener('mousemove', this.onMouseMove);
     }
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('keydown', this.onKeyDown);
       window.addEventListener('keyup', this.onKeyUp);
     }
@@ -274,7 +297,7 @@ export class FirstPersonController {
     if (typeof document !== 'undefined' && document.pointerLockElement) {
       try {
         document.exitPointerLock();
-      } catch {}
+      } catch { }
     }
   }
 
@@ -289,9 +312,9 @@ export class FirstPersonController {
       try {
         const lockPromise = this.domElement.requestPointerLock() as unknown as Promise<void> | undefined;
         if (lockPromise && typeof lockPromise.catch === 'function') {
-          lockPromise.catch(() => {});
+          lockPromise.catch(() => { });
         }
-      } catch {}
+      } catch { }
     }
   }
 
@@ -337,7 +360,7 @@ export class FirstPersonController {
         this.clearLaserMeasure();
         try {
           proceduralAudio.playClick();
-        } catch {}
+        } catch { }
         this.emitState();
       }
     } else {
@@ -351,7 +374,7 @@ export class FirstPersonController {
         this.clearLaserMeasure();
         try {
           proceduralAudio.playClick();
-        } catch {}
+        } catch { }
         this.emitState();
       }
     }
@@ -478,7 +501,7 @@ export class FirstPersonController {
     if (this.placementRotation < 0) this.placementRotation += Math.PI * 2;
     try {
       proceduralAudio.playClick();
-    } catch {}
+    } catch { }
   }
 
   public grabHoveredFurniture(): boolean {
@@ -526,7 +549,7 @@ export class FirstPersonController {
 
     try {
       proceduralAudio.playClick();
-    } catch {}
+    } catch { }
     this.updateCenterRaycast();
     this.updateGhostPreview();
     this.emitState();
@@ -598,7 +621,7 @@ export class FirstPersonController {
         detail: targetName,
         groupKey: 'fp_clone_furniture'
       });
-    } catch {}
+    } catch { }
 
     this.emitState();
     return true;
@@ -618,7 +641,7 @@ export class FirstPersonController {
       this.smoothedCameraY = this.position.y;
       try {
         proceduralAudio.playSitDown();
-      } catch {}
+      } catch { }
       this.emitState();
     }
   }
@@ -652,6 +675,17 @@ export class FirstPersonController {
     this.smoothedCameraY = this.position.y;
     this.syncIndoorLightingTransition();
 
+    // T3.1: Initialize eye light exposure module
+    if (this.engine?.renderer) {
+      this.baseDiurnalExposure = this.engine.renderer.toneMappingExposure || 1.05;
+    }
+    this.isUnderRoof = this.checkIfUnderRoof(this.position);
+    this.targetExposure = this.isUnderRoof ? this.baseDiurnalExposure * this.indoorExposureFactor : this.baseDiurnalExposure;
+    this.currentExposure = this.targetExposure;
+    if (this.engine?.renderer) {
+      this.engine.renderer.toneMappingExposure = this.currentExposure;
+    }
+
     this.lockPointer();
     this.emitState();
   }
@@ -670,6 +704,12 @@ export class FirstPersonController {
     InteriorInteractiveSystem.getInstance().ceilingLightMasterEnabled = false;
     InteriorInteractiveSystem.getInstance().activeIndoorBuildingId = null;
     InteriorInteractiveSystem.getInstance().disableCeilingLights();
+
+    // T3.1: Orbit mode unaffected - restore baseline exposure to renderer
+    if (this.engine?.renderer) {
+      this.engine.renderer.toneMappingExposure = this.baseDiurnalExposure;
+    }
+
     this.releasePointerLock();
     this.emitState();
   }
@@ -687,7 +727,7 @@ export class FirstPersonController {
     this.isGrounded = true;
     try {
       proceduralAudio.playSitDown();
-    } catch {}
+    } catch { }
     this.emitState();
   }
 
@@ -703,7 +743,7 @@ export class FirstPersonController {
     this.smoothedCameraY = this.position.y;
     try {
       proceduralAudio.playStandUp();
-    } catch {}
+    } catch { }
     this.emitState();
   }
 
@@ -846,15 +886,18 @@ export class FirstPersonController {
     const dz = this.currentVelocityZ * dt;
 
     if (Math.abs(dx) > 0.00001 || Math.abs(dz) > 0.00001) {
-      const canMove = this.testWallCollision(dx, dz);
+      const stepUp = this.evaluatePredictiveStepUp(dx, dz);
+      const canMove = !stepUp.blocked && this.testWallCollision(dx, dz);
       if (canMove) {
         this.position.x += dx;
         this.position.z += dz;
       } else {
-        if (Math.abs(dx) > 0.00001 && this.testWallCollision(dx, 0)) {
+        const stepX = this.evaluatePredictiveStepUp(dx, 0);
+        const stepZ = this.evaluatePredictiveStepUp(0, dz);
+        if (Math.abs(dx) > 0.00001 && !stepX.blocked && this.testWallCollision(dx, 0)) {
           this.position.x += dx;
           this.currentVelocityZ = 0;
-        } else if (Math.abs(dz) > 0.00001 && this.testWallCollision(0, dz)) {
+        } else if (Math.abs(dz) > 0.00001 && !stepZ.blocked && this.testWallCollision(0, dz)) {
           this.position.z += dz;
           this.currentVelocityX = 0;
         } else {
@@ -892,12 +935,38 @@ export class FirstPersonController {
         }
       }
 
-      if (this.position.y <= targetY) {
-        this.position.y = targetY;
+      // Smooth step-up elevation vs regular landing
+      if (this.position.y < targetY) {
+        const stepDelta = targetY - this.position.y;
+        if (this.isGrounded && stepDelta <= 0.45 && this.velocityY <= 0) {
+          // T3.2: Elevate avatar Y with damp (lambda ~12) for smooth step-up without jumping
+          this.position.y = THREE.MathUtils.damp(this.position.y, targetY, 12.0, dt);
+          if (Math.abs(targetY - this.position.y) < 0.005) {
+            this.position.y = targetY;
+          }
+          this.velocityY = 0;
+          this.isGrounded = true;
+        } else {
+          this.position.y = targetY;
+          this.velocityY = 0;
+          this.isGrounded = true;
+        }
+      } else if (this.position.y === targetY) {
         this.velocityY = 0;
         this.isGrounded = true;
       } else {
         this.isGrounded = false;
+      }
+    }
+
+    // T3.5: Surface material footstep audio triggered every 1.8m traversed
+    const horizontalDist = Math.hypot(dx, dz);
+    if (this.isGrounded && horizontalDist > 0.0001) {
+      this.traversedDistance += horizontalDist;
+      if (this.traversedDistance >= 1.8) {
+        this.traversedDistance -= 1.8;
+        const mat = this.detectSurfaceMaterial();
+        proceduralAudio.playFootstep(mat);
       }
     }
 
@@ -911,6 +980,7 @@ export class FirstPersonController {
     }
 
     this.syncIndoorLightingTransition();
+    this.updateEyeLightAdaptation(dt);
 
     // Smooth camera Y on stairs via THREE.MathUtils.damp so stair transition never jitters
     if (this.isOnStairs && this.isGrounded) {
@@ -921,11 +991,38 @@ export class FirstPersonController {
       this.smoothedCameraY = this.position.y;
     }
 
+    // T3.6: Smooth vertical head bobbing (~0.015m amplitude)
+    const uiState = useUIStore.getState();
+    const isReducedMotion = uiState.reduceMotion || (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const isSettingEnabled = uiState.cameraBobbing !== false && this.cameraBobbingEnabled;
+    const isMoving = this.isGrounded && Math.hypot(this.currentVelocityX, this.currentVelocityZ) > 0.15;
+    const isAimingOrPlacing = Boolean(
+      this.activeTool !== 'pointer' ||
+      this.isDrawerOpen ||
+      this.grabbedFurniture ||
+      this.isPhotoModeOpen ||
+      Boolean(this.hoveredFurniture)
+    );
+
+    const shouldBob = isSettingEnabled && !isReducedMotion && isMoving && !isAimingOrPlacing;
+    const targetBobAmp = shouldBob ? this.bobbingAmplitude : 0.0;
+
+    // Smoothly damp to stop within ~0.15s when idle or aiming (lambda = 20)
+    this.smoothedBobbingTarget = THREE.MathUtils.damp(this.smoothedBobbingTarget, targetBobAmp, 20.0, dt);
+
+    if (shouldBob) {
+      const moveSpeed = Math.hypot(this.currentVelocityX, this.currentVelocityZ);
+      const cadenceFreq = moveSpeed * 3.5;
+      this.bobbingPhase += cadenceFreq * dt;
+    }
+
+    this.currentBobbingOffset = Math.sin(this.bobbingPhase) * this.smoothedBobbingTarget;
+
     // Apply to Three.js camera
-    this.camera.position.set(this.position.x, this.smoothedCameraY, this.position.z);
+    this.camera.position.set(this.position.x, this.smoothedCameraY + this.currentBobbingOffset, this.position.z);
     this._scratchLookTarget.set(
       this.position.x + Math.sin(this.yaw) * Math.cos(this.pitch),
-      this.smoothedCameraY + Math.sin(this.pitch),
+      this.smoothedCameraY + this.currentBobbingOffset + Math.sin(this.pitch),
       this.position.z + Math.cos(this.yaw) * Math.cos(this.pitch)
     );
     this.camera.lookAt(this._scratchLookTarget);
@@ -1066,7 +1163,7 @@ export class FirstPersonController {
     return true;
   }
 
-  private testWallCollision(dx: number, dz: number): boolean {
+  public testWallCollision(dx: number, dz: number): boolean {
     const moveLen = Math.hypot(dx, dz);
     if (moveLen < 0.0001) return true;
 
@@ -1078,7 +1175,8 @@ export class FirstPersonController {
     }
 
     this._scratchMoveDir.set(dx, 0, dz).normalize();
-    // Test at waist and chest heights
+    // Test at knee/step (>0.42m wall check), waist, and chest heights
+    this._scratchOriginLow.set(this.position.x, this.position.y - 1.15, this.position.z);
     this._scratchOriginWaist.set(this.position.x, this.position.y - 0.75, this.position.z);
     this._scratchOriginChest.set(this.position.x, this.position.y - 0.35, this.position.z);
 
@@ -1086,7 +1184,7 @@ export class FirstPersonController {
       return true;
     }
 
-    const origins = [this._scratchOriginWaist, this._scratchOriginChest];
+    const origins = [this._scratchOriginLow, this._scratchOriginWaist, this._scratchOriginChest];
     for (const origin of origins) {
       this.horizontalRaycaster.set(origin, this._scratchMoveDir);
       this.horizontalRaycaster.far = Math.max(0.35, moveLen + playerRadius);
@@ -1279,18 +1377,218 @@ export class FirstPersonController {
     return Math.max(terrainY, highestFloorY);
   }
 
-  private checkIfUnderRoof(pos: THREE.Vector3): boolean {
+  public checkIfUnderRoof(pos: THREE.Vector3): boolean {
     if (this.insideBuildingId) return true;
-    if (!this.buildingManager || this.buildingManager.masterGroup.children.length === 0) {
+    if (!this.buildingManager || !this.buildingManager.masterGroup || this.buildingManager.masterGroup.children.length === 0) {
       return false;
     }
 
+    this.buildingManager.masterGroup.updateMatrixWorld(true);
     this.upRaycaster.set(pos, this._scratchUpDir);
+    this.upRaycaster.far = 6.0;
     const hits = this.upRaycaster.intersectObjects(
       this.buildingManager.masterGroup.children,
       true
     );
-    return hits.some((h) => !this.isPlacedFurnitureObject(h.object));
+    return hits.some((h) => !this.isPlacedFurnitureObject(h.object) && h.distance <= 6.0);
+  }
+
+  /**
+   * T3.1: Eye Light Adaptation
+   * Damp toneMappingExposure with lambda ~3.0 (transition ~1.0s).
+   * Outdoor baseline 1.05; under roof rises by factor ~1.22 to 1.28.
+   */
+  public updateEyeLightAdaptation(dt: number): void {
+    const targetFactor = this.isUnderRoof ? this.indoorExposureFactor : 1.0;
+    this.targetExposure = this.baseDiurnalExposure * targetFactor;
+    this.currentExposure = THREE.MathUtils.damp(this.currentExposure, this.targetExposure, 3.0, dt);
+    if (this.engine?.renderer) {
+      this.engine.renderer.toneMappingExposure = this.currentExposure;
+    }
+  }
+
+  public getExposure(): number {
+    return this.currentExposure;
+  }
+
+  /**
+   * T3.2: Check if headroom above candidate ground height is >= minHeadroom (default 1.7m).
+   */
+  public checkHeadroomAbove(x: number, groundY: number, z: number, minHeadroom: number = 1.7): boolean {
+    // 1. Check indoor ceiling Y if inside building
+    const bld = this.buildingManager?.getBuildingAtPosition?.(x, z);
+    if (bld) {
+      const flH = bld.floorHeight || 3.2;
+      const plinth = bld.plinthHeight ?? 0.35;
+      const ceilingY = bld.position.y + plinth + this.currentFloor * flH;
+      if (ceilingY - groundY < minHeadroom) {
+        return false;
+      }
+    }
+
+    // 2. Upward raycast from groundY + 0.05
+    if (this.buildingManager && this.buildingManager.masterGroup && this.buildingManager.masterGroup.children.length > 0) {
+      this.buildingManager.masterGroup.updateMatrixWorld(true);
+      this._scratchRayOrigin.set(x, groundY + 0.05, z);
+      this.upRaycaster.set(this._scratchRayOrigin, this._scratchUpDir);
+      this.upRaycaster.far = minHeadroom;
+      const hits = this.upRaycaster.intersectObjects(this.buildingManager.masterGroup.children, true);
+      for (const hit of hits) {
+        if (!this.isPlacedFurnitureObject(hit.object) && hit.distance < minHeadroom - 0.05) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * T3.2: Check if surface at candidate coordinate is a placed furniture surface.
+   */
+  public isSurfaceFurniture(x: number, groundY: number, z: number): boolean {
+    if (!this.buildingManager || !this.buildingManager.masterGroup || this.buildingManager.masterGroup.children.length === 0) return false;
+    this.buildingManager.masterGroup.updateMatrixWorld(true);
+    this._scratchRayOrigin.set(x, groundY + 1.0, z);
+    this.downRaycaster.set(this._scratchRayOrigin, this._scratchDownDir);
+    this.downRaycaster.far = 1.5;
+    const hits = this.downRaycaster.intersectObjects(this.buildingManager.masterGroup.children, true);
+    for (const hit of hits) {
+      if (this.isPlacedFurnitureObject(hit.object)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * T3.2: Predictive auto step-up evaluation.
+   * Predictive auto step-up when moving forward and surface ahead is 0.05m to 0.42m higher.
+   * Constraints: headroom above new height >= 1.7m, not a furniture surface, not a vertical wall (>0.42m blocks forward motion).
+   */
+  public evaluatePredictiveStepUp(dx: number, dz: number): {
+    canStep: boolean;
+    aheadGroundY: number;
+    deltaY: number;
+    blocked: boolean;
+    reason?: 'ok' | 'wall' | 'headroom' | 'furniture' | 'flat';
+  } {
+    const moveLen = Math.hypot(dx, dz);
+    if (moveLen < 0.0001) {
+      return { canStep: false, aheadGroundY: this.position.y - this.eyeHeight, deltaY: 0, blocked: false, reason: 'flat' };
+    }
+
+    const dirX = dx / moveLen;
+    const dirZ = dz / moveLen;
+    const probeDist = Math.max(0.25, Math.min(0.45, moveLen * 2.0));
+    const probeX = this.position.x + dirX * probeDist;
+    const probeZ = this.position.z + dirZ * probeDist;
+
+    const currentGroundY = this.calculateGroundHeight(this.position.x, this.position.z);
+    const aheadGroundY = this.calculateGroundHeight(probeX, probeZ);
+    const deltaY = aheadGroundY - currentGroundY;
+
+    // Vertical wall > 0.42m blocks forward motion
+    if (deltaY > 0.42) {
+      return { canStep: false, aheadGroundY, deltaY, blocked: true, reason: 'wall' };
+    }
+
+    // Step-up range: 0.05m to 0.42m
+    if (deltaY >= 0.05 && deltaY <= 0.42) {
+      // 1. Headroom above new height must be >= 1.7m
+      const hasHeadroom = this.checkHeadroomAbove(probeX, aheadGroundY, probeZ, 1.7);
+      if (!hasHeadroom) {
+        return { canStep: false, aheadGroundY, deltaY, blocked: true, reason: 'headroom' };
+      }
+
+      // 2. Target surface must not be furniture
+      if (this.isSurfaceFurniture(probeX, aheadGroundY, probeZ)) {
+        return { canStep: false, aheadGroundY, deltaY, blocked: true, reason: 'furniture' };
+      }
+
+      return { canStep: true, aheadGroundY, deltaY, blocked: false, reason: 'ok' };
+    }
+
+    return { canStep: false, aheadGroundY, deltaY, blocked: false, reason: 'flat' };
+  }
+
+  /**
+   * T3.5: Surface material footstep detection.
+   * Checks ground surface under avatar feet: 'grass', 'asphalt', 'paving', 'wood', 'ceramic', 'dirt'.
+   */
+  public detectSurfaceMaterial(): FootstepMaterial {
+    // 1. If inside building: check active floor / room material or default to 'ceramic' (or 'wood' for terrace)
+    if (this.insideBuildingId && this.buildingManager) {
+      const bld = this.buildingManager.buildings.get(this.insideBuildingId);
+      if (bld) {
+        const floorIdx = Math.max(0, this.currentFloor - 1);
+        const layout = bld.interiorLayouts?.[floorIdx];
+        if (layout?.rooms) {
+          const dx = this.position.x - bld.position.x;
+          const dz = this.position.z - bld.position.z;
+          const rot = bld.rotationY || 0;
+          const lx = Math.cos(-rot) * dx - Math.sin(-rot) * dz;
+          const lz = Math.sin(-rot) * dx + Math.cos(-rot) * dz;
+          const room = layout.rooms.find((r) => PolygonMath.isPointInPolygon({ x: lx, y: lz }, r.boundary));
+          if (room) {
+            if ((room as any).floorMaterial === 'wood' || room.name.toLowerCase().includes('teras') || (room.type as string) === 'terrace') {
+              return 'wood';
+            }
+          }
+        }
+        return 'ceramic';
+      }
+    }
+
+    // 2. Downward raycast to detect hit object, userData, or material name
+    this._scratchRayOrigin.set(this.position.x, this.position.y, this.position.z);
+    this.downRaycaster.set(this._scratchRayOrigin, this._scratchDownDir);
+    this.downRaycaster.far = 2.5;
+
+    // Check buildingManager meshes (plinths, decks, entrance walkways)
+    if (this.buildingManager?.masterGroup && this.buildingManager.masterGroup.children.length > 0) {
+      const hits = this.downRaycaster.intersectObjects(this.buildingManager.masterGroup.children, true);
+      for (const hit of hits) {
+        if (this.isPlacedFurnitureObject(hit.object)) continue;
+        const mat = this.classifySurfaceFromObject(hit.object);
+        if (mat) return mat;
+      }
+    }
+
+    // Check roads
+    if (this.engine?.roadManager?.masterGroup) {
+      const roadHits = this.downRaycaster.intersectObjects(this.engine.roadManager.masterGroup.children, true);
+      for (const hit of roadHits) {
+        const name = (hit.object.name || '').toLowerCase();
+        if (name.includes('sidewalk') || name.includes('trotoar') || name.includes('curb') || name.includes('paving')) {
+          return 'paving';
+        }
+        return 'asphalt';
+      }
+    }
+
+    // Check terrain
+    if (this.terrain) {
+      const h = this.terrain.getHeightAt(this.position.x, this.position.z);
+      if (h < -0.2) return 'dirt';
+      return 'grass';
+    }
+
+    return 'paving';
+  }
+
+  public classifySurfaceFromObject(obj: THREE.Object3D): FootstepMaterial | null {
+    const tag = (obj.userData?.surfaceType || obj.userData?.materialType || obj.name || '').toLowerCase();
+    const mat = (obj as THREE.Mesh).material;
+    const matName = (Array.isArray(mat) ? mat.map(m => m.name).join(' ') : (mat?.name || '')).toLowerCase();
+    const str = `${tag} ${matName}`;
+
+    if (str.includes('wood') || str.includes('kayu') || str.includes('parket') || str.includes('deck')) return 'wood';
+    if (str.includes('ceramic') || str.includes('keramik') || str.includes('marble') || str.includes('marmer') || str.includes('tile') || str.includes('granit')) return 'ceramic';
+    if (str.includes('paving') || str.includes('concrete') || str.includes('beton') || str.includes('trotoar') || str.includes('sidewalk') || str.includes('plinth')) return 'paving';
+    if (str.includes('asphalt') || str.includes('aspal') || str.includes('road') || str.includes('street')) return 'asphalt';
+    if (str.includes('grass') || str.includes('rumput') || str.includes('lawn') || str.includes('taman')) return 'grass';
+    if (str.includes('dirt') || str.includes('tanah') || str.includes('soil') || str.includes('gravel') || str.includes('pasir')) return 'dirt';
+    return null;
   }
 
   /**
@@ -1666,7 +1964,7 @@ export class FirstPersonController {
         this.laserPoints.push(this.currentPlacementTarget.clone());
         try {
           proceduralAudio.playClick();
-        } catch {}
+        } catch { }
       } else if (this.laserPoints.length === 1) {
         this.laserPoints.push(this.currentPlacementTarget.clone());
         this.laserDistanceM = Math.round(this.laserPoints[0].distanceTo(this.laserPoints[1]) * 100) / 100;
@@ -1700,7 +1998,7 @@ export class FirstPersonController {
             detail: `Jarak Terukur: ${cleanLabel}`,
             groupKey: 'fp_laser_measure'
           });
-        } catch {}
+        } catch { }
       } else {
         this.clearLaserMeasure();
       }
@@ -1872,46 +2170,75 @@ export class FirstPersonController {
     return sprite;
   }
 
-  public traverseFloor(direction: 'up' | 'down'): boolean {
-    const bld = this.buildingManager?.getBuildingAtPosition?.(this.position.x, this.position.z);
-    if (!bld && !this.insideBuildingId) return false;
+  /**
+   * T3.4: Safe clearance point determination on target floor.
+   * Teleport to nearest safe clearance point on target floor
+   * (near stair top or clear spot, not inside walls or furniture).
+   */
+  public findSafeFloorClearancePoint(bld: BuildingInstance, floorNum: number): THREE.Vector3 {
+    const rot = bld.rotationY || 0;
+    const cosR = Math.cos(rot);
+    const sinR = Math.sin(rot);
+    const flH = bld.floorHeight || 3.2;
+    const plinth = bld.plinthHeight ?? 0.35;
+    const groundY = bld.position.y + plinth + (floorNum - 1) * flH;
 
-    if (bld) {
-      const total = Math.max(1, bld.floorCount || (bld.floors ? bld.floors.length : 1));
-      this.totalFloors = total;
-      this.insideBuildingId = bld.id;
-      this.insideBuildingName = bld.name;
-      this.floorHeight = bld.floorHeight || 3.2;
+    // Check if player's current (x, z) is already safe on this floor
+    const curDx = this.position.x - bld.position.x;
+    const curDz = this.position.z - bld.position.z;
+    const curLocalX = Math.cos(-rot) * curDx - Math.sin(-rot) * curDz;
+    const curLocalZ = Math.sin(-rot) * curDx + Math.cos(-rot) * curDz;
+
+    const innerHalfW = (bld.width || 10) * 0.5 - 0.25;
+    const innerHalfL = (bld.length || 10) * 0.5 - 0.25;
+    const isInsideWalls = Math.abs(curLocalX) <= innerHalfW && Math.abs(curLocalZ) <= innerHalfL;
+
+    const placed: PlacedFurnitureData[] = bld.userData?.placedFurniture || [];
+    const collidesWithFurniture = placed.some((fur) => {
+      if ((fur.floorIndex || 1) !== floorNum) return false;
+      const furItem = FIRST_PERSON_FURNITURE_CATALOG.find((it) => it.id === fur.type);
+      const furHW = (furItem?.width ?? 0.8) * 0.5 + 0.25;
+      const furHD = (furItem?.depth ?? 0.8) * 0.5 + 0.25;
+      return Math.abs(curLocalX - fur.position[0]) < furHW && Math.abs(curLocalZ - fur.position[2]) < furHD;
+    });
+
+    if (isInsideWalls && !collidesWithFurniture) {
+      return new THREE.Vector3(this.position.x, groundY + this.eyeHeight, this.position.z);
     }
 
-    const flH = bld?.floorHeight || this.floorHeight || 3.2;
-    const plinth = bld?.plinthHeight ?? 0;
-    const baseY = bld ? bld.position.y + plinth : 0;
+    // Try stair landing / core landing spot
+    const stairLandingLocal = new THREE.Vector3(-Math.max(1.2, (bld.width || 12) * 0.22) - 0.68, 0, 1.8);
+    const landingCollides = placed.some((fur) => {
+      if ((fur.floorIndex || 1) !== floorNum) return false;
+      const furItem = FIRST_PERSON_FURNITURE_CATALOG.find((it) => it.id === fur.type);
+      const furHW = (furItem?.width ?? 0.8) * 0.5 + 0.25;
+      const furHD = (furItem?.depth ?? 0.8) * 0.5 + 0.25;
+      return Math.abs(stairLandingLocal.x - fur.position[0]) < furHW && Math.abs(stairLandingLocal.z - fur.position[2]) < furHD;
+    });
 
-    if (direction === 'up' && this.targetFloor < this.totalFloors) {
-      this.targetFloor++;
-      this.currentFloor = this.targetFloor;
-      this.targetFloorGroundY = baseY + (this.targetFloor - 1) * flH;
-      this.position.y = this.targetFloorGroundY + this.eyeHeight;
-      this.smoothedCameraY = this.position.y;
-      this.camera.position.copy(this.position);
-      this.emitState();
-      return true;
-    } else if (direction === 'down' && this.targetFloor > 1) {
-      this.targetFloor--;
-      this.currentFloor = this.targetFloor;
-      this.targetFloorGroundY = baseY + (this.targetFloor - 1) * flH;
-      this.position.y = this.targetFloorGroundY + this.eyeHeight;
-      this.smoothedCameraY = this.position.y;
-      this.camera.position.copy(this.position);
-      this.emitState();
-      return true;
+    if (!landingCollides && Math.abs(stairLandingLocal.x) <= innerHalfW && Math.abs(stairLandingLocal.z) <= innerHalfL) {
+      const worldX = bld.position.x + (cosR * stairLandingLocal.x - sinR * stairLandingLocal.z);
+      const worldZ = bld.position.z + (sinR * stairLandingLocal.x + cosR * stairLandingLocal.z);
+      return new THREE.Vector3(worldX, groundY + this.eyeHeight, worldZ);
     }
-    return false;
+
+    // Fallback: room center
+    return new THREE.Vector3(bld.position.x, groundY + this.eyeHeight, bld.position.z);
+  }
+
+  public triggerFloorTransitionFade(durationMs: number = 150): void {
+    this.isFloorFading = true;
+    if (this.floorFadeTimeout) clearTimeout(this.floorFadeTimeout);
+    this.floorFadeTimeout = setTimeout(() => {
+      this.isFloorFading = false;
+      this.emitState();
+    }, durationMs);
+    this.emitState();
   }
 
   public goToFloor(floorNum: number): boolean {
-    const bld = this.buildingManager?.getBuildingAtPosition?.(this.position.x, this.position.z);
+    const bld = this.buildingManager?.getBuildingAtPosition?.(this.position.x, this.position.z) ||
+      (this.insideBuildingId ? this.buildingManager?.buildings.get(this.insideBuildingId) : undefined);
     if (!bld && !this.insideBuildingId) return false;
 
     if (bld) {
@@ -1922,19 +2249,38 @@ export class FirstPersonController {
       this.floorHeight = bld.floorHeight || 3.2;
     }
 
+    // Only allow floors that exist on the host building
     if (floorNum < 1 || floorNum > this.totalFloors) return false;
+
+    // Trigger 150ms screen fade
+    this.triggerFloorTransitionFade(150);
 
     this.targetFloor = floorNum;
     this.currentFloor = floorNum;
-    const flH = bld?.floorHeight || this.floorHeight || 3.2;
-    const plinth = bld?.plinthHeight ?? 0.35;
-    const baseY = bld ? bld.position.y + plinth : 0;
-    this.targetFloorGroundY = baseY + (this.targetFloor - 1) * flH;
-    this.position.y = this.targetFloorGroundY + this.eyeHeight;
+
+    if (bld) {
+      const safePos = this.findSafeFloorClearancePoint(bld, floorNum);
+      this.position.copy(safePos);
+    } else {
+      const flH = this.floorHeight || 3.2;
+      this.targetFloorGroundY = (this.targetFloor - 1) * flH;
+      this.position.y = this.targetFloorGroundY + this.eyeHeight;
+    }
+
     this.smoothedCameraY = this.position.y;
     this.camera.position.copy(this.position);
+
+    // After floor change: trigger update for isUnderRoof, updateSpatialLOD, and microclimate card
+    this.isUnderRoof = this.checkIfUnderRoof(this.position);
+    this.buildingManager?.updateSpatialLOD(this.camera.position, true, this.insideBuildingId);
+    this.updateEyeLightAdaptation(0.016);
     this.emitState();
     return true;
+  }
+
+  public traverseFloor(direction: 'up' | 'down'): boolean {
+    const target = direction === 'up' ? this.currentFloor + 1 : this.currentFloor - 1;
+    return this.goToFloor(target);
   }
 
   public cycleInteriorVariant(): string {
@@ -1963,7 +2309,7 @@ export class FirstPersonController {
     }
     try {
       proceduralAudio.playClick();
-    } catch {}
+    } catch { }
     this.emitState();
     return this.currentVariantName;
   }
@@ -1973,7 +2319,7 @@ export class FirstPersonController {
     this.manualLightOverride = this.isCeilingLightOn;
     try {
       proceduralAudio.playClick();
-    } catch {}
+    } catch { }
 
     const iis = InteriorInteractiveSystem.getInstance();
     iis.ceilingLightMasterEnabled = Boolean(this.insideBuildingId && this.isCeilingLightOn);
@@ -2074,7 +2420,8 @@ export class FirstPersonController {
       laserDistanceM: this.laserDistanceM,
       reticleActionLabel: this.reticleActionLabel,
       isDrawerOpen: this.isDrawerOpen,
-      isGrabbingFurniture: Boolean(this.grabbedFurniture)
+      isGrabbingFurniture: Boolean(this.grabbedFurniture),
+      isFloorFading: this.isFloorFading
     });
   }
 
