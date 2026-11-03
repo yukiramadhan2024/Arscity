@@ -338,4 +338,95 @@ describe('Tahap 4 (T4.1 - T4.4): Perabot Berpermukaan dan Magnet Kursi', () => {
       expect(controller.reticleActionLabel).toBe('Membutuhkan lantai (floor)');
     });
   });
+
+  // =========================================================================
+  // T4.3: MODEL 3D MEMBULAT & GEOMETRY CACHE
+  // =========================================================================
+  describe('T4.3: Model 3D Membulat & Geometry Cache', () => {
+    function computeGroupTriangleCount(group: THREE.Group): number {
+      let triangles = 0;
+      group.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          if (mesh.geometry) {
+            const geo = mesh.geometry;
+            triangles += geo.index
+              ? geo.index.count / 3
+              : (geo.attributes.position ? geo.attributes.position.count / 3 : 0);
+          }
+        }
+      });
+      return triangles;
+    }
+
+    it('1. Furniture models use rounded geometries (CapsuleGeometry & CylinderGeometry)', () => {
+      const sofa = FirstPersonFurnitureBuilder.buildFurniture('sofa_l');
+      let hasCapsuleOrCylinder = false;
+      sofa.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const geo = (child as THREE.Mesh).geometry;
+          if (geo.type === 'CapsuleGeometry' || geo.type === 'CylinderGeometry') {
+            hasCapsuleOrCylinder = true;
+          }
+        }
+      });
+      expect(hasCapsuleOrCylinder).toBe(true);
+
+      const diningChair = FirstPersonFurnitureBuilder.buildFurniture('chair_dining');
+      let diningHasRounded = false;
+      diningChair.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const geo = (child as THREE.Mesh).geometry;
+          if (geo.type === 'CapsuleGeometry' || geo.type === 'CylinderGeometry') {
+            diningHasRounded = true;
+          }
+        }
+      });
+      expect(diningHasRounded).toBe(true);
+    });
+
+    it('2. Furniture models adhere to the ~600 triangle budget per item', () => {
+      const testTypes = [
+        'sofa_l',
+        'sofa_3seater',
+        'bed_king',
+        'dining_set',
+        'desk_office',
+        'chair_dining',
+        'chair_office',
+        'monitor_pc',
+        'coffee_machine',
+        'table_lamp',
+        'small_pot',
+        'painting_art',
+        'wall_sconce',
+        'wall_signage'
+      ];
+
+      for (const type of testTypes) {
+        const item = FirstPersonFurnitureBuilder.buildFurniture(type);
+        const tris = computeGroupTriangleCount(item);
+        // Budget is around 600 triangles per item
+        expect(tris).toBeLessThanOrEqual(650);
+        expect(tris).toBeGreaterThan(10);
+      }
+    });
+
+    it('3. Geometries are cached and shared across multiple furniture instances', () => {
+      FirstPersonFurnitureBuilder.clearGeometryCache();
+      const sofa1 = FirstPersonFurnitureBuilder.buildFurniture('sofa_l');
+      const cacheSizeAfterFirst = FirstPersonFurnitureBuilder.getGeometryCacheSize();
+      expect(cacheSizeAfterFirst).toBeGreaterThan(0);
+
+      const sofa2 = FirstPersonFurnitureBuilder.buildFurniture('sofa_l');
+      const cacheSizeAfterSecond = FirstPersonFurnitureBuilder.getGeometryCacheSize();
+      // Cache size should remain identical because geometries are shared
+      expect(cacheSizeAfterSecond).toBe(cacheSizeAfterFirst);
+
+      // Verify that mesh geometries are strictly identical reference
+      const mesh1 = sofa1.children.find((c) => (c as THREE.Mesh).isMesh) as THREE.Mesh;
+      const mesh2 = sofa2.children.find((c) => (c as THREE.Mesh).isMesh) as THREE.Mesh;
+      expect(mesh1.geometry).toBe(mesh2.geometry);
+    });
+  });
 });

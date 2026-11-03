@@ -447,6 +447,35 @@ export const FIRST_PERSON_MATERIAL_PALETTE: MaterialPaletteItem[] = [
 
 export class FirstPersonFurnitureBuilder {
   private static matLib = MaterialLibrary.getInstance();
+  private static geometryCache = new Map<string, THREE.BufferGeometry>();
+  private static materialCache = new Map<string, THREE.Material>();
+
+  public static getCachedGeometry<T extends THREE.BufferGeometry>(key: string, factory: () => T): T {
+    let geo = this.geometryCache.get(key) as T;
+    if (!geo) {
+      geo = factory();
+      this.geometryCache.set(key, geo);
+    }
+    return geo;
+  }
+
+  public static getCachedMaterial<T extends THREE.Material>(key: string, factory: () => T): T {
+    let mat = this.materialCache.get(key) as T;
+    if (!mat) {
+      mat = factory();
+      this.materialCache.set(key, mat);
+    }
+    return mat;
+  }
+
+  public static getGeometryCacheSize(): number {
+    return this.geometryCache.size;
+  }
+
+  public static clearGeometryCache(): void {
+    this.geometryCache.forEach((geo) => geo.dispose());
+    this.geometryCache.clear();
+  }
 
   private static getMat(type: string, color?: string): THREE.Material {
     return this.matLib.getMaterial(type, { color });
@@ -470,12 +499,11 @@ export class FirstPersonFurnitureBuilder {
     const brassMat = this.getMat('metal', '#d97706');
     const plantMat = this.getMat('grass', '#15803d');
     const ceramicMat = this.getMat('tile', '#ffffff');
-    const warmLightMat = new THREE.MeshBasicMaterial({ color: 0xffedd5 });
+    const warmLightMat = this.getCachedMaterial('warm_light', () => new THREE.MeshBasicMaterial({ color: 0xffedd5 }));
 
     switch (type) {
       case 'sofa_l': {
-        // Cylindrical black steel legs
-        const legGeom = new THREE.CylinderGeometry(0.025, 0.025, 0.14, 8);
+        const legGeom = this.getCachedGeometry('cyl_leg_0025_014_6', () => new THREE.CylinderGeometry(0.025, 0.025, 0.14, 6));
         const legCoords = [
           [-1.1, 0.07, -0.38], [1.1, 0.07, -0.38],
           [-1.1, 0.07, 1.28], [-0.45, 0.07, 1.28],
@@ -487,36 +515,53 @@ export class FirstPersonFurnitureBuilder {
           group.add(leg);
         });
 
-        // Plinth frame
-        const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.9), darkWoodMat);
+        const plinthGeom = this.getCachedGeometry('sofa_l_plinth', () => new THREE.BoxGeometry(2.4, 0.08, 0.9));
+        const plinth = new THREE.Mesh(plinthGeom, darkWoodMat);
         plinth.position.set(0, 0.18, 0);
         group.add(plinth);
 
-        // Main seat cushions (ergonomic bevel)
-        const base = new THREE.Mesh(new THREE.BoxGeometry(2.36, 0.28, 0.88), fabricGray);
+        const seatGeom = this.getCachedGeometry('sofa_l_cushion_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.14, 2.08, 1, 8);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+        const base = new THREE.Mesh(seatGeom, fabricGray);
         base.position.set(0, 0.36, 0);
         base.castShadow = true;
         group.add(base);
 
-        // 105-degree tilted backrest (15 deg slope backwards)
-        const back = new THREE.Mesh(new THREE.BoxGeometry(2.36, 0.44, 0.22), fabricGray);
+        const backGeom = this.getCachedGeometry('sofa_l_back_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.12, 2.08, 1, 8);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+        const back = new THREE.Mesh(backGeom, fabricGray);
         back.position.set(0, 0.65, -0.34);
-        back.rotation.x = 0.18; // ~10.5 deg tilt
+        back.rotation.x = 0.18;
         back.castShadow = true;
         group.add(back);
 
-        // L-return chaise
-        const ret = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.28, 0.88), fabricGray);
+        const retGeom = this.getCachedGeometry('sofa_l_ret_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.14, 0.6, 1, 8);
+          geo.rotateX(Math.PI / 2);
+          return geo;
+        });
+        const ret = new THREE.Mesh(retGeom, fabricGray);
         ret.position.set(-0.75, 0.36, 0.88);
         ret.castShadow = true;
         group.add(ret);
 
-        // Pillows
-        const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.14), fabricBlue);
+        const pillowGeom = this.getCachedGeometry('pillow_capsule_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.07, 0.28, 1, 6);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+        const p1 = new THREE.Mesh(pillowGeom, fabricBlue);
         p1.position.set(0.65, 0.58, -0.16);
         p1.rotation.y = -0.15;
         group.add(p1);
-        const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.30, 0.14), brassMat);
+
+        const p2 = new THREE.Mesh(pillowGeom, brassMat);
         p2.position.set(-0.15, 0.58, -0.16);
         p2.rotation.y = 0.12;
         group.add(p2);
@@ -524,8 +569,7 @@ export class FirstPersonFurnitureBuilder {
       }
 
       case 'sofa_3seater': {
-        // 4 steel cylinder legs
-        const legGeom = new THREE.CylinderGeometry(0.025, 0.025, 0.14, 8);
+        const legGeom = this.getCachedGeometry('cyl_leg_0025_014_6', () => new THREE.CylinderGeometry(0.025, 0.025, 0.14, 6));
         const legCoords = [
           [-0.92, 0.07, -0.65], [0.92, 0.07, -0.65],
           [-0.92, 0.07, 0.05], [0.92, 0.07, 0.05]
@@ -536,45 +580,59 @@ export class FirstPersonFurnitureBuilder {
           group.add(leg);
         });
 
-        // Base plinth
-        const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 0.85), darkWoodMat);
+        const plinthGeom = this.getCachedGeometry('sofa_3s_plinth', () => new THREE.BoxGeometry(2.0, 0.08, 0.85));
+        const plinth = new THREE.Mesh(plinthGeom, darkWoodMat);
         plinth.position.set(0, 0.18, -0.3);
         group.add(plinth);
 
-        // 3-cushion divided seat
+        const cushionGeom = this.getCachedGeometry('sofa_3s_cushion_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.13, 0.44, 1, 6);
+          geo.rotateX(Math.PI / 2);
+          return geo;
+        });
         for (let i = 0; i < 3; i++) {
-          const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.26, 0.82), fabricGray);
+          const cushion = new THREE.Mesh(cushionGeom, fabricGray);
           cushion.position.set(-0.64 + i * 0.64, 0.35, -0.28);
           cushion.castShadow = true;
           group.add(cushion);
         }
 
-        // 105-degree tilted backrest
-        const back = new THREE.Mesh(new THREE.BoxGeometry(1.96, 0.45, 0.22), fabricGray);
+        const backGeom = this.getCachedGeometry('sofa_3s_back_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.12, 1.76, 1, 8);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+        const back = new THREE.Mesh(backGeom, fabricGray);
         back.position.set(0, 0.66, -0.62);
-        back.rotation.x = 0.18; // ~10.5 deg slope
+        back.rotation.x = 0.18;
         back.castShadow = true;
         group.add(back);
 
-        // Side armrests
-        const armL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.38, 0.86), fabricGray);
+        const armGeom = this.getCachedGeometry('sofa_3s_arm_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.09, 0.68, 1, 6);
+          geo.rotateX(Math.PI / 2);
+          return geo;
+        });
+        const armL = new THREE.Mesh(armGeom, fabricGray);
         armL.position.set(-1.0, 0.42, -0.3);
         group.add(armL);
-        const armR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.38, 0.86), fabricGray);
+        const armR = new THREE.Mesh(armGeom, fabricGray);
         armR.position.set(1.0, 0.42, -0.3);
         group.add(armR);
 
-        // Teak coffee table with 4 legs
-        const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.04, 0.6), woodMat);
+        const tableTopGeom = this.getCachedGeometry('coffee_table_round_top_opt', () => new THREE.CylinderGeometry(0.55, 0.55, 0.04, 12));
+        const tableTop = new THREE.Mesh(tableTopGeom, woodMat);
         tableTop.position.set(0, 0.36, 0.5);
         tableTop.castShadow = true;
         group.add(tableTop);
+
+        const tableLegGeom = this.getCachedGeometry('coffee_table_leg_6', () => new THREE.CylinderGeometry(0.018, 0.018, 0.36, 6));
         const tableLegCoords = [
-          [-0.52, 0.18, 0.26], [0.52, 0.18, 0.26],
-          [-0.52, 0.18, 0.74], [0.52, 0.18, 0.74]
+          [-0.32, 0.18, 0.32], [0.32, 0.18, 0.32],
+          [-0.32, 0.18, 0.68], [0.32, 0.18, 0.68]
         ];
         tableLegCoords.forEach(([tx, ty, tz]) => {
-          const tLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.36, 8), steelMat);
+          const tLeg = new THREE.Mesh(tableLegGeom, steelMat);
           tLeg.position.set(tx, ty, tz);
           group.add(tLeg);
         });
@@ -582,63 +640,63 @@ export class FirstPersonFurnitureBuilder {
       }
 
       case 'bed_king': {
-        // Platform frame with legs
-        const platform = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.32, 2.1), darkWoodMat);
+        const platformGeom = this.getCachedGeometry('bed_platform', () => new THREE.BoxGeometry(1.9, 0.32, 2.1));
+        const platform = new THREE.Mesh(platformGeom, darkWoodMat);
         platform.position.set(0, 0.22, 0);
         platform.castShadow = true;
         group.add(platform);
 
-        // 4 corner legs
+        const bLegGeom = this.getCachedGeometry('bed_leg_cyl', () => new THREE.CylinderGeometry(0.04, 0.04, 0.12, 8));
         const bLegs = [[-0.88, 0.06, -0.98], [0.88, 0.06, -0.98], [-0.88, 0.06, 0.98], [0.88, 0.06, 0.98]];
         bLegs.forEach(([bx, by, bz]) => {
-          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.08), darkWoodMat);
+          const leg = new THREE.Mesh(bLegGeom, darkWoodMat);
           leg.position.set(bx, by, bz);
           group.add(leg);
         });
 
-        // 2-tier thick spring mattress
-        const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.28, 2.0), whiteMat);
+        const mattressGeom = this.getCachedGeometry('bed_mattress_capsule', () => new THREE.BoxGeometry(1.8, 0.28, 2.0));
+        const mattress = new THREE.Mesh(mattressGeom, whiteMat);
         mattress.position.set(0, 0.52, 0);
         group.add(mattress);
 
-        // Layered duvet & folded blanket runner
-        const duvet = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.09, 1.3), fabricBlue);
+        const duvetGeom = this.getCachedGeometry('bed_duvet', () => new THREE.BoxGeometry(1.82, 0.09, 1.3));
+        const duvet = new THREE.Mesh(duvetGeom, fabricBlue);
         duvet.position.set(0, 0.68, 0.35);
         group.add(duvet);
 
-        // 4 sleeping pillows (2 back, 2 front plush)
-        const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.14, 0.38), whiteMat);
+        const pillowBedGeom = this.getCachedGeometry('bed_pillow_capsule_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.08, 0.48, 1, 6);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+        const p1 = new THREE.Mesh(pillowBedGeom, whiteMat);
         p1.position.set(-0.45, 0.72, -0.72);
         p1.rotation.x = 0.2;
         group.add(p1);
-        const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.14, 0.38), whiteMat);
+        const p2 = new THREE.Mesh(pillowBedGeom, whiteMat);
         p2.position.set(0.45, 0.72, -0.72);
         p2.rotation.x = 0.2;
         group.add(p2);
-        const p3 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.32), fabricGray);
-        p3.position.set(-0.45, 0.74, -0.42);
-        group.add(p3);
-        const p4 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.32), fabricGray);
-        p4.position.set(0.45, 0.74, -0.42);
-        group.add(p4);
 
-        // Slatted headboard
-        const headboard = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.1, 0.1), darkWoodMat);
+        const headboardGeom = this.getCachedGeometry('bed_headboard', () => new THREE.BoxGeometry(2.3, 1.1, 0.1));
+        const headboard = new THREE.Mesh(headboardGeom, darkWoodMat);
         headboard.position.set(0, 0.75, -1.05);
         group.add(headboard);
 
-        // 2 Nightstands (left & right)
+        const standGeom = this.getCachedGeometry('nightstand_box', () => new THREE.BoxGeometry(0.48, 0.48, 0.45));
+        const lampBaseGeom = this.getCachedGeometry('nightstand_lamp_base', () => new THREE.CylinderGeometry(0.08, 0.08, 0.02, 12));
+        const lampShadeGeom = this.getCachedGeometry('nightstand_lamp_shade', () => new THREE.CylinderGeometry(0.10, 0.14, 0.20, 12));
+
         [-1.35, 1.35].forEach((nx) => {
-          const stand = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.48, 0.45), darkWoodMat);
+          const stand = new THREE.Mesh(standGeom, darkWoodMat);
           stand.position.set(nx, 0.24, -0.75);
           stand.castShadow = true;
           group.add(stand);
 
-          // Warm bedside lamp on nightstand
-          const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.02, 12), brassMat);
+          const lampBase = new THREE.Mesh(lampBaseGeom, brassMat);
           lampBase.position.set(nx, 0.49, -0.75);
           group.add(lampBase);
-          const lampShade = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.14, 0.20, 12), warmLightMat);
+          const lampShade = new THREE.Mesh(lampShadeGeom, warmLightMat);
           lampShade.position.set(nx, 0.62, -0.75);
           group.add(lampShade);
         });
@@ -646,12 +704,28 @@ export class FirstPersonFurnitureBuilder {
       }
 
       case 'dining_set': {
-        const table = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.76, 0.9), woodMat);
-        table.position.set(0, 0.38, 0);
+        const tableGeom = this.getCachedGeometry('dining_table_top', () => new THREE.BoxGeometry(1.6, 0.06, 0.9));
+        const table = new THREE.Mesh(tableGeom, woodMat);
+        table.position.set(0, 0.73, 0);
         table.castShadow = true;
         group.add(table);
 
-        // 4 chairs
+        const tableLegGeom = this.getCachedGeometry('dining_table_leg_6', () => new THREE.CylinderGeometry(0.03, 0.02, 0.70, 6));
+        const tableLegs = [[-0.72, 0.35, -0.38], [0.72, 0.35, -0.38], [-0.72, 0.35, 0.38], [0.72, 0.35, 0.38]];
+        tableLegs.forEach(([lx, ly, lz]) => {
+          const leg = new THREE.Mesh(tableLegGeom, darkWoodMat);
+          leg.position.set(lx, ly, lz);
+          group.add(leg);
+        });
+
+        const chairSeatGeom = this.getCachedGeometry('dining_ch_seat', () => new THREE.CylinderGeometry(0.22, 0.22, 0.04, 10));
+        const chairLegGeom = this.getCachedGeometry('dining_ch_leg_6', () => new THREE.CylinderGeometry(0.018, 0.012, 0.43, 6));
+        const chairBackGeom = this.getCachedGeometry('dining_ch_back_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.035, 0.34, 1, 6);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+
         const chairCoords = [
           [-0.5, -0.65],
           [0.5, -0.65],
@@ -659,90 +733,288 @@ export class FirstPersonFurnitureBuilder {
           [0.5, 0.65]
         ];
         chairCoords.forEach(([cx, cz]) => {
-          const chSeat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.42), woodMat);
-          chSeat.position.set(cx, 0.45, cz);
+          const chSeat = new THREE.Mesh(chairSeatGeom, woodMat);
+          chSeat.position.set(cx, 0.43, cz);
           group.add(chSeat);
-          const chLeg = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.45, 0.38), steelMat);
-          chLeg.position.set(cx, 0.225, cz);
+          const chLeg = new THREE.Mesh(chairLegGeom, steelMat);
+          chLeg.position.set(cx, 0.215, cz);
           group.add(chLeg);
-          const chBack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.4, 0.05), woodMat);
-          chBack.position.set(cx, 0.675, cz + (cz > 0 ? 0.18 : -0.18));
+          const chBack = new THREE.Mesh(chairBackGeom, woodMat);
+          chBack.position.set(cx, 0.68, cz + (cz > 0 ? 0.16 : -0.16));
           group.add(chBack);
         });
         break;
       }
 
       case 'desk_office': {
-        // Desktop solid wood top
-        const deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.04, 0.75), woodMat);
+        const deskTopGeom = this.getCachedGeometry('desk_top_15', () => new THREE.BoxGeometry(1.5, 0.04, 0.75));
+        const deskTop = new THREE.Mesh(deskTopGeom, woodMat);
         deskTop.position.set(0, 0.73, 0);
         deskTop.castShadow = true;
         group.add(deskTop);
 
-        // 4 tubular metal legs
+        const deskLegGeom = this.getCachedGeometry('desk_tubular_leg', () => new THREE.CylinderGeometry(0.022, 0.022, 0.72, 8));
         const deskLegCoords = [[-0.68, 0.36, -0.32], [0.68, 0.36, -0.32], [-0.68, 0.36, 0.32], [0.68, 0.36, 0.32]];
         deskLegCoords.forEach(([dx, dy, dz]) => {
-          const dLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.72, 8), steelMat);
+          const dLeg = new THREE.Mesh(deskLegGeom, steelMat);
           dLeg.position.set(dx, dy, dz);
           group.add(dLeg);
         });
 
-        // 2-drawer side cabinet
-        const drawerCabinet = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.52, 0.65), darkWoodMat);
+        const cabinetGeom = this.getCachedGeometry('desk_cabinet', () => new THREE.BoxGeometry(0.42, 0.52, 0.65));
+        const drawerCabinet = new THREE.Mesh(cabinetGeom, darkWoodMat);
         drawerCabinet.position.set(0.46, 0.46, 0);
         group.add(drawerCabinet);
+        break;
+      }
 
-        // Ultra-thin monitor on aluminum stand
-        const monitorBase = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.015, 16), brassMat);
-        monitorBase.position.set(-0.05, 0.757, -0.2);
-        group.add(monitorBase);
-        const monitorStalk = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.24, 8), steelMat);
-        monitorStalk.position.set(-0.05, 0.88, -0.2);
-        group.add(monitorStalk);
-        const monitorPanel = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.42, 0.02), steelMat);
-        monitorPanel.position.set(-0.05, 1.05, -0.2);
-        group.add(monitorPanel);
+      case 'chair_dining': {
+        const seatGeom = this.getCachedGeometry('chair_din_seat', () => new THREE.CylinderGeometry(0.23, 0.23, 0.04, 16));
+        const seat = new THREE.Mesh(seatGeom, woodMat);
+        seat.position.set(0, 0.43, 0);
+        seat.castShadow = true;
+        group.add(seat);
 
-        // Ergonomic Chair with 5-star castor base & mesh back
-        const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.08, 0.46), fabricGray);
-        chairSeat.position.set(-0.05, 0.46, 0.45);
-        group.add(chairSeat);
-        const chairBack = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.48, 0.04), steelMat);
-        chairBack.position.set(-0.05, 0.72, 0.66);
-        group.add(chairBack);
-        const chairBase = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.38, 8), steelMat);
-        chairBase.position.set(-0.05, 0.22, 0.45);
-        group.add(chairBase);
-        const chairStar = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.03, 5), steelMat);
-        chairStar.position.set(-0.05, 0.04, 0.45);
-        group.add(chairStar);
+        const legGeom = this.getCachedGeometry('chair_din_leg', () => new THREE.CylinderGeometry(0.02, 0.014, 0.43, 8));
+        const legOffsets = [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]];
+        legOffsets.forEach(([lx, lz]) => {
+          const leg = new THREE.Mesh(legGeom, woodMat);
+          leg.position.set(lx, 0.215, lz);
+          group.add(leg);
+        });
+
+        const backGeom = this.getCachedGeometry('chair_din_back_capsule', () => {
+          const geo = new THREE.CapsuleGeometry(0.035, 0.36, 2, 8);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+        const back = new THREE.Mesh(backGeom, woodMat);
+        back.position.set(0, 0.76, -0.18);
+        back.rotation.x = 0.12;
+        group.add(back);
+
+        const spindleGeom = this.getCachedGeometry('chair_din_spindle', () => new THREE.CylinderGeometry(0.012, 0.012, 0.32, 8));
+        [-0.14, 0.14].forEach((sx) => {
+          const spindle = new THREE.Mesh(spindleGeom, steelMat);
+          spindle.position.set(sx, 0.58, -0.17);
+          group.add(spindle);
+        });
+        break;
+      }
+
+      case 'chair_office': {
+        const baseCenterGeom = this.getCachedGeometry('off_ch_hub', () => new THREE.CylinderGeometry(0.05, 0.05, 0.08, 10));
+        const hub = new THREE.Mesh(baseCenterGeom, steelMat);
+        hub.position.set(0, 0.08, 0);
+        group.add(hub);
+
+        const spokeGeom = this.getCachedGeometry('off_ch_spoke', () => {
+          const geo = new THREE.CylinderGeometry(0.014, 0.014, 0.26, 6);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+        for (let i = 0; i < 5; i++) {
+          const ang = (i * Math.PI * 2) / 5;
+          const spoke = new THREE.Mesh(spokeGeom, steelMat);
+          spoke.position.set(Math.cos(ang) * 0.14, 0.06, Math.sin(ang) * 0.14);
+          spoke.rotation.y = ang;
+          group.add(spoke);
+        }
+
+        const stemGeom = this.getCachedGeometry('off_ch_stem', () => new THREE.CylinderGeometry(0.024, 0.024, 0.32, 8));
+        const stem = new THREE.Mesh(stemGeom, steelMat);
+        stem.position.set(0, 0.24, 0);
+        group.add(stem);
+
+        const seatGeom = this.getCachedGeometry('off_ch_seat_capsule', () => {
+          const geo = new THREE.CapsuleGeometry(0.08, 0.36, 2, 8);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+        const seat = new THREE.Mesh(seatGeom, fabricGray);
+        seat.position.set(0, 0.44, 0);
+        group.add(seat);
+
+        const backGeom = this.getCachedGeometry('off_ch_back_capsule', () => {
+          const geo = new THREE.CapsuleGeometry(0.06, 0.38, 2, 8);
+          geo.rotateZ(Math.PI / 2);
+          return geo;
+        });
+        const back = new THREE.Mesh(backGeom, steelMat);
+        back.position.set(0, 0.78, -0.2);
+        back.rotation.x = 0.14;
+        group.add(back);
+        break;
+      }
+
+      case 'monitor_pc': {
+        const baseGeom = this.getCachedGeometry('monitor_base_cyl', () => new THREE.CylinderGeometry(0.12, 0.12, 0.015, 16));
+        const base = new THREE.Mesh(baseGeom, brassMat);
+        base.position.set(0, 0.0075, 0);
+        group.add(base);
+
+        const stalkGeom = this.getCachedGeometry('monitor_stalk_cyl', () => new THREE.CylinderGeometry(0.014, 0.014, 0.22, 8));
+        const stalk = new THREE.Mesh(stalkGeom, steelMat);
+        stalk.position.set(0, 0.11, 0);
+        group.add(stalk);
+
+        const frameGeom = this.getCachedGeometry('monitor_frame_box', () => new THREE.BoxGeometry(0.60, 0.36, 0.02));
+        const frame = new THREE.Mesh(frameGeom, steelMat);
+        frame.position.set(0, 0.26, 0);
+        frame.castShadow = true;
+        group.add(frame);
+
+        const screenGeom = this.getCachedGeometry('monitor_screen_panel', () => new THREE.BoxGeometry(0.56, 0.32, 0.005));
+        const screenMat = this.getCachedMaterial('screen_cyan', () => new THREE.MeshBasicMaterial({ color: 0x0284c7 }));
+        const screen = new THREE.Mesh(screenGeom, screenMat);
+        screen.position.set(0, 0.26, 0.012);
+        group.add(screen);
+        break;
+      }
+
+      case 'coffee_machine': {
+        const bodyGeom = this.getCachedGeometry('coffee_body_box', () => new THREE.BoxGeometry(0.28, 0.32, 0.28));
+        const body = new THREE.Mesh(bodyGeom, steelMat);
+        body.position.set(0, 0.16, 0);
+        body.castShadow = true;
+        group.add(body);
+
+        const hopperGeom = this.getCachedGeometry('coffee_hopper_cyl', () => new THREE.CylinderGeometry(0.075, 0.065, 0.08, 12));
+        const hopper = new THREE.Mesh(hopperGeom, darkWoodMat);
+        hopper.position.set(0, 0.36, -0.04);
+        group.add(hopper);
+
+        const cupGeom = this.getCachedGeometry('coffee_cup_cyl', () => new THREE.CylinderGeometry(0.035, 0.025, 0.045, 12));
+        const cup = new THREE.Mesh(cupGeom, ceramicMat);
+        cup.position.set(0, 0.04, 0.10);
+        group.add(cup);
+
+        const wandGeom = this.getCachedGeometry('coffee_wand_cyl', () => new THREE.CylinderGeometry(0.006, 0.006, 0.12, 8));
+        const wand = new THREE.Mesh(wandGeom, brassMat);
+        wand.position.set(0.12, 0.12, 0.12);
+        wand.rotation.z = -0.3;
+        group.add(wand);
+        break;
+      }
+
+      case 'table_lamp': {
+        const baseGeom = this.getCachedGeometry('table_lamp_base_cyl', () => new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16));
+        const base = new THREE.Mesh(baseGeom, brassMat);
+        base.position.set(0, 0.01, 0);
+        group.add(base);
+
+        const stemGeom = this.getCachedGeometry('table_lamp_stem_cyl', () => new THREE.CylinderGeometry(0.01, 0.01, 0.28, 8));
+        const stem = new THREE.Mesh(stemGeom, brassMat);
+        stem.position.set(0, 0.15, 0);
+        group.add(stem);
+
+        const shadeGeom = this.getCachedGeometry('table_lamp_shade_cyl', () => new THREE.CylinderGeometry(0.08, 0.13, 0.16, 16));
+        const shade = new THREE.Mesh(shadeGeom, warmLightMat);
+        shade.position.set(0, 0.34, 0);
+        group.add(shade);
+        break;
+      }
+
+      case 'small_pot': {
+        const potGeom = this.getCachedGeometry('succulent_pot_cyl', () => new THREE.CylinderGeometry(0.09, 0.065, 0.12, 14));
+        const pot = new THREE.Mesh(potGeom, ceramicMat);
+        pot.position.set(0, 0.06, 0);
+        pot.castShadow = true;
+        group.add(pot);
+
+        const soilGeom = this.getCachedGeometry('succulent_soil_cyl', () => new THREE.CylinderGeometry(0.084, 0.084, 0.02, 12));
+        const soil = new THREE.Mesh(soilGeom, darkWoodMat);
+        soil.position.set(0, 0.12, 0);
+        group.add(soil);
+
+        const leafGeom = this.getCachedGeometry('succulent_leaf_capsule_opt', () => {
+          const geo = new THREE.CapsuleGeometry(0.022, 0.04, 1, 6);
+          geo.rotateZ(Math.PI / 4);
+          return geo;
+        });
+        for (let i = 0; i < 5; i++) {
+          const ang = (i * Math.PI * 2) / 5;
+          const leaf = new THREE.Mesh(leafGeom, plantMat);
+          leaf.position.set(Math.cos(ang) * 0.045, 0.14, Math.sin(ang) * 0.045);
+          leaf.rotation.y = ang;
+          group.add(leaf);
+        }
+        break;
+      }
+
+      case 'painting_art': {
+        const frameGeom = this.getCachedGeometry('art_frame_box', () => new THREE.BoxGeometry(1.2, 0.8, 0.04));
+        const frame = new THREE.Mesh(frameGeom, woodMat);
+        frame.position.set(0, 0, 0);
+        frame.castShadow = true;
+        group.add(frame);
+
+        const canvasGeom = this.getCachedGeometry('art_canvas_box', () => new THREE.BoxGeometry(1.1, 0.7, 0.01));
+        const canvasMat = this.getCachedMaterial('art_canvas_mat', () => new THREE.MeshBasicMaterial({ color: 0x059669 }));
+        const canvas = new THREE.Mesh(canvasGeom, canvasMat);
+        canvas.position.set(0, 0, 0.022);
+        group.add(canvas);
+        break;
+      }
+
+      case 'wall_sconce': {
+        const mountGeom = this.getCachedGeometry('sconce_mount_cyl', () => new THREE.CylinderGeometry(0.06, 0.06, 0.02, 12));
+        const mount = new THREE.Mesh(mountGeom, brassMat);
+        mount.rotation.x = Math.PI / 2;
+        group.add(mount);
+
+        const bodyGeom = this.getCachedGeometry('sconce_body_cyl', () => new THREE.CylinderGeometry(0.045, 0.045, 0.22, 14));
+        const sconce = new THREE.Mesh(bodyGeom, warmLightMat);
+        sconce.position.set(0, 0, 0.08);
+        group.add(sconce);
+
+        const ringGeom = this.getCachedGeometry('sconce_ring_cyl', () => new THREE.CylinderGeometry(0.05, 0.05, 0.04, 14));
+        const ring = new THREE.Mesh(ringGeom, brassMat);
+        ring.position.set(0, 0, 0.08);
+        group.add(ring);
+        break;
+      }
+
+      case 'wall_signage': {
+        const woodPlateGeom = this.getCachedGeometry('sign_wood_plate', () => new THREE.BoxGeometry(0.8, 0.4, 0.03));
+        const woodPlate = new THREE.Mesh(woodPlateGeom, darkWoodMat);
+        woodPlate.position.set(0, 0, 0);
+        group.add(woodPlate);
+
+        const brassPlateGeom = this.getCachedGeometry('sign_brass_plate', () => new THREE.BoxGeometry(0.72, 0.32, 0.01));
+        const brassPlate = new THREE.Mesh(brassPlateGeom, brassMat);
+        brassPlate.position.set(0, 0, 0.016);
+        group.add(brassPlate);
         break;
       }
 
       case 'bar_counter': {
-        const counter = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.05, 0.75), darkWoodMat);
+        const counterGeom = this.getCachedGeometry('bar_counter_body', () => new THREE.BoxGeometry(2.4, 1.05, 0.75));
+        const counter = new THREE.Mesh(counterGeom, darkWoodMat);
         counter.position.set(0, 0.525, 0);
         counter.castShadow = true;
         group.add(counter);
 
-        const marbleTop = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.06, 0.82), whiteMat);
+        const topGeom = this.getCachedGeometry('bar_counter_top', () => new THREE.BoxGeometry(2.5, 0.06, 0.82));
+        const marbleTop = new THREE.Mesh(topGeom, whiteMat);
         marbleTop.position.set(0, 1.08, 0);
         group.add(marbleTop);
 
-        // Coffee machine
-        const machine = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.38), steelMat);
+        const machineGeom = this.getCachedGeometry('bar_coffee_machine', () => new THREE.BoxGeometry(0.5, 0.4, 0.38));
+        const machine = new THREE.Mesh(machineGeom, steelMat);
         machine.position.set(-0.6, 1.3, 0);
         group.add(machine);
 
-        // POS Register
-        const pos = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.25, 0.25), whiteMat);
+        const posGeom = this.getCachedGeometry('bar_pos_reg', () => new THREE.BoxGeometry(0.3, 0.25, 0.25));
+        const pos = new THREE.Mesh(posGeom, whiteMat);
         pos.position.set(0.6, 1.23, 0);
         group.add(pos);
         break;
       }
 
       case 'wardrobe_shelf': {
-        const cabinet = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.1, 0.55), darkWoodMat);
+        const cabinetGeom = this.getCachedGeometry('wardrobe_shelf_box', () => new THREE.BoxGeometry(1.5, 2.1, 0.55));
+        const cabinet = new THREE.Mesh(cabinetGeom, darkWoodMat);
         cabinet.position.set(0, 1.05, 0);
         cabinet.castShadow = true;
         group.add(cabinet);
@@ -750,27 +1022,28 @@ export class FirstPersonFurnitureBuilder {
       }
 
       case 'plant_monstera': {
-        // Fluted ceramic planter pot
-        const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.18, 0.48, 16), ceramicMat);
+        const potGeom = this.getCachedGeometry('monstera_pot_cyl', () => new THREE.CylinderGeometry(0.24, 0.18, 0.48, 16));
+        const pot = new THREE.Mesh(potGeom, ceramicMat);
         pot.position.set(0, 0.24, 0);
         pot.castShadow = true;
         group.add(pot);
 
-        // Soil disk
-        const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 16), darkWoodMat);
+        const soilGeom = this.getCachedGeometry('monstera_soil_cyl', () => new THREE.CylinderGeometry(0.22, 0.22, 0.04, 16));
+        const soil = new THREE.Mesh(soilGeom, darkWoodMat);
         soil.position.set(0, 0.47, 0);
         group.add(soil);
 
-        // Cascading Monstera leaves at diverse angles
+        const leafStemGeom = this.getCachedGeometry('monstera_stem_cyl', () => new THREE.CylinderGeometry(0.012, 0.015, 0.45, 6));
+        const leafBladeGeom = this.getCachedGeometry('monstera_blade_box', () => new THREE.BoxGeometry(0.28, 0.02, 0.22));
         const leafAngles = [0, 1.25, 2.5, 3.8, 5.0];
         leafAngles.forEach((ang, idx) => {
-          const leafStem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.015, 0.45, 6), plantMat);
+          const leafStem = new THREE.Mesh(leafStemGeom, plantMat);
           leafStem.position.set(Math.cos(ang) * 0.12, 0.62 + idx * 0.06, Math.sin(ang) * 0.12);
           leafStem.rotation.z = Math.cos(ang) * 0.35;
           leafStem.rotation.x = Math.sin(ang) * 0.35;
           group.add(leafStem);
 
-          const leafBlade = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.02, 0.22), plantMat);
+          const leafBlade = new THREE.Mesh(leafBladeGeom, plantMat);
           leafBlade.position.set(Math.cos(ang) * 0.28, 0.82 + idx * 0.06, Math.sin(ang) * 0.28);
           leafBlade.rotation.y = ang;
           leafBlade.rotation.z = 0.25;
@@ -780,77 +1053,84 @@ export class FirstPersonFurnitureBuilder {
       }
 
       case 'floor_lamp': {
-        // Weighted circular brass/steel base
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.04, 16), steelMat);
+        const baseGeom = this.getCachedGeometry('floor_lamp_base_cyl', () => new THREE.CylinderGeometry(0.22, 0.24, 0.04, 16));
+        const base = new THREE.Mesh(baseGeom, steelMat);
         base.position.set(0, 0.02, 0);
         group.add(base);
 
-        // Slender arched pole
-        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.62, 8), brassMat);
+        const poleGeom = this.getCachedGeometry('floor_lamp_pole_cyl', () => new THREE.CylinderGeometry(0.018, 0.018, 1.62, 8));
+        const pole = new THREE.Mesh(poleGeom, brassMat);
         pole.position.set(0, 0.83, 0);
         group.add(pole);
 
-        // Drum linen lampshade
-        const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.36, 16, 1, true), warmLightMat);
+        const shadeGeom = this.getCachedGeometry('floor_lamp_shade_cyl', () => new THREE.CylinderGeometry(0.22, 0.26, 0.36, 16, 1, true));
+        const shade = new THREE.Mesh(shadeGeom, warmLightMat);
         shade.position.set(0, 1.52, 0);
         group.add(shade);
 
-        // Glowing warm bulb sphere inside shade
-        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), warmLightMat);
+        const bulbGeom = this.getCachedGeometry('floor_lamp_bulb_sph', () => new THREE.SphereGeometry(0.06, 10, 10));
+        const bulb = new THREE.Mesh(bulbGeom, warmLightMat);
         bulb.position.set(0, 1.50, 0);
         group.add(bulb);
         break;
       }
 
       case 'kitchen_island': {
-        const island = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 0.9), darkWoodMat);
+        const islandGeom = this.getCachedGeometry('kitchen_island_base', () => new THREE.BoxGeometry(2.4, 0.9, 0.9));
+        const island = new THREE.Mesh(islandGeom, darkWoodMat);
         island.position.set(0, 0.45, 0);
         island.castShadow = true;
         group.add(island);
 
-        const top = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.06, 0.98), whiteMat);
+        const topGeom = this.getCachedGeometry('kitchen_island_top', () => new THREE.BoxGeometry(2.5, 0.06, 0.98));
+        const top = new THREE.Mesh(topGeom, whiteMat);
         top.position.set(0, 0.93, 0);
         group.add(top);
 
-        const fridge = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.85, 0.75), steelMat);
+        const fridgeGeom = this.getCachedGeometry('kitchen_fridge', () => new THREE.BoxGeometry(0.85, 1.85, 0.75));
+        const fridge = new THREE.Mesh(fridgeGeom, steelMat);
         fridge.position.set(1.7, 0.925, 0);
         group.add(fridge);
         break;
       }
 
       case 'bathroom_set': {
-        // Bathtub
-        const tub = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.55, 0.8), ceramicMat);
+        const tubGeom = this.getCachedGeometry('bath_tub_box', () => new THREE.BoxGeometry(1.6, 0.55, 0.8));
+        const tub = new THREE.Mesh(tubGeom, ceramicMat);
         tub.position.set(-0.2, 0.275, 0);
         tub.castShadow = true;
         group.add(tub);
 
-        // Toilet
-        const toilet = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.75, 0.65), ceramicMat);
+        const toiletGeom = this.getCachedGeometry('bath_toilet_box', () => new THREE.BoxGeometry(0.45, 0.75, 0.65));
+        const toilet = new THREE.Mesh(toiletGeom, ceramicMat);
         toilet.position.set(1.1, 0.375, 0);
         group.add(toilet);
         break;
       }
 
       case 'reception_desk': {
-        const desk = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.1, 0.85), darkWoodMat);
+        const deskGeom = this.getCachedGeometry('reception_desk_base', () => new THREE.BoxGeometry(2.2, 1.1, 0.85));
+        const desk = new THREE.Mesh(deskGeom, darkWoodMat);
         desk.position.set(0, 0.55, 0);
         desk.castShadow = true;
         group.add(desk);
 
-        const topAccent = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.05, 0.9), brassMat);
+        const topAccentGeom = this.getCachedGeometry('reception_top_accent', () => new THREE.BoxGeometry(2.3, 0.05, 0.9));
+        const topAccent = new THREE.Mesh(topAccentGeom, brassMat);
         topAccent.position.set(0, 1.125, 0);
         group.add(topAccent);
 
-        const chair = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.95, 0.48), steelMat);
+        const chairGeom = this.getCachedGeometry('reception_chair_box', () => new THREE.BoxGeometry(0.48, 0.95, 0.48));
+        const chair = new THREE.Mesh(chairGeom, steelMat);
         chair.position.set(0, 0.475, -0.6);
         group.add(chair);
         break;
       }
 
       case 'rug_nusantara': {
-        const rugMat = new THREE.MeshStandardMaterial({ color: 0x8b5a3c, roughness: 0.92, metalness: 0.0 });
-        const rug = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.025, 1.4), rugMat);
+        const rugMat = this.getCachedMaterial('rug_nusantara_mat', () => new THREE.MeshStandardMaterial({ color: 0x8b5a3c, roughness: 0.92, metalness: 0.0 }));
+        const rugGeom = this.getCachedGeometry('rug_nusantara_plane', () => new THREE.BoxGeometry(2.0, 0.025, 1.4));
+        const rug = new THREE.Mesh(rugGeom, rugMat);
         rug.position.set(0, 0.0125, 0);
         rug.receiveShadow = true;
         group.add(rug);
@@ -858,7 +1138,8 @@ export class FirstPersonFurnitureBuilder {
       }
 
       default: {
-        const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), woodMat);
+        const boxGeom = this.getCachedGeometry('default_box', () => new THREE.BoxGeometry(1, 1, 1));
+        const box = new THREE.Mesh(boxGeom, woodMat);
         box.position.set(0, 0.5, 0);
         group.add(box);
         break;
