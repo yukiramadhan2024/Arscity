@@ -10,7 +10,8 @@ export class RiverManager {
 
   public nodes: Map<string, RiverNode> = new Map();
   public segments: Map<string, RiverSegment> = new Map();
-  private segmentMeshes: Map<string, THREE.Group> = new Map();
+  public segmentMeshes: Map<string, THREE.Group> = new Map();
+  public onRiverUpdated?: () => void;
 
   private waterMaterials: THREE.MeshStandardMaterial[] = [];
 
@@ -58,6 +59,27 @@ export class RiverManager {
       uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y,
       uuu * p0.z + 3 * uu * t * p1.z + 3 * u * tt * p2.z + ttt * p3.z
     );
+  }
+
+  /**
+   * Checks whether a 2D position (x, z) falls inside any river channel segment.
+   */
+  public isPointInRiver(x: number, z: number, padding: number = 0.5): boolean {
+    for (const segment of this.segments.values()) {
+      const profile = RIVER_PROFILES[segment.type] || RIVER_PROFILES.urban_river;
+      const halfWidth = (profile.width / 2) + padding;
+      const pts = segment.controlPoints;
+      if (!pts || pts.length < 2) continue;
+      const sampleCount = Math.max(10, Math.ceil(segment.length / 2));
+      for (let i = 0; i <= sampleCount; i++) {
+        const pt = this.sampleBezier(pts, i / sampleCount);
+        const distSq = (x - pt.x) ** 2 + (z - pt.z) ** 2;
+        if (distSq <= halfWidth * halfWidth) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -142,6 +164,8 @@ export class RiverManager {
 
     // 2. Carve terrain along the river curve so water rests inside channel
     segment.carveData = this.carveTerrainForRiver(segment);
+
+    this.onRiverUpdated?.();
 
     return segment;
   }
@@ -384,6 +408,7 @@ export class RiverManager {
     }
 
     this.segments.delete(id);
+    this.onRiverUpdated?.();
     return true;
   }
 

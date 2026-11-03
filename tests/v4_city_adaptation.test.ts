@@ -5,6 +5,9 @@ import { CustomBuildingMeshBuilder } from '../src/buildings/CustomBuildingMeshBu
 import { createTextSprite, createSunCelestialArc } from '../src/ui/components/CustomBuildingCreatorModal';
 import { RoadManager } from '../src/roads/RoadManager';
 import { LotManager } from '../src/zones/LotManager';
+import { LandscapeManager } from '../src/world/LandscapeManager';
+import { RiverManager } from '../src/world/RiverManager';
+import { ThermalComfortEngine, DEFAULT_THERMAL_CONSTANTS } from '../src/world/ThermalComfortEngine';
 import { BuildingInstance } from '../src/buildings/PrefabTypes';
 
 describe('Tahap 5: Adaptasi Kota, Fasad, Ekologi, Denah 2D', () => {
@@ -568,6 +571,199 @@ describe('Tahap 5: Adaptasi Kota, Fasad, Ekologi, Denah 2D', () => {
         // The sun ball must be strictly at or above highestRoofPoint + 1.5m (15.0m)
         expect(sunBall.position.y).toBeGreaterThanOrEqual(highestRoofPoint + 1.5 - 1e-4);
       }
+    });
+  });
+
+  describe('T5.5: Ekologi dan Mikroklimat Event-Driven (ThermalComfortEngine)', () => {
+    let landscapeManager: LandscapeManager;
+    let riverManager: RiverManager;
+    let thermalEngine: ThermalComfortEngine;
+
+    beforeEach(() => {
+      landscapeManager = new LandscapeManager(scene);
+      riverManager = new RiverManager(scene);
+      thermalEngine = new ThermalComfortEngine(
+        buildingManager,
+        landscapeManager,
+        riverManager,
+        lotManager
+      );
+    });
+
+    it('evaluates baseline equatorial temperature (28.0 °C) in an empty environment', () => {
+      thermalEngine.recalculate();
+      const temp = thermalEngine.evaluateTemperatureAt(0, 0);
+      expect(temp).toBe(28.0);
+    });
+
+    it('increases temperature by +0.35 °C per floor for buildings within 25m radius with linear falloff', () => {
+      const bld: BuildingInstance = {
+        id: 'thermal_bld_1',
+        presetKey: 'office_4fl',
+        name: 'Gedung Kantor 4 Lantai',
+        category: 'commercial',
+        position: new THREE.Vector3(10, 0, 10),
+        rotationY: 0,
+        width: 10,
+        length: 10,
+        floorCount: 4,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      };
+      buildingManager.addBuilding(bld);
+      thermalEngine.recalculate();
+
+      // At building center (10, 10): 28.0 + (4 * 0.35) = 29.40 °C
+      const centerTemp = thermalEngine.evaluateTemperatureAt(10, 10);
+      expect(centerTemp).toBe(29.4);
+
+      // At half radius (12.5m away from 10, 10 -> e.g. at 22.5, 10): falloff = 0.5 -> 28.0 + 1.4 * 0.5 = 28.70 °C
+      const midTemp = thermalEngine.evaluateTemperatureAt(22.5, 10);
+      expect(midTemp).toBe(28.7);
+
+      // Outside radius (>= 25m away -> e.g. at 40, 10): 28.0 °C
+      const farTemp = thermalEngine.evaluateTemperatureAt(40, 10);
+      expect(farTemp).toBe(28.0);
+    });
+
+    it('cools temperature by -1.5 °C for shade trees within 18m radius', () => {
+      // Add a 4-floor building at (0, 0) -> temp = 29.4 °C
+      buildingManager.addBuilding({
+        id: 'thermal_bld_heat',
+        presetKey: 'office_4fl',
+        name: 'Gedung Panas',
+        category: 'commercial',
+        position: new THREE.Vector3(0, 0, 0),
+        rotationY: 0,
+        width: 8,
+        length: 8,
+        floorCount: 4,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      });
+
+      // Add a shade tree at (0, 0)
+      landscapeManager.addItem({
+        id: 'tree_shade_1',
+        type: 'shade_tree',
+        position: new THREE.Vector3(0, 0, 0),
+        radius: 3,
+      });
+
+      thermalEngine.recalculate();
+      // At (0, 0): 28.0 + 1.4 - 1.5 = 27.90 °C
+      const tempWithTree = thermalEngine.evaluateTemperatureAt(0, 0);
+      expect(tempWithTree).toBe(27.9);
+    });
+
+    it('cools temperature along river corridors by -1.8 °C within 35m', () => {
+      // Add a straight river segment along Z-axis from (50, 0, -50) to (50, 0, 50)
+      riverManager.addRiverSegment(
+        new THREE.Vector3(50, 0, -50),
+        new THREE.Vector3(50, 0, 50),
+        'urban_river'
+      );
+
+      thermalEngine.recalculate();
+
+      // Right on river point (50, 0, 0): 28.0 - 1.8 = 26.20 °C
+      const riverTemp = thermalEngine.evaluateTemperatureAt(50, 0);
+      expect(riverTemp).toBe(26.2);
+
+      // 35m away at (85, 0): falloff 0 -> 28.0 °C
+      const edgeTemp = thermalEngine.evaluateTemperatureAt(85, 0);
+      expect(edgeTemp).toBe(28.0);
+    });
+
+    it('updates lot grass tinting according to microclimate temperature', () => {
+      // Create a lot at (100, 0, 100)
+      const lot = lotManager.createLot(new THREE.Vector3(100, 0, 100), 15, 20, 'residential');
+      expect(lot).toBeDefined();
+
+      // Case 1: Empty lot -> baseline 28.0 °C -> Sedang (27.5 °C - 29.0 °C) -> #65a30d (0x65a30d)
+      thermalEngine.recalculate();
+      expect(lot!.userData?.microclimateTempC).toBe(28.0);
+      expect(lot!.userData?.grassColorHexInt).toBe(0x65a30d);
+
+      // Case 2: Add 4-floor commercial building -> temp = 29.4 °C -> Gersang (> 29.0 °C) -> #d97706 (0xd97706)
+      buildingManager.addBuilding({
+        id: 'bld_hot_lot',
+        presetKey: 'office_4fl',
+        name: 'Gedung Panas Kavling',
+        category: 'commercial',
+        position: new THREE.Vector3(100, 0, 100),
+        rotationY: 0,
+        width: 10,
+        length: 12,
+        floorCount: 4,
+        floorHeight: 3.5,
+        roofType: 'flat',
+        roofOverhang: 0.5,
+        wallMaterial: 'plaster',
+        wallColor: '#ffffff',
+        roofMaterial: 'metal',
+      });
+      thermalEngine.recalculate();
+      expect(lot!.userData?.microclimateTempC).toBe(29.4);
+      expect(lot!.userData?.grassColorHexInt).toBe(0xd97706);
+
+      // Case 3: Add 2 shade trees nearby -> temp = 29.4 - 3.0 = 26.4 °C -> Sejuk (<= 27.5 °C) -> #22c55e (0x22c55e)
+      landscapeManager.addItem({
+        id: 'cool_tree_1',
+        type: 'tree',
+        position: new THREE.Vector3(100, 0, 100),
+        radius: 3,
+      });
+      landscapeManager.addItem({
+        id: 'cool_tree_2',
+        type: 'tree_tabebuya_pink',
+        position: new THREE.Vector3(100, 0, 100),
+        radius: 3,
+      });
+      thermalEngine.recalculate();
+      expect(lot!.userData?.microclimateTempC).toBe(26.4);
+      expect(lot!.userData?.grassColorHexInt).toBe(0x22c55e);
+    });
+
+    it('benchmarks recalculation with 300 buildings to complete under 15ms', () => {
+      // Mock 300 buildings across a 300m x 300m city
+      for (let i = 0; i < 300; i++) {
+        const gx = (i % 20) * 15 - 150;
+        const gz = Math.floor(i / 20) * 20 - 150;
+        buildingManager.addBuilding({
+          id: `bench_bld_${i}`,
+          presetKey: 'bench_preset',
+          name: `Bangunan ${i}`,
+          category: 'residential',
+          position: new THREE.Vector3(gx, 0, gz),
+          rotationY: 0,
+          width: 8,
+          length: 10,
+          floorCount: (i % 4) + 1,
+          floorHeight: 3.2,
+          roofType: 'gable',
+          roofOverhang: 0.5,
+          wallMaterial: 'plaster',
+          wallColor: '#ffffff',
+          roofMaterial: 'clay_tile',
+        });
+      }
+
+      const t0 = performance.now();
+      thermalEngine.recalculate();
+      const elapsed = performance.now() - t0;
+
+      // Must complete in under 15ms
+      expect(elapsed).toBeLessThan(15);
+      expect(thermalEngine.lastRecalculateDurationMs).toBeLessThan(15);
     });
   });
 });

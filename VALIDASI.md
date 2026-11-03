@@ -88,6 +88,20 @@
 
 ---
 
-## 7. Rencana Tindak Lanjut Verifikasi Ahli
+## 7. Ekologi Mikroklimat dan Termal Kota Tropis (T5.5)
+
+| Parameter / Konstanta | Nilai Default | Rentang Dapat Diedit | Berkas Sumber Kode | Rujukan Teori / Asumsi | Status Validasi | Verifikator | Tanggal | Catatan Ilmiah dan Penyederhanaan |
+|---|---|---|---|---|---|---|---|---|
+| Suhu Dasar Khatulistiwa | 28.0 °C | 24.0 – 34.0 °C | src/world/ThermalComfortEngine.ts | Rata-rata Suhu Udara Tropis BMKG | Belum diverifikasi manusia | - | - | Model sederhana untuk belajar (Aturan G8) |
+| Kenaikan Suhu per Lantai Gedung | +0.35 °C / lantai | 0.10 – 1.00 °C | src/world/ThermalComfortEngine.ts | Fenomena Urban Heat Island (UHI) | Belum diverifikasi manusia | - | - | Model sederhana untuk belajar (Aturan G8), radius pengaruh 25 m |
+| Penurunan Suhu per Pohon Peneduh | -1.50 °C | 0.50 – 3.00 °C | src/world/ThermalComfortEngine.ts | Efek Evapotranspirasi & Naungan Tajuk | Belum diverifikasi manusia | - | - | Model sederhana untuk belajar (Aturan G8), radius pengaruh 18 m |
+| Penurunan Suhu Koridor Sungai | -1.80 °C | 0.50 – 4.00 °C | src/world/ThermalComfortEngine.ts | Efek Pendinginan Koridor Biru Air | Belum diverifikasi manusia | - | - | Model sederhana untuk belajar (Aturan G8), radius pengaruh 35 m |
+| Ambang Rona Kavling Sejuk | <= 27.5 °C | 25.0 – 28.0 °C | src/world/ThermalComfortEngine.ts | Indeks Kenyamanan Termal (PET/THI) | Belum diverifikasi manusia | - | - | Rona hijau segar (#22c55e) |
+| Ambang Rona Kavling Sedang | 27.5 °C – 29.0 °C | 26.0 – 30.0 °C | src/world/ThermalComfortEngine.ts | Ambang Batas Netral Tropis Lembap | Belum diverifikasi manusia | - | - | Rona hijau sedang (#65a30d) |
+| Ambang Rona Kavling Gersang | > 29.0 °C | > 28.5 °C | src/world/ThermalComfortEngine.ts | Peringatan Beban Termal Berlebih | Belum diverifikasi manusia | - | - | Rona agak kekuningan gersang (#d97706) |
+
+---
+
+## 8. Rencana Tindak Lanjut Verifikasi Ahli
 
 Pihak akademik atau praktisi yang ingin memvalidasi parameter di atas dapat mengisi kolom Verifikator dan Tanggal setelah melakukan pengecekan langsung terhadap dokumen resmi SNI dan Peraturan Menteri terkait.

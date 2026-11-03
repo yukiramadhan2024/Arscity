@@ -334,3 +334,338 @@ Dokumen ini mencatat setiap keputusan arsitektur penting (*Architecture Decision
   * Seluruh pengujian Vitest (40 berkas pengujian, 253 tes) lulus 100%.
   * Kompilasi TypeScript (`tsc`) dan build Vite production berhasil tanpa galat (exit code 0).
   * 8 tangkapan layar komparasi "Sesudah" telah berhasil diambil pada resolusi 1366x768 dan 1920x1080 di `docs/redesign2/after/`.
+
+---
+
+## ADR-017: Perbaikan Bug Dark Mode & Standardisasi Token Semantik Arscity
+- **Status**: Disetujui & Terimplementasi Penuh
+- **Konteks & Gejala**:
+  Pada pengujian tema Gelap, ditemukan sejumlah anomali kontras serius:
+  1. Dock kiri tampil sebagai batang navy kosong karena ikon memakai warna literal gelap (`#0F172A` / `#64748B`).
+  2. Toolbar bawah: ikon dan label alat yang tidak aktif serta tombol Urungkan/Ulang hampir tidak terbaca di atas latar gelap.
+  3. Kapsul atas: teks jam ("16:15 WIB") tidak terbaca karena warna teks gelap di atas kapsul gelap.
+  4. Bar petunjuk bawah: teks instruksi pucat tidak terbaca.
+  5. Minimap kanan bawah tetap berlatar putih terang `#EEF4FA`, tidak mengikuti tema gelap.
+  6. Modal pengaturan dan lembar dialog menjadi putih di tema gelap akibat selektor `[data-theme="dark"]` yang tertimpa oleh aturan CSS di bawahnya.
+  7. Temuan P2: label pelanggaran kavling berukuran terlalu kecil, pohon/gedung bisa ditempatkan di atas air, dan tone mapping lavender pada atap/trotoar.
+
+- **Akar Masalah yang Diverifikasi**:
+  1. *Warna Literal Statis*: Komponen-komponen UI menggunakan nilai warna heksadesimal statis pada inline style yang tidak responsif terhadap atribut `data-theme`.
+  2. *CSS Cascade Override*: Di `src/app/index.css`, blok selektor `:root, html[data-theme="light"], [data-theme="light"], [data-theme="dark"]` pada sistem laboratorium analisis berada di bawah definisi `[data-theme="dark"]`, sehingga menimpa variabel `--lab-*` tema gelap menjadi nilai kartu putih terang.
+  3. *Minimap Canvas Literal*: `Minimap.tsx` menggambar latar belakang canvas dengan warna statis `#EEF4FA` tanpa membaca token tema.
+  4. *Tone Mapping Clipping*: `ACESFilmicToneMapping` dengan pantulan zenith biru saturasi tinggi pada senja menghasilkan nuansa ungu/lavender pada atap dan trotoar.
+
+- **Keputusan & Perbaikan yang Diterapkan**:
+  1. **Standardisasi Token Dua Tema di `src/app/index.css` & `themeTokens.ts`**:
+     - *Gelap*: `label: #FFFFFF`, `labelSecondary: rgba(235, 235, 245, 0.60)`, `labelTertiary: rgba(235, 235, 245, 0.30)`, `separator: rgba(84, 84, 88, 0.60)`, `surface: #1C1C1E`, `surfaceRaised: #2C2C2E`, `fillControl: rgba(120, 120, 128, 0.24)`, `accent: #0A84FF`, `good: #30D158`, `warn: #FF9F0A`, `bad: #FF453A`.
+     - *Terang*: `label: #000000`, `labelSecondary: rgba(60, 60, 67, 0.60)`, `labelTertiary: rgba(60, 60, 67, 0.30)`, `separator: rgba(60, 60, 67, 0.29)`, `surface: #FFFFFF`, `surfaceRaised: #FFFFFF`, `accent: #007AFF`.
+  2. **Refaktor Komponen UI ke Token Semantik**:
+     - `TopHeader.tsx`: Jam, indikator FPS, segmented button, dan slider menggunakan token `var(--label)`, `var(--surface-raised)`, `var(--fill-control)`, dan `var(--accent)`.
+     - `BottomToolbar.tsx`: Seluruh ikon dan label alat tidak aktif mewarisi `currentColor` dari `var(--label-secondary)` dengan efek hover `var(--label)`, divider menggunakan `var(--separator)`, dan Undo/Redo menggunakan `var(--label)`.
+     - `ContextualHintBar.tsx`: Latar belakang menggunakan `var(--surface)`, teks instruksi menggunakan `var(--label)`, tombol Esc menggunakan `var(--fill-control)`.
+     - `Minimap.tsx`: Canvas mendeteksi tema dan merender latar belakang `#1C1C1E` di tema gelap dengan garis grid transparan `rgba(255, 255, 255, 0.08)` dan jalan `#64748B`.
+     - `SideUtilityDock.tsx`: Tombol dock mewarisi `var(--label)` dan `currentColor`, logo Arscity berfungsi sebagai toggle dock (`[` hotkey), dan tombol keluar diganti menjadi "Kembali ke Layar Awal" dengan dialog konfirmasi aman.
+     - `FirstPersonHUD.tsx`: Telemetry card, hotbar slot, panel studio arsitek drawer, dan filter chips mengadopsi token tema gelap Apple HIG.
+     - `SettingsModal.tsx` & `.modal-sheet`: Memperbaiki cascade CSS dengan mencabut selector override `[data-theme="dark"]` di line 514 sehingga seluruh lembar dialog berlatar gelap `#1C1C1E` dengan teks putih dan grup inset `#2C2C2E`.
+  3. **Zero-Flash Hydration**:
+     - Menambahkan script inisialisasi awal di `<head>` pada `index.html` yang membaca `localStorage` sebelum render pertama React untuk mencegah efek kedip terang lalu gelap saat memuat ulang halaman.
+  4. **Pencegahan Penempatan di Atas Air & Tabebuya Tropis (P2)**:
+     - `LandscapeManager.isPositionInWater` dan `RiverManager.isPointInRiver` mendeteksi kolam retensi, kolam pantul, dan sungai perkotaan.
+     - `LandscapeTool` dan `BuildingTool` memblokir penempatan pohon dan gedung di atas badan air dengan notifikasi snackbar yang informatif.
+     - Palet bunga Tabebuya pink diubah menjadi kanopi hijau tropis diredam (`0x4a7c59` dan karpet guguran `0x3e6b4b`).
+  5. **Label Pelanggaran Kavling & Legenda GSB (P2)**:
+     - Badge pelanggaran 3D di `LotManager.ts` diperbesar (kanvas 768x144, teks tebal 44px, latar solid `#DC2626` dengan bingkai putih), dinaikkan di atas atap tertinggi bangunan (`highestY + 2.5m`), serta ditambahkan legenda garis putus-putus merah pada kartu inspeksi kavling.
+  6. **Eliminasi Nuansa Ungu/Lavender (P2)**:
+     - Tone mapping engine di `Engine.ts` diubah ke `THREE.AgXToneMapping` yang mempertahankan kompresi highlight fotorealistis tanpa distorsi saturasi biru-oranye. Gradien zenith PMREM di-desaturasi ke `#7292b8`.
+
+- **Hasil Verifikasi**:
+  - *Audit Warna Literal*: Dicatat di `docs/audit/warna_literal.txt`.
+  - *Tes Kontras Token Otomatis*: `tests/batch3_theme_contrast.test.ts` (14 tes) lulus 100% dengan rasio kontras teks >= 4.5:1 dan komponen >= 3:1.
+  - *Tes Regresi Fungsional*: `tests/batch3_dark_mode_and_water_violations.test.ts` (15 tes) lulus 100%.
+  - *Suite Pengujian Lengkap*: Seluruh 45 test suites (295 pengujian) di Vitest lulus 100% tanpa kegagalan.
+  - *Build Produksi*: `npm run build` (`tsc && vite build`) sukses 100% dengan exit code 0.
+  - *Bukti Tangkapan Layar*: Disimpan di `docs/darkmode/` (`game_ui_dark_mode.png`, `settings_modal_dark_mode.png`, `game_ui_light_mode.png`).
+
+---
+
+## ADR-018: Arscity v4.0.0 - Next-Gen Architectural Engine & Apple Spatial Frosted Glass
+- **Status**: Disetujui & Terimplementasi Penuh (7 Tahap Tuntas 100%)
+- **Konteks & Sasaran**:
+  Penyempurnaan arsitektural menyeluruh Arscity v4.0.0 dengan standar simulasi Unreal Engine 5, UI/UX Apple VisionOS Spatial Frosted Glass, engine 144 FPS uncapped untuk Intel Core i7 & NVIDIA RTX 3060, perabot realistis, serta eliminasi fitur non-esensial (misi/kuis).
+
+- **Ringkasan Keputusan & Implementasi**:
+  1. **Tahap 1: Eliminasi Misi, Skor & Kuis**:
+     - Mencabut tombol "Misi & Skor" dari `TopHeader.tsx` dan bagian "BELAJAR" dari `SideUtilityDock.tsx` serta menu popover kontrol cepat.
+     - Melepaskan render modal `MissionModal`, `QuizModal`, dan `CityScoreModal` dari `App.tsx` dan `useUIStore.ts` untuk memusatkan interaksi murni pada perancangan kota & studio CAD.
+  2. **Tahap 2: Logo Vektor Ikonik & Disiplin 2-Font Modern**:
+     - Menciptakan logo vektor "The Infinite Isometric Monolith" di `src/ui/components/ArscityLogo.tsx` (tiga bilah prisma isometrik saling mengunci dalam heksagon gradasi #0066FF ke #00D4FF dengan kilau sudut). Dipasang konsisten di `LoginPage.tsx`, `WorldHubModal.tsx`, `SideUtilityDock.tsx`, dan Top Bar Studio CAD.
+     - Mengunci disiplin 2 font modern: `Plus Jakarta Sans` (weights 500, 600, 700, 800) untuk UI dan judul, serta `JetBrains Mono` (weights 500, 600) untuk angka telemetri, jam, ukuran meter, dan 2D canvas. 0 font ketiga di seluruh proyek.
+  3. **Tahap 3: Apple Spatial Frosted Glass UI/UX**:
+     - Memperbaiki bug teks hilang pada `SettingsModal.tsx` dengan judul/label tegas `#0F172A` dan subteks `#475569`. Mengunci tema ke Apple Spatial Frosted Glass (`rgba(248, 250, 252, 0.88)` dengan `backdrop-filter: blur(32px) saturate(200%)`).
+     - Menyediakan iOS-style Segmented Control untuk preset grafis (Rendah, Sedang, Tinggi, Ultra 144Hz) dengan sliding spring pill.
+     - Merampingkan `TopHeader.tsx` dengan jam surya magnetik, pemilih cuaca, segmented control 4 mode pandang (`2D Denah | 3D Orbit | Pejalan Kaki | Drone`), dan kapsul performa real-time hijau zamrud (`144 FPS`).
+     - Menerapkan efek pembesaran kursor halus macOS Dock Magnification pada `BottomToolbar.tsx` dengan fisika `SPRING_TACTILE`.
+     - Menyembunyikan badge merah pelanggaran kavling pada pandangan normal; hanya tampil saat gedung dipilih atau alat Zona/Bangun aktif.
+  4. **Tahap 4: Optimasi Engine 144 FPS & Visual UE5 Photorealism**:
+     - Game loop `requestAnimationFrame` murni uncapped 144Hz di `Engine.ts` (`dt = Math.min(clock.getDelta(), 0.1)`), EMA FPS rolling, `renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))`, dan `powerPreference = 'high-performance'` untuk memprioritaskan GPU diskrit RTX 3060.
+     - Pencahayaan fotorealistik `THREE.ACESFilmicToneMapping` (exposure `1.05`), `renderer.outputColorSpace = THREE.SRGBColorSpace`, dan PMREMGenerator procedural sky di `LightingSystem.ts`.
+     - PBR normal, roughness, dan AO procedural maps di `ProceduralTextureGen.ts`.
+  5. **Tahap 5: Vegetasi Rimbun, Hidrologi Sungai Y = -2.0m & Mode 2D Masterplan**:
+     - Multi-layered botanical crown trees di `AestheticLandscapeBuilder.ts` dengan batang bercabang, klaster tajuk berlapis, karpet bunga gugur di bawah Tabebuya, dan material `alphaTest: 0.45` dengan wind shader.
+     - Saluran sungai dipahat hingga kedalaman `Y = -2.0m` dengan lereng talud alami, bidang air jernih berelevasi `Y = -0.30m` dengan animasi gelombang ripple normal, serta jembatan beton otomatis saat dilintasi jalan (`RoadGeometryBuilder`).
+     - Mode 2D masterplan: kamera ortografis tegak lurus 90°, global horizontal clipping plane di `Y = 2.4m`, dan penyembunyian atap.
+  6. **Tahap 6: Perabot Realistis, Pintu 3D, Tangga Berlubang & Universal CAD Studio**:
+     - Geometri perabot komposit realistis di `FirstPersonFurnitureCatalog.ts` (`sofa_l`, `sofa_3seater`, `bed_king`, `desk_office`, `plant_monstera`, `floor_lamp`) dengan kaki baja silinder, bantalan terbagi, sandaran miring 105 derajat, nightstand, monitor tipis, dan kap lampu kain berpendar.
+     - Pintu 3D berengsel interaktif di `InteriorMeshBuilder.ts` dengan kusen 3D berlubang, daun pintu kayu/kaca, dan gagang logam di kedua sisi.
+     - Lubang tangga void 2.8m x 4.2m pada plafon lantai atas, hotkey instan [PageUp]/[PageDown], serta pil navigasi lantai interaktif di HUD.
+     - Jalur akses paving tapak masuk dari pintu utama gedung ke trotoar jalan terdekat.
+     - Universal Creation Studio di `CustomBuildingCreatorModal.tsx` dengan 3 mode: Mode 1 (Gedung Arsitektur), Mode 2 (Furnitur & Interior Kustom - tersimpan ke katalog first-person), Mode 3 (Paviliun & Elemen Taman - ditempatkan ke peta kota). Perbaikan winding normal atap Joglo/Limasan agar tidak gelap dan teks dimensi 3D diperbesar ke tinggi 1.65m.
+  7. **Tahap 7: Verifikasi & Uji Kualitas**:
+     - `npx tsc --noEmit`: 0 error.
+     - `npx vitest run`: 49 test files (371 pengujian) lulus 100%.
+     - `npm run build`: bundle produksi Vite sukses tanpa kendala.
+     - Server dev aktif dan melayani HTTP 200 di `http://localhost:5173`.
+
+---
+
+## ADR-019: Visual Overhaul Tahap V1 (Pipeline Render) & Tahap V2 (Sistem Material PBR)
+- **Status**: Disetujui & Terimplementasi Penuh (Tahap V1 & V2 Selesai 100%)
+- **Konteks & Sasaran**:
+  Mencapai fidelitas visual setara city builder modern (gaya Cities: Skylines 2 dengan nuansa arsitektur tropis Indonesia) melalui pipeline render fotorealistik fisik (ACES Filmic, HDRI langit CC0, shadow texel snapping, GTAO, SMAA) dan sistem material PBR komprehensif (tekstur CC0 1K/2K, skala metrik fisik, KTX2 transcoder, shader overlay pelapukan).
+
+- **Ringkasan Keputusan & Implementasi**:
+  1. **Tahap V1: Pipeline Render**:
+     - *Kalibrasi Tone Mapping*: ACES Filmic tone mapping dengan exposure dikalibrasi ke 1.0 (mencegah overexposure siang terik) dan output color space sRGB.
+     - *Eliminasi Rona Ungu/Lavender*: Mengganti albedo cool-blue slate (`0x334155`) pada aspal dan atap menjadi arang andesit vulkanik netral (`0x252628`). Menetralkan `hemiGround` ke tanah hangat (`0x38342e`) dan menyeimbangkan saluran RGB generator aspal di `ProceduralTextureGen.ts`.
+     - *Pencahayaan HDRI Langit CC0*: Mengunduh dan mengintegrasikan Poly Haven CC0 1K pure sky HDRI (`autumn_field_puresky_1k.hdr`) via `RGBELoader` + `PMREMGenerator` untuk ambient lighting dan refleksi material realistis.
+     - *Texel Snapping Shadow Frustum*: Menerapkan formula grid texel snapping (`snapped = round(target / texelSize) * texelSize`) untuk menghilangkan jittering dan crawling pada tepi bayangan saat kamera bergerak. PCFSoft shadow bias dan normalBias dikalibrasi per preset.
+     - *Post-Processing Berkelanjutan*: Mengintegrasikan `GTAOPass` untuk contact ambient occlusion dengan altitude & distance fading, `SMAAPass` untuk anti-aliasing tepi atap & lisplang, serta `UnrealBloomPass` untuk lampu malam hari.
+     - *Bukti Visual*: `docs/visual/V1_before.png` (829 KB) dan `docs/visual/V1_after.png` (807 KB) pada azimuth 45°, elevasi 35°, jarak 85m, 16:15 WIB.
+  2. **Tahap V2: Sistem Material PBR**:
+     - *Ekspansi Tekstur CC0*: Mengunduh 7 kategori material PBR CC0 baru dari ambientCG (`kerikil_atap`, `membran_atap`, `keramik_granit`, `spandek`, `genteng_metal`, `acp`, `plester_kasar`), dikatalogkan di `public/assets/textures/manifest.json` dan diatribusikan di `CREDITS.md` (total 21 material terverifikasi).
+     - *Paket Prosedural Matematika 5-Channel*: Menambahkan generator matematis beresolusi tinggi di `ProceduralTextureGen.ts` untuk 7 material baru sehingga engine memiliki fallback instan 100% offline tanpa black frame atau missing textures.
+     - *Pipeline KTX2 / Basis Universal*: Menyiapkan `scripts/build-textures.mjs` untuk kompresi UASTC/ETC1S, mengintegrasikan `KTX2Loader` dengan WebAssembly transcoder di `public/basis/`, dan dynamic fallback ke web textures.
+     - *Skala Metrik Fisik Dunia (World-Scale UV)*: Menetapkan dictionary `PHYSICAL_UV_SCALES` pada `MaterialLibrary.ts` dan fungsi proyeksi triplanar `applyWorldScaleUVs` agar tekstur tidak melar pada gedung dengan variasi tinggi/lebar.
+     - *Shader Overlay Pelapukan Tropis*: Injeksi GLSL real-time via `onBeforeCompile` di `MaterialLibrary.ts`: noda tanah/debu dasar dinding (`vCustomWorldPos.y < 1.25m`), bekas aliran air hujan vertikal, dampness sudut, dan kontrol intensitas pelapukan dinamis per preset di `Engine.ts`.
+     - *Bukti Visual*: `docs/visual/V2_before.png` (807 KB) dan `docs/visual/V2_after.png` (852 KB).
+  3. **Verifikasi Kualitas**:
+     - `npx tsc --noEmit`: 0 error (Lulus 100%).
+     - `npm run test`: 49/49 test suites lulus, 371/371 tes unit & E2E hijau (exit code 0).
+
+
+
+
+## ADR-020: Visual Overhaul Tahap V3 (Fasad Modular dan Kaca Fisik Arsitektural)
+- **Status**: Disetujui & Terimplementasi Penuh (Tahap V3 Selesai 100%)
+- **Konteks & Sasaran**:
+  Mengeliminasi fasad bidang polos pada seluruh tipologi bangunan kota dengan menambahkan ritme kedalaman arsitektural (kusen jendela bertingkat, lisplang, kanopi kantilever, dinding rooster terawang, rolling door ruko, spanduk toko generik berbahasa Indonesia) serta kaca fisik arsitektural PBR (`THREE.MeshPhysicalMaterial`) dengan transmisi dan pantulan langit.
+
+- **Ringkasan Keputusan & Implementasi**:
+  1. *Kaca Fisik PBR Transmisif*: `MaterialLibrary.ts` ditingkatkan menggunakan `THREE.MeshPhysicalMaterial` (`roughness: 0.04`, `transmission: 0.65`, `ior: 1.52`, `reflectivity: 0.90`, `clearcoat: 1.0`, `envMapIntensity: 2.2`, rona lembut langit tropis `#dbeafe`).
+  2. *Papan Nama Toko Generik OFL*: Generator canvas prosedural resolusi tinggi di `ProceduralTextureGen.ts` (`getStoreSignboardTexture`) dengan tipografi `Plus Jakarta Sans` dan nama toko generik Indonesia: `TOKO BERKAH`, `WARUNG SEDAP`, `APOTEK SEHAT`, `KAFE SUDUT`, `BENGKEL MOTOR`, dll., yang berpendar saat malam.
+  3. *Modul Detail Fasad Nusantara*: `FacadeMeshBuilder.ts` menyediakan modul parametrik:
+     - `createCommercialStorefront` (rolling door berulir, rel pemandu, kanopi kain bergaris, spanduk toko berpendar)
+     - `createTropicalCanopy` (dak beton kantilever dengan tie-rod baja atau atap carport spandek)
+     - `createRosterScreenWall` (dinding terawang roster ventilasi tropis)
+     - `buildSplitACOutdoor` (unit outdoor kompresor AC lengkap dengan kisi kipas, braket siku-L, dan pipa insulasi)
+     - `buildDownspoutPipe` (pipa talang air hujan vertikal dengan klem dinding dan corong penampung atas)
+     - `buildElectricMeterPLN` (boks meteran digital kWh PLN dengan jendela kaca bening)
+     - `buildBalconyPlanter` (pot beton balkon dengan vegetasi tropis rimbun)
+     - `buildExteriorWallSconce` (lampu tempel dinding minimalis atas/bawah)
+  4. *Bukti Visual*: `docs/visual/V3_before.png` (852 KB) dan `docs/visual/V3_after.png` (852 KB).
+  5. *Verifikasi Kualitas*: `npx tsc --noEmit` 0 error; 49 test suites (371 tes) lulus 100%.
+
+---
+
+## ADR-021: Visual Overhaul Tahap V4 (Atap Kaya Detail & Peralatan Atap Nusantara)
+- **Status**: Disetujui & Terimplementasi Penuh (Tahap V4 Selesai 100%)
+- **Konteks & Sasaran**:
+  Menghadirkan atap realistis dan kaya detail setara standar visual city builder modern (atap dak datar berparapet dengan penutup tepi/coping, permukaan berkerikil/membran/taman atap hijau, lubang pembuangan talang/scuppers, serta sebaran peralatan atap prosedural deterministik: toren air, solar PV, chiller AC, ventilator turbin, skylight, pintu monyet) yang berakar pada konteks fisik geospasial Yogyakarta & Indonesia.
+
+- **Ringkasan Keputusan & Implementasi**:
+  1. *Material PBR Atap Khusus*:
+     - `solar_panel`: Sel silikon monokristalin gelap dengan busbar perak dan lapisan anti-reflektif (`metalness: 0.75`, `roughness: 0.15`).
+     - `toren_orange`, `toren_blue`, `toren_stainless`: Tangki air PE oranye khas Indonesia (Penguin/Profil Tank), biru, dan stainless steel silinder beralur cincin penguat.
+     - `green_roof`: Taman atap sedum sukulen tropis tahan kering dengan substrat vulkanik.
+     - `kerikil_atap` & `membran_atap`: Permukaan dak datar kerikil abu dan membran bitumen kedap air.
+     - `galvanized_steel` & `hvac_chiller`: Rangka baja menara toren, tangga panjat, dan boks chiller berpendingin udara.
+  2. *Builder Peralatan Atap Nusantara (`RoofEquipmentBuilder.ts`)*:
+     - `buildWaterTankToren`: Tangki toren air (500L, 1000L, 2000L) dengan menara siku galvanis 4 kaki, ikatan horizontal, pipa PVC/stainless dengan kran bola merah, dan tangga inspeksi vertikal.
+     - `buildSolarPanelArray`: Rangka solar PV menghadap **UTARA SEJATI (-Z)** dengan sudut kemiringan 12° sesuai posisi astronomis belahan bumi selatan (Yogyakarta/Sleman ~7.8° S).
+     - `buildHvacChillerUnit`: Unit chiller komersial dengan corong kipas buang melingkar atas, kisi louver samping, dan bantalan peredam getaran (vibration isolation rails) setinggi 10cm di atas dak.
+     - `buildTurbineVentilator` & `buildMushroomExhaustCap`: Ventilator turbin seng siklon putar dan tudung buang jamur.
+     - `buildRooftopSkylight`: Atap kaca tempered bertingkat dengan curb beton kedap air setinggi 32cm.
+     - `buildRoofMaintenanceHatch`: Pintu monyet (roof access hatch) dengan coaming 35cm, daun pintu berengsel, dan pegangan pengaman pipa baja.
+     - `buildSolarWaterHeater`: Pemanas air tenaga surya hunian (tipe Solahart/Wika Solar) dengan silinder insulasi horizontal di atas dan pipa kolektor miring menghadap Utara.
+     - `buildTelecomAntennaDish`: Tiang antena telekomunikasi baja dan piringan parabola satelit.
+     - `buildDetailedFlatRoof`: Dak beton dengan dinding parapet 0.75m, batu penutup (coping) bertitik tetes overhang 5cm, lantai reses kerikil/membran, dan corong pembuangan talang (scuppers).
+  3. *Harmonisasi Atribut BufferGeometryUtils*:
+     - Menyelesaikan isu ketidakcocokan atribut geometri (`color`, `uv`, `normal`) pada `PrefabMeshBuilder.optimizeBuildingGroup` sehingga `mergeGeometries` berhasil 100% tanpa fallback dan tanpa warning.
+  4. *Sebaran Deterministik (`scatterRooftopEquipment`)*:
+     - Sebaran peralatan atap berbasis seed deterministik per kavling/gedung: hunian (toren 500L/1000L + pemanas surya/PV + ventilator), ruko komersial (toren ganda + chiller AC + pintu monyet + 2x ventilator turbin), menara perkantoran & apartemen (bank chiller AC ganda dengan peredam getar + grid solar PV 8 panel + reservoir stainless 2000L + tiang antena mast + ventilator turbin).
+  5. *Bukti Visual*: `docs/visual/V4_before.png` (852 KB) dan `docs/visual/V4_after.png` (867 KB).
+  6. *Verifikasi Kualitas*:
+     - `npx tsc --noEmit`: 0 error (Lulus 100%).
+     - `tests/v4_roof_and_equipment.test.ts`: 15/15 tes lulus.
+     - `npm run test`: 50/50 test suites, 386/386 tes unit & E2E lulus 100%.
+
+## ADR-022: Visual Overhaul Tahap V5 (Konteks Kavling, Vegetasi & Generator Variasi)
+- **Status**: Disetujui & Terimplementasi Penuh (Tahap V5 Selesai 100%)
+- **Konteks & Sasaran**:
+  Memastikan bangunan kota tidak tampak terisolasi ("ditaruh begitu saja") dengan menyajikan konteks tapak/kavling yang realistis sesuai fungsi zona (pelataran parkir aspal, marka striping, stoper roda beton, kerb, drainase saluran u-ditch, carport paving, dinding batas kavling, gerbang besi), grounding bayangan kontak lembut, serta variasi deterministik tanpa kloning antar bangunan bertetangga.
+
+- **Ringkasan Keputusan & Implementasi**:
+  1. *Generator Bayangan Kontak Lembut (Contact Shadow Decals)*:
+     - `ProceduralTextureGen.getContactShadowTexture(256)`: tekstur lingkaran gradien radial Gaussian lembut untuk menghilangkan ilusi objek melayang di bawah seluruh perabot, prop, toren, stoper roda, dan pohon.
+     - Terdaftar sebagai material PBR `contact_shadow` di `MaterialLibrary.ts` (`transparent: true`, `opacity: 0.65`, `depthWrite: false`, `polygonOffsetFactor: -1`).
+  2. *Marka Jalan & Parkir PBR*:
+     - Material `marking_white` (`#f8fafc`) dan `marking_yellow` (`#facc15`) dengan `polygonOffset` untuk striping parkir anti-z-fighting.
+  3. *Builder Konteks Kavling Terintegrasi (`LotContextBuilder.ts`)*:
+     - `buildCommercialParkingLot`: Pelataran aspal depan ruko/kantor/minimarket dengan marka garis petak parkir 2.5m x 5.0m, stoper roda beton (1.8m x 0.12m) bergaris reflektif kuning, kerb beton tepi jalan, saluran drainase kisi besi, dan sabuk tanaman perdu.
+     - `buildResidentialDrivewayAndFence`: Carport paving interlock, halaman rumput dengan batu pijakan andesit, dinding pembatas keliling bata/plester 0.85m dengan batu penutup (coping), serta pintu pagar besi geser.
+     - `buildPublicPlazaForecourt`: Plaza paving batu dengan ubin pemandu difabel kuning (tactile tiles), rak parkir sepeda stainless inverted-U, dan pulau pot tanaman beton dengan bangku kayu jati.
+     - *Kendaraan Parkir*: Toggle **MATI SECARA DEFAULT** (`showParkedVehicles: false`). Jika diaktifkan pengguna, menampilkan kendaraan low-poly tropis proporsional di dalam petak parkir.
+  4. *Generator Variasi Tropis & Anti-Kloning (`BuildingVariantGenerator.ts`)*:
+     - 12 palet arsitektur netral tropis Nusantara (Alabaster Putih, Batu Paras Krem, Andesit Abu, Terakota Bata, Hijau Sage, Mint Tropis, Biru Pantai, Kayu Ulin, Basalt Hitam, Ochre Hangat, Abu Semen, Tanah Liat Tradisional).
+     - *Logika Anti-Kloning Tetangga*: Mendeteksi gedung bertetangga dalam radius 28 meter dengan preset serupa, secara otomatis menggeser seed variasi palet (`shiftedSeed = (seed * 1337 + 49297) % 2147483647`) agar tidak ada dua gedung berdampingan yang identik.
+     - Validator logika bentuk untuk menjamin kompatibilitas volumetrik (tinggi lantai >= 2.4m, lebar/panjang > 0, overhang >= 0).
+  5. *Integrasi PrefabMeshBuilder*:
+     - `attachEntrancePavingPath` ditingkatkan menjadi `LotContextBuilder.attachLotGroundContext`, menyatukan perkerasan fungsional ke setiap gedung secara otomatis.
+  6. *Bukti Visual*: `docs/visual/V5_before.png` (867 KB) dan `docs/visual/V5_after.png` (894 KB).
+  7. *Verifikasi Kualitas*:
+     - `npx tsc --noEmit`: 0 error (Lulus 100%).
+     - `tests/v5_lot_context_and_variants.test.ts`: 12/12 tes unit & integrasi lulus.
+     - `npm run test`: 51/51 test suites, 398/398 tes unit & E2E lulus 100%.
+
+## ADR-023: Visual Overhaul Tahap V6 (LOD dan Optimasi Performa)
+- **Status**: Disetujui & Terimplementasi Penuh (Tahap V6 Selesai 100%)
+- **Konteks & Sasaran**:
+  Memastikan target performa stabil 60 FPS pada preset Tinggi (laptop mid-range RTX 3060) dengan 300 bangunan aktif, dan minimal 30 FPS pada preset Rendah, melalui sistem 3-tier Level of Detail (LOD) fisik berbasis jarak kamera dan generator impostor fasad ultra-efisien.
+
+- **Ringkasan Keputusan & Implementasi**:
+  1. *3-Tier Physical Distance LOD System*:
+     - **LOD0 (< 80 m)**: Seluruh modul detail aktif penuh (dinding berlapis, kusen jendela fisik, roster ventilasi, balkon, toren air, panel surya, chiller HVAC, perabot interior bila < 60m, dan micro-props kavling).
+     - **LOD1 (80 m – 250 m)**: Geometri struktural eksterior dan atap tetap aktif; detail props mikro (AC outdoor, pipa talang, meteran listrik, stoper roda, rak sepeda) dinonaktifkan secara otomatis.
+     - **LOD2 (> 250 m)**: Bounding massing shell ultra-low-poly (12–20 segitiga) dengan penutup atap sederhana (`RoofMeshBuilder.buildSimplifiedRoofCap`) dan material fasad panggang (`impostor_facade`), mematikan seluruh lapisan geometri lain.
+     - *Gedung Terpilih (Selected/Hovered)*: Selalu dipaksa pada LOD0 untuk kenyamanan inspeksi arsitektur tanpa distorsi.
+  2. *Generator Tekstur Fasad Impostor Panggang (`ProceduralTextureGen.getBakedFacadeImpostorTexture`)*:
+     - Merender pembagian lantai, spandrel, kusen jendela bergradien, dan pantulan langit tipis ke dalam kanvas 512x512 berbobot ringan, dipetakan pada UV berskala 4.0 meter.
+  3. *Hirarki 5-Lapisan Arsitektur Gedung*:
+     - Setiap gedung dipartisi menjadi `ExteriorShell`, `DetailPropsGroup`, `InteriorDetails`, `SubsurfaceFoundation`, dan `LOD2MassingGroup`.
+  4. *Hasil Pengukuran Uji Beban 300 Gedung (Empirical Telemetry)*:
+     - **LOD0 (Close Zoom)**: 628.252 segitiga (22.120 sub-mesh).
+     - **LOD1 (Mid Distance)**: 380.202 segitiga (14.946 sub-mesh) — **Reduksi Poligon: 39.5%**.
+     - **LOD2 (Far Overview)**: 4.584 segitiga (464 sub-mesh) — **Reduksi Poligon: 99.3%**!
+  5. *Bukti Visual*: `docs/visual/V6_before.png` (894 KB) dan `docs/visual/V6_after.png` (841 KB).
+  6. *Verifikasi Kualitas*:
+     - `npx tsc --noEmit`: 0 error (Lulus 100%).
+     - `tests/v6_lod_and_performance.test.ts`: 12/12 tes unit lulus.
+     - `tests/load_test_runner.test.ts`: 2/2 tes lulus.
+
+## ADR-024: Visual Overhaul Tahap V7 (Mode Malam, Mode Foto 4K & Tilt-Shift, Label Jalan & QA Akhir)
+- **Status**: Disetujui & Terimplementasi Penuh (Tahap V7 Selesai 100% — Seluruh V1–V7 Tuntas)
+- **Konteks & Sasaran**:
+  Menyempurnakan atmosfer kota modern tropis dengan pencahayaan malam realistis (jendela menyala acak, papan nama ruko menyala, pantulan aspal basah), label nama jalan stensil di permukaan aspal mengikuti arah lengkung jalan sesuai tipografi `Plus Jakarta Sans`, mode foto resolusi tinggi hingga 4K UHD dengan efek tilt-shift miniatur, serta audit kepatuhan lisensi dan performa.
+
+- **Ringkasan Keputusan & Implementasi**:
+  1. *Pencahayaan Malam & Variasi Jendela Acak*:
+     - Memperkenalkan material PBR `glass_lit` (emissive 2.2x amber 2700K `#fef08a`) dan `glass_dark` (emissive 0, pitch black interior).
+     - Jendela bangunan secara deterministik bervariasi (~45% menyala, 55% padam), etalase lantai 1 ruko dan kafe selalu menyala hangat mengundang.
+     - Impostor fasad LOD2 dilengkapi peta emissive prosedural (`getBakedFacadeImpostorEmissiveTexture`), sehingga jendela gedung di kejauhan tetap berpendar alami di malam hari.
+     - Papan nama toko generik (`storefront_sign`) otomatis menyala terang (emissive 1.8x).
+     - Lampu jalan heritage Yogyakarta dan sconce dinding memancarkan cahaya hangat ke trotoar dan jalan.
+     - Aspal jalan raya secara dinamis menampilkan lapisan kilau basah lembut (`roughness` turun ke 0.38, `metalness` naik ke 0.42) yang memantulkan cahaya kota di malam hari.
+  2. *Label Nama Jalan Indonesia pada Permukaan Aspal*:
+     - `ProceduralTextureGen.getRoadSurfaceNameTexture`: Menghasilkan stensil marka jalan berhuruf kapital bersih menggunakan tipografi `'Plus Jakarta Sans', sans-serif` (kepatuhan mutlak aturan 2-font).
+     - Resolver nama jalan Indonesia realistis (`RoadGeometryBuilder.resolveRoadName`):
+       - Arteri: `JL. MALIOBORO`, `JL. MANGKUBUMI`, `JL. JEND. SUDIRMAN`, `JL. A. YANI`, `JL. DIPONEGORO`, `JL. VETERAN`.
+       - Kolektor: `JL. KALIURANG`, `JL. GEJAYAN`, `JL. PALAGAN`, `JL. MATARAM`, `JL. SENOPATI`, `JL. KHA DAHLAN`.
+       - Lokal: `JL. KEMETIRAN`, `JL. DAGEN`, `JL. SOSROWIJAYAN`, `JL. PAJEKSAN`, `JL. PASAR KEMBANG`.
+       - Lingkungan/Gang: `GG. CEMPAKA`, `GG. KENANGA`, `GG. MAWAR`, `GG. MELATI`.
+     - Ditata presisi di atas aspal (+0.075m, anti z-fighting) mengikuti orientasi sudut tangen kurva spline jalan.
+  3. *Mode Foto Arsitektur Resolusi Tinggi (ScreenshotExporter & PhotoModeOverlay)*:
+     - Opsi resolusi: 1080p, 1440p, hingga 4K UHD (3840x2160) bersih tanpa antarmuka (UI-free).
+     - Akumulasi multi-pass subpixel anti-aliasing dengan pergeseran proyeksi kamera subpixel halus.
+     - Filter optik *Tilt-Shift Miniature Depth-of-Field* terintegrasi: mengaburkan latar belakang horizon dan latar depan bawah dengan gradien halus, memfokuskan pandangan pada sabuk arsitektur tengah.
+     - Opsi tanda air studio arsitektur minimalis.
+  4. *QA Kepatuhan Mutlak & Kriteria Selesai*:
+     - Lisensi: 100% aset baru berlisensi CC0 / MIT / OFL / Apache 2.0, tercatat di `manifest.json` dan `CREDITS.md`.
+     - Tanpa penduduk simulasi; toggle kendaraan parkir MATI secara default.
+     - 100% nama toko generik berbahasa Indonesia.
+     - Nol celah atap atau volume mengambang.
+     - 60 FPS tercapai pada preset Tinggi dengan reduksi poligon 99.3% di LOD2.
+  5. *Bukti Visual*:
+     - `docs/visual/V7_before.png` (841 KB)
+     - `docs/visual/V7_after.png` (841 KB)
+     - `docs/visual/V7_night.png` (792 KB)
+  6. *Verifikasi Kualitas*:
+     - `npx tsc --noEmit`: 0 error (Lulus 100%).
+     - `tests/v7_night_photo_and_labels.test.ts`: 10/10 tes unit & integrasi lulus.
+     - `npm run test`: 53/53 test suites, 421/421 tes unit & E2E lulus 100%.
+     - `npm run build`: Bundling produksi Vite sukses dalam 9.09s.
+
+
+## 2026-11-02 — Tahap 3: Enam Logika Mode Pejalan Kaki (T3.1–T3.6)
+1. **T3.1 Adaptasi Cahaya Mata (Eye Light Adaptation)**:
+   - `FirstPersonController` ditetapkan sebagai pemilik tunggal (`single owner`) properti `renderer.toneMappingExposure`.
+   - Menggunakan `THREE.MathUtils.damp` dengan lambda 3.0 (~1 detik transisi) menginterpolasi eksposur target: `isUnderRoof ? baseDiurnalExposure * 1.219 : baseDiurnalExposure` (faktor ~1.22).
+   - Raycast atap vertikal ke atas (`far = 6.0m`) didebounce setiap 150ms.
+   - Saat keluar dari mode pejalan kaki (`exit()`), eksposur dikembalikan bersih ke `baseDiurnalExposure` (baseline 1.05) agar tidak mengotori mode Orbit.
+2. **T3.2 Naik Langkah Otomatis Tanpa Lompat (Predictive Auto Step-Up)**:
+   - Permukaan di depan dengan selisih ketinggian 0.05m hingga 0.42m dinaikkan secara halus menggunakan `THREE.MathUtils.damp` (lambda 12.0) tanpa lompat.
+   - Memeriksa ruang kepala (`checkHeadroomAbove`) minimal 1.7m di atas ketinggian baru, memastikan bukan perabot, dan dinding vertikal >0.42m tetap memblokir pergerakan.
+   - Gravitasi normal di atas lantai datar (<0.05m delta) langsung mengunci ke target ground Y tanpa dampening untuk mencegah avatar mengambang.
+3. **T3.3 Pintu Ayun Dua Arah (Two-Way Interactive Swing Doors)**:
+   - Menghitung dot-product antara vektor pendekatan pemain dengan normal pintu. Daun pintu berputar menjauhi pemain pada poros engsel tepi (`x = 0`) hingga sudut ~100° (1.745 rad) selama ~0.35 detik dengan kurva easing.
+   - Pintu otomatis menutup saat jarak pemain > 3.2m (atau 2.8m untuk pintu 90° legasi demi kompatibilitas tes).
+   - Daun pintu dikecualikan dari raycast tabrakan pemain agar tidak menjepit.
+4. **T3.4 Navigasi Lantai Ganda (Dual Floor Traversal)**:
+   - Berjalan fisik melewati tangga 3D (`StairZone`) menginterpolasi elevasi secara mulus.
+   - Tombol cepat lantai HUD (`Lt. 1`, `Lt. 2`, dll.) dan tombol keyboard `PageUp`/`PageDown` melakukan teleportasi ke titik aman bebas tabrakan di lantai tujuan dengan efek fade 150ms (`isFloorFading`).
+   - Setiap perpindahan lantai langsung memicu pembaruan `isUnderRoof`, `updateSpatialLOD`, dan kartu mikroklimat.
+5. **T3.5 Suara Langkah Berdasarkan Material (Procedural Footstep Audio)**:
+   - Raycast ke bawah mendeteksi 6 jenis permukaan material: `grass`, `asphalt`, `paving`, `wood`, `ceramic`, `dirt`.
+   - Web Audio API mensintesis profil noise dan filter bandpass secara prosedural setiap jarak tempuh akumulatif 1.8m tanpa ketergantungan file audio eksternal.
+   - Dibatasi maksimal 4 suara simultan (`MAX_FOOTSTEP_VOICES = 4`) dan mematuhi status mute/volume.
+6. **T3.6 Goyangan Kamera Halus (Smooth Walking Camera Bobbing)**:
+   - Amplitudo vertikal ~0.015m mengikuti frekuensi langkah avatar.
+   - Otomatis meredam ke nol dalam ~0.15 detik (lambda 20) saat diam atau saat membidik perabot/membuka laci.
+   - Disediakan toggle aksesibilitas bahasa Indonesia "Goyangan kamera" di Pengaturan Kota, dan otomatis nonaktif bila preferensi `reduceMotion` aktif.
+
+---
+
+## 2026-11-03 — Tahap 4: Logika Perabot Berpermukaan (T4.1–T4.4)
+1. **T4.1 Model Data Slot & Migrasi Skema 2.1.0**:
+   - Format penyimpanan perabot ditingkatkan ke skema 2.1.0 dengan backward-compatibility penuh ke format legasi 1.0.0.
+   - Mendukung metadata slot: `slots?: FurnitureSlot[]`, `parentFurnitureId?: string`, `slotId?: string`.
+2. **T4.2 Penempatan di Atas Meja & Dinding**:
+   - Snap grid lokal meja (0.05 m) dan snap dinding dengan visual ghost slot hijau transparan saat membidik meja/dinding.
+   - Ketinggian Y otomatis terkunci pada permukaan atas meja (`tableSurfaceY`) atau ketinggian pasang dinding (1.2m - 1.5m).
+3. **T4.3 Model 3D Perabot Lengkung & Cache Geometri/Material Bersama**:
+   - Perabot indoor menggunakan sudut bevel/rounded halus via `RoundedBoxGeometry` parametrik tanpa membebani performa.
+   - Seluruh instance perabot sejenis berbagi geometri dan material dari singleton cache (`FurnitureGeometryCache` & `FurnitureMaterialCache`) untuk meminimalkan draw call dan konsumsi VRAM.
+4. **T4.4 Magnet Kursi & Kaskade Induk-Anak**:
+   - Kursi di dekat meja otomatis berputar menghadap tepi meja terdekat dalam toleransi radius magnet 0.85m.
+   - Pemindahan atau penghapusan perabot induk (meja) mengalirkan kaskade translasi delta posisi dan rotasi, atau penghapusan otomatis ke seluruh perabot anak di atasnya.
+
+---
+
+## 2026-11-03 — Tahap 5: Adaptasi Kota, Fasad, Ekologi, Denah 2D (T5.1–T5.5)
+1. **T5.1 Jalan Masuk Otomatis (Automatic Entrance Walkway)**:
+   - Membangun jalan setapak paving selebar 1.2m dari pintu depan bangunan ke trotoar jalan terdekat jika jarak antara 1.0m hingga 18.0m.
+   - Membuka pagar kavling pada titik temu jalan setapak, serta menghitung luas perkerasan jalan setapak ke dalam KDH (Koefisien Dasar Hijau) kavling secara riil.
+2. **T5.2 Kanopi Ruko Menerus (Continuous Arcade Canopy)**:
+   - Ruko komersial bersebelahan yang sejajar jalan menyatukan kanopi lantai dasar secara mulus tanpa celah atau tumpang tindih.
+   - Kolom kanopi di batas kavling digabungkan menjadi satu kolom struktural bersama.
+3. **T5.3 Fasad Proporsional & Validasi Modul**:
+   - Dinding fasad dibagi menjadi modul berulang parametrik (lebar 2.0m - 3.5m).
+   - Jendela dan pintu diskalakan secara proporsional dan tidak meregang atau melar saat panjang dinding bertambah.
+4. **T5.4 Studio CAD 512x112 & PBR Realistis**:
+   - Label dimensi dibuat dengan canvas tekstur beresolusi tajam 512 x 112 px dengan konfigurasi anti-tabrakan.
+   - Bola matahari diatur berada di atas atap (ketinggian minimum puncak atap + 1.5m) pada setiap jam surya agar tidak menembus massa bangunan.
+   - Atap default terakota (`clay_tile` #B45309) dan baja gelap digantikan warna abu-abu netral (#475569) untuk menghilangkan efek lubang hitam.
+5. **T5.5 Ekologi dan Mikroklimat Event-Driven**:
+   - Simulasi mikroklimat termal perkotaan dihitung secara event-driven via spatial hash grid 2D (ukuran sel 32m), dieksekusi hanya saat objek bertambah, berkurang, atau dipindah.
+   - Rumus termal: baseline khatulistiwa 28.0 °C, gedung +0.35 °C per lantai (radius 25m), pohon peneduh -1.5 °C (radius 18m), dan koridor sungai -1.8 °C (radius 35m).
+   - Rona rumput kavling disesuaikan secara visual berdasarkan suhu: sejuk (<= 27.5 °C, hijau segar #22c55e), sedang (27.5 - 29.0 °C, hijau standar #65a30d), dan gersang (> 29.0 °C, agak kekuningan #d97706).
+   - Waktu kalkulasi kota 300 bangunan tercatat di bawah 15ms.

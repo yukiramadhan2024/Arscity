@@ -20,6 +20,7 @@ import { RunoffOverlay } from '../../analysis/RunoffOverlay';
 import { CityScoreOverlay } from '../../analysis/CityScoreOverlay';
 import { UnderlayPlanManager } from '../../world/UnderlayPlanManager';
 import { MeasurementTool } from '../../analysis/MeasurementTool';
+import { ThermalComfortEngine } from '../../world/ThermalComfortEngine';
 import { MissionManager } from '../../education/MissionManager';
 import { CommandManager, ICommand } from '../commands/CommandManager';
 import {
@@ -108,6 +109,7 @@ export class Engine {
   public measurementTool: MeasurementTool;
   public missionManager: MissionManager;
   public commandManager: CommandManager;
+  public thermalComfortEngine: ThermalComfortEngine;
 
   // Interactive 3D Handles, Highlights & Celestial Visualizer
   public buildingGizmoManager: BuildingGizmoManager;
@@ -239,9 +241,19 @@ export class Engine {
     this.lotManager.setDependencies(this.roadManager, this.landscapeManager);
     this.roadManager.setDependencies(this.landscapeManager, this.lotManager, this.buildingManager);
     this.buildingManager.setDependencies(this.roadManager, this.lotManager);
+    this.thermalComfortEngine = new ThermalComfortEngine(
+      this.buildingManager,
+      this.landscapeManager,
+      this.riverManager,
+      this.lotManager
+    );
     this.landscapeManager.onLandscapeUpdated = () => {
       this.lotManager.evaluateAllLots();
+      this.thermalComfortEngine.recalculate();
       this.missionManager.evaluate();
+    };
+    this.riverManager.onRiverUpdated = () => {
+      this.thermalComfortEngine.recalculate();
     };
 
     // Analysis Tools
@@ -285,6 +297,7 @@ export class Engine {
       }
       this.buildingManager.updateAllEntranceWalkways();
       this.lotManager.evaluateAllLots();
+      this.thermalComfortEngine.recalculate();
       this.missionManager.evaluate();
     };
 
@@ -293,6 +306,7 @@ export class Engine {
         this.onBuildingStatsChanged(count, areaM2);
       }
       this.lotManager.evaluateAllLots();
+      this.thermalComfortEngine.recalculate();
       this.missionManager.evaluate();
       spatialAudio.rebuildZones(this.buildingManager, this.roadManager, this.landscapeManager);
     };

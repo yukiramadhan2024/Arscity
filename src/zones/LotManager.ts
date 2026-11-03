@@ -530,7 +530,7 @@ export class LotManager {
     planeGeom.rotateX(-Math.PI / 2);
 
     const planeMat = new THREE.MeshBasicMaterial({
-      color: hasViolations ? COLOR_BAD : rule.colorHexInt,
+      color: hasViolations ? COLOR_BAD : (lot.userData?.grassColorHexInt || rule.colorHexInt),
       transparent: true,
       opacity: hasViolations ? 0.20 : 0.14,
       depthWrite: false
