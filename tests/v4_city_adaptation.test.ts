@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { BuildingManager } from '../src/buildings/BuildingManager';
+import { CustomBuildingMeshBuilder } from '../src/buildings/CustomBuildingMeshBuilder';
 import { RoadManager } from '../src/roads/RoadManager';
 import { LotManager } from '../src/zones/LotManager';
 import { BuildingInstance } from '../src/buildings/PrefabTypes';
@@ -445,6 +446,90 @@ describe('Tahap 5: Adaptasi Kota, Fasad, Ekologi, Denah 2D', () => {
       // KDB and KLB must not change from the canopy
       expect(lot1.metrics.groundFootprintM2).toBe(rukoA.width * rukoA.length);
       expect(lot2.metrics.groundFootprintM2).toBe(rukoB.width * rukoB.length);
+    });
+  });
+
+  describe('T5.3: Fasad Proporsional (CustomBuildingMeshBuilder.ts)', () => {
+    it('calculates proportional facade module count: 6m (2 mod), 9m (3 mod), 12m (4 mod), and 2m (1 mod)', () => {
+      // 1. Length 6m -> n = max(1, floor(6 / 3)) = 2 modules, width = 3.0m
+      const mod6 = CustomBuildingMeshBuilder.calculateFacadeModules(6.0);
+      expect(mod6.n).toBe(2);
+      expect(mod6.moduleWidth).toBeCloseTo(3.0, 2);
+      expect(mod6.moduleCenters.length).toBe(2);
+      expect(mod6.moduleCenters[0]).toBeCloseTo(1.5, 2);
+      expect(mod6.moduleCenters[1]).toBeCloseTo(4.5, 2);
+
+      // 2. Length 9m -> n = max(1, floor(9 / 3)) = 3 modules, width = 3.0m
+      const mod9 = CustomBuildingMeshBuilder.calculateFacadeModules(9.0);
+      expect(mod9.n).toBe(3);
+      expect(mod9.moduleWidth).toBeCloseTo(3.0, 2);
+      expect(mod9.moduleCenters.length).toBe(3);
+      expect(mod9.moduleCenters[0]).toBeCloseTo(1.5, 2);
+      expect(mod9.moduleCenters[1]).toBeCloseTo(4.5, 2);
+      expect(mod9.moduleCenters[2]).toBeCloseTo(7.5, 2);
+
+      // 3. Length 12m -> n = max(1, floor(12 / 3)) = 4 modules, width = 3.0m
+      const mod12 = CustomBuildingMeshBuilder.calculateFacadeModules(12.0);
+      expect(mod12.n).toBe(4);
+      expect(mod12.moduleWidth).toBeCloseTo(3.0, 2);
+      expect(mod12.moduleCenters.length).toBe(4);
+      expect(mod12.moduleCenters[0]).toBeCloseTo(1.5, 2);
+      expect(mod12.moduleCenters[1]).toBeCloseTo(4.5, 2);
+      expect(mod12.moduleCenters[2]).toBeCloseTo(7.5, 2);
+      expect(mod12.moduleCenters[3]).toBeCloseTo(10.5, 2);
+
+      // 4. Length 2m -> n = max(1, floor(2 / 3)) = 1 module, width = 2.0m
+      const mod2 = CustomBuildingMeshBuilder.calculateFacadeModules(2.0);
+      expect(mod2.n).toBe(1);
+      expect(mod2.moduleWidth).toBeCloseTo(2.0, 2);
+      expect(mod2.moduleCenters.length).toBe(1);
+      expect(mod2.moduleCenters[0]).toBeCloseTo(1.0, 2);
+    });
+
+    it('generates non-stretched windows in each module and passes layout validation', () => {
+      const p1 = new THREE.Vector2(0, 0);
+      const p2 = new THREE.Vector2(12, 0); // 12m wall -> 4 modules
+
+      const openings = CustomBuildingMeshBuilder.generateOpeningsForWindowStyle(
+        'modern_ribbon',
+        p1,
+        p2,
+        3.5,
+        false
+      );
+
+      // 4 modules -> 4 windows
+      expect(openings.length).toBe(4);
+
+      // Windows are not stretched (each window is <= 2.0m, not stretching to 12m)
+      for (const op of openings) {
+        expect(op.width).toBeLessThanOrEqual(2.0);
+        expect(op.width).toBeGreaterThanOrEqual(1.0);
+      }
+
+      // Validates zero overlaps and sufficient corner clearance
+      const validation = CustomBuildingMeshBuilder.validateOpeningLayout(openings, 12.0);
+      expect(validation.isValid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
+    });
+
+    it('validates shape logic for compact 2m wall with safe single opening', () => {
+      const p1 = new THREE.Vector2(0, 0);
+      const p2 = new THREE.Vector2(2, 0); // 2m wall -> 1 module
+
+      const openings = CustomBuildingMeshBuilder.generateOpeningsForWindowStyle(
+        'colonial_arch',
+        p1,
+        p2,
+        3.2,
+        false
+      );
+
+      expect(openings.length).toBe(1);
+      expect(openings[0].width).toBeLessThanOrEqual(1.7);
+
+      const validation = CustomBuildingMeshBuilder.validateOpeningLayout(openings, 2.0);
+      expect(validation.isValid).toBe(true);
     });
   });
 });

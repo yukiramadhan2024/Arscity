@@ -410,7 +410,67 @@ export class CustomBuildingMeshBuilder {
     }
   }
 
-  private static generateOpeningsForWindowStyle(
+  /**
+   * T5.3: Proportional Facade Module Calculator
+   * n = max(1, floor(length / 3.0))
+   * moduleWidth = length / n
+   */
+  public static calculateFacadeModules(wallLen: number): {
+    n: number;
+    moduleWidth: number;
+    moduleCenters: number[];
+  } {
+    const n = Math.max(1, Math.floor(wallLen / 3.0));
+    const moduleWidth = wallLen / n;
+    const moduleCenters: number[] = [];
+    for (let i = 0; i < n; i++) {
+      moduleCenters.push((i + 0.5) * moduleWidth);
+    }
+    return { n, moduleWidth, moduleCenters };
+  }
+
+  /**
+   * T5.3: Validates that window openings on a wall segment do not overlap
+   * and do not encroach too close to corners (structural mullion zone).
+   */
+  public static validateOpeningLayout(openings: WallOpening[], wallLen: number): {
+    isValid: boolean;
+    errors: string[];
+  } {
+    const errors: string[] = [];
+    const minCorner = wallLen < 2.5 ? 0.15 : 0.35;
+
+    for (let i = 0; i < openings.length; i++) {
+      const op = openings[i];
+      const centerX = op.positionRatio * wallLen;
+      const left = centerX - op.width * 0.5;
+      const right = centerX + op.width * 0.5;
+
+      if (left < minCorner - 1e-4) {
+        errors.push(`Bukaan '${op.id}' terlalu dekat dengan sudut kiri (${left.toFixed(2)}m < ${minCorner}m).`);
+      }
+      if (right > wallLen - minCorner + 1e-4) {
+        errors.push(`Bukaan '${op.id}' terlalu dekat dengan sudut kanan (${(wallLen - right).toFixed(2)}m < ${minCorner}m).`);
+      }
+
+      for (let j = i + 1; j < openings.length; j++) {
+        const other = openings[j];
+        const otherCenterX = other.positionRatio * wallLen;
+        const dist = Math.abs(centerX - otherCenterX);
+        const minDist = (op.width + other.width) * 0.5;
+        if (dist < minDist - 1e-4) {
+          errors.push(`Bukaan '${op.id}' tumpang tindih dengan '${other.id}' (jarak ${dist.toFixed(2)}m < ${minDist.toFixed(2)}m).`);
+        }
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  public static generateOpeningsForWindowStyle(
     style: string,
     p1: THREE.Vector2,
     p2: THREE.Vector2,
@@ -418,87 +478,96 @@ export class CustomBuildingMeshBuilder {
     isEntrance: boolean
   ): WallOpening[] {
     const wallLen = p1.distanceTo(p2);
-    if (wallLen < 2.5) return [];
+    if (wallLen < 1.0) return [];
 
-    if (isEntrance) {
-      return [
-        {
-          id: `door_${Date.now()}`,
+    const { n, moduleWidth, moduleCenters } = this.calculateFacadeModules(wallLen);
+    const openings: WallOpening[] = [];
+    const minCorner = wallLen < 2.5 ? 0.15 : 0.35;
+
+    for (let i = 0; i < n; i++) {
+      const centerU = moduleCenters[i];
+
+      // If entrance wall, place entrance door in the first or middle module
+      if (isEntrance && (i === 0 || (n > 1 && i === Math.floor(n / 2)))) {
+        const doorW = Math.min(2.0, Math.max(0.9, moduleWidth - 0.6));
+        openings.push({
+          id: `door_${i}_${Date.now()}`,
           type: 'door_double',
-          positionRatio: 0.5,
-          width: Math.min(2.0, wallLen * 0.4),
-          height: 2.3,
+          positionRatio: centerU / wallLen,
+          width: doorW,
+          height: Math.min(2.4, floorHeight - 0.4),
           sillHeight: 0
-        }
-      ];
+        });
+        continue;
+      }
+
+      // Proportional window sizing based on style and module width (no window stretching)
+      let winType: WallOpening['type'] = 'window_double';
+      let naturalW = 1.6;
+      let winH = 1.4;
+      let sillH = 0.95;
+
+      switch (style) {
+        case 'curtain_wall':
+          winType = 'window_double';
+          naturalW = 2.2;
+          winH = Math.max(1.8, floorHeight - 0.5);
+          sillH = 0.15;
+          break;
+        case 'javanese_krepyak':
+          winType = 'window_jalusi';
+          naturalW = 1.8;
+          winH = 1.5;
+          sillH = 0.9;
+          break;
+        case 'colonial_arch':
+          winType = 'window_double';
+          naturalW = 1.6;
+          winH = 2.0;
+          sillH = 0.6;
+          break;
+        case 'minimalist_slot':
+          winType = 'window_single';
+          naturalW = 0.75;
+          winH = 1.8;
+          sillH = 0.6;
+          break;
+        case 'modern_ribbon':
+        default:
+          winType = 'window_double';
+          naturalW = 1.8;
+          winH = 1.4;
+          sillH = 0.95;
+          break;
+      }
+
+      // Clamp window width to module boundaries leaving structural column clearance
+      let winW = Math.min(naturalW, Math.max(0.5, moduleWidth - 0.6));
+
+      // Validate corner distance
+      const leftU = centerU - winW * 0.5;
+      const rightU = centerU + winW * 0.5;
+
+      if (leftU < minCorner) {
+        winW = Math.max(0.5, (centerU - minCorner) * 2);
+      }
+      if (rightU > wallLen - minCorner) {
+        winW = Math.max(0.5, (wallLen - minCorner - centerU) * 2);
+      }
+
+      if (winW >= 0.5) {
+        openings.push({
+          id: `win_m${i}_${style}_${Date.now()}`,
+          type: winType,
+          positionRatio: centerU / wallLen,
+          width: winW,
+          height: winH,
+          sillHeight: sillH
+        });
+      }
     }
 
-    switch (style) {
-      case 'curtain_wall':
-        return [
-          {
-            id: `win_cw_${Date.now()}`,
-            type: 'window_double',
-            positionRatio: 0.5,
-            width: Math.min(wallLen * 0.85, 4.5),
-            height: Math.max(1.8, floorHeight - 0.5),
-            sillHeight: 0.15
-          }
-        ];
-      case 'javanese_krepyak':
-        return [
-          {
-            id: `win_jk_${Date.now()}`,
-            type: 'window_jalusi',
-            positionRatio: 0.5,
-            width: Math.min(wallLen * 0.5, 2.2),
-            height: 1.5,
-            sillHeight: 0.9
-          }
-        ];
-      case 'colonial_arch':
-        return [
-          {
-            id: `win_ca_${Date.now()}`,
-            type: 'window_double',
-            positionRatio: 0.5,
-            width: Math.min(wallLen * 0.45, 1.8),
-            height: 2.1,
-            sillHeight: 0.6
-          }
-        ];
-      case 'minimalist_slot':
-        return [
-          {
-            id: `win_ms1_${Date.now()}`,
-            type: 'window_single',
-            positionRatio: 0.35,
-            width: 0.65,
-            height: 1.8,
-            sillHeight: 0.6
-          },
-          {
-            id: `win_ms2_${Date.now()}`,
-            type: 'window_single',
-            positionRatio: 0.65,
-            width: 0.65,
-            height: 1.8,
-            sillHeight: 0.6
-          }
-        ];
-      case 'modern_ribbon':
-      default:
-        return [
-          {
-            id: `win_mr_${Date.now()}`,
-            type: 'window_double',
-            positionRatio: 0.5,
-            width: Math.min(wallLen * 0.72, 3.8),
-            height: 1.4,
-            sillHeight: 0.95
-          }
-        ];
-    }
+    return openings;
   }
 
   private static buildFacadeAccessories(
