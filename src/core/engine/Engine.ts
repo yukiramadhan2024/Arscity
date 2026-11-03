@@ -168,7 +168,7 @@ export class Engine {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0; // Calibrated from 1.05 to prevent noon blowout and preserve texture relief
+    this.renderer.toneMappingExposure = 1.05; // Calibrated 1.05 outdoor baseline (T3.1)
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     MaterialLibrary.getInstance().initKTX2(this.renderer);
 
