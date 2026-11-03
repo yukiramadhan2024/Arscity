@@ -348,7 +348,11 @@ export class LotManager {
     lot.containedBuildingIds = insideBuildingIds;
 
     // Evaluate true green area from LandscapeManager (unmarked space is paved, not green)
-    const greenArea = this.landscapeManager ? this.landscapeManager.getGreenAreaInLot(lot) : 0;
+    const walkwayArea = this.buildingManager && typeof (this.buildingManager as any).getWalkwayAreaInLot === 'function'
+      ? (this.buildingManager as any).getWalkwayAreaInLot(lot)
+      : 0;
+    const rawGreenArea = this.landscapeManager ? this.landscapeManager.getGreenAreaInLot(lot) : 0;
+    const greenArea = Math.max(0, rawGreenArea - walkwayArea);
     const pavedArea = Math.max(0, lot.areaM2 - groundArea - greenArea);
 
     const kdb = Math.min(100, Math.round((groundArea / lot.areaM2) * 100));
@@ -365,6 +369,7 @@ export class LotManager {
       totalFloorAreaM2: totalFloorArea,
       greenAreaM2: greenArea,
       pavedAreaM2: pavedArea,
+      walkwayAreaM2: walkwayArea,
       kdbPercent: kdb,
       klbRatio: klb,
       kdhPercent: kdh,
@@ -530,22 +535,41 @@ export class LotManager {
     const surfaceMesh = new THREE.Mesh(planeGeom, planeMat);
     group.add(surfaceMesh);
 
-    // 2. Lot Boundary Border Line
+    // 2. Lot Boundary Border Line (with opening for entrance gate if present)
     const hw = lot.width * 0.5;
     const hl = lot.length * 0.5;
-    const borderPoints = [
-      new THREE.Vector3(-hw, 0.01, -hl),
-      new THREE.Vector3(hw, 0.01, -hl),
-      new THREE.Vector3(hw, 0.01, hl),
-      new THREE.Vector3(-hw, 0.01, hl),
-      new THREE.Vector3(-hw, 0.01, -hl)
-    ];
-    const lineGeom = new THREE.BufferGeometry().setFromPoints(borderPoints);
+    const borderSegments: THREE.Vector3[] = [];
+
+    // Top: (-hw, -hl) -> (hw, -hl)
+    borderSegments.push(new THREE.Vector3(-hw, 0.01, -hl), new THREE.Vector3(hw, 0.01, -hl));
+    // Right: (hw, -hl) -> (hw, hl)
+    borderSegments.push(new THREE.Vector3(hw, 0.01, -hl), new THREE.Vector3(hw, 0.01, hl));
+
+    // Bottom (Front): check if gate opening
+    if (lot.userData?.gateOpening) {
+      const gateW = lot.userData.gateOpening.width || 1.4;
+      const rawGateX = lot.userData.gateOpening.x - lot.position.x;
+      const gateX = Math.max(-hw + 0.8, Math.min(hw - 0.8, rawGateX));
+      const gMin = Math.max(-hw, gateX - gateW * 0.5);
+      const gMax = Math.min(hw, gateX + gateW * 0.5);
+
+      // (hw, hl) -> (gMax, hl)
+      borderSegments.push(new THREE.Vector3(hw, 0.01, hl), new THREE.Vector3(gMax, 0.01, hl));
+      // (gMin, hl) -> (-hw, hl)
+      borderSegments.push(new THREE.Vector3(gMin, 0.01, hl), new THREE.Vector3(-hw, 0.01, hl));
+    } else {
+      borderSegments.push(new THREE.Vector3(hw, 0.01, hl), new THREE.Vector3(-hw, 0.01, hl));
+    }
+
+    // Left: (-hw, hl) -> (-hw, -hl)
+    borderSegments.push(new THREE.Vector3(-hw, 0.01, hl), new THREE.Vector3(-hw, 0.01, -hl));
+
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(borderSegments);
     const lineMat = new THREE.LineBasicMaterial({
       color: hasViolations ? COLOR_BAD : rule.colorHexInt,
       linewidth: 2
     });
-    const lineMesh = new THREE.Line(lineGeom, lineMat);
+    const lineMesh = new THREE.LineSegments(lineGeom, lineMat);
     group.add(lineMesh);
 
     // 3. Setback (GSB) Envelope Line: Inward permissible building envelope
@@ -584,31 +608,31 @@ export class LotManager {
       group.add(setbackLine);
     }
 
-    // 4. Compact 3D Floating Violation Badge (Spec B2)
+    // 4. Compact 3D Floating Violation Badge Elevated Above Roof
     if (hasViolations && typeof document !== 'undefined') {
       try {
         const badgeCanvas = document.createElement('canvas');
-        badgeCanvas.width = 384;
-        badgeCanvas.height = 72;
+        badgeCanvas.width = 768;
+        badgeCanvas.height = 144;
         const bCtx = badgeCanvas.getContext('2d');
         if (bCtx) {
-          bCtx.fillStyle = 'rgba(225, 29, 72, 0.94)';
+          bCtx.fillStyle = '#DC2626';
           if ((bCtx as any).roundRect) {
-            (bCtx as any).roundRect(4, 4, 376, 64, 18);
+            (bCtx as any).roundRect(6, 6, 756, 132, 28);
           } else {
-            bCtx.rect(4, 4, 376, 64);
+            bCtx.rect(6, 6, 756, 132);
           }
           bCtx.fill();
           bCtx.strokeStyle = '#FFFFFF';
-          bCtx.lineWidth = 2.5;
+          bCtx.lineWidth = 4;
           bCtx.stroke();
 
           bCtx.fillStyle = '#FFFFFF';
-          bCtx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+          bCtx.font = 'bold 44px "Plus Jakarta Sans", sans-serif';
           bCtx.textAlign = 'center';
           bCtx.textBaseline = 'middle';
-          const badgeText = lot.violations[0].title || 'Pelanggaran SNI';
-          bCtx.fillText(badgeText, 192, 36);
+          const badgeText = lot.violations[0].title || 'Pelanggaran Regulasi';
+          bCtx.fillText(badgeText, 384, 72);
 
           const badgeTex = new THREE.CanvasTexture(badgeCanvas);
           badgeTex.colorSpace = THREE.SRGBColorSpace;
@@ -618,8 +642,22 @@ export class LotManager {
             transparent: true
           });
           const badgeSprite = new THREE.Sprite(spriteMat);
-          badgeSprite.position.set(0, 3.2, 0);
-          badgeSprite.scale.set(4.5, 0.85, 1.0);
+          
+          // Calculate height above any existing building on this lot
+          let buildingH = 0;
+          const bldId = lot.containedBuildingIds?.[0];
+          if (bldId) {
+            const bld = this.buildingManager.buildings.get(bldId);
+            if (bld) {
+              buildingH = (bld.floorCount || 1) * (bld.floorHeight || 3.5) + 3.0;
+            }
+          }
+          const badgeY = Math.max(5.0, buildingH + 2.5);
+          badgeSprite.position.set(0, badgeY, 0);
+          badgeSprite.scale.set(6.8, 1.28, 1.0);
+          badgeSprite.name = 'ViolationBadge';
+          badgeSprite.userData = { isViolationBadge: true, lotId: lot.id };
+          badgeSprite.visible = false;
           badgeSprite.renderOrder = 999;
           group.add(badgeSprite);
         }
@@ -657,6 +695,12 @@ export class LotManager {
         group.visible = true;
       } else {
         group.visible = false;
+      }
+
+      const badge = group.getObjectByName('ViolationBadge');
+      if (badge) {
+        const showBadge = isSelected || activeToolName === 'zone' || activeToolName === 'build' || forceOverlays;
+        badge.visible = showBadge;
       }
     }
   }

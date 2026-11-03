@@ -188,6 +188,7 @@ export interface LotParcel {
   areaM2: number;          // Total lot area in m2
   containedBuildingIds: string[];
   frontEdgeIndex?: number; // 0: South, 1: East, 2: North, 3: West
+  userData?: Record<string, any>;
 
   // Evaluated Building Code Metrics
   metrics: {
@@ -195,6 +196,7 @@ export interface LotParcel {
     totalFloorAreaM2: number;
     greenAreaM2: number;
     pavedAreaM2: number;
+    walkwayAreaM2?: number;
     kdbPercent: number;
     klbRatio: number;
     kdhPercent: number;

@@ -45,11 +45,26 @@ export class BuildingManager {
   public onStatsChanged?: (count: number, totalBuiltAreaM2: number) => void;
   public onSelectionChanged?: () => void;
 
+  // Tahap 5: Automatic Entrance Walkways & City Adaptation
+  public walkwaysGroup: THREE.Group;
+  public roadManager?: any;
+  public lotManager?: any;
+
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     this.masterGroup = new THREE.Group();
     this.masterGroup.name = 'BuildingsMasterGroup';
     scene.add(this.masterGroup);
+
+    this.walkwaysGroup = new THREE.Group();
+    this.walkwaysGroup.name = 'WalkwaysMasterGroup';
+    this.masterGroup.add(this.walkwaysGroup);
+  }
+
+  public setDependencies(roadManager?: any, lotManager?: any): void {
+    if (roadManager) this.roadManager = roadManager;
+    if (lotManager) this.lotManager = lotManager;
+    this.updateAllEntranceWalkways();
   }
 
   public setRaycastManager(rm: RaycastManager): void {
@@ -164,6 +179,7 @@ export class BuildingManager {
     chunkSet.add(building.id);
     this.markChunkDirty(chunkKey);
 
+    this.updateEntranceWalkway(building.id);
     this.notifyStatsChanged();
     return building;
   }
@@ -171,6 +187,29 @@ export class BuildingManager {
   public removeBuilding(id: string): boolean {
     const building = this.buildings.get(id);
     if (!building) return false;
+
+    // Clean up entrance walkway
+    if (this.walkwaysGroup) {
+      const existingWalkway = this.walkwaysGroup.getObjectByName(`Walkway_${id}`) as THREE.Mesh | undefined;
+      if (existingWalkway) {
+        this.walkwaysGroup.remove(existingWalkway);
+        if (existingWalkway.geometry) existingWalkway.geometry.dispose();
+      }
+    }
+    if (this.lotManager) {
+      const lot = typeof this.lotManager.getLotForBuilding === 'function'
+        ? this.lotManager.getLotForBuilding(id)
+        : null;
+      if (lot && lot.userData?.gateOpening) {
+        delete lot.userData.gateOpening;
+        if (typeof this.lotManager.rebuildLotMesh === 'function') {
+          this.lotManager.rebuildLotMesh(lot);
+        }
+        if (typeof this.lotManager.evaluateBuildingCode === 'function') {
+          this.lotManager.evaluateBuildingCode(lot);
+        }
+      }
+    }
 
     // Clean up interactive doors and seats for this building
     InteriorInteractiveSystem.getInstance().clearBuilding(id);
@@ -238,6 +277,7 @@ export class BuildingManager {
       this.refreshHighlight();
     }
 
+    this.updateEntranceWalkway(building.id);
     this.notifyStatsChanged();
   }
 
@@ -624,11 +664,171 @@ export class BuildingManager {
       chunkSet.add(building.id);
     }
 
+    this.updateAllEntranceWalkways();
     this.refreshHighlight();
     this.notifyStatsChanged();
   }
 
+  public getWalkwayAreaInLot(lot: { containedBuildingIds?: string[] }): number {
+    let totalWalkwayArea = 0;
+    if (lot.containedBuildingIds) {
+      for (const bldId of lot.containedBuildingIds) {
+        const bld = this.buildings.get(bldId);
+        if (bld?.userData?.walkwayArea) {
+          totalWalkwayArea += bld.userData.walkwayArea;
+        }
+      }
+    }
+    return totalWalkwayArea;
+  }
+
+  public updateEntranceWalkway(buildingId: string): THREE.Mesh | null {
+    if (!this.walkwaysGroup) {
+      this.walkwaysGroup = new THREE.Group();
+      this.walkwaysGroup.name = 'WalkwaysMasterGroup';
+      this.masterGroup.add(this.walkwaysGroup);
+    }
+
+    // Remove existing walkway for this building
+    const existing = this.walkwaysGroup.getObjectByName(`Walkway_${buildingId}`) as THREE.Mesh | undefined;
+    if (existing) {
+      this.walkwaysGroup.remove(existing);
+      if (existing.geometry) existing.geometry.dispose();
+    }
+
+    const building = this.buildings.get(buildingId);
+    if (!building) return null;
+    if (!this.roadManager) return null;
+
+    if (!building.userData) building.userData = {};
+    delete building.userData.walkwayArea;
+    delete building.userData.walkwayPath;
+    delete building.userData.walkwayObstacle;
+
+    // Door world position (front is +Z in local coordinates: (0, 0, length * 0.5))
+    const halfL = (building.length || 10) * 0.5;
+    const rot = building.rotationY || 0;
+    const doorWorldX = building.position.x - Math.sin(rot) * halfL;
+    const doorWorldZ = building.position.z + Math.cos(rot) * halfL;
+    const doorWorldY = building.position.y || 0;
+
+    const sample = typeof this.roadManager.getNearestRoadSample === 'function'
+      ? this.roadManager.getNearestRoadSample(new THREE.Vector2(doorWorldX, doorWorldZ))
+      : null;
+
+    if (!sample) return null;
+
+    // Outer edge of the sidewalk
+    const swX = sample.closestPoint.x + sample.normal.x * sample.corridorHalfWidth;
+    const swZ = sample.closestPoint.y + sample.normal.y * sample.corridorHalfWidth;
+
+    const dist = Math.hypot(swX - doorWorldX, swZ - doorWorldZ);
+
+    // Prompt rule: "Bangunan dalam jarak 1 m sampai 18 m dari jalan raya"
+    if (dist < 1.0 || dist > 18.0) {
+      return null;
+    }
+
+    // "Jika terhalang bangunan atau kavling lain, lewati dan beri catatan"
+    const segStartX = doorWorldX;
+    const segStartZ = doorWorldZ;
+    const segEndX = swX;
+    const segEndZ = swZ;
+
+    for (const [otherId, other] of this.buildings.entries()) {
+      if (otherId === buildingId) continue;
+      const otherHalfW = (other.width || 10) * 0.5;
+      const otherHalfL = (other.length || 10) * 0.5;
+      const otherRad = Math.hypot(otherHalfW, otherHalfL);
+
+      // Distance from other center to segment
+      const dx = segEndX - segStartX;
+      const dz = segEndZ - segStartZ;
+      const segLenSq = dx * dx + dz * dz;
+      let u = segLenSq > 1e-6 ? ((other.position.x - segStartX) * dx + (other.position.z - segStartZ) * dz) / segLenSq : 0;
+      u = Math.max(0, Math.min(1, u));
+      const projX = segStartX + u * dx;
+      const projZ = segStartZ + u * dz;
+      const dToSeg = Math.hypot(other.position.x - projX, other.position.z - projZ);
+
+      if (dToSeg < otherRad * 0.85) {
+        building.userData.walkwayObstacle = `Terhalang bangunan ${other.name || other.id}`;
+        return null;
+      }
+    }
+
+    // Build 1.2m stone paving path
+    const walkwayWidth = 1.2;
+    const thickness = 0.04;
+    const geom = new THREE.BoxGeometry(walkwayWidth, thickness, dist);
+    const mat = MaterialLibrary.getInstance().getMaterial('paving') ||
+      new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85 });
+
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.name = `Walkway_${buildingId}`;
+    mesh.castShadow = false;
+    mesh.receiveShadow = true;
+
+    // Midpoint between door and sidewalk
+    const midX = (doorWorldX + swX) * 0.5;
+    const midZ = (doorWorldZ + swZ) * 0.5;
+    mesh.position.set(midX, doorWorldY + thickness * 0.5 + 0.005, midZ);
+
+    // Orientation along vector from door to sidewalk
+    const angle = Math.atan2(swX - doorWorldX, swZ - doorWorldZ);
+    mesh.rotation.y = angle;
+
+    mesh.userData = {
+      type: 'walkway',
+      buildingId,
+      areaM2: dist * walkwayWidth,
+      dist,
+    };
+
+    this.walkwaysGroup.add(mesh);
+
+    building.userData.walkwayArea = dist * walkwayWidth;
+    building.userData.walkwayPath = {
+      start: { x: doorWorldX, z: doorWorldZ },
+      end: { x: swX, z: swZ },
+      width: walkwayWidth,
+      dist,
+    };
+
+    // If within a lot, open gate in lot boundary and re-evaluate
+    if (this.lotManager) {
+      const lot = typeof this.lotManager.getLotForBuilding === 'function'
+        ? this.lotManager.getLotForBuilding(buildingId)
+        : null;
+      if (lot) {
+        if (!lot.userData) lot.userData = {};
+        lot.userData.gateOpening = { x: swX, z: swZ, width: 1.4 };
+        if (typeof this.lotManager.rebuildLotMesh === 'function') {
+          this.lotManager.rebuildLotMesh(lot);
+        }
+        if (typeof this.lotManager.evaluateBuildingCode === 'function') {
+          this.lotManager.evaluateBuildingCode(lot);
+        }
+      }
+    }
+
+    return mesh;
+  }
+
+  public updateAllEntranceWalkways(): void {
+    for (const bldId of this.buildings.keys()) {
+      this.updateEntranceWalkway(bldId);
+    }
+  }
+
   public clearAll(): void {
+    if (this.walkwaysGroup) {
+      while (this.walkwaysGroup.children.length > 0) {
+        const child = this.walkwaysGroup.children[0] as THREE.Mesh;
+        this.walkwaysGroup.remove(child);
+        if (child.geometry) child.geometry.dispose();
+      }
+    }
     if (this.highlightMesh) {
       this.scene.remove(this.highlightMesh);
       this.highlightMesh.geometry.dispose();

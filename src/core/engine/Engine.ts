@@ -238,6 +238,7 @@ export class Engine {
     // Wire dependencies: LotManager needs roadManager for GSB and landscapeManager for KDH
     this.lotManager.setDependencies(this.roadManager, this.landscapeManager);
     this.roadManager.setDependencies(this.landscapeManager, this.lotManager, this.buildingManager);
+    this.buildingManager.setDependencies(this.roadManager, this.lotManager);
     this.landscapeManager.onLandscapeUpdated = () => {
       this.lotManager.evaluateAllLots();
       this.missionManager.evaluate();
@@ -282,6 +283,8 @@ export class Engine {
       if (this.onRoadStatsChanged) {
         this.onRoadStatsChanged(totalKm);
       }
+      this.buildingManager.updateAllEntranceWalkways();
+      this.lotManager.evaluateAllLots();
       this.missionManager.evaluate();
     };
 
