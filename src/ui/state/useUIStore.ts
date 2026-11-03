@@ -128,6 +128,9 @@ interface UIState {
   reduceMotion: boolean;
   setReduceMotion: (val: boolean) => void;
 
+  cameraBobbing: boolean;
+  setCameraBobbing: (val: boolean) => void;
+
   highContrast: boolean;
   setHighContrast: (val: boolean) => void;
 
@@ -266,6 +269,7 @@ const initialGlassStyle: GlassStyle = savedSettings.glassStyle || 'clear';
 const initialGlassOpacity: number = typeof savedSettings.glassOpacity === 'number' ? savedSettings.glassOpacity : 0.60;
 const initialTextScale: number = typeof savedSettings.textScale === 'number' ? savedSettings.textScale : 1.0;
 const initialReduceMotion: boolean = !!savedSettings.reduceMotion;
+const initialCameraBobbing: boolean = savedSettings.cameraBobbing !== false;
 const initialHighContrast: boolean = !!savedSettings.highContrast;
 const initialMousepadSensitivity: number = typeof savedSettings.mousepadSensitivity === 'number' ? savedSettings.mousepadSensitivity : 1.0;
 const initialGraphicsQuality: GraphicsQuality = savedSettings.graphicsQuality || 'ultra';
@@ -350,6 +354,7 @@ export const useUIStore = create<UIState>((set, get) => {
           glassOpacity: state.glassOpacity,
           textScale: state.textScale,
           reduceMotion: state.reduceMotion,
+          cameraBobbing: state.cameraBobbing,
           highContrast: state.highContrast,
           graphicsQuality: state.graphicsQuality,
           mousepadSensitivity: state.mousepadSensitivity
@@ -694,6 +699,12 @@ export const useUIStore = create<UIState>((set, get) => {
         reduceMotion,
         get().highContrast
       );
+      saveSettings();
+    },
+
+    cameraBobbing: initialCameraBobbing,
+    setCameraBobbing: (cameraBobbing) => {
+      set({ cameraBobbing });
       saveSettings();
     },
 

@@ -15,6 +15,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const {
     reduceMotion,
     setReduceMotion,
+    cameraBobbing,
+    setCameraBobbing,
     highContrast,
     setHighContrast,
     graphicsQuality,
@@ -260,6 +262,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     type="checkbox"
                     checked={reduceMotion}
                     onChange={(e) => setReduceMotion(e.target.checked)}
+                  />
+                  <span className="ios-switch-slider" />
+                </label>
+              </div>
+
+              {/* Toggle Goyangan Kamera (T3.6) */}
+              <div
+                className="inset-row"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderTop: '1px solid rgba(15, 23, 42, 0.05)'
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label, #0F172A)' }}>
+                    Goyangan Kamera
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--labelSecondary, #475569)', marginTop: '2px', fontWeight: 500 }}>
+                    Simulasi gerak langkah alami saat berjalan di mode pejalan kaki
+                  </div>
+                </div>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={cameraBobbing}
+                    onChange={(e) => setCameraBobbing(e.target.checked)}
                   />
                   <span className="ios-switch-slider" />
                 </label>
