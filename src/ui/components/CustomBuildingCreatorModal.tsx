@@ -60,26 +60,42 @@ import { ArscityLogo } from './ArscityLogo';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 /**
- * Creates high-resolution canvas text billboard sprites for 3D CAD dimensions
- * (Enhanced 768x192 crisp mipmapped texture for razor-sharp rendering at all zooms)
+ * T5.4: Creates high-resolution canvas text billboard sprites for 3D CAD dimensions
+ * Uses exactly 512 x 112 pixel canvas base scaled by devicePixelRatio, centered text, anti-collision.
  */
-function createTextSprite(
+export function createTextSprite(
   text: string,
   bgColor = 'rgba(240, 245, 250, 0.96)',
   textColor = '#0F172A',
   borderColor = '#007AFF'
 ): THREE.Sprite {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
+  const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+  const baseW = 512;
+  const baseH = 112;
+
+  let canvas: any;
+  if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+    canvas = document.createElement('canvas');
+    canvas.width = Math.round(baseW * dpr);
+    canvas.height = Math.round(baseH * dpr);
+  } else {
+    canvas = {
+      width: Math.round(baseW * dpr),
+      height: Math.round(baseH * dpr),
+      getContext: () => null
+    };
+  }
+
+  const ctx = typeof canvas.getContext === 'function' ? canvas.getContext('2d') : null;
   if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, baseW, baseH);
     ctx.fillStyle = bgColor;
     ctx.strokeStyle = borderColor;
-    ctx.lineWidth = 8;
-    const r = 48;
-    const x = 12, y = 12, w = canvas.width - 24, h = canvas.height - 24;
+    ctx.lineWidth = 4;
+    const r = 24;
+    const x = 6, y = 6, w = baseW - 12, h = baseH - 12;
+
     ctx.beginPath();
     ctx.moveTo(x + r, y);
     ctx.lineTo(x + w - r, y);
@@ -95,20 +111,22 @@ function createTextSprite(
     ctx.stroke();
 
     ctx.fillStyle = textColor;
-    // T9: Font size crisp JetBrains Mono typography
-    ctx.font = 'bold 84px "JetBrains Mono", monospace';
+    // Rata tengah, font size fits long label "+11,96 m (Puncak Atap)" cleanly
+    const fontSize = text.length > 18 ? 32 : 36;
+    ctx.font = `bold ${fontSize}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    ctx.fillText(text, baseW / 2, baseH / 2);
   }
+
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
-  // T9: Anti-collision: depthTest: true with depthWrite: false prevents sprites from covering each other blindly
+  // Anti-collision: depthTest: true with depthWrite: false prevents sprites from covering each other blindly
   const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false });
   const sprite = new THREE.Sprite(spriteMat);
-  const sprH = 1.65;
-  const sprW = Math.max(4.8, Math.min(10.0, text.length * 0.40));
+  const sprH = 1.12;
+  const sprW = 5.12;
   sprite.scale.set(sprW, sprH, 1);
   return sprite;
 }
@@ -175,22 +193,28 @@ function createArchitecturalCompassRing(radius: number, theme: 'light' | 'bluepr
 }
 
 /**
- * Creates 3D Sun Celestial Arc & Indicator following 08:00, 12:00, 16:00
+ * T5.4: Creates 3D Sun Celestial Arc & Indicator following 08:00, 12:00, 16:00
+ * The yellow sun ball is elevated above the highest roof point + 1.5m to avoid intersecting.
  */
-function createSunCelestialArc(
+export function createSunCelestialArc(
   radius: number,
   zenithHeight: number,
-  sunHour: '08:00' | '12:00' | '16:00'
+  sunHour: '08:00' | '12:00' | '16:00',
+  highestRoofY: number = 0
 ): THREE.Group {
   const group = new THREE.Group();
   group.name = 'SunCelestialArc';
+
+  // Prompt rule: "Bola matahari kuning dinaikkan ke atas titik tertinggi atap plus 1,5 m sehingga tidak menancap."
+  const minSunY = highestRoofY + 1.5;
+  const effectiveZenith = Math.max(zenithHeight, minSunY + 4.0);
 
   const curvePoints: THREE.Vector3[] = [];
   const segments = 48;
   for (let i = 0; i <= segments; i++) {
     const theta = (i / segments) * Math.PI;
     const x = Math.cos(theta) * radius;
-    const y = Math.sin(theta) * zenithHeight;
+    const y = Math.max(minSunY * 0.4, Math.sin(theta) * effectiveZenith);
     curvePoints.push(new THREE.Vector3(x, y, 0));
   }
   const arcGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
@@ -210,13 +234,16 @@ function createSunCelestialArc(
   if (sunHour === '16:00') sunTheta = (5 * Math.PI) / 6;
 
   const sunX = Math.cos(sunTheta) * radius;
-  const sunY = Math.sin(sunTheta) * zenithHeight;
+  const rawSunY = Math.sin(sunTheta) * effectiveZenith;
+  const sunY = Math.max(minSunY, rawSunY);
 
   const sunMesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.55, 16, 16),
     new THREE.MeshBasicMaterial({ color: 0xfbbf24 })
   );
+  sunMesh.name = 'SunBallMesh';
   sunMesh.position.set(sunX, sunY, 0);
+  sunMesh.userData = { sunHour, sunY, highestRoofY, minSunY };
   group.add(sunMesh);
 
   const haloMesh = new THREE.Mesh(
@@ -730,16 +757,16 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
         opacity: 0.65
       });
 
-      // Roof materials: Rich architectural materials (Terracotta tile for clay, textured charcoal metal for dark_zinc)
-      if (roofMaterial === 'dark_zinc') {
-        roofMat = matLib.getMaterial('metal', { color: 0x383d45, roughness: 0.45, metalness: 0.65 }).clone();
-        ridgeMat = new THREE.MeshStandardMaterial({ color: 0x22272e, roughness: 0.4, metalness: 0.5 });
-      } else if (roofMaterial === 'clay_tile') {
-        roofMat = matLib.getMaterial('roof_tile').clone();
-        ridgeMat = matLib.getMaterial('roof_tile', { color: 0x9a3412 }).clone();
+      // T5.4: Roof materials: Terracotta #B45309 for clay tile, Steel #475569 for zinc/metal (no pitch black)
+      if (roofMaterial === 'dark_zinc' || roofMaterial === 'steel') {
+        roofMat = matLib.getMaterial('metal', { color: 0x475569, roughness: 0.45, metalness: 0.65 }).clone();
+        ridgeMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4, metalness: 0.5 });
+      } else if (roofMaterial === 'clay_tile' || roofMaterial === 'terracotta') {
+        roofMat = matLib.getMaterial('roof_tile', { color: 0xb45309 }).clone();
+        ridgeMat = matLib.getMaterial('roof_tile', { color: 0xb45309 }).clone();
       } else {
-        roofMat = matLib.getMaterial('concrete', { color: '#94A3B8', roughness: 0.85 }).clone();
-        ridgeMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85 });
+        roofMat = matLib.getMaterial('concrete', { color: '#475569', roughness: 0.85 }).clone();
+        ridgeMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.85 });
       }
     }
 
@@ -1540,7 +1567,7 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
 
     // 6. Sun Celestial Arc with Moving Sun
     const zenithH = Math.max(14, floorCount * floorHeight + 6);
-    const sunArcGroup = createSunCelestialArc(compassRadius * 1.08, zenithH, sunHour);
+    const sunArcGroup = createSunCelestialArc(compassRadius * 1.08, zenithH, sunHour, totalBldHeight);
     buildingGroup.add(sunArcGroup);
 
     // 7. Direct 3D Gizmo Handles (Width, Length, Floors)
@@ -2406,7 +2433,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
 
   // Roof & Climate Features
   const [roofType, setRoofType] = useState<RoofType>('hip');
-  const [roofMaterial, setRoofMaterial] = useState<string>('dark_zinc');
+  const [roofMaterial, setRoofMaterial] = useState<string>('clay_tile');
   const [roofOverhang, setRoofOverhang] = useState<number>(1.2);
   const [hasSkylight, setHasSkylight] = useState<boolean>(false);
   const [hasSolarPV, setHasSolarPV] = useState<boolean>(false);
@@ -3274,8 +3301,8 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                 value={roofMaterial}
                 onChange={setRoofMaterial}
                 options={[
-                  { value: 'dark_zinc', label: 'Dark Zinc Standing Seam', badge: 'Modern', description: 'Tekstur metal seng gelap kontemporer' },
-                  { value: 'clay_tile', label: 'Genteng Tanah Liat Alami', badge: 'Tropis', description: 'Genteng bakar coklat peredam panas' },
+                  { value: 'clay_tile', label: 'Genteng Terakota Alami', badge: 'Terakota', description: 'Genteng bakar terakota hangat #B45309 peredam panas' },
+                  { value: 'dark_zinc', label: 'Atap Baja Slate', badge: 'Baja', description: 'Tekstur atap baja warna slate #475569 kontemporer' },
                   { value: 'concrete_slab', label: 'Plat Beton Abu', badge: 'Minimalis', description: 'Tekstur semen ekspos halus' }
                 ]}
               />

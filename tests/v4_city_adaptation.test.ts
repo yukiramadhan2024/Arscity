@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { BuildingManager } from '../src/buildings/BuildingManager';
 import { CustomBuildingMeshBuilder } from '../src/buildings/CustomBuildingMeshBuilder';
+import { createTextSprite, createSunCelestialArc } from '../src/ui/components/CustomBuildingCreatorModal';
 import { RoadManager } from '../src/roads/RoadManager';
 import { LotManager } from '../src/zones/LotManager';
 import { BuildingInstance } from '../src/buildings/PrefabTypes';
@@ -530,6 +531,43 @@ describe('Tahap 5: Adaptasi Kota, Fasad, Ekologi, Denah 2D', () => {
 
       const validation = CustomBuildingMeshBuilder.validateOpeningLayout(openings, 2.0);
       expect(validation.isValid).toBe(true);
+    });
+  });
+
+  describe('T5.4: Studio CAD (CustomBuildingCreatorModal.tsx)', () => {
+    it('creates dimension text sprites using 512 x 112 pixel canvas with anti-collision settings', () => {
+      const sprite = createTextSprite('+11,96 m (Puncak Atap)');
+      expect(sprite).toBeDefined();
+      expect(sprite).toBeInstanceOf(THREE.Sprite);
+
+      // Check anti-collision material properties
+      const mat = sprite.material as THREE.SpriteMaterial;
+      expect(mat.transparent).toBe(true);
+      expect(mat.depthTest).toBe(true);
+      expect(mat.depthWrite).toBe(false);
+
+      // Check texture canvas dimensions (512 x 112 scaled by DPR)
+      const canvas = (mat.map as THREE.CanvasTexture).image as HTMLCanvasElement;
+      expect(canvas.width % 512).toBe(0);
+      expect(canvas.height % 112).toBe(0);
+      expect(canvas.width / canvas.height).toBeCloseTo(512 / 112, 1);
+
+      // Scale ratio
+      expect(sprite.scale.x / sprite.scale.y).toBeCloseTo(512 / 112, 1);
+    });
+
+    it('elevates the yellow sun ball to highest roof point + 1.5m at all sun hours', () => {
+      const highestRoofPoint = 13.5; // e.g. 3-floor building with steep roof
+      const hours: ('08:00' | '12:00' | '16:00')[] = ['08:00', '12:00', '16:00'];
+
+      for (const hr of hours) {
+        const arcGroup = createSunCelestialArc(15.0, 16.0, hr, highestRoofPoint);
+        const sunBall = arcGroup.getObjectByName('SunBallMesh') as THREE.Mesh;
+        expect(sunBall).toBeDefined();
+
+        // The sun ball must be strictly at or above highestRoofPoint + 1.5m (15.0m)
+        expect(sunBall.position.y).toBeGreaterThanOrEqual(highestRoofPoint + 1.5 - 1e-4);
+      }
     });
   });
 });
