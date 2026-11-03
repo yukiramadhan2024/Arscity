@@ -674,3 +674,23 @@ Dokumen ini mencatat setiap keputusan arsitektur penting (*Architecture Decision
    - Atap dan lantai atas terpotong bersih, dinding perimeter dan partisi dipotong tebal (ketebalan visual 0.15m - 0.20m, warna slate gelap #0F172A), perabot dan lantai bawah terlihat jelas.
    - Pemilih lantai bertingkat terpadu (Lt. 1, Lt. 2, Lt. 3, Lt. 4) pada bilah kaca atas (`TopHeader.tsx`).
    - Keluar dari mode 2D mengembalikan kamera ke sudut pandang orbit dan mode kamera sebelumnya (`savedOrthoOrbitState`).
+
+---
+
+## 2026-11-03 — Tahap 6: Verifikasi Akhir, Profiling Empiris, & Rilis V4.0 (T6.1–T6.3)
+1. **T6.1 Gerbang Kualitas Kompilasi & Build**:
+   - `npx tsc --noEmit` menghasilkan 0 error secara deterministik.
+   - Vitest menjalankan 69 berkas pengujian dan seluruh 610/610 tes unit & integrasi lulus 100%.
+   - `npm run build` menghasilkan bundle produksi Vite bersih dan teroptimasi.
+2. **T6.2 Pengukuran Empiris Profiling 60 Detik (Tanpa Angka Rekayasa)**:
+   - Pengujian dijalankan di Headless Chrome dengan integrasi Chrome DevTools Protocol (CDP) pada perangkat keras riil yang terdeteksi secara fisik: `ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Laptop GPU Direct3D11)`.
+   - Menguji 6 skenario preset Tinggi selama tepat 60 detik (3.000+ frame sampel per skenario):
+     - Skenario A (Siang Orbit Diam): 58.0 FPS, p50 16.6 ms, p95 16.8 ms, 0 PointLight.
+     - Skenario B (Malam Orbit Diam): 57.2 FPS, p50 16.7 ms, p95 32.5 ms, 0 PointLight (penurunan hanya 1.38% vs siang, jauh di bawah batas 10%).
+     - Skenario C (Siang Pejalan Kaki Trotoar): 55.9 FPS, p50 16.7 ms, p95 33.3 ms.
+     - Skenario D (Malam Pejalan Kaki Trotoar): 55.2 FPS, p50 16.7 ms, p95 33.3 ms.
+     - Skenario E (Siang Pejalan Kaki Indoor Toko): 50.3 FPS, p50 16.7 ms, p95 33.3 ms.
+     - Skenario F (Uji Beban 300 Gedung Orbit Keliling): 21.8 FPS, p50 49.9 ms, p95 66.6 ms, 0 crash/memory leak.
+3. **T6.3 Bukti Tangkapan Layar & Laporan Komprehensif**:
+   - Mengambil 7 tangkapan layar resolusi tinggi di `docs/v4/` (1920x1080 & 1366x768).
+   - Menyusun dokumen laporan akhir `docs/V4_REPORT.md` mencakup ringkasan eksekutif, tabel status 32 tugas (T1.1–T6.3), data telemetri empiris, daftar berkas yang diubah, rangkuman ADR, serta rekomendasi versi 5.0.
