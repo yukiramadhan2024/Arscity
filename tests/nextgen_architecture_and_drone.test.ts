@@ -30,8 +30,8 @@ describe('Next-Gen Architectural Scale Overhaul & Camera Tests', () => {
   });
 
   describe('1. Total Drone View & Camera System Overhaul', () => {
-    it('initializes perspective camera with near: 0.06 to prevent indoor clipping and far: 4000', () => {
-      expect(controller.camera.near).toBe(0.06);
+    it('initializes perspective camera with near: 0.25 for logarithmic depth precision and far: 4000', () => {
+      expect(controller.camera.near).toBe(0.25);
       expect(controller.camera.far).toBe(4000);
       expect(controller.orthoCamera.far).toBe(4000);
     });

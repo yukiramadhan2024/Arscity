@@ -141,6 +141,71 @@ export class RoadGraph {
     return new THREE.Vector3(x, y, z);
   }
 
+  /**
+   * Finds the parameter t (0..1) on a cubic Bezier curve that is closest to a given 3D point.
+   */
+  public findParameterForPointOnBezier(cps: THREE.Vector3[], point: THREE.Vector3): number {
+    let bestT = 0.5;
+    let bestDistSq = Infinity;
+    const samples = 48;
+    for (let i = 0; i <= samples; i++) {
+      const t = i / samples;
+      const pt = this.sampleBezier(cps, t);
+      const dx = pt.x - point.x;
+      const dz = pt.z - point.z;
+      const distSq = dx * dx + dz * dz;
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
+        bestT = t;
+      }
+    }
+
+    let low = Math.max(0, bestT - 1 / samples);
+    let high = Math.min(1, bestT + 1 / samples);
+    for (let iter = 0; iter < 8; iter++) {
+      const tA = low + (high - low) * 0.33;
+      const tB = low + (high - low) * 0.67;
+      const ptA = this.sampleBezier(cps, tA);
+      const ptB = this.sampleBezier(cps, tB);
+      const distA = (ptA.x - point.x) ** 2 + (ptA.z - point.z) ** 2;
+      const distB = (ptB.x - point.x) ** 2 + (ptB.z - point.z) ** 2;
+      if (distA < distB) {
+        high = tB;
+      } else {
+        low = tA;
+      }
+    }
+    return Math.max(0.01, Math.min(0.99, (low + high) * 0.5));
+  }
+
+  /**
+   * Subdivides a cubic Bezier curve at parameter t into two equivalent cubic Bezier curves
+   * using de Casteljau's algorithm.
+   */
+  public subdivideCubicBezier(
+    cps: THREE.Vector3[],
+    t: number
+  ): { left: THREE.Vector3[]; right: THREE.Vector3[] } {
+    const p0 = cps[0].clone();
+    const p1 = cps[1].clone();
+    const p2 = cps[2].clone();
+    const p3 = cps[3].clone();
+
+    const p01 = new THREE.Vector3().lerpVectors(p0, p1, t);
+    const p12 = new THREE.Vector3().lerpVectors(p1, p2, t);
+    const p23 = new THREE.Vector3().lerpVectors(p2, p3, t);
+
+    const p012 = new THREE.Vector3().lerpVectors(p01, p12, t);
+    const p123 = new THREE.Vector3().lerpVectors(p12, p23, t);
+
+    const p0123 = new THREE.Vector3().lerpVectors(p012, p123, t);
+
+    return {
+      left: [p0, p01, p012, p0123],
+      right: [p0123, p123, p23, p3]
+    };
+  }
+
   public removeEdge(edgeId: string): boolean {
     const edge = this.edges.get(edgeId);
     if (!edge) return false;
@@ -399,12 +464,22 @@ export class RoadGraph {
     // Create split node at the intersection point
     const splitNode = this.getOrCreateNode(splitPoint, 1.5);
 
+    let cps1: THREE.Vector3[] | undefined;
+    let cps2: THREE.Vector3[] | undefined;
+
+    if (edge.controlPoints && edge.controlPoints.length === 4) {
+      const t = this.findParameterForPointOnBezier(edge.controlPoints, splitPoint);
+      const sub = this.subdivideCubicBezier(edge.controlPoints, t);
+      cps1 = sub.left;
+      cps2 = sub.right;
+    }
+
     // Add two new edges connecting startNode -> splitNode and splitNode -> endNode BEFORE removing old edge
     // (prevents removeEdge from deleting startNode/endNode as temporary orphans)
-    const edge1 = this.addEdge(startNode.id, splitNode.id, roadType);
+    const edge1 = this.addEdge(startNode.id, splitNode.id, roadType, cps1);
     if (edge1 && customProfile) edge1.customProfile = { ...customProfile };
 
-    const edge2 = this.addEdge(splitNode.id, endNode.id, roadType);
+    const edge2 = this.addEdge(splitNode.id, endNode.id, roadType, cps2);
     if (edge2 && customProfile) edge2.customProfile = { ...customProfile };
 
     // Remove the old unsplit edge

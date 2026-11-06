@@ -145,9 +145,8 @@ export class RoadManager {
       const edge = this.graph.addEdge(startNode.id, endNode.id, type, controlPoints);
       if (!edge) return null;
 
-      this.rebuildEdgeMesh(edge.id);
-      this.rebuildNodeIntersections(startNode.id);
-      this.rebuildNodeIntersections(endNode.id);
+      this.rebuildNodeAndConnectedEdges(startNode.id);
+      this.rebuildNodeAndConnectedEdges(endNode.id);
 
       if (this.onGraphChanged) {
         this.onGraphChanged(this.graph.getTotalLengthKm());
@@ -185,13 +184,12 @@ export class RoadManager {
       const subEdge = this.graph.addEdge(nA.id, nB.id, type);
       if (subEdge) {
         if (!primaryEdge) primaryEdge = subEdge;
-        this.rebuildEdgeMesh(subEdge.id);
       }
     }
 
-    // Rebuild all affected intersections
+    // Rebuild all affected intersections and their connected edges
     for (const nid of affectedNodeIds) {
-      if (nid) this.rebuildNodeIntersections(nid);
+      if (nid) this.rebuildNodeAndConnectedEdges(nid);
     }
 
     if (this.onGraphChanged) {
@@ -224,15 +222,30 @@ export class RoadManager {
 
     this.graph.removeEdge(edgeId);
 
-    // Rebuild intersections for affected nodes
-    this.rebuildNodeIntersections(startNodeId);
-    this.rebuildNodeIntersections(endNodeId);
+    // Rebuild intersections and remaining connected edges for affected nodes
+    this.rebuildNodeAndConnectedEdges(startNodeId);
+    this.rebuildNodeAndConnectedEdges(endNodeId);
 
     if (this.onGraphChanged) {
       this.onGraphChanged(this.graph.getTotalLengthKm());
     }
 
     return true;
+  }
+
+  /**
+   * Rebuilds both the intersection mesh and ALL connected edges at a node,
+   * guaranteeing that edge trimming radii and sidewalks update in sync when branches are added or removed.
+   */
+  public rebuildNodeAndConnectedEdges(nodeId: string): void {
+    const node = this.graph.nodes.get(nodeId);
+    if (!node) return;
+
+    this.rebuildNodeIntersections(nodeId);
+
+    for (const edgeId of [...node.connectedEdgeIds]) {
+      this.rebuildEdgeMesh(edgeId);
+    }
   }
 
   public rebuildEdgeMesh(edgeId: string): void {
@@ -258,7 +271,11 @@ export class RoadManager {
     const existingMesh = this.intersectionMeshes.get(nodeId);
     if (existingMesh) {
       this.masterGroup.remove(existingMesh);
-      existingMesh.geometry.dispose();
+      existingMesh.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          (child as THREE.Mesh).geometry?.dispose();
+        }
+      });
       this.intersectionMeshes.delete(nodeId);
     }
 
@@ -798,6 +815,67 @@ export class RoadManager {
         }
       }
     });
+  }
+
+  /**
+   * Computes the outgoing continuation unit tangent (XZ plane) from a dead-end node,
+   * pointing outward away from the existing road segment so a new road continues seamlessly.
+   */
+  public getNodeOutgoingTangent(nodeId: string): THREE.Vector3 | null {
+    const node = this.graph.nodes.get(nodeId);
+    if (!node || node.connectedEdgeIds.length !== 1) return null;
+    const edge = this.graph.edges.get(node.connectedEdgeIds[0]);
+    if (!edge || !edge.controlPoints || edge.controlPoints.length < 2) return null;
+
+    if (edge.startNodeId === node.id) {
+      const p0 = this.graph.sampleBezier(edge.controlPoints, 0.0);
+      const p1 = this.graph.sampleBezier(edge.controlPoints, 0.08);
+      const tan = new THREE.Vector3(p0.x - p1.x, 0, p0.z - p1.z);
+      return tan.lengthSq() > 1e-6 ? tan.normalize() : null;
+    }
+    if (edge.endNodeId === node.id) {
+      const p0 = this.graph.sampleBezier(edge.controlPoints, 0.92);
+      const p1 = this.graph.sampleBezier(edge.controlPoints, 1.0);
+      const tan = new THREE.Vector3(p1.x - p0.x, 0, p1.z - p0.z);
+      return tan.lengthSq() > 1e-6 ? tan.normalize() : null;
+    }
+    return null;
+  }
+
+  /**
+   * Finds the closest magnetic continuation / junction snap node within `snapRadius` (default 8.0m).
+   */
+  public findContinuationSnapNode(
+    cursorPos: THREE.Vector3,
+    snapRadius = 8.0
+  ): {
+    node: RoadNode;
+    position: THREE.Vector3;
+    outgoingTangent: THREE.Vector3 | null;
+    isDeadEnd: boolean;
+    distance: number;
+  } | null {
+    let bestNode: RoadNode | null = null;
+    let bestDist = snapRadius;
+
+    for (const node of this.graph.nodes.values()) {
+      const d = Math.hypot(cursorPos.x - node.position.x, cursorPos.z - node.position.z);
+      if (d <= bestDist) {
+        bestDist = d;
+        bestNode = node;
+      }
+    }
+
+    if (!bestNode) return null;
+
+    const isDeadEnd = bestNode.connectedEdgeIds.length === 1;
+    return {
+      node: bestNode,
+      position: bestNode.position.clone(),
+      outgoingTangent: isDeadEnd ? this.getNodeOutgoingTangent(bestNode.id) : null,
+      isDeadEnd,
+      distance: bestDist
+    };
   }
 
   public rebuildAll(): void {

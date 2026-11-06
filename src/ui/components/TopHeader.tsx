@@ -262,7 +262,7 @@ export const TopHeader: React.FC = React.memo(() => {
         }}
       >
         <div
-          className="top-header-capsule arscity-glass-bar"
+          className="top-header-capsule arscity-navy-panel"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -396,17 +396,18 @@ export const TopHeader: React.FC = React.memo(() => {
                             alignItems: 'center',
                             gap: '5px',
                             padding: '6px 10px',
-                            borderRadius: '8px',
-                            background: isSel ? 'var(--accent-subtle)' : 'var(--fill-control)',
-                            border: isSel ? '1px solid rgba(0, 122, 255, 0.40)' : '1px solid var(--separator)',
-                            color: isSel ? 'var(--accent)' : 'var(--label)',
+                            borderRadius: '9999px',
+                            background: isSel ? 'var(--accent)' : 'var(--fill-control)',
+                            border: isSel ? '1px solid var(--accent)' : '1px solid var(--separator)',
+                            boxShadow: isSel ? 'var(--shadow-accent)' : 'none',
+                            color: isSel ? 'var(--on-accent)' : 'var(--label)',
                             fontSize: '11px',
                             fontWeight: isSel ? 700 : 500,
                             cursor: 'pointer',
                             whiteSpace: 'nowrap'
                           }}
                         >
-                          <OptIcon size={13} style={{ color: isSel ? 'var(--accent)' : 'currentColor' }} />
+                          <OptIcon size={13} style={{ color: isSel ? 'var(--on-accent)' : 'currentColor' }} />
                           <span>{opt.label}</span>
                         </motion.button>
                       );
@@ -516,7 +517,7 @@ export const TopHeader: React.FC = React.memo(() => {
                         inset: 0,
                         borderRadius: '9999px',
                         background: 'var(--accent)',
-                        boxShadow: '0 2px 6px rgba(0, 122, 255, 0.35)',
+                        boxShadow: 'var(--shadow-accent)',
                         zIndex: -1
                       }}
                     />
@@ -556,7 +557,8 @@ export const TopHeader: React.FC = React.memo(() => {
                       padding: '4px 8px',
                       borderRadius: '9999px',
                       background: isSelected ? 'var(--accent)' : 'transparent',
-                      color: isSelected ? '#FFFFFF' : 'var(--label)',
+                      color: isSelected ? 'var(--on-accent)' : 'var(--label)',
+                      boxShadow: isSelected ? 'var(--shadow-accent)' : 'none',
                       fontSize: '11px',
                       fontWeight: isSelected ? 700 : 500,
                       border: 'none',
@@ -585,12 +587,11 @@ export const TopHeader: React.FC = React.memo(() => {
             <motion.button
               onClick={() => setShowSettings(true)}
               onPointerDown={() => proceduralAudio.playTaptic('light')}
-              whileTap={{ scale: 0.92 }}
-              whileHover={{ scale: 1.08 }}
-              className="hit-slop-8"
+              whileTap={{ scale: 0.94 }}
+              whileHover={{ scale: 1.04 }}
               style={{
-                width: '28px',
-                height: '28px',
+                width: '30px',
+                height: '30px',
                 borderRadius: '50%',
                 background: 'var(--fill-control)',
                 border: '1px solid var(--border)',
@@ -599,7 +600,8 @@ export const TopHeader: React.FC = React.memo(() => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
+                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+                transition: 'background-color 0.15s ease, border-color 0.15s ease'
               }}
               title="Buka Pengaturan Kota"
               aria-label="Pengaturan Cepat"
@@ -607,16 +609,15 @@ export const TopHeader: React.FC = React.memo(() => {
               <Settings size={14} style={{ color: 'currentColor' }} />
             </motion.button>
 
-            {/* Menu Popover Trigger Button tanpa border ganda */}
+            {/* Menu Popover Trigger Button */}
             <motion.button
               onClick={() => setShowUtilityMenu(!showUtilityMenu)}
               onPointerDown={() => proceduralAudio.playTaptic('light')}
-              whileTap={{ scale: 0.92 }}
-              whileHover={{ scale: 1.08 }}
-              className="hit-slop-8"
+              whileTap={{ scale: 0.94 }}
+              whileHover={{ scale: 1.04 }}
               style={{
-                width: '28px',
-                height: '28px',
+                width: '30px',
+                height: '30px',
                 borderRadius: '50%',
                 background: showUtilityMenu ? 'var(--accent-subtle)' : 'var(--fill-control)',
                 border: '1px solid var(--border)',
@@ -625,7 +626,8 @@ export const TopHeader: React.FC = React.memo(() => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
+                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+                transition: 'background-color 0.15s ease, border-color 0.15s ease'
               }}
               title="Kontrol Cepat Viewport & Grid"
               aria-label="Kontrol Cepat"

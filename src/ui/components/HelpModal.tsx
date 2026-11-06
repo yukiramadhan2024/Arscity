@@ -54,16 +54,22 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
         </div>
       </div>
 
-      <div className="inset-header">PINTASAN EDITING</div>
+      <div className="inset-header">PINTASAN EDITING &amp; ALAT RANCANG</div>
       <div className="inset-group">
         <div className="inset-row">
-          <span style={{ fontSize: '13px', color: '#0F172A', fontWeight: 500 }}>Pilih Alat Cepat</span>
+          <span style={{ fontSize: '13px', color: '#0F172A', fontWeight: 500 }}>Pilih Alat Cepat (Sesuai Urutan Toolbar)</span>
           <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
-            1 - 6
+            1 - 8
           </span>
         </div>
         <div className="inset-row">
-          <span style={{ fontSize: '13px', color: '#0F172A', fontWeight: 500 }}>Rotasi Bangunan</span>
+          <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>Daftar Alat (1 s.d. 8)</span>
+          <span style={{ fontSize: '11px', color: '#0A2E5B', fontWeight: 600 }}>
+            1:Pilih • 2:Jalan • 3:Zona • 4:Bangun • 5:Lansekap • 6:Tanah • 7:Bongkar • 8:Analisis
+          </span>
+        </div>
+        <div className="inset-row">
+          <span style={{ fontSize: '13px', color: '#0F172A', fontWeight: 500 }}>Rotasi Bangunan (90°)</span>
           <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
             R
           </span>

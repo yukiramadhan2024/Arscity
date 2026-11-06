@@ -70,10 +70,10 @@ export const ZoneSubToolbar: React.FC = () => {
                   gap: '6px',
                   padding: '4px 10px',
                   borderRadius: '9999px',
-                  background: isSel ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
-                  border: isSel ? '1.5px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.08)',
-                  color: isSel ? '#0F172A' : '#475569',
-                  boxShadow: isSel ? '0 1px 4px rgba(15, 23, 42, 0.10)' : 'none',
+                  background: isSel ? 'var(--accent)' : 'transparent',
+                  border: isSel ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+                  color: isSel ? 'var(--on-accent)' : 'var(--label)',
+                  boxShadow: isSel ? 'var(--shadow-accent)' : 'none',
                   cursor: 'pointer'
                 }}
                 title={`${rule.name} (KDB maks ${rule.maxKDB}%, KLB ${rule.maxKLB})`}
@@ -84,6 +84,7 @@ export const ZoneSubToolbar: React.FC = () => {
                     height: '8px',
                     borderRadius: '50%',
                     backgroundColor: rule.color,
+                    border: isSel ? '1px solid var(--on-accent)' : 'none',
                     flexShrink: 0
                   }}
                 />
@@ -117,9 +118,9 @@ export const ZoneSubToolbar: React.FC = () => {
                     padding: '3px 8px',
                     borderRadius: '9999px',
                     border: 'none',
-                    background: isSel ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
-                    color: isSel ? 'var(--accent)' : 'var(--label-secondary)',
-                    boxShadow: isSel ? '0 1px 4px rgba(15, 23, 42, 0.12)' : 'none',
+                    background: isSel ? 'var(--accent)' : 'transparent',
+                    color: isSel ? 'var(--on-accent)' : 'var(--label-secondary)',
+                    boxShadow: isSel ? 'var(--shadow-accent)' : 'none',
                     fontSize: '11px',
                     fontWeight: isSel ? 700 : 500,
                     cursor: 'pointer'
@@ -143,9 +144,9 @@ export const ZoneSubToolbar: React.FC = () => {
             gap: '5px',
             padding: '4px 10px',
             borderRadius: '9999px',
-            background: 'rgba(10, 132, 255, 0.14)',
-            border: '1px solid rgba(10, 132, 255, 0.4)',
-            color: '#007AFF',
+            background: 'var(--fill-control)',
+            border: '1px solid var(--border)',
+            color: 'var(--label)',
             fontSize: '11px',
             fontWeight: 600,
             cursor: 'pointer'
@@ -165,9 +166,9 @@ export const ZoneSubToolbar: React.FC = () => {
             gap: '5px',
             padding: '4px 10px',
             borderRadius: '9999px',
-            background: 'rgba(52, 199, 89, 0.14)',
-            border: '1px solid rgba(52, 199, 89, 0.4)',
-            color: '#248A3D',
+            background: 'var(--accent)',
+            border: '1px solid var(--accent)',
+            color: 'var(--on-accent)',
             fontSize: '11px',
             fontWeight: 600,
             cursor: 'pointer'

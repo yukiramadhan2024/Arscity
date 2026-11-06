@@ -210,20 +210,26 @@ export const InspectorPanel: React.FC = () => {
         <div style={{ height: '1px', background: 'var(--separator)' }} />
 
         {/* Blok 2: GSB */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label-secondary)', letterSpacing: '0.04em' }}>GSB</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            {isGsbValid ? (
-              <CheckCircle2 size={15} strokeWidth={2.2} style={{ color: '#34C759' }} />
-            ) : (
-              <AlertCircle size={15} strokeWidth={2.2} style={{ color: '#EF4444' }} />
-            )}
-            <span
-              className="font-mono font-bold"
-              style={{ fontSize: '12px', color: isGsbValid ? '#34C759' : '#EF4444', letterSpacing: '0.05em' }}
-            >
-              {gsbDisplay}
-            </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label-secondary)', letterSpacing: '0.04em' }}>GSB</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              {isGsbValid ? (
+                <CheckCircle2 size={15} strokeWidth={2.2} style={{ color: 'var(--good)' }} />
+              ) : (
+                <AlertCircle size={15} strokeWidth={2.2} style={{ color: 'var(--bad)' }} />
+              )}
+              <span
+                className="font-mono font-bold"
+                style={{ fontSize: '12px', color: isGsbValid ? 'var(--good)' : 'var(--bad)', letterSpacing: '0.05em' }}
+              >
+                {gsbDisplay}
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '9.5px', color: 'var(--label-tertiary)', lineHeight: 1.2 }}>
+            <span style={{ display: 'inline-block', width: '12px', height: '0', borderTop: `2px dashed ${isGsbValid ? 'var(--good)' : 'var(--bad)'}`, flexShrink: 0 }} />
+            <span>{isGsbValid ? 'Garis putus hijau: Batas GSB aman' : 'Garis putus merah: Pelanggaran batas GSB'}</span>
           </div>
         </div>
 

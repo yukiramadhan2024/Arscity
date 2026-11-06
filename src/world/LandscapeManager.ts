@@ -771,6 +771,23 @@ export class LandscapeManager {
   public itemZones: Map<string, 0 | 1 | 2> = new Map();
 
   /**
+   * Sets all landscape objects to 100% full exterior detail for Orbit and Drone modes (Tahap 1.1).
+   * Ensures trees, canopies, and details never pop or disappear at any distance in Orbit.
+   */
+  public setOrbitFullDetailMode(): void {
+    for (const [id] of this.items.entries()) {
+      const grp = this.itemGroups.get(id);
+      if (!grp) continue;
+      grp.visible = true;
+      grp.userData.currentZone = 0;
+      this.itemZones.set(id, 0);
+      grp.traverse((child) => {
+        child.visible = true;
+      });
+    }
+  }
+
+  /**
    * Computes LOD zone with dual hysteresis for landscape objects:
    * - Zone 0 (near): enter < 24m, exit > 27m
    * - Zone 1 (mid): 27m to 65m (exit to Z2 > 68m, return to Z0 < 24m)
@@ -795,17 +812,24 @@ export class LandscapeManager {
 
   /**
    * Updates spatial LOD across all landscape items:
-   * - Zone 0 (< 24m / 27m): Full tree foliage (canopy clusters + fallen petal carpets / micro-twigs).
-   * - Zone 1 (27m - 65m, hysteresis 62m/68m): Trunk + main canopy clusters visible; micro-petals & twigs hidden.
-   * - Zone 2 (> 65m): Trunk + simplified canopy silhouette; accessories hidden.
-   * - Indoor focus: if player is inside building (currentIndoorBuildingId !== null),
-   *   small landscape props located > 35m from host building are hidden.
+   * - Disabled in Orbit / Drone mode: renders 100% full tree foliage & canopies stably at any distance.
+   * - In First-Person Mode:
+   *   * Zone 0 (< 24m / 27m): Full tree foliage (canopy clusters + fallen petal carpets / micro-twigs).
+   *   * Zone 1 (27m - 65m, hysteresis 62m/68m): Trunk + main canopy clusters visible; micro-petals & twigs hidden.
+   *   * Zone 2 (> 65m): Trunk + simplified canopy silhouette; accessories hidden.
+   *   * Indoor focus: if player is inside building, small landscape props located > 35m from host building are hidden.
    */
   public updateSpatialLOD(
     cameraPosition: THREE.Vector3,
     currentIndoorBuildingId: string | null = null,
-    hostBuildingPos: THREE.Vector3 | null = null
+    hostBuildingPos: THREE.Vector3 | null = null,
+    cameraMode: string = 'first_person'
   ): void {
+    if (cameraMode !== 'first_person') {
+      this.setOrbitFullDetailMode();
+      return;
+    }
+
     for (const [id, item] of this.items.entries()) {
       const grp = this.itemGroups.get(id);
       if (!grp) continue;

@@ -126,9 +126,9 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                   <h2
                     style={{
                       margin: 0,
-                      fontSize: '15px',
-                      fontWeight: 600,
-                      color: 'var(--label)',
+                      fontSize: '16px',
+                      fontWeight: 700,
+                      color: '#072D59',
                       letterSpacing: '-0.01em',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -141,8 +141,8 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
                     <p
                       style={{
                         margin: '2px 0 0 0',
-                        fontSize: '11px',
-                        color: 'var(--label-secondary)',
+                        fontSize: '12px',
+                        color: 'rgba(7, 45, 89, 0.72)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',

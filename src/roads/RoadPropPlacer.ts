@@ -14,6 +14,7 @@ export interface RoadPropPlacementContext {
   normals: THREE.Vector3[];
   distances: number[];
   effectiveGroundY: number[];
+  isBridgeSample?: boolean[];
   segments: number;
   startRadius: number;
   endRadius: number;
@@ -151,8 +152,9 @@ export class RoadPropPlacer {
         const treeOverlapsOtherRoad = roadManager
           ? roadManager.isPointOnRoadAsphalt(treePos.x, treePos.z, 0.4, edge.id)
           : false;
+        const onBridgeSpan = Boolean(ctx.isBridgeSample && ctx.isBridgeSample[segIdx]);
 
-        if (!treeOverlapsOtherRoad) {
+        if (!treeOverlapsOtherRoad && !onBridgeSpan) {
           const scale = 0.95 + ((Math.floor(d) * 31) % 5) * 0.05;
           const m = new THREE.Matrix4();
           m.makeScale(scale, scale, scale);
@@ -260,42 +262,73 @@ export class RoadPropPlacer {
       roughness: 0.92
     });
 
-    // Multi-tiered broad umbrella canopy (Tropical multi-cluster foliage)
-    const domeCenter = new THREE.DodecahedronGeometry(2.7, 1);
-    domeCenter.translate(0, 4.4, 0);
+    // Multi-layered lush tropical canopy generator (14 organic foliage pads with sunlit/shadow vertex AO)
+    const canopyClusters: [number, number, number, number, number, number, number][] = [
+      // [x, y, z, radius, scaleX, scaleY, scaleZ]
+      // Lower shadow skirt layer
+      [-1.85, 3.65, 0.95, 1.55, 1.28, 0.52, 1.22],
+      [1.90, 3.70, -0.80, 1.55, 1.25, 0.52, 1.26],
+      [0.65, 3.60, 1.85, 1.50, 1.24, 0.50, 1.20],
+      [-0.75, 3.68, -1.80, 1.48, 1.22, 0.52, 1.24],
+      [1.45, 3.55, 1.35, 1.38, 1.20, 0.48, 1.18],
+      [-1.45, 3.62, -1.25, 1.38, 1.18, 0.50, 1.20],
+      // Mid dense umbrella layer
+      [0.0, 4.35, 0.0, 2.35, 1.32, 0.58, 1.32],
+      [-1.25, 4.45, 0.55, 1.75, 1.25, 0.56, 1.22],
+      [1.30, 4.50, -0.45, 1.75, 1.22, 0.56, 1.25],
+      [0.35, 4.40, 1.30, 1.65, 1.24, 0.55, 1.20],
+      [-0.40, 4.48, -1.25, 1.62, 1.20, 0.55, 1.24],
+      // Upper sunlit crown layer
+      [-0.45, 5.10, 0.25, 1.55, 1.22, 0.55, 1.20],
+      [0.55, 5.15, -0.25, 1.50, 1.20, 0.55, 1.22],
+      [0.05, 5.55, 0.05, 1.30, 1.18, 0.54, 1.18],
+    ];
 
-    const domeLeft = new THREE.DodecahedronGeometry(2.0, 1);
-    domeLeft.translate(-1.6, 4.0, 0.8);
+    const foliageParts: THREE.BufferGeometry[] = [];
+    const shadowTint = new THREE.Color(0x1f4718);
+    const midTint = new THREE.Color(0x2f6b22);
+    const sunTint = new THREE.Color(0x529936);
+    const tmpColor = new THREE.Color();
 
-    const domeRight = new THREE.DodecahedronGeometry(2.0, 1);
-    domeRight.translate(1.7, 4.1, -0.6);
+    for (let idx = 0; idx < canopyClusters.length; idx++) {
+      const [cx, cy, cz, r, sx, sy, sz] = canopyClusters[idx];
+      const pad = new THREE.IcosahedronGeometry(r, 1);
+      // Subtle organic vertex perturbation so no cluster looks like a plain sphere
+      const posAttr = pad.attributes.position;
+      const colors = new Float32Array(posAttr.count * 3);
+      for (let v = 0; v < posAttr.count; v++) {
+        const vx = posAttr.getX(v);
+        const vy = posAttr.getY(v);
+        const vz = posAttr.getZ(v);
+        const wave = 1.0 + 0.12 * Math.sin(vx * 2.7 + idx) * Math.cos(vz * 2.9 - idx * 0.5);
+        const px = vx * sx * wave + cx;
+        const py = vy * sy * (vy < 0 ? 0.78 : 1.05) + cy;
+        const pz = vz * sz * wave + cz;
+        posAttr.setXYZ(v, px, py, pz);
 
-    const domeFront = new THREE.DodecahedronGeometry(1.8, 1);
-    domeFront.translate(0.4, 3.8, 1.7);
+        const hNorm = THREE.MathUtils.clamp((py - 3.1) / 2.8, 0, 1);
+        if (hNorm < 0.45) {
+          tmpColor.lerpColors(shadowTint, midTint, hNorm / 0.45);
+        } else {
+          tmpColor.lerpColors(midTint, sunTint, (hNorm - 0.45) / 0.55);
+        }
+        colors[v * 3] = tmpColor.r;
+        colors[v * 3 + 1] = tmpColor.g;
+        colors[v * 3 + 2] = tmpColor.b;
+      }
+      pad.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      pad.computeVertexNormals();
+      foliageParts.push(pad);
+    }
 
-    const domeBack = new THREE.DodecahedronGeometry(1.7, 1);
-    domeBack.translate(-0.5, 4.2, -1.6);
-
-    const domeUnder1 = new THREE.DodecahedronGeometry(1.6, 1);
-    domeUnder1.translate(1.2, 3.6, 1.2);
-
-    const domeUnder2 = new THREE.DodecahedronGeometry(1.5, 1);
-    domeUnder2.translate(-1.2, 3.7, -1.1);
-
-    const mergedFoliage = mergeGeometries([
-      domeCenter,
-      domeLeft,
-      domeRight,
-      domeFront,
-      domeBack,
-      domeUnder1,
-      domeUnder2
-    ], false);
-    this.treeFoliageGeom = mergedFoliage || domeCenter;
+    const mergedFoliage = mergeGeometries(foliageParts, false);
+    this.treeFoliageGeom = mergedFoliage || foliageParts[0];
 
     this.treeFoliageMat = new THREE.MeshStandardMaterial({
-      color: 0x2e4f1e, // Deep forest green in shadow
-      roughness: 0.75,
+      color: 0xffffff,
+      vertexColors: true,
+      flatShading: true,
+      roughness: 0.78,
       metalness: 0.02
     });
     applyFoliageSubsurfaceShader(this.treeFoliageMat);

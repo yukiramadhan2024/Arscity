@@ -6,7 +6,8 @@ export type ZoneType =
   | 'office'
   | 'public_facility'
   | 'green_space'
-  | 'mixed_use';
+  | 'mixed_use'
+  | 'parking_lot';
 
 export interface ZoneRule {
   type: ZoneType;
@@ -166,6 +167,28 @@ export const ZONE_RULES: Record<ZoneType, ZoneRule> = {
       gsb: 'Permen PUPR 29/2006 (Ilustrasi)',
       height: 'Standar Ketinggian Ruko & Hunian (Ilustrasi)'
     }
+  },
+  parking_lot: {
+    type: 'parking_lot',
+    name: 'Zona Parkir Terpadu (Parking Lot)',
+    color: '#475569',
+    colorHexInt: 0x475569,
+    maxKDB: 85,
+    maxKLB: 0.85,
+    minKDH: 15,
+    minGSB: 1.0,
+    minGSBFront: 1.0,
+    minGSBSide: 1.0,
+    minGSBRear: 1.0,
+    maxFloors: 1,
+    description: 'Lahan parkir permukaan poligon terpadu dengan marka 2,5 x 5,0 m, pulau taman sudut, dan akses jalan otomatis.',
+    sources: {
+      kdb: 'Pedoman Teknis Fasilitas Parkir Dirjen Hubdat (Ilustrasi)',
+      klb: 'Standar Lahan Parkir Permukaan Terbuka (Ilustrasi)',
+      kdh: 'Permen ATR/BPN 14/2021 Pulau Taman Parkir (Ilustrasi)',
+      gsb: 'Sempadan Apron Keluar-Masuk Parkir (Ilustrasi)',
+      height: 'Fasilitas Parkir Terbuka 1 Lantai (Ilustrasi)'
+    }
   }
 };
 
@@ -188,6 +211,8 @@ export interface LotParcel {
   areaM2: number;          // Total lot area in m2
   containedBuildingIds: string[];
   frontEdgeIndex?: number; // 0: South, 1: East, 2: North, 3: West
+  polygon?: { x: number; y: number }[]; // Custom 2D polygon vertices (world x, y=z)
+  parkingCapacity?: number;             // Number of 2.5m x 5.0m parking stalls
   userData?: Record<string, any>;
 
   // Evaluated Building Code Metrics

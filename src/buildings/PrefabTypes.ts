@@ -20,6 +20,14 @@ export type RoofType =
 export type WallMaterialType = 'plaster' | 'brick' | 'concrete' | 'wood';
 export type RoofMaterialType = 'clay_tile' | 'metal' | 'concrete';
 
+export type BuildingSubPartType = 'main_tower' | 'side_wing' | 'podium_base' | 'roof_crown';
+
+export interface BuildingSubPartDimensions {
+  partWidth: number;
+  partDepth: number;
+  partFloors: number;
+}
+
 export interface PrefabPreset {
   key: string;
   name: string;
@@ -155,4 +163,13 @@ export interface BuildingInstance {
   baseMaterial?: string;
   mullionColor?: string;
   hasSkylight?: boolean;
+
+  // v4.1 Modular Sub-Part Customization (Miniopolis & CityRT.com) & Stretch-to-Fit
+  subParts?: Partial<Record<BuildingSubPartType, BuildingSubPartDimensions>>;
+  apronDepth?: number;
+
+  // v4.1 Contractor Structural Steel Frame CAD Studio (Tahap 6)
+  exposeSteelFrame?: boolean;
+  hasCarportAndTopBalcony?: boolean;
+  hasVerticalSecondarySkin?: boolean;
 }

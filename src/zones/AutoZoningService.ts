@@ -20,6 +20,9 @@ export class AutoZoningService {
     engine: Engine,
     lot: LotParcel
   ): AutoZoningResult | null {
+    if ((lot.zone as string) === 'parking_lot') {
+      return null; // Parking Lot Zone uses dedicated surface parking renderer, not buildings
+    }
     const rule = ZONE_RULES[lot.zone];
     const { frontIdx } = engine.lotManager.getLotEdgeClassification(lot);
 
@@ -87,7 +90,7 @@ export class AutoZoningService {
       wallColor = '#78350f';
     }
 
-    // 2. Adjust building dimensions to respect maximum KDB and side setbacks
+    // 2. Stretch-to-Fit Lot Massing: stretch podium & building width along road frontage while respecting KDB & side setbacks
     const maxKdbArea = (lot.areaM2 * (rule.maxKDB - 2)) / 100; // Leave 2% safety buffer
     let bldW = baseWidth;
     let bldL = baseLength;
@@ -96,11 +99,14 @@ export class AutoZoningService {
     const availableLotWidth = isFacingZ ? lot.width : lot.length;
     const availableLotLength = isFacingZ ? lot.length : lot.width;
 
-    const maxAllowedWidth = Math.max(4.0, availableLotWidth - (rule.minGSBSide * 2) - 1.0);
+    const maxAllowedWidth = Math.max(4.0, availableLotWidth - rule.minGSBSide * 2 - 1.0);
     const maxAllowedLength = Math.max(4.0, availableLotLength - rule.minGSBFront - rule.minGSBRear - 1.0);
 
-    bldW = Math.min(bldW, maxAllowedWidth);
-    bldL = Math.min(bldL, maxAllowedLength);
+    // Stretch width along frontage when parcel is wider than default preset while keeping balanced residential/commercial proportions
+    const stretchRatioW = availableLotWidth > availableLotLength * 1.1 ? 0.85 : 0.70;
+    const stretchedFrontageW = Math.max(baseWidth, Math.round(maxAllowedWidth * stretchRatioW * 10) / 10);
+    bldW = Math.min(stretchedFrontageW, maxAllowedWidth);
+    bldL = Math.min(Math.max(baseLength, Math.round(maxAllowedLength * 0.78 * 10) / 10), maxAllowedLength);
 
     if (bldW * bldL > maxKdbArea) {
       const scale = Math.sqrt(maxKdbArea / (bldW * bldL));
@@ -108,18 +114,27 @@ export class AutoZoningService {
       bldL = Math.max(4.0, Math.floor(bldL * scale * 10) / 10);
     }
 
-    // 3. Compute rotation and position to face road behind front GSB
+    const stretchedPodiumWidth = Math.min(maxAllowedWidth, Math.round(bldW * 1.06 * 10) / 10);
+    const stretchedApronDepth = Math.max(3.8, Math.round((rule.minGSBFront + 0.8) * 10) / 10);
+
+    // 3. Compute rotation and position to face road cleanly inside front & rear GSB buildable envelope
     let rotY = 0;
     const bldPos = lot.position.clone();
     const treePos = lot.position.clone();
     const wellPos = lot.position.clone();
 
     const gsbFrontSetback = rule.minGSBFront + 0.6; // 0.6m aesthetic setback buffer behind front line
+    const minCenterFromFront = gsbFrontSetback + bldL * 0.5;
+    const maxCenterFromFront = Math.max(
+      minCenterFromFront,
+      availableLotLength - (rule.minGSBRear + 0.6) - bldL * 0.5
+    );
+    const centerOffsetFromFront = THREE.MathUtils.lerp(minCenterFromFront, maxCenterFromFront, 0.35);
 
     if (frontIdx === 2) {
       // Faces South (Z+)
       rotY = 0;
-      bldPos.z = (lot.position.z + lot.length * 0.5) - gsbFrontSetback - (bldL * 0.5);
+      bldPos.z = (lot.position.z + lot.length * 0.5) - centerOffsetFromFront;
       treePos.z = lot.position.z + (lot.length * 0.5) - (gsbFrontSetback * 0.5);
       treePos.x = lot.position.x - (bldW * 0.35);
       wellPos.z = lot.position.z + (lot.length * 0.5) - (gsbFrontSetback * 0.5);
@@ -127,7 +142,7 @@ export class AutoZoningService {
     } else if (frontIdx === 0) {
       // Faces North (Z-)
       rotY = Math.PI;
-      bldPos.z = (lot.position.z - lot.length * 0.5) + gsbFrontSetback + (bldL * 0.5);
+      bldPos.z = (lot.position.z - lot.length * 0.5) + centerOffsetFromFront;
       treePos.z = lot.position.z - (lot.length * 0.5) + (gsbFrontSetback * 0.5);
       treePos.x = lot.position.x + (bldW * 0.35);
       wellPos.z = lot.position.z - (lot.length * 0.5) + (gsbFrontSetback * 0.5);
@@ -135,7 +150,7 @@ export class AutoZoningService {
     } else if (frontIdx === 1) {
       // Faces East (X+)
       rotY = -Math.PI / 2;
-      bldPos.x = (lot.position.x + lot.width * 0.5) - gsbFrontSetback - (bldL * 0.5);
+      bldPos.x = (lot.position.x + lot.width * 0.5) - centerOffsetFromFront;
       treePos.x = lot.position.x + (lot.width * 0.5) - (gsbFrontSetback * 0.5);
       treePos.z = lot.position.z - (bldW * 0.35);
       wellPos.x = lot.position.x + (lot.width * 0.5) - (gsbFrontSetback * 0.5);
@@ -143,7 +158,7 @@ export class AutoZoningService {
     } else if (frontIdx === 3) {
       // Faces West (X-)
       rotY = Math.PI / 2;
-      bldPos.x = (lot.position.x - lot.width * 0.5) + gsbFrontSetback + (bldL * 0.5);
+      bldPos.x = (lot.position.x - lot.width * 0.5) + centerOffsetFromFront;
       treePos.x = lot.position.x - (lot.width * 0.5) + (gsbFrontSetback * 0.5);
       treePos.z = lot.position.z + (bldW * 0.35);
       wellPos.x = lot.position.x - (lot.width * 0.5) + (gsbFrontSetback * 0.5);
@@ -167,7 +182,15 @@ export class AutoZoningService {
       wallMaterial,
       wallColor,
       roofMaterial,
-      lotId: lot.id
+      lotId: lot.id,
+      apronDepth: stretchedApronDepth,
+      subParts: {
+        podium_base: {
+          partWidth: stretchedPodiumWidth,
+          partDepth: bldL,
+          partFloors: floorCount >= 3 ? 2 : 1
+        }
+      }
     };
 
     const tree: LandscapeItem = {

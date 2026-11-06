@@ -1,3 +1,4 @@
+import { RoofEquipmentBuilder } from './RoofEquipmentBuilder';
 import * as THREE from 'three';
 import { MaterialLibrary } from '../../materials/MaterialLibrary';
 
@@ -26,28 +27,7 @@ export class RoofMeshBuilder {
     rotZ: number = 0
   ): THREE.Mesh {
     const geom = new THREE.BoxGeometry(w, h, d);
-    const uv = geom.attributes.uv;
-    if (uv) {
-      const uvScale = 1.5;
-      const dims = [
-        [d, h], // +X
-        [d, h], // -X
-        [w, d], // +Y
-        [w, d], // -Y
-        [w, h], // +Z
-        [w, h]  // -Z
-      ];
-      for (let f = 0; f < 6; f++) {
-        const [fw, fh] = dims[f];
-        const su = Math.max(0.02, fw / uvScale);
-        const sv = Math.max(0.02, fh / uvScale);
-        for (let v = 0; v < 4; v++) {
-          const idx = f * 4 + v;
-          uv.setXY(idx, uv.getX(idx) * su, uv.getY(idx) * sv);
-        }
-      }
-      uv.needsUpdate = true;
-    }
+    MaterialLibrary.applyWorldScaleUVs(geom, 2.0);
 
     if (rotX || rotY || rotZ) {
       geom.rotateX(rotX);
@@ -91,8 +71,10 @@ export class RoofMeshBuilder {
     const t1H = 1.1;
     const t1TopW = rw * 0.52;
     const t1TopL = rl * 0.52;
-    const cone1 = new THREE.CylinderGeometry(t1TopW * 0.5, rw * 0.5, t1H, 4);
-    cone1.rotateY(Math.PI * 0.25);
+    const cone1Raw = new THREE.CylinderGeometry(t1TopW * 0.5, rw * 0.5, t1H, 4);
+    cone1Raw.rotateY(Math.PI * 0.25);
+    const cone1 = cone1Raw.toNonIndexed();
+    cone1.computeVertexNormals();
     cone1.translate(0, roofBaseY + t1H * 0.5, 0);
     const m1 = new THREE.Mesh(cone1, roofTileMat);
     m1.castShadow = true;
@@ -100,8 +82,10 @@ export class RoofMeshBuilder {
 
     // 3. Tier 2: Soaring Steep Brunjung Roof (curam & menjulang)
     const t2H = 3.2;
-    const cone2 = new THREE.ConeGeometry(t1TopW * 0.55, t2H, 4);
-    cone2.rotateY(Math.PI * 0.25);
+    const cone2Raw = new THREE.ConeGeometry(t1TopW * 0.55, t2H, 4);
+    cone2Raw.rotateY(Math.PI * 0.25);
+    const cone2 = cone2Raw.toNonIndexed();
+    cone2.computeVertexNormals();
     cone2.translate(0, roofBaseY + t1H + t2H * 0.5, 0);
     const m2 = new THREE.Mesh(cone2, roofTileMat);
     m2.castShadow = true;
@@ -163,8 +147,8 @@ export class RoofMeshBuilder {
 
       // Back slope
       -halfW, baseY, -halfL,
-      0, baseY + roofH, -halfR,
-      halfW, baseY, -halfL
+      halfW, baseY, -halfL,
+      0, baseY + roofH, -halfR
     ]);
 
     const uScaleL = rl / 1.5;
@@ -185,7 +169,7 @@ export class RoofMeshBuilder {
       0, 0,  uScaleW, 0,  uScaleW * 0.5, vScaleE,
 
       // Back slope
-      0, 0,  uScaleW * 0.5, vScaleE,  uScaleW, 0
+      0, 0,  uScaleW, 0,  uScaleW * 0.5, vScaleE
     ]);
 
     geom.setAttribute('position', new THREE.BufferAttribute(verts, 3));
@@ -396,11 +380,79 @@ export class RoofMeshBuilder {
     fasciaMat: THREE.Material,
     slabMat: THREE.Material
   ): void {
-    this.addBox(group, rw, 0.22, rl, 0, baseY + 0.11, 0, slabMat);
-    const fasciaH = 0.4;
-    this.addBox(group, rw + 0.05, fasciaH, 0.12, 0, baseY + 0.2, rl * 0.5, fasciaMat);
-    this.addBox(group, rw + 0.05, fasciaH, 0.12, 0, baseY + 0.2, -rl * 0.5, fasciaMat);
-    this.addBox(group, 0.12, fasciaH, rl + 0.05, rw * 0.5, baseY + 0.2, 0, fasciaMat);
-    this.addBox(group, 0.12, fasciaH, rl + 0.05, -rw * 0.5, baseY + 0.2, 0, fasciaMat);
+    RoofEquipmentBuilder.buildDetailedFlatRoof(group, rw, rl, baseY, {
+      parapetHeight: 0.75,
+      parapetThickness: 0.16,
+      deckSurface: 'gravel',
+      wallMat: fasciaMat,
+      copingMat: fasciaMat,
+      hasScuppers: true,
+    });
+  }
+
+  /**
+   * Ultra-low-poly roof cap geometry for LOD2 massing shell (> 250m).
+   * Generates a simple 6-8 triangle geometry to represent the building's silhouette.
+   */
+  public static buildSimplifiedRoofCap(
+    w: number,
+    l: number,
+    roofH: number,
+    roofType: string
+  ): THREE.BufferGeometry {
+    const hw = w * 0.5 + 0.15;
+    const hl = l * 0.5 + 0.15;
+    const ridgeH = Math.max(0.8, roofH);
+
+    const geom = new THREE.BufferGeometry();
+    let positions: number[];
+    let indices: number[];
+
+    if (roofType === 'gable' || roofType === 'pelana') {
+      positions = [
+        0, ridgeH, -hl, // 0: ridge rear
+        0, ridgeH, hl,  // 1: ridge front
+        -hw, 0, -hl,    // 2: bottom left rear
+        -hw, 0, hl,     // 3: bottom left front
+        hw, 0, -hl,     // 4: bottom right rear
+        hw, 0, hl,      // 5: bottom right front
+      ];
+      indices = [
+        // Left slope
+        2, 0, 3,  3, 0, 1,
+        // Right slope
+        0, 4, 1,  4, 5, 1,
+        // Front gable
+        1, 5, 3,
+        // Back gable
+        0, 2, 4,
+      ];
+    } else {
+      // Hip / Limasan / Joglo
+      const ridgeW = Math.max(0.4, w * 0.3);
+      positions = [
+        -ridgeW * 0.5, ridgeH, 0, // 0: ridge left
+        ridgeW * 0.5, ridgeH, 0,  // 1: ridge right
+        -hw, 0, -hl,              // 2: rear left
+        hw, 0, -hl,               // 3: rear right
+        hw, 0, hl,                // 4: front right
+        -hw, 0, hl,               // 5: front left
+      ];
+      indices = [
+        // Front slope
+        5, 4, 0,  4, 1, 0,
+        // Back slope
+        2, 0, 3,  3, 0, 1,
+        // Left hip
+        2, 5, 0,
+        // Right hip
+        4, 3, 1,
+      ];
+    }
+
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geom.setIndex(indices);
+    geom.computeVertexNormals();
+    return geom;
   }
 }

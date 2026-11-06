@@ -22,6 +22,7 @@ import {
 import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { AddBuildingCommand } from '../../core/commands/CityCommands';
 import { MaterialLibrary } from '../../materials/MaterialLibrary';
+import { CustomBuildingMeshBuilder } from '../../buildings/CustomBuildingMeshBuilder';
 import { showSnackbar } from '../state/useSnackbarStore';
 import {
   X,
@@ -65,9 +66,9 @@ import { useModalA11y } from '../hooks/useModalA11y';
  */
 export function createTextSprite(
   text: string,
-  bgColor = 'rgba(240, 245, 250, 0.96)',
-  textColor = '#0F172A',
-  borderColor = '#007AFF'
+  bgColor = 'rgba(219, 242, 252, 0.96)',
+  textColor = '#072D59',
+  borderColor = '#FD6E8E'
 ): THREE.Sprite {
   const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
   const baseW = 512;
@@ -141,10 +142,10 @@ function createArchitecturalCompassRing(radius: number, theme: 'light' | 'bluepr
   const ringGeo = new THREE.RingGeometry(radius - 0.08, radius + 0.08, 96);
   ringGeo.rotateX(-Math.PI / 2);
   const ringMat = new THREE.MeshBasicMaterial({
-    color: theme === 'blueprint' ? 0x38bdf8 : 0x007aff,
+    color: theme === 'blueprint' ? 0x38bdf8 : 0x072d59,
     side: THREE.DoubleSide,
     transparent: true,
-    opacity: 0.20
+    opacity: 0.22
   });
   const ring = new THREE.Mesh(ringGeo, ringMat);
   ring.position.y = 0.02;
@@ -152,18 +153,18 @@ function createArchitecturalCompassRing(radius: number, theme: 'light' | 'bluepr
 
   // 4 Cardinal markers: Utara, Timur, Selatan, Barat
   const cardinalDirs = [
-    { label: 'Utara', pos: new THREE.Vector3(0, 0.04, -radius - 1.2), color: '#007AFF' },
-    { label: 'Timur', pos: new THREE.Vector3(radius + 1.2, 0.04, 0), color: '#0F172A' },
-    { label: 'Selatan', pos: new THREE.Vector3(0, 0.04, radius + 1.2), color: '#0F172A' },
-    { label: 'Barat', pos: new THREE.Vector3(-radius - 1.2, 0.04, 0), color: '#0F172A' }
+    { label: 'Utara', pos: new THREE.Vector3(0, 0.04, -radius - 1.2), color: '#FD6E8E' },
+    { label: 'Timur', pos: new THREE.Vector3(radius + 1.2, 0.04, 0), color: '#072D59' },
+    { label: 'Selatan', pos: new THREE.Vector3(0, 0.04, radius + 1.2), color: '#072D59' },
+    { label: 'Barat', pos: new THREE.Vector3(-radius - 1.2, 0.04, 0), color: '#072D59' }
   ];
 
   for (const c of cardinalDirs) {
     const sp = createTextSprite(
       c.label,
-      theme === 'blueprint' ? 'rgba(10, 26, 47, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-      theme === 'blueprint' ? '#38bdf8' : c.color,
-      theme === 'blueprint' ? '#38bdf8' : '#007AFF'
+      theme === 'blueprint' ? 'rgba(7, 45, 89, 0.95)' : 'rgba(219, 242, 252, 0.96)',
+      theme === 'blueprint' ? '#DBF2FC' : c.color,
+      theme === 'blueprint' ? '#FD6E8E' : '#FD6E8E'
     );
     sp.position.copy(c.pos);
     sp.scale.set(2.8, 0.7, 1);
@@ -183,9 +184,9 @@ function createArchitecturalCompassRing(radius: number, theme: 'light' | 'bluepr
   ];
   const tickGeo = new THREE.BufferGeometry().setFromPoints(ticksPoints);
   const tickMat = new THREE.LineBasicMaterial({
-    color: theme === 'blueprint' ? 0x38bdf8 : 0x007aff,
+    color: theme === 'blueprint' ? 0x38bdf8 : 0x072d59,
     transparent: true,
-    opacity: 0.20
+    opacity: 0.22
   });
   group.add(new THREE.LineSegments(tickGeo, tickMat));
 
@@ -302,6 +303,9 @@ interface Building3DLivePreviewProps {
   mullionColor?: string;
   hasSkylight?: boolean;
   hasSolarPV?: boolean;
+  exposeSteelFrame?: boolean;
+  hasCarportAndTopBalcony?: boolean;
+  hasVerticalSecondarySkin?: boolean;
   showScaleFigure?: boolean;
   showDetailDims?: boolean;
 }
@@ -350,6 +354,9 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
   mullionColor = '#1e293b',
   hasSkylight = false,
   hasSolarPV = false,
+  exposeSteelFrame = false,
+  hasCarportAndTopBalcony = false,
+  hasVerticalSecondarySkin = false,
   showScaleFigure = false,
   showDetailDims = false
 }) => {
@@ -450,7 +457,7 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
-    scene.background = new THREE.Color(cadTheme === 'blueprint' ? 0x0a1120 : 0xe8eef5);
+    scene.background = new THREE.Color(cadTheme === 'blueprint' ? 0x072d59 : 0xdbf2fc);
   }, [cadTheme]);
 
   // Helper to recursively dispose geometries, materials, and textures
@@ -490,7 +497,7 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
     const heightPx = Math.max(200, container.clientHeight || 240);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(cadTheme === 'blueprint' ? 0x0a1120 : 0xe8eef5);
+    scene.background = new THREE.Color(cadTheme === 'blueprint' ? 0x072d59 : 0xdbf2fc);
     sceneRef.current = scene;
 
     const cameraPerspective = new THREE.PerspectiveCamera(38, widthPx / heightPx, 0.1, 500);
@@ -552,19 +559,19 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
 
     // Dual-Scale Architectural CAD Grid:
     // Minor 1.0m grid (thin)
-    const gridMinor = new THREE.GridHelper(60, 60, 0x94a3b8, cadTheme === 'blueprint' ? 0x1e293b : 0xcbd5e1);
+    const gridMinor = new THREE.GridHelper(60, 60, 0x072d59, cadTheme === 'blueprint' ? 0x1e293b : 0x072d59);
     gridMinor.position.y = 0;
     const gridMatMinor = gridMinor.material as THREE.LineBasicMaterial;
     gridMatMinor.transparent = true;
-    gridMatMinor.opacity = 0.12;
+    gridMatMinor.opacity = cadTheme === 'blueprint' ? 0.15 : 0.10;
     scene.add(gridMinor);
 
     // Major 5.0m grid (thick)
-    const gridMajor = new THREE.GridHelper(60, 12, 0x007aff, cadTheme === 'blueprint' ? 0x38bdf8 : 0x94a3b8);
+    const gridMajor = new THREE.GridHelper(60, 12, 0x072d59, cadTheme === 'blueprint' ? 0x38bdf8 : 0x072d59);
     gridMajor.position.y = 0.005;
     const gridMatMajor = gridMajor.material as THREE.LineBasicMaterial;
     gridMatMajor.transparent = true;
-    gridMatMajor.opacity = 0.18;
+    gridMatMajor.opacity = cadTheme === 'blueprint' ? 0.22 : 0.18;
     scene.add(gridMajor);
 
     // Coordinate Axes Helper (X: Red, Y: Green, Z: Blue)
@@ -906,8 +913,23 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
       buildingGroup.add(plinthMesh);
     }
 
-    // 2. Floors & Multi-Volume Massing
-    for (let f = 0; f < floorCount; f++) {
+    // 2. Floors & Multi-Volume Massing (or Exposed Contractor Steel Frame H-Beam Cutaway)
+    if (exposeSteelFrame) {
+      const steelGroup = CustomBuildingMeshBuilder.buildContractorSteelFrameGroup(
+        width,
+        length,
+        floorCount,
+        floorHeight,
+        plinthH
+      );
+      steelGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          addCadEdges(child as THREE.Mesh, 0x072d59, 0.45);
+        }
+      });
+      buildingGroup.add(steelGroup);
+    } else {
+      for (let f = 0; f < floorCount; f++) {
       const floorBaseY = plinthH + f * floorHeight;
       const flNetH = floorHeight - (f > 0 ? 0.22 : 0);
       const flCenterY = floorBaseY + flNetH * 0.5;
@@ -1211,6 +1233,7 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
           }
         }
       }
+      }
     }
 
     // 4. Roof on Top with Overhang, Ridge, Skylight, and Solar PV
@@ -1218,6 +1241,7 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
     const rw = width + roofOverhang * 2;
     const rl = length + roofOverhang * 2;
 
+    if (!exposeSteelFrame) {
     if (roofType === 'flat') {
       const slabGeo = new THREE.BoxGeometry(rw, 0.28, rl);
       const slabMesh = new THREE.Mesh(slabGeo, plinthMat);
@@ -1355,6 +1379,40 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
       ridgeMesh.castShadow = true;
       addCadEdges(ridgeMesh, 0x007aff, 0.6);
       buildingGroup.add(ridgeMesh);
+    }
+    }
+
+    // TAHAP 6 Contractor Facade Modules (Carport + Top Balcony & Vertical Secondary Skin)
+    if (hasCarportAndTopBalcony) {
+      const carportBalconyGroup = CustomBuildingMeshBuilder.buildCarportAndTopBalconyGroup(
+        width,
+        length,
+        floorCount,
+        floorHeight,
+        plinthH
+      );
+      carportBalconyGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          addCadEdges(child as THREE.Mesh, 0x072d59, 0.4);
+        }
+      });
+      buildingGroup.add(carportBalconyGroup);
+    }
+
+    if (hasVerticalSecondarySkin) {
+      const secondarySkinGroup = CustomBuildingMeshBuilder.buildVerticalSecondarySkinGroup(
+        width,
+        length,
+        floorCount,
+        floorHeight,
+        plinthH
+      );
+      secondarySkinGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          addCadEdges(child as THREE.Mesh, 0x072d59, 0.35);
+        }
+      });
+      buildingGroup.add(secondarySkinGroup);
     }
 
     // Solar PV Panels (hasSolarPV)
@@ -1701,6 +1759,9 @@ const Building3DLivePreview: React.FC<Building3DLivePreviewProps> = ({
     mullionColor,
     hasSkylight,
     hasSolarPV,
+    exposeSteelFrame,
+    hasCarportAndTopBalcony,
+    hasVerticalSecondarySkin,
     sunHour
   ]);
 
@@ -2423,6 +2484,9 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
   const [hasSunLouvers, setHasSunLouvers] = useState<boolean>(false);
   const [hasVerticalGarden, setHasVerticalGarden] = useState<boolean>(false);
   const [hasFrontArcade, setHasFrontArcade] = useState<boolean>(false);
+  const [exposeSteelFrame, setExposeSteelFrame] = useState<boolean>(false);
+  const [hasCarportAndTopBalcony, setHasCarportAndTopBalcony] = useState<boolean>(false);
+  const [hasVerticalSecondarySkin, setHasVerticalSecondarySkin] = useState<boolean>(false);
 
   // Materials & Textures
   const [wallMaterial, setWallMaterial] = useState<WallMaterialType>('plaster');
@@ -2536,6 +2600,9 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
       baseMaterial: string;
       hasSkylight: boolean;
       hasSolarPV: boolean;
+      exposeSteelFrame?: boolean;
+      hasCarportAndTopBalcony?: boolean;
+      hasVerticalSecondarySkin?: boolean;
     };
   }
 
@@ -2577,7 +2644,10 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
         useBasePlinthMaterial,
         baseMaterial: baseMaterial || 'andesite',
         hasSkylight,
-        hasSolarPV
+        hasSolarPV,
+        exposeSteelFrame,
+        hasCarportAndTopBalcony,
+        hasVerticalSecondarySkin
       }
     };
 
@@ -2630,6 +2700,9 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
     setBaseMaterial(c.baseMaterial);
     setHasSkylight(c.hasSkylight);
     setHasSolarPV(c.hasSolarPV);
+    setExposeSteelFrame(Boolean(c.exposeSteelFrame));
+    setHasCarportAndTopBalcony(Boolean(c.hasCarportAndTopBalcony));
+    setHasVerticalSecondarySkin(Boolean(c.hasVerticalSecondarySkin));
     proceduralAudio.playTaptic('selection');
     showSnackbar({
       variant: 'info',
@@ -2870,6 +2943,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
     const instance: Partial<BuildingInstance> = {
       id: customId,
       presetKey: 'custom_designer',
+      isCustom: true,
       name: cfg.buildingName || 'Bangunan Kustom',
       category: 'residential',
       width: cfg.width,
@@ -2890,7 +2964,11 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
       useBasePlinthMaterial: cfg.useBasePlinthMaterial,
       baseMaterial: cfg.baseMaterial,
       mullionColor,
-      hasSkylight: cfg.hasSkylight
+      hasSkylight: cfg.hasSkylight,
+      hasSolarPV: cfg.hasSolarPV,
+      exposeSteelFrame: cfg.exposeSteelFrame,
+      hasCarportAndTopBalcony: cfg.hasCarportAndTopBalcony,
+      hasVerticalSecondarySkin: cfg.hasVerticalSecondarySkin
     };
 
     if (engine.buildingTool) {
@@ -2930,7 +3008,10 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
       useBasePlinthMaterial,
       baseMaterial,
       hasSkylight,
-      hasSolarPV
+      hasSolarPV,
+      exposeSteelFrame,
+      hasCarportAndTopBalcony,
+      hasVerticalSecondarySkin
     };
 
     const validation = validateBuildingDesign(currentConfig);
@@ -3075,6 +3156,19 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               defaultValue={2}
               onChange={setFloorCount}
             />
+
+            {/* Mode Kontraktor Struktur Baja H-Beam */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '4px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--label-secondary)', fontWeight: 700, textTransform: 'uppercase' }}>
+                Mode Struktur Kontraktor CAD
+              </label>
+              <FacadeToggleRow
+                label="Ekspos Struktur Rangka Baja H-Beam & Tangga"
+                description="Tampilkan kolom/balok baja H-Beam hitam, lantai keramik berpetak, dan tangga kayu kontraktor"
+                checked={exposeSteelFrame}
+                onChange={setExposeSteelFrame}
+              />
+            </div>
           </div>
         );
 
@@ -3151,6 +3245,27 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                 description="Deretan tiang kolom penyangga naungan pejalan kaki"
                 checked={hasFrontArcade}
                 onChange={setHasFrontArcade}
+              />
+
+              <FacadeToggleRow
+                label="Ekspos Struktur Rangka Baja H-Beam & Tangga"
+                description="Mode kontraktor: rangka baja H-Beam hitam, pelat lantai keramik grid, dan tangga kayu besi"
+                checked={exposeSteelFrame}
+                onChange={setExposeSteelFrame}
+              />
+
+              <FacadeToggleRow
+                label="Balkon Atas & Carport Kanopi Bawah"
+                description="Carport lantai dasar dengan pagar besi & mobil putih serta balkon atas berpanel abu gelap"
+                checked={hasCarportAndTopBalcony}
+                onChange={setHasCarportAndTopBalcony}
+              />
+
+              <FacadeToggleRow
+                label="Kisi-Kisi Fasad Vertikal (Secondary Skin)"
+                description="Layar kisi-kisi vertikal modern di sisi fasad lantai atas bebas kedip kedalaman"
+                checked={hasVerticalSecondarySkin}
+                onChange={setHasVerticalSecondarySkin}
               />
             </div>
           </div>
@@ -3326,22 +3441,23 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
         width: '100vw',
         height: '100vh',
         zIndex: 99999,
-        background: cadTheme === 'blueprint' ? '#0A1120' : '#E8EEF5',
-        color: cadTheme === 'blueprint' ? '#FFFFFF' : '#0F172A'
+        background: cadTheme === 'blueprint' ? 'var(--surface-navy-solid)' : 'var(--surface-solid)',
+        color: cadTheme === 'blueprint' ? 'var(--text-on-navy)' : 'var(--label)'
       }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="cad-studio-title"
     >
-      {/* Top CAD Header Bar (Laboratorium Analisis Glass) */}
+      {/* Top CAD Header Bar (Navy Blue Structural Panel + Seal Blue Text + Crimson Pink Accents) */}
         <div
           style={{
             height: '56px',
             padding: '0 20px',
-            background: 'rgba(240, 245, 250, 0.90)',
-            backdropFilter: 'blur(28px)',
-            WebkitBackdropFilter: 'blur(28px)',
-            borderBottom: '1px solid rgba(15, 23, 42, 0.08)',
+            background: 'var(--surface-navy)',
+            backdropFilter: 'blur(24px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            borderBottom: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-glass)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -3362,7 +3478,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span id="cad-studio-title" style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap' }}>
+                <span id="cad-studio-title" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-on-navy)', whiteSpace: 'nowrap' }}>
                   Studio CAD
                 </span>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -3374,9 +3490,9 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                       fontSize: '12px',
                       padding: '3px 8px 3px 22px',
                       borderRadius: '6px',
-                      background: 'rgba(255, 255, 255, 0.85)',
-                      border: '1px solid rgba(15, 23, 42, 0.15)',
-                      color: '#0F172A',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--label)',
                       fontWeight: 600,
                       width: '180px',
                       outline: 'none',
@@ -3385,10 +3501,10 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                     placeholder="Nama Desain"
                     title="Klik untuk mengubah nama desain"
                   />
-                  <Pencil size={11} style={{ position: 'absolute', left: '7px', color: '#64748B', pointerEvents: 'none' }} />
+                  <Pencil size={11} style={{ position: 'absolute', left: '7px', color: 'var(--label-secondary)', pointerEvents: 'none' }} />
                 </div>
               </div>
-              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-on-navy-muted)', marginTop: '1px' }}>
                 {formatMeters(width, 1)} × {formatMeters(length, 1)} • {floorCount} Lantai • Puncak +{formatMeters(roofPeakHeight, 2)}
               </div>
             </div>
@@ -3400,10 +3516,10 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               display: 'flex',
               alignItems: 'center',
               gap: '2px',
-              background: '#E2E8F0',
+              background: 'var(--surface)',
               padding: '3px',
               borderRadius: '9999px',
-              border: '1px solid rgba(15, 23, 42, 0.06)'
+              border: '1px solid var(--border)'
             }}
           >
             {[
@@ -3424,9 +3540,9 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                     padding: '4px 10px',
                     borderRadius: '9999px',
                     border: 'none',
-                    background: isSel ? '#007AFF' : 'transparent',
-                    color: isSel ? '#FFFFFF' : '#334155',
-                    boxShadow: isSel ? '0 1px 3px rgba(0, 122, 255, 0.3)' : 'none',
+                    background: isSel ? 'var(--accent)' : 'transparent',
+                    color: isSel ? 'var(--on-accent)' : 'var(--label)',
+                    boxShadow: isSel ? 'var(--shadow-accent)' : 'none',
                     fontSize: '11px',
                     fontWeight: isSel ? 700 : 600,
                     cursor: 'pointer'
@@ -3444,10 +3560,10 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               display: 'flex',
               alignItems: 'center',
               gap: '2px',
-              background: '#E2E8F0',
+              background: 'var(--surface)',
               padding: '3px',
               borderRadius: '9999px',
-              border: '1px solid rgba(15, 23, 42, 0.06)'
+              border: '1px solid var(--border)'
             }}
           >
             {[
@@ -3469,9 +3585,9 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                     padding: '4px 12px',
                     borderRadius: '9999px',
                     border: 'none',
-                    background: isSel ? '#007AFF' : 'transparent',
-                    color: isSel ? '#FFFFFF' : '#334155',
-                    boxShadow: isSel ? '0 1px 3px rgba(0, 122, 255, 0.3)' : 'none',
+                    background: isSel ? 'var(--accent)' : 'transparent',
+                    color: isSel ? 'var(--on-accent)' : 'var(--label)',
+                    boxShadow: isSel ? 'var(--shadow-accent)' : 'none',
                     fontSize: '11px',
                     fontWeight: isSel ? 700 : 600,
                     cursor: 'pointer',
@@ -3484,8 +3600,37 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
             })}
           </div>
 
-          {/* Right: Dropdowns & Actions (Max 5 Controls on screen) */}
+          {/* Right: Dropdowns & Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
+            {/* 0. Contractor Steel Frame H-Beam Quick View Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                setExposeSteelFrame(!exposeSteelFrame);
+                proceduralAudio.playTaptic('selection');
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 11px',
+                borderRadius: '9999px',
+                border: '1px solid var(--border)',
+                background: exposeSteelFrame ? 'var(--accent)' : 'var(--surface)',
+                color: exposeSteelFrame ? 'var(--on-accent)' : 'var(--label)',
+                boxShadow: exposeSteelFrame ? 'var(--shadow-accent)' : 'none',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+              title="Ekspos Struktur Rangka Baja H-Beam & Tangga"
+            >
+              <Layers size={12} />
+              <span>Ekspos Struktur Rangka Baja H-Beam & Tangga</span>
+            </button>
+
             {/* 1. Render Mode Dropdown */}
             <div style={{ position: 'relative' }}>
               <button
@@ -3829,12 +3974,12 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                 gap: '6px',
                 padding: '6px 14px',
                 borderRadius: '10px',
-                background: '#007AFF',
-                color: '#FFFFFF',
+                background: 'var(--accent)',
+                color: 'var(--on-accent)',
                 border: 'none',
                 fontSize: '12px',
                 fontWeight: 700,
-                boxShadow: '0 2px 8px rgba(0, 122, 255, 0.28)',
+                boxShadow: 'var(--shadow-accent)',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease'
@@ -3854,9 +3999,9 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                 gap: '4px',
                 padding: '6px 12px',
                 borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.90)',
-                color: '#334155',
-                border: '1px solid rgba(15, 23, 42, 0.12)',
+                background: 'var(--surface)',
+                color: 'var(--label)',
+                border: '1px solid var(--border)',
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -3908,6 +4053,9 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               mullionColor={mullionColor}
               hasSkylight={hasSkylight}
               hasSolarPV={hasSolarPV}
+              exposeSteelFrame={exposeSteelFrame}
+              hasCarportAndTopBalcony={hasCarportAndTopBalcony}
+              hasVerticalSecondarySkin={hasVerticalSecondarySkin}
               showScaleFigure={showScaleFigure}
               showDetailDims={showDetailDims}
             />
@@ -3925,44 +4073,44 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                     position: 'absolute',
                     bottom: '20px',
                     left: '20px',
-                    background: 'rgba(240, 245, 250, 0.92)',
+                    background: 'rgba(7, 45, 89, 0.94)',
                     backdropFilter: 'blur(28px)',
                     WebkitBackdropFilter: 'blur(28px)',
-                    border: '1.5px solid rgba(255, 255, 255, 0.9)',
-                    borderRadius: '18px',
-                    padding: '10px 18px',
-                    boxShadow: '0 8px 32px rgba(15, 23, 42, 0.12)',
+                    border: '1.5px solid rgba(219, 242, 252, 0.35)',
+                    borderRadius: '20px',
+                    padding: '12px 22px',
+                    boxShadow: '0 14px 36px rgba(7, 45, 89, 0.35)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '16px',
+                    gap: '20px',
                     zIndex: 10
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Luas Lantai Dasar</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>{formatArea(footprintArea)}</div>
+                    <div style={{ fontSize: '10px', color: '#DBF2FC', opacity: 0.85, fontWeight: 600 }}>Luas Lantai Dasar KDB</div>
+                    <div className="tabular-nums" style={{ fontSize: '16px', fontWeight: 700, color: '#DBF2FC' }}>{formatArea(footprintArea)}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Total Luas Lantai</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#007AFF' }}>{formatArea(totalFloorArea)}</div>
+                    <div style={{ fontSize: '10px', color: '#DBF2FC', opacity: 0.85, fontWeight: 600 }}>Total Lantai KLB</div>
+                    <div className="tabular-nums" style={{ fontSize: '16px', fontWeight: 700, color: '#FD6E8E' }}>{formatArea(totalFloorArea)}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Koefisien KDB / KLB</div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: lotArea ? '#007AFF' : '#64748B' }}>
+                    <div style={{ fontSize: '10px', color: '#DBF2FC', opacity: 0.85, fontWeight: 600 }}>Koefisien KDB / KLB</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: lotArea ? '#FD6E8E' : '#DBF2FC' }}>
                       {lotArea ? `KDB ${kdbPercent}% • KLB ${klbRatio?.replace('.', ',')}x` : 'Pilih kavling di kota'}
                     </div>
                   </div>
-                  <div title="Plafon tinggi (min 3.0 m) memfasilitasi efek cerobong termal untuk sirkulasi udara sejuk di iklim tropis">
-                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Tinggi Dinding</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#248A3D' }}>{formatMeters(wallHeight, 2)}</div>
+                  <div title="Plafon tinggi memfasilitasi sirkulasi udara sejuk di iklim tropis">
+                    <div style={{ fontSize: '10px', color: '#DBF2FC', opacity: 0.85, fontWeight: 600 }}>Tinggi Dinding</div>
+                    <div className="tabular-nums" style={{ fontSize: '16px', fontWeight: 700, color: '#DBF2FC' }}>{formatMeters(wallHeight, 2)}</div>
                   </div>
-                  <div title="Kemiringan atap curam mempercepat aliran air hujan lebat dan mengurangi akumulasi panas radiasi matahari">
-                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Puncak Atap</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#007AFF' }}>+{formatMeters(roofPeakHeight, 2)}</div>
+                  <div title="Kemiringan atap mempercepat aliran air hujan lebat">
+                    <div style={{ fontSize: '10px', color: '#DBF2FC', opacity: 0.85, fontWeight: 600 }}>Puncak Atap</div>
+                    <div className="tabular-nums" style={{ fontSize: '16px', fontWeight: 700, color: '#FD6E8E' }}>+{formatMeters(roofPeakHeight, 2)}</div>
                   </div>
-                  <div title="Overhang min 1.0 m membayangi bukaan jendela dari terik matahari khatulistiwa dan tampias hujan lebat">
-                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Teritisan Tropis</div>
-                    <div className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: '#D97706' }}>{formatMeters(roofOverhang, 1)}</div>
+                  <div title="Overhang membayangi bukaan jendela dari terik matahari">
+                    <div style={{ fontSize: '10px', color: '#DBF2FC', opacity: 0.85, fontWeight: 600 }}>Teritisan Tropis</div>
+                    <div className="tabular-nums" style={{ fontSize: '16px', fontWeight: 700, color: '#DBF2FC' }}>{formatMeters(roofOverhang, 1)}</div>
                   </div>
                 </div>
               );
@@ -3975,10 +4123,10 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               width: '400px',
               minWidth: '380px',
               maxWidth: '400px',
-              background: 'rgba(240, 245, 250, 0.94)',
+              background: 'rgba(219, 242, 252, 0.95)',
               backdropFilter: 'blur(28px)',
               WebkitBackdropFilter: 'blur(28px)',
-              borderLeft: '1px solid rgba(15, 23, 42, 0.08)',
+              borderLeft: '1px solid rgba(7, 45, 89, 0.15)',
               height: '100%',
               maxHeight: 'calc(100vh - 56px)',
               overflowY: 'auto',
@@ -3986,7 +4134,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
               display: 'flex',
               flexDirection: 'column',
               gap: '14px',
-              color: '#0F172A',
+              color: '#072D59',
               zIndex: 15
             }}
           >
@@ -4331,12 +4479,12 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                     padding: '9px 16px',
                     borderRadius: '10px',
                     border: 'none',
-                    background: '#007AFF',
-                    color: '#FFFFFF',
+                    background: 'var(--accent)',
+                    color: 'var(--on-accent)',
                     fontSize: '12px',
                     fontWeight: 700,
                     cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)'
+                    boxShadow: 'var(--shadow-accent)'
                   }}
                 >
                   Perbaiki Otomatis & Bangun

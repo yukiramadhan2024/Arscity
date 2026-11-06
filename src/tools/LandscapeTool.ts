@@ -207,6 +207,26 @@ export class LandscapeTool {
       return;
     }
 
+    // Reject placement on water for non-water elements (trees, pavilions, sculptures, etc.)
+    const isWaterCompatible =
+      this.activeType === 'flora_lotus_water' ||
+      this.activeType === 'waterfront_wood_deck' ||
+      this.activeType === 'bridge_green_pedestrian';
+
+    if (!isWaterCompatible && (
+      this.landscapeManager.isPositionInWater(snappedPos.x, snappedPos.z, 0.2) ||
+      (this.engine?.riverManager && this.engine.riverManager.isPointInRiver(snappedPos.x, snappedPos.z, 0.2))
+    )) {
+      proceduralAudio.playTaptic('boundary');
+      showSnackbar({
+        variant: 'warning',
+        title: 'Lokasi Berada di Atas Air',
+        detail: 'Pohon dan elemen darat tidak boleh ditempatkan di atas badan air atau kolam',
+        groupKey: 'collision_water',
+      });
+      return;
+    }
+
     const nextId = `land_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const hasDimensions =
       this.activeType === 'grass_garden' ||

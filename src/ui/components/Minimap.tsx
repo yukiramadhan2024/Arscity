@@ -49,12 +49,13 @@ export const Minimap: React.FC = () => {
       }
       ctx.clip();
 
-      // Architectural crisp map background (#EEF4FA)
-      ctx.fillStyle = '#EEF4FA';
+      // Architectural map background
+      const isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark';
+      ctx.fillStyle = isDark ? '#1C1C1E' : '#EEF4FA';
       ctx.fillRect(0, 0, w, h);
 
-      // Subtle topographic map grid lines (#DCE5EF)
-      ctx.strokeStyle = '#DCE5EF';
+      // Subtle topographic map grid lines
+      ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.08)' : '#DCE5EF';
       ctx.lineWidth = 0.5;
       const gridSize = 24;
       for (let x = gridSize; x < w; x += gridSize) {
@@ -115,9 +116,9 @@ export const Minimap: React.FC = () => {
         }
       }
 
-      // 3. Render Roads (Crisp Slate Asphalt: #475569)
+      // 3. Render Roads (Theme-aware asphalt)
       if (engine.roadManager) {
-        ctx.strokeStyle = '#475569';
+        ctx.strokeStyle = isDark ? '#64748B' : '#475569';
         ctx.lineWidth = Math.max(2.5, 6.5 * scale);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -147,7 +148,7 @@ export const Minimap: React.FC = () => {
         }
       }
 
-      // 4. Render Buildings (System Blue / Terracotta Footprints)
+      // 4. Render Buildings (Theme-aware Footprints)
       if (engine.buildingManager) {
         for (const bld of engine.buildingManager.buildings.values()) {
           const bx = toScreenX(bld.position.x);
@@ -159,11 +160,11 @@ export const Minimap: React.FC = () => {
           ctx.translate(bx, by);
           ctx.rotate(-bld.rotationY);
 
-          // Fill building with crisp dark slate fill and blue outline
-          ctx.fillStyle = '#0F172A';
+          // Fill building with crisp dark/light fill and blue outline
+          ctx.fillStyle = isDark ? '#38BDF8' : '#0F172A';
           ctx.fillRect(-bw / 2, -bl / 2, bw, bl);
 
-          ctx.strokeStyle = '#007AFF';
+          ctx.strokeStyle = isDark ? '#0284C7' : '#007AFF';
           ctx.lineWidth = 0.75;
           ctx.strokeRect(-bw / 2, -bl / 2, bw, bl);
 
@@ -250,14 +251,14 @@ export const Minimap: React.FC = () => {
           gap: '8px',
           padding: '8px 14px',
           borderRadius: '9999px',
-          background: 'rgba(255, 255, 255, 0.94)',
+          background: 'var(--surface)',
           backdropFilter: 'blur(24px) saturate(180%)',
           WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-          border: '1px solid rgba(255, 255, 255, 0.95)',
-          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08)',
+          border: '1px solid var(--border-glass)',
+          boxShadow: 'var(--shadow-card)',
           zIndex: 'var(--z-hud)' as any,
           cursor: 'pointer',
-          color: '#007AFF',
+          color: 'var(--accent)',
           transition: 'transform 0.15s ease',
           fontSize: '12px',
           fontWeight: 600,
@@ -268,7 +269,7 @@ export const Minimap: React.FC = () => {
         aria-label="Buka Peta Kota"
       >
         <Map size={16} strokeWidth={2} />
-        <span style={{ color: '#0F172A', whiteSpace: 'nowrap' }}>Peta Kota</span>
+        <span style={{ color: 'var(--label)', whiteSpace: 'nowrap' }}>Peta Kota</span>
       </button>
     );
   }
@@ -281,11 +282,11 @@ export const Minimap: React.FC = () => {
         width: '180px',
         height: '180px',
         borderRadius: '24px',
-        background: 'rgba(255, 255, 255, 0.94)',
+        background: 'var(--surface)',
         backdropFilter: 'blur(24px) saturate(180%)',
         WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-        border: '1px solid rgba(255, 255, 255, 0.95)',
-        boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
+        border: '1px solid var(--border-glass)',
+        boxShadow: 'var(--shadow-card)',
         zIndex: 'var(--z-hud)' as any,
         padding: '6px',
         overflow: 'hidden',
@@ -303,17 +304,17 @@ export const Minimap: React.FC = () => {
           top: '10px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(0, 122, 255, 0.12)',
-          border: '1px solid rgba(0, 122, 255, 0.35)',
+          background: 'rgba(0, 122, 255, 0.14)',
+          border: '1px solid rgba(0, 122, 255, 0.40)',
           borderRadius: '9999px',
           padding: '2px 10px',
-          color: '#007AFF',
+          color: 'var(--accent)',
           fontSize: '10px',
           fontWeight: 800,
           fontFamily: 'var(--font-mono)',
           zIndex: 15,
           cursor: 'pointer',
-          boxShadow: '0 2px 6px rgba(0, 122, 255, 0.12)',
+          boxShadow: '0 2px 6px rgba(0, 122, 255, 0.15)',
           transition: 'all 0.2s ease',
           lineHeight: '14px',
           display: 'flex',
@@ -341,15 +342,15 @@ export const Minimap: React.FC = () => {
           width: '22px',
           height: '22px',
           borderRadius: '50%',
-          background: '#FFFFFF',
-          border: '1px solid #CBD5E1',
-          color: '#475569',
+          background: 'var(--surface-raised)',
+          border: '1px solid var(--separator)',
+          color: 'var(--label-secondary)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 16,
-          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)'
+          boxShadow: 'var(--shadow-card)'
         }}
         title="Ciutkan Peta Kota"
         aria-label="Ciutkan Peta Kota"
@@ -368,16 +369,16 @@ export const Minimap: React.FC = () => {
           width: '24px',
           height: '24px',
           borderRadius: '50%',
-          background: '#FFFFFF',
-          border: '1px solid #CBD5E1',
-          color: '#0F172A',
+          background: 'var(--surface-raised)',
+          border: '1px solid var(--separator)',
+          color: 'var(--label)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 15,
           padding: 0,
-          boxShadow: '0 2px 6px rgba(15, 23, 42, 0.08)'
+          boxShadow: 'var(--shadow-card)'
         }}
         title="Putar Kamera Orbit Kiri 45° (Q)"
         aria-label="Putar Kamera Kiri 45°"
@@ -395,16 +396,16 @@ export const Minimap: React.FC = () => {
           width: '24px',
           height: '24px',
           borderRadius: '50%',
-          background: '#FFFFFF',
-          border: '1px solid #CBD5E1',
-          color: '#0F172A',
+          background: 'var(--surface-raised)',
+          border: '1px solid var(--separator)',
+          color: 'var(--label)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 15,
           padding: 0,
-          boxShadow: '0 2px 6px rgba(15, 23, 42, 0.08)'
+          boxShadow: 'var(--shadow-card)'
         }}
         title="Putar Kamera Orbit Kanan 45° (E)"
         aria-label="Putar Kamera Kanan 45°"

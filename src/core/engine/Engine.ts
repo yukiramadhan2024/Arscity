@@ -31,7 +31,7 @@ import {
   DuplicateDistrictCommand,
 } from '../commands/CityCommands';
 import { BuildingInstance } from '../../buildings/PrefabTypes';
-import { LandscapeManager } from '../../world/LandscapeManager';
+import { LandscapeManager, LandscapeType } from '../../world/LandscapeManager';
 import { LandscapeTool } from '../../tools/LandscapeTool';
 import { MaterialLibrary } from '../../materials/MaterialLibrary';
 import { updateWindTime } from '../../materials/WindShader';
@@ -40,7 +40,16 @@ import { GpuDiagnostics, detectGpuDiagnostics } from './GpuDiagnostics';
 import { PostProcessingManager } from './PostProcessingManager';
 import { CitySerializer, CitySaveData } from '../../io/CitySerializer';
 import { createMalioboroMapData } from '../../world/MalioboroPreset';
+import { createModernGridMapData } from '../../world/ModernGridPreset';
 import { IndexedDBStorage } from '../../io/IndexedDBStorage';
+
+export interface CustomMapConfig {
+  cityName: string;
+  layoutTemplate: 'blank_canvas' | 'malioboro_corridor' | 'modern_grid';
+  topography: 'flat_plain' | 'tropical_river_valley' | 'natural_hills';
+  treeDensity: 'none' | 'medium' | 'lush';
+  startTime: number;
+}
 import { ZONE_RULES } from '../../zones/ZoneTypes';
 import { runoffSimulator } from '../../simulation/RunoffSimulator';
 import { cityScoreAnalyzer } from '../../analysis/CityScoreAnalyzer';
@@ -163,7 +172,8 @@ export class Engine {
       powerPreference: 'high-performance',
       antialias: true,
       stencil: false,
-      depth: true
+      depth: true,
+      logarithmicDepthBuffer: true
     });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
@@ -187,6 +197,8 @@ export class Engine {
     );
 
     this.cameraController = new CameraController(this.renderer.domElement);
+    this.cameraController.camera.near = 0.25;
+    this.cameraController.camera.updateProjectionMatrix();
     this.lightingSystem = new LightingSystem(this.scene);
     this.lightingSystem.initEnvironment(this.renderer);
     this.lightingSystem.setRenderer(this.renderer);
@@ -456,15 +468,26 @@ export class Engine {
         this.measurementTool.handleClick(this.raycastManager.snappedPoint);
       }
     } else if (this.activeToolName === 'select') {
-      // 1. Raycast Buildings
+      if (
+        this.buildingGizmoManager.consumePointerHandled() ||
+        this.buildingGizmoManager.getHandleUnderPointer(e)
+      ) {
+        return;
+      }
+
+      // 1. Raycast Buildings (extract specific sub-part + buildingId)
       const bldHits = this.raycastManager.raycastObjects([this.buildingManager.masterGroup]);
       if (bldHits.length > 0) {
         let curr: THREE.Object3D | null = bldHits[0].object;
         let bldId: string | null = null;
+        let hitSubPart: import('../../buildings/PrefabTypes').BuildingSubPartType | null = null;
         while (curr && curr !== this.buildingManager.masterGroup) {
+          if (!hitSubPart && curr.userData && curr.userData.partType) {
+            hitSubPart = curr.userData.partType;
+          }
           if (curr.userData && curr.userData.buildingId) {
             bldId = curr.userData.buildingId;
-            break;
+            if (hitSubPart) break;
           }
           curr = curr.parent;
         }
@@ -472,7 +495,7 @@ export class Engine {
         if (bldId) {
           this.roadManager.selectEdge(null);
           this.lotManager.selectLot(null);
-          this.buildingManager.selectBuilding(bldId);
+          this.buildingManager.selectBuilding(bldId, hitSubPart || 'main_tower');
           if (this.onSelectionChanged) this.onSelectionChanged();
           return;
         }
@@ -531,18 +554,37 @@ export class Engine {
   };
 
   private onCanvasPointerDown = (e: PointerEvent): void => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.altKey) return;
     if (this.activeToolName === 'terraform') {
       this.raycastManager.updateMousePosition(e.clientX, e.clientY);
       if (this.raycastManager.isHoveringGround) {
         this.terraformTool.handlePointerDown(this.raycastManager.groundPoint);
       }
+    } else if (this.activeToolName === 'build' && !this.footprintTool.isDrawing) {
+      this.raycastManager.updateMousePosition(e.clientX, e.clientY);
+      if (this.raycastManager.isHoveringGround) {
+        this.buildingTool.handlePointerDown(this.raycastManager.snappedPoint);
+      }
+    } else if (this.activeToolName === 'zone') {
+      this.raycastManager.updateMousePosition(e.clientX, e.clientY);
+      if (this.raycastManager.isHoveringGround && (this.zoneTool as any).handlePointerDown) {
+        (this.zoneTool as any).handlePointerDown(this.raycastManager.snappedPoint);
+      }
     }
   };
 
-  private onCanvasPointerUp = (): void => {
+  private onCanvasPointerUp = (e: PointerEvent): void => {
     if (this.activeToolName === 'terraform') {
       this.terraformTool.handlePointerUp();
+    } else if (this.activeToolName === 'build' && !this.footprintTool.isDrawing) {
+      this.raycastManager.updateMousePosition(e.clientX, e.clientY);
+      this.buildingTool.handlePointerUp(this.raycastManager.snappedPoint);
+      this.lotManager.evaluateAllLots();
+    } else if (this.activeToolName === 'zone') {
+      this.raycastManager.updateMousePosition(e.clientX, e.clientY);
+      if ((this.zoneTool as any).handlePointerUp) {
+        (this.zoneTool as any).handlePointerUp(this.raycastManager.snappedPoint);
+      }
     }
   };
 
@@ -567,8 +609,14 @@ export class Engine {
 
     if (e.code === 'KeyR' && this.activeToolName === 'build') {
       this.buildingTool.rotate();
+    } else if (e.code === 'Enter' && this.activeToolName === 'zone') {
+      if (this.zoneTool.polygonVertices.length >= 3) {
+        this.zoneTool.finishPolygon();
+      }
     } else if (e.code === 'Escape') {
-      if (this.roadTool.isDrawing) {
+      if (this.zoneTool.polygonVertices.length > 0) {
+        this.zoneTool.cancelPolygon();
+      } else if (this.roadTool.isDrawing) {
         this.roadTool.cancelDrawing();
       } else if (this.footprintTool.isDrawing) {
         this.footprintTool.cancelDrawing();
@@ -659,47 +707,48 @@ export class Engine {
     this.activeToolName = toolName;
 
     if (toolName === 'road') {
+      this.roadTool.setVisible(true);
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(false);
       this.riverTool.cancel();
     } else if (toolName === 'build') {
-      this.roadTool.cancelDrawing();
+      this.roadTool.setVisible(false);
       this.buildingTool.setVisible(true);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(false);
       this.riverTool.cancel();
     } else if (toolName === 'zone') {
-      this.roadTool.cancelDrawing();
+      this.roadTool.setVisible(false);
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(true);
       this.landscapeTool.setVisible(false);
       this.riverTool.cancel();
     } else if (toolName === 'nature' || toolName === 'landscape') {
-      this.roadTool.cancelDrawing();
+      this.roadTool.setVisible(false);
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(true);
       this.riverTool.cancel();
     } else if (toolName === 'river') {
-      this.roadTool.cancelDrawing();
+      this.roadTool.setVisible(false);
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(false);
     } else if (toolName === 'terraform') {
-      this.roadTool.cancelDrawing();
+      this.roadTool.setVisible(false);
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(false);
       this.riverTool.cancel();
     } else if (toolName === 'demolish') {
-      this.roadTool.cancelDrawing();
+      this.roadTool.setVisible(false);
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(false);
       this.riverTool.cancel();
     } else {
-      this.roadTool.cancelDrawing();
+      this.roadTool.setVisible(false);
       this.buildingTool.setVisible(false);
       this.zoneTool.setVisible(false);
       this.landscapeTool.setVisible(false);
@@ -812,6 +861,24 @@ export class Engine {
 
     if (this.onCameraModeChanged) {
       this.onCameraModeChanged(this.currentCameraMode);
+    }
+
+    // Tahap 1: Instantly sync LOD & exterior detail on camera mode change
+    const isSection = this.sectionCutManager ? this.sectionCutManager.currentMode !== 'none' : false;
+    const indoorId = this.firstPersonController ? this.firstPersonController.getInsideBuildingId() : null;
+    this.buildingManager.updateLOD(
+      this.cameraController.camera.position,
+      this.currentCameraMode,
+      isSection,
+      this.isSubsurfaceLensActive,
+      60,
+      this.currentQuality,
+      indoorId
+    );
+    if (this.landscapeManager) {
+      if (this.currentCameraMode !== 'first_person') {
+        this.landscapeManager.setOrbitFullDetailMode();
+      }
     }
   }
 
@@ -935,28 +1002,36 @@ export class Engine {
     // Spring animations & Interactive 3D Handles
     this.springAnimator.update();
 
-    // Tahap 2 (T2.1): 3-Zone Spatial LOD with 120ms / 1.5m displacement throttling
+    // Tahap 1: Smart Distance Rendering only when in First-Person Mode (Disabled in Orbit & Drone)
     const isFirstPerson = this.currentCameraMode === 'first_person';
     const indoorId = this.firstPersonController ? this.firstPersonController.getInsideBuildingId() : null;
-    this.buildingManager.updateSpatialLOD(
-      this.cameraController.camera.position,
-      isFirstPerson,
-      indoorId
-    );
-    if (this.landscapeManager) {
-      const hostBuilding = indoorId ? this.buildingManager.getBuilding(indoorId) : null;
-      this.landscapeManager.updateSpatialLOD(
+
+    if (isFirstPerson) {
+      this.buildingManager.updateSpatialLOD(
         this.cameraController.camera.position,
-        indoorId,
-        hostBuilding ? hostBuilding.position : null
+        true,
+        indoorId
       );
+      if (this.landscapeManager) {
+        const hostBuilding = indoorId ? this.buildingManager.getBuilding(indoorId) : null;
+        this.landscapeManager.updateSpatialLOD(
+          this.cameraController.camera.position,
+          indoorId,
+          hostBuilding ? hostBuilding.position : null,
+          'first_person'
+        );
+      }
+    } else {
+      if (this.landscapeManager) {
+        this.landscapeManager.setOrbitFullDetailMode();
+      }
     }
 
     if (this.onLODZoneCountsChanged) {
       this.onLODZoneCountsChanged(this.getLODZoneCounts());
     }
 
-    // Lapis 1: Smart Hierarchical LOD (executed every 6 frames)
+    // Smart Hierarchical LOD (executed every 6 frames)
     this.lodFrameCount++;
     if (this.lodFrameCount % 6 === 0) {
       const isSection = this.sectionCutManager.currentMode !== 'none';
@@ -968,7 +1043,8 @@ export class Engine {
         isSection,
         this.isSubsurfaceLensActive,
         cutoff,
-        this.currentQuality
+        this.currentQuality,
+        indoorId
       );
     }
 
@@ -989,10 +1065,24 @@ export class Engine {
           curr = curr.parent;
         }
         if (curr) {
-          this.spatialHighlighter.showHoverAt(curr.position, 4.0, 0x007aff);
+          this.spatialHighlighter.showHoverAt(curr.position, 4.0, 0xfd6e8e);
         }
+        this.lotManager.updateVisibility(this.activeToolName, useUIStore.getState().showLotOverlays, null);
       } else {
         this.spatialHighlighter.hideHover();
+        const lotHits = this.raycastManager.raycastObjects([this.lotManager.masterGroup]);
+        let hoveredLotId: string | null = null;
+        if (lotHits.length > 0) {
+          let currLot: THREE.Object3D | null = lotHits[0].object;
+          while (currLot && currLot !== this.lotManager.masterGroup) {
+            if (currLot.userData?.lotId) {
+              hoveredLotId = currLot.userData.lotId;
+              break;
+            }
+            currLot = currLot.parent;
+          }
+        }
+        this.lotManager.updateVisibility(this.activeToolName, useUIStore.getState().showLotOverlays, hoveredLotId);
       }
     } else {
       this.spatialHighlighter.hideHover();
@@ -1319,6 +1409,133 @@ export class Engine {
     }
 
     return false;
+  }
+
+  /**
+   * Tahap 2: Custom Map Initializer.
+   * Clears old world, resets terrain, carves topography/river valley or hills,
+   * generates initial road/building layout (with automatic bridges across river),
+   * scatters initial tree density, sets lighting time, and persists to storage.
+   */
+  public async initializeCustomMap(config: CustomMapConfig): Promise<boolean> {
+    // 1. Clear previous world & reset terrain to flat 0
+    this.clearCurrentWorld();
+    if (this.riverManager && typeof this.riverManager.clearAll === 'function') {
+      this.riverManager.clearAll();
+    }
+    if (this.terrain && typeof this.terrain.resetFlat === 'function') {
+      this.terrain.resetFlat();
+    }
+
+    // 2. Sculpt topography
+    let riverCurve: THREE.Vector3[] | null = null;
+    if (config.topography === 'tropical_river_valley') {
+      if (this.terrain && typeof this.terrain.generateTropicalRiverValley === 'function') {
+        riverCurve = this.terrain.generateTropicalRiverValley();
+      }
+    } else if (config.topography === 'natural_hills') {
+      if (this.terrain && typeof this.terrain.generateNaturalPerimeterHills === 'function') {
+        this.terrain.generateNaturalPerimeterHills();
+      }
+    }
+
+    // 3. Layout template
+    if (config.layoutTemplate === 'blank_canvas') {
+      // Clean empty terrain, ready to build from scratch
+    } else if (config.layoutTemplate === 'malioboro_corridor') {
+      const data = createMalioboroMapData();
+      data.cityTitle = config.cityName || 'Koridor Malioboro Yogyakarta';
+      this.loadWorldState(data);
+    } else if (config.layoutTemplate === 'modern_grid') {
+      const data = createModernGridMapData();
+      data.cityTitle = config.cityName || 'Grid Arsitektur Modern';
+      this.loadWorldState(data);
+    }
+
+    // If roads exist and river was carved, ensure all road geometries and bridges are fully rebuilt
+    if (config.topography === 'tropical_river_valley' && this.roadManager) {
+      this.roadManager.rebuildAll();
+    }
+
+    // 4. Initial tree scattering according to treeDensity
+    if (config.treeDensity === 'none') {
+      if (config.layoutTemplate === 'blank_canvas') {
+        this.landscapeManager.clearAll();
+      }
+    } else {
+      const count = config.treeDensity === 'lush' ? 55 : 22;
+      const treeSpecies: LandscapeType[] = [
+        'shade_tree',
+        'tree_tabebuya_pink',
+        'tree_tabebuya_gold',
+        'tree_flamboyan',
+        'tree_asam_jawa',
+      ];
+      let seeded = 0;
+      let attempts = 0;
+      while (seeded < count && attempts < count * 4) {
+        attempts++;
+        const angle = Math.random() * Math.PI * 2;
+        const rad = 15 + Math.random() * 85;
+        const tx = Math.cos(angle) * rad;
+        const tz = Math.sin(angle) * rad;
+
+        // Avoid river trench if present
+        if (riverCurve && this.terrain) {
+          const elev = this.terrain.getHeightAt(tx, tz);
+          if (elev < -0.1) continue;
+        }
+
+        // Avoid asphalt if roads exist
+        if (this.roadManager && typeof this.roadManager.getNearestRoadSample === 'function') {
+          const sample = this.roadManager.getNearestRoadSample(new THREE.Vector2(tx, tz));
+          if (sample && sample.distance < sample.corridorHalfWidth + 2.0) {
+            continue;
+          }
+        }
+
+        // Avoid building footprints
+        if (this.buildingManager && this.buildingManager.getBuildingAtPosition(tx, tz)) {
+          continue;
+        }
+
+        const species = treeSpecies[seeded % treeSpecies.length];
+        const rotY = Math.random() * Math.PI * 2;
+        const scale = 0.85 + Math.random() * 0.35;
+        const elev = this.terrain ? this.terrain.getHeightAt(tx, tz) : 0;
+        this.landscapeManager.addItem({
+          id: `custom_tree_${seeded}_${Date.now()}`,
+          type: species,
+          position: new THREE.Vector3(tx, elev, tz),
+          rotationY: rotY,
+          radius: 3.0 * scale,
+        });
+        seeded++;
+      }
+    }
+
+    // 5. Start time and weather
+    const startTime = typeof config.startTime === 'number' ? config.startTime : 8.5;
+    this.setTimeOfDay(startTime, 172);
+    this.setWeather('clear');
+
+    // Focus camera
+    this.cameraController.resetCamera();
+    this.cameraController.focusAt(new THREE.Vector3(0, 0, 0), 120);
+
+    // 6. Persist map and metadata
+    try {
+      const currentCityData = CitySerializer.serialize(this);
+      currentCityData.cityTitle = config.cityName || 'Kota Tropis Nusantara';
+      const mapId = `custom_map_${Date.now()}`;
+      await IndexedDBStorage.saveMapById(mapId, currentCityData.cityTitle, currentCityData);
+      localStorage.setItem('arscity_last_custom_map_config', JSON.stringify(config));
+      localStorage.setItem('arscity_current_active_map_id', mapId);
+    } catch (err) {
+      console.warn('[Engine] Failed to persist initial custom map to IndexedDB:', err);
+    }
+
+    return true;
   }
 
   /**

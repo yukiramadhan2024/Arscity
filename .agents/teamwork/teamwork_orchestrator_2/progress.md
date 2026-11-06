@@ -1,0 +1,49 @@
+## Current Status
+Last visited: 2026-11-02T13:18:00Z (Heartbeat check 9: Worker Tahap 3 actively validating tests)
+- [x] Initialized DISPATCH.md and BRIEFING.md for teamwork_orchestrator_2
+- [x] Phase 0: Survey current repo state & baseline against Tahap 1 (T1.1-T1.9) and Tahap 2/3 (All 3 Explorers completed)
+  - [x] Baseline verified: 0 tsc errors, 53 test suites passed (421 tests passed)
+  - [x] T1.1–T1.3 root causes and fixes mapped
+  - [x] T1.4–T1.9 UI theme and component bugs mapped, 66 literal dark backgrounds audited
+  - [x] Tahap 2 & 3 architecture and gap analyses documented
+- [x] Updated PROJECT.md with complete Feature Inventory (features 1–35) and 6 sequential milestones
+- [x] Tahap 1: Fix 9 Critical Visual, UI & Performance Bugs (T1.1 - T1.9) — COMPLETED & SIGNED OFF
+  - [x] T1.1 committed (`f1a6f2a`: zero PointLights, emissive cache, smooth night lighting)
+  - [x] T1.2 committed (`6cc56f4`: star dome tracking camera, 0.9 camera.far radius, pixel size)
+  - [x] T1.3 committed (`22043f5`: Malioboro parametric layout & zero polygon overlaps test)
+  - [x] T1.4 committed (`bcd24f9`: unify UI to single bright white frosted glass theme and fix reduced transparency contrast)
+  - [x] T1.5 committed (`9e52d18`: TopHeader fixed center & responsive collapsible menu)
+  - [x] T1.6 committed (`3422d48`: Button Cerah & circular action buttons contrast & styling)
+  - [x] T1.7 committed (`4258fc1`: Graphics preset SegmentedControl contrast & active styling)
+  - [x] T1.8 committed (`6a0f450`: Photo Mode duplicate button removal & 35mm lens)
+  - [x] T1.9 committed (`4b94ee2`: WorldHubModal 3-dots dropdown auto-flip & boundary clamping)
+  - [x] Gate verification passed unanimously: Reviewer 1 (APPROVE), Reviewer 2 (APPROVE), Challenger 1 (APPROVE), Challenger 2 (APPROVE), Forensic Auditor (CLEAN).
+- [x] Tahap 2: 3-Zone Distance LOD Rendering (T2.1 - T2.6) — COMPLETED & SIGNED OFF
+  - [x] T2.1 committed (`1d9cd1c`: updateSpatialLOD with 120ms/1.5m throttling and footprint polygon edge distance)
+  - [x] T2.2 committed (`4d613d5`: three-tier distance zones with dual hysteresis and shared glass materials)
+  - [x] T2.3 committed (`4080538`: indoor room focus clamping host building to Zone 0 and culling exterior details)
+  - [x] T2.4 committed (`d174e3d`: raycaster hierarchy visibility filtering ignoring hidden objects)
+  - [x] T2.5 committed (`1c2dcbb`: static mesh matrix update freezing for non-animated scene objects)
+  - [x] T2.6 committed (`db1643c`: developer mode LOD zone telemetry overlay and counters)
+  - [x] Unit & Adversarial Tests: `tests/v4_spatial_lod.test.ts` (14/14), `tests/adversarial_lod_stress.test.ts` (15/15), `tests/adversarial_raycast_matrix.test.ts` (13/13).
+  - [x] Full Regression Suite: 64 test files passed, 508 tests passed (100%), 0 tsc error, clean build (9.39s), 98.9% LOD2 triangle reduction.
+  - [x] Gate verification passed unanimously: Reviewer 1 (APPROVE), Reviewer 2 (APPROVE), Challenger 1 (APPROVE), Challenger 2 (APPROVE), Forensic Auditor (CLEAN).
+- [/] Tahap 3: 6 First-Person Experience Logics (T3.1 - T3.6)
+  - [x] T3.1: Eye light adaptation (damp lambda ~3, factor ~1.22 on diurnal light, 6m roof raycast)
+  - [x] T3.2: Auto step-up (0.05m-0.42m with headroom >= 1.7m)
+  - [x] T3.3: Two-way swing doors (dot product vector opening away from avatar approach ~100°)
+  - [x] T3.4: Dual floor traversal (physical stairs + safe floor teleportation [PageUp]/[PageDown]/HUD with 150ms screen fade)
+  - [x] T3.5: Surface material footstep audio (procedural Web Audio API sound for 6 surface tags)
+  - [x] T3.6: Smooth head bobbing (~0.015m vertical amplitude with reduce-motion toggle)
+  - [x] Unit tests: `tests/v4_first_person_experience.test.ts` (30/30 passed)
+  - [x] Full test suite: 65 test files passed, 538 tests passed (100%), 0 tsc error, clean build (9.37s)
+  - [x] Worker Tahap 3 delivered handoff.md
+  - [ ] Gate Verification (Tahap 3 Reviewers, Challengers, Auditor) — Ready for Successor
+- [ ] Tahap 4: Surface Furniture & Chair Magnet (T4.1 - T4.4)
+- [ ] Tahap 5: City Adaptation, Facade, Ecology, 2D Plan (T5.1 - T5.6)
+- [ ] Tahap 6: Verification, Measured FPS Telemetry & Final Report (T6.1 - T6.3)
+
+## Succession Status
+- Trigger condition reached: Spawn count 16 / 16, all subagents completed.
+- Soft handoff written to `.agents/teamwork/teamwork_orchestrator_2/handoff.md`.
+- Spawning successor: `teamwork_orchestrator_3`.

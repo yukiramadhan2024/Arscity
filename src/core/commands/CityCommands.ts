@@ -836,6 +836,22 @@ export class PlaceFurnitureCommand implements ICommand {
     if (typeof this.engine.buildingManager.attachFurniture === 'function') {
       const mesh = this.engine.buildingManager.attachFurniture(this.buildingId, this.furniture);
       if (!mesh) return;
+      const bldGrp = this.engine.buildingManager.getBuildingGroup?.(this.buildingId);
+      const dynGrp = bldGrp?.getObjectByName('DynamicFurnitureGroup');
+      if (bldGrp && dynGrp && dynGrp.parent !== bldGrp) {
+        bldGrp.add(dynGrp);
+      }
+      if (dynGrp) {
+        dynGrp.visible = true;
+        dynGrp.frustumCulled = false;
+      }
+      mesh.visible = true;
+      mesh.frustumCulled = false;
+      mesh.traverse((child) => {
+        child.visible = true;
+        child.frustumCulled = false;
+      });
+      bldGrp?.updateMatrixWorld(true);
     }
 
     try {

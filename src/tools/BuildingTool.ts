@@ -31,6 +31,14 @@ export class BuildingTool {
   private nextBuildingId: number = 1;
   public isPlacementValid: boolean = true;
 
+  // Stretch-to-Fit Lot & Building Massing drag state
+  public isDraggingStretch: boolean = false;
+  private stretchStartPos: THREE.Vector3 | null = null;
+  public stretchedWidthOverride: number | null = null;
+  public stretchedApronOverride: number | null = null;
+  private lastStretchStepSound: number = 0;
+  private suppressNextClick: boolean = false;
+
   constructor(
     buildingManager: BuildingManager,
     raycastManager: RaycastManager,
@@ -134,7 +142,10 @@ export class BuildingTool {
         baseMaterial: tmpl.baseMaterial,
         mullionColor: tmpl.mullionColor,
         hasSkylight: tmpl.hasSkylight,
-        hasSolarPV: tmpl.hasSolarPV
+        hasSolarPV: tmpl.hasSolarPV,
+        exposeSteelFrame: tmpl.exposeSteelFrame,
+        hasCarportAndTopBalcony: tmpl.hasCarportAndTopBalcony,
+        hasVerticalSecondarySkin: tmpl.hasVerticalSecondarySkin
       };
 
       group = CustomBuildingMeshBuilder.buildCustomBuilding(customModel);
@@ -289,6 +300,22 @@ export class BuildingTool {
       }
     }
 
+    // 4. Check collision with water bodies (retention ponds, rivers)
+    if (this.engine?.landscapeManager?.isPositionInWater(center.x, center.z, 0.5)) {
+      return true;
+    }
+    if (this.engine?.riverManager?.isPointInRiver(center.x, center.z, 0.5)) {
+      return true;
+    }
+    for (const corner of candidateCorners) {
+      if (this.engine?.landscapeManager?.isPositionInWater(corner.x, corner.y, 0.2)) {
+        return true;
+      }
+      if (this.engine?.riverManager?.isPointInRiver(corner.x, corner.y, 0.2)) {
+        return true;
+      }
+    }
+
     return false;
   }
 
@@ -304,7 +331,53 @@ export class BuildingTool {
     return maxY;
   }
 
-  public handleClick(snappedPos: THREE.Vector3): void {
+  public handlePointerDown(snappedPos: THREE.Vector3): void {
+    this.isDraggingStretch = true;
+    this.stretchStartPos = snappedPos.clone();
+    this.stretchedWidthOverride = null;
+    this.stretchedApronOverride = null;
+    this.lastStretchStepSound = 0;
+  }
+
+  public handlePointerUp(snappedPos: THREE.Vector3): void {
+    if (!this.isDraggingStretch || !this.stretchStartPos) {
+      this.isDraggingStretch = false;
+      return;
+    }
+    const dragDist = this.stretchStartPos.distanceTo(snappedPos);
+    const startClone = this.stretchStartPos.clone();
+    this.isDraggingStretch = false;
+    this.stretchStartPos = null;
+
+    if (dragDist >= 1.8 && this.stretchedWidthOverride !== null) {
+      const midPos = startClone.clone().lerp(snappedPos, 0.5);
+      this.suppressNextClick = true;
+      this.handleClick(midPos, this.stretchedWidthOverride, this.stretchedApronOverride ?? undefined);
+      this.stretchedWidthOverride = null;
+      this.stretchedApronOverride = null;
+      if (this.ghostGroup) {
+        this.ghostGroup.scale.set(1, 1, 1);
+      }
+    } else {
+      this.stretchedWidthOverride = null;
+      this.stretchedApronOverride = null;
+      if (this.ghostGroup) {
+        this.ghostGroup.scale.set(1, 1, 1);
+      }
+    }
+  }
+
+  public handleClick(
+    snappedPos: THREE.Vector3,
+    overridePodiumWidth?: number,
+    overrideApronDepth?: number
+  ): void {
+    if (this.suppressNextClick && overridePodiumWidth === undefined) {
+      this.suppressNextClick = false;
+      return;
+    }
+    this.suppressNextClick = false;
+
     let bWidth: number;
     let bLength: number;
 
@@ -318,9 +391,12 @@ export class BuildingTool {
       bLength = preset.defaultLength;
     }
 
+    const effectivePodiumWidth = overridePodiumWidth ? Math.max(bWidth, overridePodiumWidth) : undefined;
+    const collisionWidth = effectivePodiumWidth ?? bWidth;
+
     // 1. Check collision with road asphalt / corridor
     if (this.engine?.roadManager) {
-      const footprint = this.getFootprintCorners(snappedPos, bWidth, bLength, this.currentRotation, 0);
+      const footprint = this.getFootprintCorners(snappedPos, collisionWidth, bLength, this.currentRotation, 0);
       if (this.engine.roadManager.isFootprintOverlappingRoad(footprint, 0.5)) {
         proceduralAudio.playTaptic('boundary');
         showSnackbar({
@@ -331,6 +407,21 @@ export class BuildingTool {
         });
         return;
       }
+    }
+
+    // Check collision with water bodies
+    if (
+      this.engine?.landscapeManager?.isPositionInWater(snappedPos.x, snappedPos.z, 0.5) ||
+      this.engine?.riverManager?.isPointInRiver(snappedPos.x, snappedPos.z, 0.5)
+    ) {
+      proceduralAudio.playTaptic('boundary');
+      showSnackbar({
+        variant: 'warning',
+        title: 'Lokasi Berada di Atas Air',
+        detail: 'Bangunan tidak boleh dibangun di atas badan air atau kolam retensi',
+        groupKey: 'collision_water',
+      });
+      return;
     }
 
     // 2. Check collision with existing buildings or obstacles
@@ -358,6 +449,7 @@ export class BuildingTool {
       instance = {
         id,
         presetKey: tmpl.presetKey || 'custom_designer',
+        isCustom: true,
         name: tmpl.name || 'Bangunan Kustom',
         category: tmpl.category || 'residential',
         position: placedPos,
@@ -381,7 +473,21 @@ export class BuildingTool {
         baseMaterial: tmpl.baseMaterial,
         mullionColor: tmpl.mullionColor,
         hasSkylight: tmpl.hasSkylight,
-        hasSolarPV: tmpl.hasSolarPV
+        hasSolarPV: tmpl.hasSolarPV,
+        exposeSteelFrame: tmpl.exposeSteelFrame,
+        hasCarportAndTopBalcony: tmpl.hasCarportAndTopBalcony,
+        hasVerticalSecondarySkin: tmpl.hasVerticalSecondarySkin,
+        apronDepth: overrideApronDepth ?? tmpl.apronDepth,
+        subParts: effectivePodiumWidth
+          ? {
+              ...(tmpl.subParts || {}),
+              podium_base: {
+                partWidth: effectivePodiumWidth,
+                partDepth: bLength,
+                partFloors: (tmpl.floorCount || 2) >= 3 ? 2 : 1
+              }
+            }
+          : tmpl.subParts
       };
     } else {
       const preset = PREFAB_CATALOG[this.activePresetKey];
@@ -393,7 +499,7 @@ export class BuildingTool {
         category: preset.category,
         position: placedPos,
         rotationY: this.currentRotation,
-        width: preset.defaultWidth,
+        width: effectivePodiumWidth ? Math.min(effectivePodiumWidth, preset.defaultWidth * 1.45) : preset.defaultWidth,
         length: preset.defaultLength,
         floorCount: preset.defaultFloorCount,
         floorHeight: preset.floorHeight,
@@ -401,7 +507,17 @@ export class BuildingTool {
         roofOverhang: preset.defaultRoofOverhang,
         wallMaterial: preset.defaultWallMaterial,
         wallColor: preset.defaultWallColor,
-        roofMaterial: preset.defaultRoofMaterial
+        roofMaterial: preset.defaultRoofMaterial,
+        apronDepth: overrideApronDepth,
+        subParts: effectivePodiumWidth
+          ? {
+              podium_base: {
+                partWidth: effectivePodiumWidth,
+                partDepth: preset.defaultLength * 1.08,
+                partFloors: preset.defaultFloorCount >= 3 ? 2 : 1
+              }
+            }
+          : undefined
       };
     }
 
@@ -437,6 +553,7 @@ export class BuildingTool {
     }
 
     proceduralAudio.playPlaceBuilding();
+    proceduralAudio.playPlacementChord();
     proceduralAudio.playTaptic('boundary');
   }
 
@@ -465,16 +582,41 @@ export class BuildingTool {
         }
       }
 
-      // 2. Adaptive Terrain Plinth: anchor height to highest ground elevation under footprint
-      const highestY = this.getHighestFootprintGroundY(snapped, width, length, this.currentRotation);
-      snapped.y = highestY;
+      // 2. Stretch-to-Fit preview scaling when dragging along road
+      let previewPos = snapped.clone();
+      let effectiveW = width;
+      if (this.isDraggingStretch && this.stretchStartPos) {
+        const dragVec = snapped.clone().sub(this.stretchStartPos);
+        const dragLen = Math.hypot(dragVec.x, dragVec.z);
+        if (dragLen >= 1.8) {
+          effectiveW = Math.min(width * 2.8, Math.max(width, Math.round((width + dragLen) * 2) / 2));
+          this.stretchedWidthOverride = effectiveW;
+          this.stretchedApronOverride = Math.min(12.0, Math.max(4.5, Number((4.5 + dragLen * 0.22).toFixed(1))));
+          previewPos = this.stretchStartPos.clone().lerp(snapped, 0.5);
+          this.ghostGroup.scale.set(effectiveW / width, 1, 1);
 
-      this.ghostGroup.position.copy(snapped);
+          const stepM = Math.round(effectiveW);
+          if (stepM !== this.lastStretchStepSound) {
+            proceduralAudio.playScaleStepSound(stepM);
+            this.lastStretchStepSound = stepM;
+          }
+        } else {
+          this.ghostGroup.scale.set(1, 1, 1);
+        }
+      } else {
+        this.ghostGroup.scale.set(1, 1, 1);
+      }
+
+      // Adaptive Terrain Plinth: anchor height to highest ground elevation under footprint
+      const highestY = this.getHighestFootprintGroundY(previewPos, effectiveW, length, this.currentRotation);
+      previewPos.y = highestY;
+
+      this.ghostGroup.position.copy(previewPos);
       this.ghostGroup.rotation.y = this.currentRotation;
       this.ghostGroup.visible = true;
 
       // 3. Collision check
-      const isColliding = this.checkCollision(snapped, width, length, this.currentRotation);
+      const isColliding = this.checkCollision(previewPos, effectiveW, length, this.currentRotation);
       const nextValid = !isColliding;
       if (nextValid !== this.isPlacementValid) {
         if (!nextValid) {

@@ -135,7 +135,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             style={{
               fontSize: '12px',
               fontWeight: isActive ? 700 : 500,
-              color: isActive ? 'var(--accent)' : 'var(--label)',
+              color: isActive ? 'var(--on-accent)' : 'var(--label)',
               whiteSpace: 'nowrap'
             }}
           >
@@ -160,7 +160,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
       }}
     >
       <div
-        className="side-dock-container interactive arscity-glass-bar"
+        className="side-dock-container interactive arscity-navy-panel"
         style={{
           width: isExpanded ? '192px' : '48px',
           maxHeight: 'calc(100vh - 100px)',
@@ -195,9 +195,9 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
                 width: '32px',
                 height: '32px',
                 borderRadius: '10px',
-                background: 'linear-gradient(135deg, rgba(0, 122, 255, 0.16) 0%, rgba(56, 189, 248, 0.08) 100%)',
-                border: '1px solid rgba(0, 122, 255, 0.25)',
-                boxShadow: '0 2px 8px rgba(0, 122, 255, 0.15)',
+                background: 'var(--surface-navy)',
+                border: '1px solid var(--border-on-navy)',
+                boxShadow: 'var(--shadow-card)',
                 flexShrink: 0,
                 cursor: 'pointer',
                 padding: 0
@@ -312,7 +312,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
         )}
 
         {renderButton(
-          <Layers size={18} strokeWidth={1.75} style={{ color: showLotOverlays ? 'var(--accent)' : undefined }} />,
+          <Layers size={18} strokeWidth={1.75} style={{ color: showLotOverlays ? 'var(--on-accent)' : undefined }} />,
           'Lapisan Kavling',
           'L',
           toggleShowLotOverlays,
@@ -408,9 +408,10 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
                   padding: '9px 14px',
                   borderRadius: '10px',
                   background: 'var(--accent)',
-                  color: '#FFFFFF',
+                  color: 'var(--on-accent)',
+                  boxShadow: 'var(--shadow-accent)',
                   border: 'none',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   fontSize: '13px',
                   cursor: 'pointer'
                 }}

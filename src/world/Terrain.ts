@@ -145,19 +145,22 @@ export class Terrain {
 
     scene.add(this.mesh);
 
-    // Continuous tropical river water plane at Y = -0.35m
+    // Continuous tropical river water plane at Y = -0.45m
     const waterGeom = new THREE.PlaneGeometry(size, size);
     waterGeom.rotateX(-Math.PI / 2);
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x0EA5E9,
       transparent: true,
-      opacity: 0.78,
+      opacity: 0.82,
       roughness: 0.15,
       metalness: 0.1,
-      depthWrite: false,
+      depthWrite: true,
+      polygonOffset: true,
+      polygonOffsetFactor: 2.0,
+      polygonOffsetUnits: 2.0,
     });
     this.waterMesh = new THREE.Mesh(waterGeom, waterMat);
-    this.waterMesh.position.y = -0.35;
+    this.waterMesh.position.y = -0.45;
     this.waterMesh.receiveShadow = true;
     this.waterMesh.name = 'RiverWaterPlane';
     scene.add(this.waterMesh);
@@ -554,6 +557,58 @@ export class Terrain {
       pos.setY(indices[i], heights[i]);
     }
 
+    pos.needsUpdate = true;
+    this.mesh.geometry.computeVertexNormals();
+  }
+
+  /**
+   * Resets all terrain vertices to completely flat elevation (Y = 0) (Tahap 2).
+   */
+  public resetFlat(): void {
+    const pos = this.mesh.geometry.attributes.position;
+    if (!pos) return;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, 0);
+    }
+    pos.needsUpdate = true;
+    this.mesh.geometry.computeVertexNormals();
+  }
+
+  /**
+   * Carves a scenic tropical river valley bisecting the map (Tahap 2).
+   * Generates a gentle S-curve river trench to depth -2.2m and width 18m,
+   * revealing the crystal-clear water plane at Y = -0.45m.
+   */
+  public generateTropicalRiverValley(): THREE.Vector3[] {
+    const curvePoints = [
+      new THREE.Vector3(-140, 0, -90),
+      new THREE.Vector3(-45, 0, -25),
+      new THREE.Vector3(35, 0, 35),
+      new THREE.Vector3(140, 0, 105),
+    ];
+    this.carveRiverTrench(curvePoints, 18, 2.2);
+    return curvePoints;
+  }
+
+  /**
+   * Generates smooth natural perimeter hills around the district border (Tahap 2).
+   * Keeps the central buildable basin (radius < 85m) flat at Y = 0 while sculpting
+   * rolling perimeter hills up to 14m high on the outer borders.
+   */
+  public generateNaturalPerimeterHills(): void {
+    const pos = this.mesh.geometry.attributes.position;
+    if (!pos) return;
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      const vz = pos.getZ(i);
+      const distFromCenter = Math.hypot(vx, vz);
+      if (distFromCenter > 80) {
+        const hillRatio = Math.min(1.0, (distFromCenter - 80) / 90);
+        const wave = Math.sin(vx * 0.035) * Math.cos(vz * 0.035) * 4.5 + Math.sin(vx * 0.075 + vz * 0.055) * 2.0;
+        const elevation = hillRatio * 9.5 + Math.max(0, wave * hillRatio);
+        pos.setY(i, Math.max(0, elevation));
+      }
+    }
     pos.needsUpdate = true;
     this.mesh.geometry.computeVertexNormals();
   }

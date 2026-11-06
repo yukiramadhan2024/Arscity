@@ -39,11 +39,7 @@ export class TectonicComponents {
       });
     }
     if (type === 'dark_aluminum') {
-      return new THREE.MeshStandardMaterial({
-        color: 0x18181b,
-        roughness: 0.35,
-        metalness: 0.85
-      });
+      return this.matLib.getMaterial('frame', { color: '#18181b' });
     }
     if (type === 'teak_wood') {
       return this.matLib.getMaterial('wood_slat', { color: '#9a3412' });
@@ -71,13 +67,15 @@ export class TectonicComponents {
     const mullionWidth = 0.08;
     const colW = width / cols;
     const rowH = height / rows;
+    const glassZ = 0.06; // >= 0.06m forward offset from mounting wall surface
+    const frameZ = glassZ + Math.max(0.03, frameDepth * 0.35);
 
     // Vertical Mullions
     for (let c = 0; c <= cols; c++) {
       const x = -width * 0.5 + c * colW;
-      const geom = new THREE.BoxGeometry(mullionWidth, height, frameDepth);
+      const geom = new THREE.BoxGeometry(mullionWidth, height, Math.min(0.08, frameDepth));
       const mesh = new THREE.Mesh(geom, frame);
-      mesh.position.set(x, height * 0.5, 0);
+      mesh.position.set(x, height * 0.5, frameZ);
       mesh.castShadow = true;
       group.add(mesh);
     }
@@ -85,21 +83,23 @@ export class TectonicComponents {
     // Horizontal Transoms
     for (let r = 0; r <= rows; r++) {
       const y = r * rowH;
-      const geom = new THREE.BoxGeometry(width, mullionWidth, frameDepth * 0.85);
+      const geom = new THREE.BoxGeometry(width, mullionWidth, Math.min(0.07, frameDepth * 0.85));
       const mesh = new THREE.Mesh(geom, frame);
-      mesh.position.set(0, y, 0);
+      mesh.position.set(0, y, frameZ);
       mesh.castShadow = true;
       group.add(mesh);
     }
 
-    // Glass Panes
+    // Glass Panes (>= 0.06m offset from backing wall)
     const glassGeom = new THREE.BoxGeometry(
       Math.max(0.1, width - mullionWidth),
       Math.max(0.1, height - mullionWidth),
       0.02
     );
     const glassMesh = new THREE.Mesh(glassGeom, glass);
-    glassMesh.position.set(0, height * 0.5, 0);
+    glassMesh.name = 'WindowGlass';
+    glassMesh.userData.isWindowGlass = true;
+    glassMesh.position.set(0, height * 0.5, glassZ);
     group.add(glassMesh);
 
     return group;
@@ -122,15 +122,16 @@ export class TectonicComponents {
     const frame = this.getMaterial('dark_aluminum');
 
     const finThickness = 0.04;
-    const finDepth = 0.22;
+    const finDepth = 0.16;
+    const screenOffsetZ = 0.14; // Ensures back of fins stays >= 0.06m clear of wall
 
     // Perimeter sub-frame
     const subFrameT = 0.05;
     const fTop = new THREE.Mesh(new THREE.BoxGeometry(width, subFrameT, finDepth), frame);
-    fTop.position.set(0, height, 0);
+    fTop.position.set(0, height, screenOffsetZ);
     group.add(fTop);
     const fBot = new THREE.Mesh(new THREE.BoxGeometry(width, subFrameT, finDepth), frame);
-    fBot.position.set(0, 0, 0);
+    fBot.position.set(0, 0, screenOffsetZ);
     group.add(fBot);
 
     if (isVertical) {
@@ -139,7 +140,7 @@ export class TectonicComponents {
         const x = -width * 0.5 + (i + 0.5) * spacing;
         const finGeo = new THREE.BoxGeometry(finThickness, height - subFrameT * 2, finDepth);
         const finMesh = new THREE.Mesh(finGeo, mat);
-        finMesh.position.set(x, height * 0.5, 0);
+        finMesh.position.set(x, height * 0.5, screenOffsetZ);
         finMesh.rotation.y = angle;
         finMesh.castShadow = true;
         group.add(finMesh);
@@ -150,7 +151,7 @@ export class TectonicComponents {
         const y = (i + 0.5) * spacing;
         const finGeo = new THREE.BoxGeometry(width - subFrameT * 2, finThickness, finDepth);
         const finMesh = new THREE.Mesh(finGeo, mat);
-        finMesh.position.set(0, y, 0);
+        finMesh.position.set(0, y, screenOffsetZ);
         finMesh.rotation.x = angle;
         finMesh.castShadow = true;
         group.add(finMesh);
@@ -819,9 +820,22 @@ export class TectonicComponents {
       treeTrunk.position.set(0, 2.1, 0);
       group.add(treeTrunk);
 
-      const treeCanopy = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 10), this.getMaterial('foliage'));
-      treeCanopy.position.set(0, 4.4, 0);
-      group.add(treeCanopy);
+      const foliageMat = this.getMaterial('foliage');
+      const canopyLayers: [number, number, number, number][] = [
+        [0, 4.3, 0, 1.45],
+        [-0.75, 4.0, 0.55, 1.05],
+        [0.80, 4.05, -0.50, 1.05],
+        [0.45, 3.85, 0.80, 0.95],
+        [-0.55, 4.15, -0.75, 0.95],
+        [0, 4.85, 0.1, 1.0],
+      ];
+      for (const [lx, ly, lz, lr] of canopyLayers) {
+        const leafPad = new THREE.DodecahedronGeometry(lr, 0);
+        leafPad.scale(1.18, 0.65, 1.18);
+        const leafMesh = new THREE.Mesh(leafPad, foliageMat);
+        leafMesh.position.set(lx, ly, lz);
+        group.add(leafMesh);
+      }
     }
     // E. JOGLO & PENDOPO: Saka Guru timber columns, antique teak chairs, chandelier, gamelan stage
     else if (archetype.includes('joglo') || archetype.includes('pendopo') || archetype.includes('budaya')) {
@@ -1170,7 +1184,7 @@ export class TectonicComponents {
 
     if (subText) {
       ctx.fillStyle = textColor;
-      ctx.font = 'bold 74px Inter, sans-serif';
+      ctx.font = 'bold 74px "Plus Jakarta Sans", sans-serif';
       ctx.fillText(mainText, 512, 105);
 
       ctx.fillStyle = '#f59e0b';
@@ -1178,7 +1192,7 @@ export class TectonicComponents {
       ctx.fillText(subText, 512, 185);
     } else {
       ctx.fillStyle = textColor;
-      ctx.font = 'bold 88px Inter, sans-serif';
+      ctx.font = 'bold 88px "Plus Jakarta Sans", sans-serif';
       ctx.fillText(mainText, 512, 128);
     }
 

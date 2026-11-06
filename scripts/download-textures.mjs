@@ -143,6 +143,76 @@ const materials = [
     license: 'MIT / CC0 Equivalent',
     uvScaleM: 4.0,
   },
+  {
+    name: 'kerikil_atap',
+    label: 'Kerikil Atap Datar (Roof Gravel)',
+    source: 'ambientcg',
+    assetId: 'Gravel015',
+    url: 'https://ambientcg.com/get?file=Gravel015_1K-JPG.zip',
+    pageUrl: 'https://ambientcg.com/view?id=Gravel015',
+    license: 'CC0 1.0 Universal',
+    uvScaleM: 2.0,
+  },
+  {
+    name: 'membran_atap',
+    label: 'Membran Kedap Air Atap Datar (Waterproof Roof Membrane)',
+    source: 'ambientcg',
+    assetId: 'Rubber001',
+    url: 'https://ambientcg.com/get?file=Rubber001_1K-JPG.zip',
+    pageUrl: 'https://ambientcg.com/view?id=Rubber001',
+    license: 'CC0 1.0 Universal',
+    uvScaleM: 3.0,
+  },
+  {
+    name: 'keramik_granit',
+    label: 'Keramik & Granit Dinding (Wall Ceramic/Granite Tiles)',
+    source: 'ambientcg',
+    assetId: 'Tiles107',
+    url: 'https://ambientcg.com/get?file=Tiles107_1K-JPG.zip',
+    pageUrl: 'https://ambientcg.com/view?id=Tiles107',
+    license: 'CC0 1.0 Universal',
+    uvScaleM: 2.0,
+  },
+  {
+    name: 'spandek',
+    label: 'Atap Spandek Baja Gelombang (Corrugated Metal Roof)',
+    source: 'ambientcg',
+    assetId: 'CorrugatedSteel005',
+    url: 'https://ambientcg.com/get?file=CorrugatedSteel005_1K-JPG.zip',
+    pageUrl: 'https://ambientcg.com/view?id=CorrugatedSteel005',
+    license: 'CC0 1.0 Universal',
+    uvScaleM: 2.5,
+  },
+  {
+    name: 'genteng_metal',
+    label: 'Genteng Metal Pasir Modern (Metal Roofing Tiles)',
+    source: 'ambientcg',
+    assetId: 'RoofingTiles008',
+    url: 'https://ambientcg.com/get?file=RoofingTiles008_1K-JPG.zip',
+    pageUrl: 'https://ambientcg.com/view?id=RoofingTiles008',
+    license: 'CC0 1.0 Universal',
+    uvScaleM: 2.0,
+  },
+  {
+    name: 'acp',
+    label: 'Panel Aluminium Komposit Fasad (ACP Cladding)',
+    source: 'ambientcg',
+    assetId: 'MetalPlates006',
+    url: 'https://ambientcg.com/get?file=MetalPlates006_1K-JPG.zip',
+    pageUrl: 'https://ambientcg.com/view?id=MetalPlates006',
+    license: 'CC0 1.0 Universal',
+    uvScaleM: 2.4,
+  },
+  {
+    name: 'plester_kasar',
+    label: 'Plester Dinding Kasar & Stucco (Textured Exterior Plaster)',
+    source: 'ambientcg',
+    assetId: 'PaintedPlaster017',
+    url: 'https://ambientcg.com/get?file=PaintedPlaster017_1K-JPG.zip',
+    pageUrl: 'https://ambientcg.com/view?id=PaintedPlaster017',
+    license: 'CC0 1.0 Universal',
+    uvScaleM: 3.0,
+  },
 ];
 
 async function downloadFile(url, destPath) {
@@ -157,12 +227,20 @@ async function downloadFile(url, destPath) {
 }
 
 async function processAll() {
+  const manifestPath = path.join(texturesBaseDir, 'manifest.json');
+  let existingManifest = {};
+  if (fs.existsSync(manifestPath)) {
+    try {
+      existingManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    } catch {}
+  }
+
   const manifest = {
     title: 'Arscity CC0 PBR Texture Manifest',
     generatedAt: new Date().toISOString(),
     resolution: '1K',
     format: 'JPG',
-    materials: {},
+    materials: existingManifest.materials || {},
   };
 
   for (const mat of materials) {
@@ -286,7 +364,6 @@ async function processAll() {
     fs.rmSync(tempDir, { recursive: true, force: true });
   } catch (e) {}
 
-  const manifestPath = path.join(texturesBaseDir, 'manifest.json');
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`\nSuccessfully generated manifest.json at ${manifestPath}`);
   console.log(`Total materials configured: ${Object.keys(manifest.materials).length}`);

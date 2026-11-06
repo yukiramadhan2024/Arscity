@@ -6,6 +6,15 @@ export class ProceduralAudio {
   public volume: number = 0.5;
   private activeFootstepVoiceCount: number = 0;
   public static readonly MAX_FOOTSTEP_VOICES: number = 4;
+  /** Major Pentatonic Scale (C5, D5, E5, G5, A5, C6) for Miniopolis-style musical feedback */
+  public static readonly PENTATONIC_SCALE_HZ: readonly number[] = [
+    523.25, // C5
+    587.33, // D5
+    659.25, // E5
+    783.99, // G5
+    880.00, // A5
+    1046.50 // C6
+  ];
 
   public toggleMute(): boolean {
     this.enabled = !this.enabled;
@@ -83,27 +92,106 @@ export class ProceduralAudio {
   }
 
   public playPlaceBuilding(): void {
-    const ctx = this.initContext();
-    if (!ctx) return;
+    this.playPlacementChord();
+  }
 
-    // Harmonic chord (C5 + G5)
-    [523.25, 783.99].forEach((freq, i) => {
+  /**
+   * Warm two-note harmonic placement chord (C5 + G5) synthesized when
+   * building, sub-part customization, or road construction finishes.
+   */
+  public playPlacementChord(): number[] {
+    const chordHz = [523.25, 783.99];
+    const ctx = this.initContext();
+    if (!ctx) return chordHz;
+
+    chordHz.forEach((freq, i) => {
       if (!ctx) return;
+      const startAt = ctx.currentTime + i * 0.028;
+
       const osc = ctx.createOscillator();
+      const bodyOsc = ctx.createOscillator();
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.03);
+      osc.frequency.setValueAtTime(freq, startAt);
 
-      gain.gain.setValueAtTime(0.2 * this.volume, ctx.currentTime + i * 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25 + i * 0.03);
+      bodyOsc.type = 'triangle';
+      bodyOsc.frequency.setValueAtTime(freq * 0.5, startAt);
+
+      const bodyGain = ctx.createGain();
+      bodyGain.gain.setValueAtTime(0.08 * this.volume, startAt);
+      bodyGain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.28);
+
+      gain.gain.setValueAtTime(0.001, startAt);
+      gain.gain.linearRampToValueAtTime(0.22 * this.volume, startAt + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.32);
 
       osc.connect(gain);
+      bodyOsc.connect(bodyGain);
+      bodyGain.connect(ctx.destination);
       gain.connect(ctx.destination);
 
-      osc.start(ctx.currentTime + i * 0.03);
-      osc.stop(ctx.currentTime + 0.25 + i * 0.03);
+      osc.start(startAt);
+      osc.stop(startAt + 0.33);
+      bodyOsc.start(startAt);
+      bodyOsc.stop(startAt + 0.29);
     });
+
+    return chordHz;
+  }
+
+  /**
+   * Miniopolis-style Musical Scale Step Sound:
+   * Synthesizes a clean acoustic marimba / kalimba tone along the major pentatonic
+   * scale (C5, D5, E5, G5, A5, C6) for every 1m resize or +1/-1 floor step.
+   * Returns the fundamental frequency (Hz) played.
+   */
+  public playScaleStepSound(stepIndex: number): number {
+    const scale = ProceduralAudio.PENTATONIC_SCALE_HZ;
+    const safeStep = Number.isFinite(stepIndex) ? Math.round(stepIndex) : 0;
+    const noteIdx = ((safeStep % scale.length) + scale.length) % scale.length;
+    const octaveOffset = Math.max(-1, Math.min(1, Math.floor(safeStep / scale.length)));
+    const freq = Number((scale[noteIdx] * Math.pow(2, octaveOffset * 0.5 > 0.5 ? 1 : octaveOffset < 0 ? -0.5 : 0)).toFixed(2));
+    // Keep pure C5..C6 frequencies exact for steps 0..5
+    const exactFreq = safeStep >= 0 && safeStep < scale.length ? scale[safeStep] : freq;
+
+    const ctx = this.initContext();
+    if (!ctx) return exactFreq;
+
+    const now = ctx.currentTime;
+
+    // 1. Fundamental resonant marimba/kalimba bar (pure sine with fast 4ms mallet attack)
+    const fundOsc = ctx.createOscillator();
+    const fundGain = ctx.createGain();
+    fundOsc.type = 'sine';
+    fundOsc.frequency.setValueAtTime(exactFreq, now);
+    fundOsc.frequency.exponentialRampToValueAtTime(exactFreq * 0.996, now + 0.22);
+
+    fundGain.gain.setValueAtTime(0.001, now);
+    fundGain.gain.linearRampToValueAtTime(0.24 * this.volume, now + 0.004);
+    fundGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    fundOsc.connect(fundGain);
+    fundGain.connect(ctx.destination);
+    fundOsc.start(now);
+    fundOsc.stop(now + 0.23);
+
+    // 2. Kalimba tine / rosewood 3rd-4th harmonic transient ping
+    const overtoneOsc = ctx.createOscillator();
+    const overtoneGain = ctx.createGain();
+    overtoneOsc.type = 'triangle';
+    overtoneOsc.frequency.setValueAtTime(exactFreq * 3.0, now);
+
+    overtoneGain.gain.setValueAtTime(0.001, now);
+    overtoneGain.gain.linearRampToValueAtTime(0.09 * this.volume, now + 0.002);
+    overtoneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+    overtoneOsc.connect(overtoneGain);
+    overtoneGain.connect(ctx.destination);
+    overtoneOsc.start(now);
+    overtoneOsc.stop(now + 0.05);
+
+    return exactFreq;
   }
 
   public playDemolish(): void {

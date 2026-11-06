@@ -45,10 +45,37 @@ export class SpringAnimator {
     });
   }
 
-  public update(): void {
+  /**
+   * Local uniform spring exclusively for First-Person furniture meshes (0.75 -> 1.0 over 200ms)
+   * without shaking the parent building group while the player stands inside.
+   */
+  public triggerLocalFurnitureSpring(
+    object: THREE.Object3D,
+    isReducedMotion: boolean = false,
+    durationMs: number = 200
+  ): void {
+    if (!object) return;
+
+    const existing = this.activeSprings.get(object.id);
+    const targetScale = existing ? existing.targetScale.clone() : object.scale.clone();
+    const initialScale = targetScale.clone().multiplyScalar(0.75);
+
+    object.scale.copy(initialScale);
+
+    this.activeSprings.set(object.id, {
+      object,
+      startTime: performance.now(),
+      durationMs: isReducedMotion ? 120 : durationMs,
+      initialScale,
+      targetScale,
+      isReducedMotion
+    });
+  }
+
+  public update(nowOverrideMs?: number): void {
     if (this.activeSprings.size === 0) return;
 
-    const now = performance.now();
+    const now = nowOverrideMs !== undefined ? nowOverrideMs : performance.now();
     const completedIds: number[] = [];
 
     // Apple Tactile Physics parameters (k: 520, c: 32, m: 0.7)

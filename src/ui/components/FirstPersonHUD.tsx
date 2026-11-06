@@ -395,10 +395,10 @@ export const FirstPersonHUD: React.FC = () => {
               borderRadius: '50%',
               border: reticleHighlighted
                 ? '2px solid var(--accent)'
-                : '1.5px solid rgba(248, 250, 252, 0.85)',
+                : '1.5px solid var(--surface)',
               boxShadow: reticleHighlighted
-                ? '0 0 10px rgba(10, 132, 255, 0.65)'
-                : '0 0 4px rgba(0, 0, 0, 0.45)',
+                ? 'var(--shadow-accent)'
+                : 'var(--shadow-glass)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -410,7 +410,7 @@ export const FirstPersonHUD: React.FC = () => {
                 width: '4px',
                 height: '4px',
                 borderRadius: '50%',
-                backgroundColor: reticleHighlighted ? 'var(--accent)' : '#F8FAFC'
+                backgroundColor: reticleHighlighted ? 'var(--accent)' : 'var(--on-accent)'
               }}
             />
           </div>
@@ -1821,7 +1821,8 @@ export const FirstPersonHUD: React.FC = () => {
                     borderRadius: '9999px',
                     background: dslrLens === lens ? 'var(--accent)' : 'var(--surface-raised)',
                     border: 'none',
-                    color: dslrLens === lens ? '#FFFFFF' : 'var(--label)',
+                    color: dslrLens === lens ? 'var(--on-accent)' : 'var(--label)',
+                    boxShadow: dslrLens === lens ? 'var(--shadow-accent)' : 'none',
                     cursor: 'pointer'
                   }}
                   title={DSLR_LENS_MAP[lens].desc}
@@ -1840,7 +1841,8 @@ export const FirstPersonHUD: React.FC = () => {
                 alignItems: 'center',
                 gap: '6px',
                 background: 'var(--accent)',
-                color: '#FFFFFF',
+                color: 'var(--on-accent)',
+                boxShadow: 'var(--shadow-accent)',
                 border: 'none',
                 borderRadius: '9999px',
                 fontSize: '12px',

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BuildingInstance, RoofType } from './PrefabTypes';
+import { BuildingInstance, BuildingSubPartDimensions, BuildingSubPartType, RoofType } from './PrefabTypes';
 import { MaterialLibrary } from '../materials/MaterialLibrary';
 import { InteriorLayoutFactory } from './InteriorLayoutFactory';
 import { InteriorMeshBuilder } from './InteriorMeshBuilder';
@@ -18,6 +18,7 @@ export interface CachedMeshTemplate {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
   layer?: 'exterior' | 'detail_props' | 'interior' | 'subsurface' | 'lod2_massing';
+  partType?: BuildingSubPartType;
 }
 
 /**
@@ -43,7 +44,53 @@ export class PrefabMeshBuilder {
     this.geometryCache.clear();
   }
 
+  public static getEffectiveSubParts(
+    bld: Partial<BuildingInstance> & { width?: number; length?: number; floorCount?: number }
+  ): Record<BuildingSubPartType, BuildingSubPartDimensions> {
+    const w = Math.max(4, bld.width || 10);
+    const l = Math.max(4, bld.length || 10);
+    const fl = Math.max(1, bld.floorCount || 1);
+    const overhang = bld.roofOverhang ?? 1.2;
+    const custom = bld.subParts || {};
+
+    return {
+      main_tower: custom.main_tower
+        ? { ...custom.main_tower }
+        : { partWidth: w, partDepth: l, partFloors: fl },
+      podium_base: custom.podium_base
+        ? { ...custom.podium_base }
+        : {
+            partWidth: Number((w * 1.08).toFixed(2)),
+            partDepth: Number((l * 1.08).toFixed(2)),
+            partFloors: fl >= 4 ? 2 : 1
+          },
+      side_wing: custom.side_wing
+        ? { ...custom.side_wing }
+        : {
+            partWidth: Number(Math.max(3.6, w * 0.42).toFixed(2)),
+            partDepth: Number(Math.max(4.4, l * 0.72).toFixed(2)),
+            partFloors: Math.max(1, fl > 1 ? fl - 1 : 1)
+          },
+      roof_crown: custom.roof_crown
+        ? { ...custom.roof_crown }
+        : {
+            partWidth: Number((w + overhang * 2).toFixed(2)),
+            partDepth: Number((l + overhang * 2).toFixed(2)),
+            partFloors: 1
+          }
+    };
+  }
+
   public static getCacheKey(bld: BuildingInstance): string {
+    const sp = bld.subParts
+      ? (['main_tower', 'podium_base', 'side_wing', 'roof_crown'] as BuildingSubPartType[])
+          .map((k) => {
+            const d = bld.subParts?.[k];
+            return d ? `${k}:${d.partWidth.toFixed(2)}x${d.partDepth.toFixed(2)}x${d.partFloors}` : '';
+          })
+          .filter(Boolean)
+          .join('|')
+      : '';
     return [
       bld.presetKey || 'custom',
       (bld.width || 0).toFixed(2),
@@ -53,7 +100,9 @@ export class PrefabMeshBuilder {
       bld.roofType || 'hip',
       bld.roofMaterial || '',
       bld.wallMaterial || 'plaster',
-      bld.wallColor || ''
+      bld.wallColor || '',
+      sp,
+      (bld.apronDepth || 0).toFixed(2)
     ].join('_');
   }
 
@@ -72,7 +121,8 @@ export class PrefabMeshBuilder {
   }
 
   /**
-   * Consolidates all static child meshes sharing the same material into unified geometries.
+   * Consolidates all static child meshes sharing the same material (and sub-part type) into unified geometries.
+   * Never merges meshes across different BuildingSubPartType buckets so modular sub-parts remain independently selectable.
    */
   public static optimizeBuildingGroup(
     group: THREE.Group,
@@ -81,7 +131,10 @@ export class PrefabMeshBuilder {
     group.updateMatrixWorld(true);
     const rootInv = group.matrixWorld.clone().invert();
 
-    const meshesByMaterial = new Map<THREE.Material, { geo: THREE.BufferGeometry; matrix: THREE.Matrix4 }[]>();
+    const meshesByBucket = new Map<
+      string,
+      { mat: THREE.Material; partType?: BuildingSubPartType; items: { geo: THREE.BufferGeometry; matrix: THREE.Matrix4 }[] }
+    >();
     const allMeshes: THREE.Mesh[] = [];
 
     group.traverse((child) => {
@@ -94,10 +147,23 @@ export class PrefabMeshBuilder {
       mesh.updateMatrixWorld(true);
       const relMatrix = rootInv.clone().multiply(mesh.matrixWorld);
       const mat = mesh.material as THREE.Material;
-      if (!meshesByMaterial.has(mat)) {
-        meshesByMaterial.set(mat, []);
+      let resolvedPart: BuildingSubPartType | undefined = undefined;
+      if (layer === 'exterior') {
+        let p: THREE.Object3D | null = mesh;
+        while (p && p !== group) {
+          if (p.userData?.partType) {
+            resolvedPart = p.userData.partType as BuildingSubPartType;
+            break;
+          }
+          p = p.parent;
+        }
+        resolvedPart = resolvedPart || 'main_tower';
       }
-      meshesByMaterial.get(mat)!.push({
+      const bucketKey = `${resolvedPart || 'none'}::${mat.uuid}`;
+      if (!meshesByBucket.has(bucketKey)) {
+        meshesByBucket.set(bucketKey, { mat, partType: resolvedPart, items: [] });
+      }
+      meshesByBucket.get(bucketKey)!.items.push({
         geo: mesh.geometry,
         matrix: relMatrix,
       });
@@ -110,12 +176,12 @@ export class PrefabMeshBuilder {
 
     const templates: CachedMeshTemplate[] = [];
 
-    for (const [mat, items] of meshesByMaterial.entries()) {
+    for (const { mat, partType, items } of meshesByBucket.values()) {
       if (items.length === 1) {
         const transformedGeo = items[0].geo.clone();
         transformedGeo.applyMatrix4(items[0].matrix);
         items[0].geo.dispose();
-        templates.push({ geometry: transformedGeo, material: mat, layer });
+        templates.push({ geometry: transformedGeo, material: mat, layer, partType });
       } else {
         const transformedGeos: THREE.BufferGeometry[] = [];
         for (const item of items) {
@@ -167,17 +233,191 @@ export class PrefabMeshBuilder {
         }
 
         if (merged) {
-          templates.push({ geometry: merged, material: mat, layer });
+          templates.push({ geometry: merged, material: mat, layer, partType });
         } else {
           for (const item of items) {
             const fallbackGeo = item.geo.clone().applyMatrix4(item.matrix);
-            templates.push({ geometry: fallbackGeo, material: mat, layer });
+            templates.push({ geometry: fallbackGeo, material: mat, layer, partType });
           }
         }
       }
     }
 
     return templates;
+  }
+
+  /**
+   * Partitions raw exterior meshes into modular sub-parts ('podium_base', 'main_tower', 'side_wing', 'roof_crown')
+   * and builds/scales customized sub-part volumes (Miniopolis & CityRT.com style).
+   */
+  public static partitionAndCustomizeSubParts(rawExterior: THREE.Group, building: BuildingInstance): void {
+    rawExterior.updateMatrixWorld(true);
+    const rootInv = rawExterior.matrixWorld.clone().invert();
+    const eff = this.getEffectiveSubParts(building);
+    const plinthH = building.plinthHeight ?? 0.35;
+    const flH = building.floorHeight || 3.8;
+    const towerFloors = Math.max(1, eff.main_tower.partFloors);
+    const roofBaseY = plinthH + towerFloors * flH;
+
+    let podiumCount = 0;
+    let sideWingCount = 0;
+    let crownCount = 0;
+
+    const bbox = new THREE.Box3();
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+
+    rawExterior.traverse((child) => {
+      if (!(child as THREE.Mesh).isMesh) return;
+      const mesh = child as THREE.Mesh;
+      if (mesh.userData?.partType) {
+        if (mesh.userData.partType === 'podium_base') podiumCount++;
+        if (mesh.userData.partType === 'side_wing') sideWingCount++;
+        if (mesh.userData.partType === 'roof_crown') crownCount++;
+        return;
+      }
+
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      bbox.copy(mesh.geometry.boundingBox!);
+      const rel = rootInv.clone().multiply(mesh.matrixWorld);
+      bbox.applyMatrix4(rel);
+      bbox.getCenter(center);
+      bbox.getSize(size);
+
+      if (bbox.min.y >= roofBaseY - 0.25 || center.y >= roofBaseY + 0.05) {
+        mesh.userData.partType = 'roof_crown';
+        crownCount++;
+      } else if (bbox.max.y <= plinthH + 0.55 || (towerFloors >= 3 && bbox.max.y <= plinthH + flH * 1.15 && size.x > eff.main_tower.partWidth * 1.02)) {
+        mesh.userData.partType = 'podium_base';
+        podiumCount++;
+      } else if (Math.abs(center.x) > eff.main_tower.partWidth * 0.32 && size.x < eff.main_tower.partWidth * 0.65) {
+        mesh.userData.partType = 'side_wing';
+        sideWingCount++;
+      } else {
+        mesh.userData.partType = 'main_tower';
+      }
+    });
+
+    const wallMat = this.getMaterial(building.wallMaterial || 'plaster', building.wallColor || '#f8fafc');
+    const beltMat = this.getMaterial('floor_belt', building.wallColor || '#f8fafc');
+    const plinthMat = this.getMaterial('stone_plinth', '#475569');
+    const glassMat = this.getMaterial('glass');
+    const frameMat = this.getMaterial('dark_metal', '#1e293b');
+    const roofMat = this.getMaterial(building.roofMaterial || 'clay_tile');
+
+    // 1. Podium Base customization / guarantee
+    if (building.subParts?.podium_base || podiumCount === 0) {
+      const pw = eff.podium_base.partWidth;
+      const pd = eff.podium_base.partDepth;
+      const pf = Math.max(1, eff.podium_base.partFloors);
+      const podiumGroup = new THREE.Group();
+      podiumGroup.userData.partType = 'podium_base';
+
+      // Structural plinth base
+      const plinthGeo = new THREE.BoxGeometry(pw + 0.16, plinthH, pd + 0.16);
+      MaterialLibrary.applyWorldScaleUVs(plinthGeo, 2.0);
+      plinthGeo.translate(0, plinthH * 0.5, 0);
+      const plinthMesh = new THREE.Mesh(plinthGeo, plinthMat);
+      plinthMesh.userData.partType = 'podium_base';
+      podiumGroup.add(plinthMesh);
+
+      // Extra podium floors when podium_base is stretched wider/deeper than main_tower or pf > 1
+      if (building.subParts?.podium_base && (pw > eff.main_tower.partWidth + 0.3 || pd > eff.main_tower.partDepth + 0.3 || pf > 1)) {
+        const podH = pf * flH;
+        const bodyGeo = new THREE.BoxGeometry(pw, podH, pd);
+        MaterialLibrary.applyWorldScaleUVs(bodyGeo, 2.5);
+        bodyGeo.translate(0, plinthH + podH * 0.5, 0);
+        const bodyMesh = new THREE.Mesh(bodyGeo, wallMat);
+        bodyMesh.userData.partType = 'podium_base';
+        podiumGroup.add(bodyMesh);
+
+        for (let f = 1; f <= pf; f++) {
+          const beltGeo = new THREE.BoxGeometry(pw + 0.14, 0.20, pd + 0.14);
+          beltGeo.translate(0, plinthH + f * flH - 0.10, 0);
+          const beltMesh = new THREE.Mesh(beltGeo, beltMat);
+          beltMesh.userData.partType = 'podium_base';
+          podiumGroup.add(beltMesh);
+        }
+      }
+      rawExterior.add(podiumGroup);
+    }
+
+    // 2. Side Wing annex customization / modular guarantee
+    if (building.subParts?.side_wing || sideWingCount === 0) {
+      const sw = eff.side_wing.partWidth;
+      const sd = eff.side_wing.partDepth;
+      const sf = Math.max(1, eff.side_wing.partFloors);
+      const isCustomSideWing = Boolean(building.subParts?.side_wing);
+
+      const wingW = isCustomSideWing ? sw : Math.min(sw, Math.max(1.8, eff.main_tower.partWidth * 0.24));
+      const wingD = isCustomSideWing ? sd : Math.min(sd, eff.main_tower.partDepth * 0.68);
+      const wingH = sf * flH * (isCustomSideWing ? 1.0 : 0.88);
+      const wingX = eff.main_tower.partWidth * 0.5 + wingW * 0.5 - (isCustomSideWing ? 0.08 : wingW * 0.65);
+
+      const wingGroup = new THREE.Group();
+      wingGroup.userData.partType = 'side_wing';
+
+      const wingBodyGeo = new THREE.BoxGeometry(wingW, wingH, wingD);
+      MaterialLibrary.applyWorldScaleUVs(wingBodyGeo, 2.5);
+      wingBodyGeo.translate(wingX, plinthH + wingH * 0.5, 0);
+      const wingBody = new THREE.Mesh(wingBodyGeo, wallMat);
+      wingBody.userData.partType = 'side_wing';
+      wingGroup.add(wingBody);
+
+      // Side-wing front ribbon glazing (offset +0.07m outward for zero z-fighting)
+      for (let f = 0; f < sf; f++) {
+        const winH = Math.min(1.5, flH * 0.45);
+        const winW = Math.max(0.8, wingW * 0.68);
+        const winY = plinthH + f * (wingH / sf) + (wingH / sf) * 0.52;
+        const winZ = wingD * 0.5 + 0.07;
+
+        const glassGeo = new THREE.BoxGeometry(winW, winH, 0.04);
+        glassGeo.translate(wingX, winY, winZ);
+        const glassMesh = new THREE.Mesh(glassGeo, glassMat);
+        glassMesh.userData.partType = 'side_wing';
+        wingGroup.add(glassMesh);
+
+        const sillGeo = new THREE.BoxGeometry(winW + 0.10, 0.06, 0.08);
+        sillGeo.translate(wingX, winY - winH * 0.5 - 0.03, winZ + 0.01);
+        const sillMesh = new THREE.Mesh(sillGeo, frameMat);
+        sillMesh.userData.partType = 'side_wing';
+        wingGroup.add(sillMesh);
+      }
+
+      // Side-wing roof cap / parapet
+      const capGeo = new THREE.BoxGeometry(wingW + 0.24, 0.22, wingD + 0.24);
+      capGeo.translate(wingX, plinthH + wingH + 0.11, 0);
+      const capMesh = new THREE.Mesh(capGeo, beltMat);
+      capMesh.userData.partType = 'side_wing';
+      wingGroup.add(capMesh);
+
+      rawExterior.add(wingGroup);
+    }
+
+    // 3. Roof Crown customization / modular guarantee
+    if (building.subParts?.roof_crown || crownCount === 0) {
+      if (crownCount === 0) {
+        const cw = eff.roof_crown.partWidth;
+        const cd = eff.roof_crown.partDepth;
+        const crownGeo = new THREE.BoxGeometry(cw, 0.28 * Math.max(1, eff.roof_crown.partFloors), cd);
+        crownGeo.translate(0, roofBaseY + 0.14 * Math.max(1, eff.roof_crown.partFloors), 0);
+        const crownMesh = new THREE.Mesh(crownGeo, roofMat);
+        crownMesh.userData.partType = 'roof_crown';
+        rawExterior.add(crownMesh);
+      } else if (building.subParts?.roof_crown) {
+        const baseCrownW = Math.max(4, eff.main_tower.partWidth + (building.roofOverhang ?? 1.2) * 2);
+        const baseCrownD = Math.max(4, eff.main_tower.partDepth + (building.roofOverhang ?? 1.2) * 2);
+        const sx = eff.roof_crown.partWidth / baseCrownW;
+        const sz = eff.roof_crown.partDepth / baseCrownD;
+        const sy = Math.max(0.6, eff.roof_crown.partFloors);
+
+        rawExterior.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh && child.userData?.partType === 'roof_crown') {
+            child.scale.set(child.scale.x * sx, child.scale.y * sy, child.scale.z * sz);
+          }
+        });
+      }
+    }
   }
 
   /**
@@ -205,103 +445,115 @@ export class PrefabMeshBuilder {
 
     if (this.geometryCache.has(cacheKey)) {
       const templates = this.geometryCache.get(cacheKey)!;
-      this.instantiateFromTemplates(group, templates);
+      this.instantiateFromTemplates(group, templates, building);
       this.attachPlacedFurniture(group, building);
       this.attachEntrancePavingPath(group, building);
       this.freezeStaticBuildingMeshes(group);
       return group;
     }
 
-    // 1. Build raw exterior shell & detail props
+    // 1. Build raw exterior shell & detail props (respecting main_tower sub-part overrides if set)
     const rawExterior = new THREE.Group();
     const rawDetailProps = new THREE.Group();
+    const effSubParts = this.getEffectiveSubParts(building);
+    const effectiveBuilding: BuildingInstance = building.subParts?.main_tower
+      ? {
+          ...building,
+          width: effSubParts.main_tower.partWidth,
+          length: effSubParts.main_tower.partDepth,
+          floorCount: effSubParts.main_tower.partFloors
+        }
+      : building;
 
-    const item = BuildingCatalogRegistry.getBuilding(building.presetKey);
+    const item = BuildingCatalogRegistry.getBuilding(effectiveBuilding.presetKey);
 
-    switch (building.presetKey) {
+    switch (effectiveBuilding.presetKey) {
       case 'skyscraper_office_tower':
-        this.buildSkyscraperOfficeTower(rawExterior, building);
+        this.buildSkyscraperOfficeTower(rawExterior, effectiveBuilding);
         break;
       case 'skyscraper_green_apartment':
-        this.buildSkyscraperGreenApartment(rawExterior, building);
+        this.buildSkyscraperGreenApartment(rawExterior, effectiveBuilding);
         break;
       case 'skyscraper_grand_hotel':
-        this.buildSkyscraperGrandHotel(rawExterior, building);
+        this.buildSkyscraperGrandHotel(rawExterior, effectiveBuilding);
         break;
       case 'skyscraper_mixed_use':
-        this.buildSkyscraperMixedUse(rawExterior, building);
+        this.buildSkyscraperMixedUse(rawExterior, effectiveBuilding);
         break;
       case 'house_36':
-        this.buildModernHouse36(rawExterior, building);
+        this.buildModernHouse36(rawExterior, effectiveBuilding);
         break;
       case 'house_54':
-        this.buildModernHouse54(rawExterior, building);
+        this.buildModernHouse54(rawExterior, effectiveBuilding);
         break;
       case 'house_2fl':
-        this.buildModernVilla2Story(rawExterior, building);
+        this.buildModernVilla2Story(rawExterior, effectiveBuilding);
         break;
       case 'joglo':
-        this.buildNeoVernacularJoglo(rawExterior, building);
+        this.buildNeoVernacularJoglo(rawExterior, effectiveBuilding);
         break;
       case 'cafe_minimalis_kaca':
       case 'cafe_kopi_rasa':
       case 'tropical_cafe':
-        this.buildTropicalCafeKopiRasa(rawExterior, building);
+        this.buildTropicalCafeKopiRasa(rawExterior, effectiveBuilding);
         break;
       case 'resto_mie_gacoan':
       case 'resto_mie_nusantara':
       case 'mie_nusantara':
-        this.buildMieNusantaraRestaurant(rawExterior, building);
+        this.buildMieNusantaraRestaurant(rawExterior, effectiveBuilding);
         break;
       case 'ruko_3fl':
-        this.buildModernShophouse(rawExterior, building);
+        this.buildModernShophouse(rawExterior, effectiveBuilding);
         break;
       case 'minimarket':
-        this.buildModernRetail(rawExterior, building);
+        this.buildModernRetail(rawExterior, effectiveBuilding);
         break;
       case 'office_tower':
-        this.buildModernOfficeTower(rawExterior, building);
+        this.buildModernOfficeTower(rawExterior, effectiveBuilding);
         break;
       case 'apartment':
-        this.buildModernApartment(rawExterior, building);
+        this.buildModernApartment(rawExterior, effectiveBuilding);
         break;
       case 'mosque':
-        this.buildModernMosque(rawExterior, building);
+        this.buildModernMosque(rawExterior, effectiveBuilding);
         break;
       case 'school':
-        this.buildModernSchool(rawExterior, building);
+        this.buildModernSchool(rawExterior, effectiveBuilding);
         break;
       case 'puskesmas':
-        this.buildModernPuskesmas(rawExterior, building);
+        this.buildModernPuskesmas(rawExterior, effectiveBuilding);
         break;
       case 'community_hall':
-        this.buildModernCommunityHall(rawExterior, building);
+        this.buildModernCommunityHall(rawExterior, effectiveBuilding);
         break;
       default:
-        this.buildByArchetype(rawExterior, building, item);
+        this.buildByArchetype(rawExterior, effectiveBuilding, item);
         break;
     }
 
     // 1b. Scatter realistic architectural rooftop equipment into rawDetailProps
-    const totalFloors = Math.max(1, building.floorCount || 1);
-    const flHeight = building.floorHeight || 3.8;
+    const totalFloors = Math.max(1, effectiveBuilding.floorCount || 1);
+    const flHeight = effectiveBuilding.floorHeight || 3.8;
     const roofBaseElev = 0.35 + totalFloors * flHeight;
     RoofEquipmentBuilder.scatterRooftopEquipment(
       rawDetailProps,
-      building,
-      building.width,
-      building.length,
+      effectiveBuilding,
+      effectiveBuilding.width,
+      effectiveBuilding.length,
       roofBaseElev,
-      building.roofType || 'flat'
+      effectiveBuilding.roofType || 'flat'
     );
 
     // Foundation skirt belongs to exterior shell (Adaptive Terrain Plinth: 1.5m depth)
     const foundationSkirt = this.buildFoundationSkirt(
-      building.width,
-      building.length,
+      Math.max(effectiveBuilding.width, effSubParts.podium_base.partWidth),
+      Math.max(effectiveBuilding.length, effSubParts.podium_base.partDepth),
       1.5,
-      building.wallMaterial === 'brick' ? 'brick' : 'concrete'
+      effectiveBuilding.wallMaterial === 'brick' ? 'brick' : 'concrete'
     );
+    foundationSkirt.traverse((c) => {
+      if ((c as THREE.Mesh).isMesh) c.userData.partType = 'podium_base';
+    });
     rawExterior.add(foundationSkirt);
 
     // Extract any facade micro-devices from rawExterior into rawDetailProps
@@ -315,6 +567,9 @@ export class PrefabMeshBuilder {
       if (d.parent) d.parent.remove(d);
       rawDetailProps.add(d);
     }
+
+    // Partition rawExterior into modular sub-parts (podium_base, main_tower, side_wing, roof_crown)
+    this.partitionAndCustomizeSubParts(rawExterior, building);
 
     // 2. Build raw interior details (Only for Floor 1 / Ground Floor to prevent duplicating furniture across upper floors)
     const rawInterior = new THREE.Group();
@@ -376,7 +631,7 @@ export class PrefabMeshBuilder {
     ];
     this.geometryCache.set(cacheKey, allTemplates);
 
-    this.instantiateFromTemplates(group, allTemplates);
+    this.instantiateFromTemplates(group, allTemplates, building);
     this.attachPlacedFurniture(group, building);
     this.attachEntrancePavingPath(group, building);
     this.freezeStaticBuildingMeshes(group);
@@ -454,9 +709,33 @@ export class PrefabMeshBuilder {
     group.updateMatrixWorld(true);
   }
 
-  public static instantiateFromTemplates(group: THREE.Group, templates: CachedMeshTemplate[]): void {
+  public static instantiateFromTemplates(
+    group: THREE.Group,
+    templates: CachedMeshTemplate[],
+    building?: Partial<BuildingInstance>
+  ): void {
     const exteriorShell = new THREE.Group();
     exteriorShell.name = 'ExteriorShell';
+
+    const effSubParts = this.getEffectiveSubParts((building as any) || {});
+    const subPartGroups: Record<BuildingSubPartType, THREE.Group> = {
+      podium_base: new THREE.Group(),
+      main_tower: new THREE.Group(),
+      side_wing: new THREE.Group(),
+      roof_crown: new THREE.Group()
+    };
+    for (const pt of ['podium_base', 'main_tower', 'side_wing', 'roof_crown'] as BuildingSubPartType[]) {
+      const sg = subPartGroups[pt];
+      sg.name = `SubPart_${pt}`;
+      sg.userData = {
+        partType: pt,
+        buildingId: building?.id ?? group.userData?.buildingId,
+        partWidth: effSubParts[pt].partWidth,
+        partDepth: effSubParts[pt].partDepth,
+        partFloors: effSubParts[pt].partFloors
+      };
+      exteriorShell.add(sg);
+    }
 
     const detailPropsGroup = new THREE.Group();
     detailPropsGroup.name = 'DetailPropsGroup';
@@ -470,6 +749,9 @@ export class PrefabMeshBuilder {
 
     const dynamicFurnitureGroup = new THREE.Group();
     dynamicFurnitureGroup.name = 'DynamicFurnitureGroup';
+    dynamicFurnitureGroup.visible = true;
+    dynamicFurnitureGroup.frustumCulled = false;
+    dynamicFurnitureGroup.userData.isDynamic = true;
 
     const lod2MassingGroup = new THREE.Group();
     lod2MassingGroup.name = 'LOD2MassingGroup';
@@ -477,7 +759,20 @@ export class PrefabMeshBuilder {
 
     for (const it of templates) {
       const mesh = new THREE.Mesh(it.geometry, it.material);
-      mesh.userData = { isSharedGeometry: true, layerType: it.layer || 'exterior' };
+      const pt: BuildingSubPartType = it.partType || 'main_tower';
+      mesh.userData = {
+        isSharedGeometry: true,
+        layerType: it.layer || 'exterior',
+        buildingId: building?.id ?? group.userData?.buildingId,
+        ...(it.layer === 'exterior' || !it.layer
+          ? {
+              partType: pt,
+              partWidth: effSubParts[pt].partWidth,
+              partDepth: effSubParts[pt].partDepth,
+              partFloors: effSubParts[pt].partFloors
+            }
+          : {})
+      };
 
       // Tahap 2 (T2.5): Freeze static matrix for consolidated non-animated meshes
       mesh.matrixAutoUpdate = false;
@@ -502,18 +797,19 @@ export class PrefabMeshBuilder {
       } else {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        exteriorShell.add(mesh);
+        subPartGroups[pt].add(mesh);
       }
     }
 
-    interiorDetails.add(dynamicFurnitureGroup);
     group.add(exteriorShell);
     group.add(detailPropsGroup);
     group.add(interiorDetails);
+    group.add(dynamicFurnitureGroup);
     group.add(subsurfaceFoundation);
     group.add(lod2MassingGroup);
 
     group.userData.exteriorShell = exteriorShell;
+    group.userData.subPartGroups = subPartGroups;
     group.userData.detailPropsGroup = detailPropsGroup;
     group.userData.interiorDetails = interiorDetails;
     group.userData.subsurfaceFoundation = subsurfaceFoundation;
@@ -561,15 +857,17 @@ export class PrefabMeshBuilder {
     if (!dynamicGroup) {
       dynamicGroup = new THREE.Group();
       dynamicGroup.name = 'DynamicFurnitureGroup';
-      if (group.userData.interiorDetails) {
-        group.userData.interiorDetails.add(dynamicGroup);
-      } else {
-        group.add(dynamicGroup);
-      }
+      group.add(dynamicGroup);
       group.userData.dynamicFurnitureGroup = dynamicGroup;
+    } else if (dynamicGroup.parent !== group) {
+      group.add(dynamicGroup);
     }
+    dynamicGroup.visible = true;
+    dynamicGroup.frustumCulled = false;
+    dynamicGroup.matrixAutoUpdate = true;
+    dynamicGroup.userData.isDynamic = true;
 
-    const plinthH = building.plinthHeight ?? 0.35;
+    const plinthHeight = building.plinthHeight ?? 0.35;
 
     for (const fur of placed) {
       const existing = dynamicGroup.children.find((c) => c.userData?.furnitureId === fur.id);
@@ -578,16 +876,28 @@ export class PrefabMeshBuilder {
       }
 
       const furMesh = FirstPersonFurnitureBuilder.buildFurniture(fur.type);
-      furMesh.position.set(fur.position[0], fur.position[1] + plinthH, fur.position[2]);
+      const baseFloorElevation = fur.position[1];
+      const accurateY = baseFloorElevation + plinthHeight + 0.01;
+      furMesh.position.set(fur.position[0], accurateY, fur.position[2]);
       furMesh.rotation.y = fur.rotationY || 0;
+      furMesh.visible = true;
+      furMesh.frustumCulled = false;
+      furMesh.matrixAutoUpdate = true;
       furMesh.userData = {
         furnitureId: fur.id,
         type: fur.type,
-        buildingId: building.id
+        buildingId: building.id,
+        isDynamic: true
       };
       furMesh.traverse((child) => {
+        child.visible = true;
+        child.frustumCulled = false;
+        child.matrixAutoUpdate = true;
         child.userData = {
+          ...child.userData,
           furnitureId: fur.id,
+          isFurniture: true,
+          isDynamic: true,
           type: fur.type,
           buildingId: building.id,
           isSharedGeometry: true,
@@ -603,7 +913,7 @@ export class PrefabMeshBuilder {
         const bldPos = building.position || new THREE.Vector3();
         const worldX = bldPos.x + (fur.position[0] * Math.cos(rot) - fur.position[2] * Math.sin(rot));
         const worldZ = bldPos.z + (fur.position[0] * Math.sin(rot) + fur.position[2] * Math.cos(rot));
-        const worldY = bldPos.y + plinthH + fur.position[1];
+        const worldY = bldPos.y + accurateY;
 
         InteriorInteractiveSystem.getInstance().registerSeat({
           id: `seat_${fur.id}`,
@@ -933,7 +1243,10 @@ export class PrefabMeshBuilder {
       transparent: true,
       opacity: 0.22,
       roughness: 0.05,
-      metalness: 0.9
+      metalness: 0.9,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
     });
 
     const plinthH = 0.35;
@@ -955,12 +1268,7 @@ export class PrefabMeshBuilder {
     sideLouverR.position.set(w * 0.5 - 0.1, plinthH, 0);
     group.add(sideLouverR);
 
-    // Front Facade: High Crystal Clear Panoramic Glass
-    const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(w - 0.4, h - 0.2, 0.04), ultraGlassMat);
-    frontGlass.position.set(0, plinthH + h * 0.5, l * 0.5 - 0.05);
-    group.add(frontGlass);
-
-    // Front Mullions (Minimal black steel structural frames)
+    // Front Facade: High Crystal Clear Panoramic Glass with Minimal Black Steel Mullions (>= 0.06m proud)
     const frontMullions = TectonicComponents.buildMullionCurtainWall(w - 0.2, h, 4, 2, 0.12, blackSteelMat, ultraGlassMat);
     frontMullions.position.set(0, plinthH, l * 0.5);
     group.add(frontMullions);
@@ -1074,7 +1382,10 @@ export class PrefabMeshBuilder {
       transparent: true,
       opacity: 0.24,
       roughness: 0.08,
-      metalness: 0.85
+      metalness: 0.85,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
     });
 
     const plinthH = 0.35;

@@ -126,10 +126,12 @@ export interface RoadNode {
 
 export interface RoadEdge {
   id: string;
+  name?: string;                  // In-world Indonesian road name (e.g. "Jl. Malioboro")
   startNodeId: string;
   endNodeId: string;
   type: RoadType;
   controlPoints: THREE.Vector3[]; // [start, CP1, CP2, end] for cubic Bezier
   length: number;                 // Length in meters
   customProfile?: Partial<RoadProfile>;
+  isBridge?: boolean;
 }

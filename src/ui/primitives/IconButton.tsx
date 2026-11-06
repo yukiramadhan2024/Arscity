@@ -127,7 +127,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
               color: '#FFFFFF',
               fontSize: '10px',
               fontWeight: 700,
-              fontFamily: 'monospace',
+              fontFamily: 'var(--font-mono)',
               lineHeight: 1.2,
               boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
             }}

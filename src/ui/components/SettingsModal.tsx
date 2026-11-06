@@ -115,20 +115,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           width: '560px',
           maxWidth: '92vw',
           maxHeight: '88vh',
-          background: 'rgba(248, 250, 252, 0.92)',
-          backdropFilter: 'blur(32px) saturate(200%)',
-          WebkitBackdropFilter: 'blur(32px) saturate(200%)',
+          background: 'var(--surface)',
+          backdropFilter: 'blur(var(--glass-blur, 24px)) saturate(var(--glass-saturate, 180%))',
+          WebkitBackdropFilter: 'blur(var(--glass-blur, 24px)) saturate(var(--glass-saturate, 180%))',
           borderRadius: '24px',
-          border: '1px solid rgba(255, 255, 255, 0.85)',
-          boxShadow: '0 24px 60px -12px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.6) inset',
+          border: '1px solid var(--border-glass)',
+          boxShadow: 'var(--shadow-glass)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          color: '#0F172A',
+          color: 'var(--label)',
           fontFamily: 'var(--font-sans)'
         }}
       >
-        {/* Modal Header */}
+        {/* Modal Header (Navy Blue Structural Panel) */}
         <div
           className="modal-sheet-header"
           style={{
@@ -136,7 +136,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid rgba(15, 23, 42, 0.05)'
+            background: 'var(--surface-navy)',
+            borderBottom: '1px solid var(--border-on-navy)'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -145,15 +146,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 width: '40px',
                 height: '40px',
                 borderRadius: '12px',
-                background: 'linear-gradient(135deg, rgba(0, 102, 255, 0.15), rgba(0, 212, 255, 0.15))',
-                border: '1px solid rgba(0, 102, 255, 0.25)',
+                background: 'var(--accent)',
+                boxShadow: 'var(--shadow-accent)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0
+                flexShrink: 0,
+                color: 'var(--on-accent)'
               }}
             >
-              <Settings size={20} color="#0066FF" strokeWidth={2.2} />
+              <Settings size={20} style={{ color: 'currentColor' }} strokeWidth={2.2} />
             </div>
             <div>
               <div
@@ -161,7 +163,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 style={{
                   fontSize: '18px',
                   fontWeight: 700,
-                  color: '#0F172A',
+                  color: 'var(--label-on-navy)',
                   letterSpacing: '-0.02em',
                   lineHeight: 1.2
                 }}
@@ -171,7 +173,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <div
                 style={{
                   fontSize: '13px',
-                  color: '#475569',
+                  color: 'var(--label-muted-on-navy)',
                   marginTop: '3px',
                   fontWeight: 500
                 }}
@@ -188,13 +190,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              background: 'var(--fill-control)',
-              border: 'none',
+              background: 'var(--fill-on-navy)',
+              border: '1px solid var(--border-on-navy)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: 'var(--label-secondary)',
+              color: 'var(--label-on-navy)',
               transition: 'all 0.15s ease'
             }}
           >
@@ -220,7 +222,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                color: '#0F172A',
+                color: '#072D59',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 marginBottom: '8px'
@@ -231,12 +233,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div
               className="inset-group"
               style={{
-                background: 'rgba(255, 255, 255, 0.78)',
+                background: 'rgba(255, 255, 255, 0.94)',
                 borderRadius: '16px',
-                border: '1px solid rgba(15, 23, 42, 0.06)',
-                boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03)',
-                overflow: 'hidden'
-              }}
+                border: '1px solid rgba(219, 242, 252, 0.28)',
+                boxShadow: '0 4px 16px rgba(7, 45, 89, 0.16)',
+                overflow: 'hidden',
+                color: '#072D59',
+                '--label': '#072D59',
+                '--label-secondary': '#475569',
+                '--labelSecondary': '#475569',
+                '--foreground': '#072D59',
+                '--fill-control': 'rgba(7, 45, 89, 0.08)',
+                '--hairline': 'rgba(7, 45, 89, 0.15)',
+              } as React.CSSProperties}
             >
               {/* Toggle Kurangi Animasi Antarmuka */}
               <div
@@ -250,10 +259,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                     Kurangi Animasi Antarmuka
                   </div>
-                  <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                     Menonaktifkan efek transisi gerak demi kenyamanan mata
                   </div>
                 </div>
@@ -307,10 +316,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                     Kontras Tinggi
                   </div>
-                  <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                     Mempertegas garis tepi panel dan keterbacaan teks
                   </div>
                 </div>
@@ -333,7 +342,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                color: '#0F172A',
+                color: '#072D59',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 marginBottom: '8px'
@@ -344,12 +353,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div
               className="inset-group"
               style={{
-                background: 'rgba(255, 255, 255, 0.78)',
+                background: 'rgba(255, 255, 255, 0.94)',
                 borderRadius: '16px',
-                border: '1px solid rgba(15, 23, 42, 0.06)',
-                boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03)',
-                overflow: 'hidden'
-              }}
+                border: '1px solid rgba(219, 242, 252, 0.28)',
+                boxShadow: '0 4px 16px rgba(7, 45, 89, 0.16)',
+                overflow: 'hidden',
+                color: '#072D59',
+                '--label': '#072D59',
+                '--label-secondary': '#475569',
+                '--labelSecondary': '#475569',
+                '--foreground': '#072D59',
+                '--fill-control': 'rgba(7, 45, 89, 0.08)',
+                '--hairline': 'rgba(7, 45, 89, 0.15)',
+              } as React.CSSProperties}
             >
               {/* Segmented Control iOS Preset Grafis */}
               <div
@@ -364,10 +380,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                     Preset Grafis
                   </div>
-                  <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                     Optimasi otomatis untuk resolusi, bayangan, dan refresh rate monitor
                   </div>
                 </div>
@@ -397,10 +413,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                     Bayangan Matahari Halus
                   </div>
-                  <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                     Pencahayaan realistis dengan bayangan dinamis sesuai posisi matahari
                   </div>
                 </div>
@@ -426,10 +442,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                     Efek Cahaya dan Bayangan Sudut
                   </div>
-                  <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                     Pendaran cahaya lembut dan bayangan sudut ruang arsitektur
                   </div>
                 </div>
@@ -451,14 +467,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 }}
               >
                 <div style={{ width: '100%' }}>
-                  <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Akselerator Grafis Terdeteksi
                   </div>
                   <div
                     style={{
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: '#0F172A',
+                      color: 'var(--label)',
                       marginTop: '4px',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -481,7 +497,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                color: '#0F172A',
+                color: '#072D59',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 marginBottom: '8px'
@@ -492,12 +508,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div
               className="inset-group"
               style={{
-                background: 'rgba(255, 255, 255, 0.78)',
+                background: 'rgba(255, 255, 255, 0.94)',
                 borderRadius: '16px',
-                border: '1px solid rgba(15, 23, 42, 0.06)',
-                boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03)',
-                overflow: 'hidden'
-              }}
+                border: '1px solid rgba(219, 242, 252, 0.28)',
+                boxShadow: '0 4px 16px rgba(7, 45, 89, 0.16)',
+                overflow: 'hidden',
+                color: '#072D59',
+                '--label': '#072D59',
+                '--label-secondary': '#475569',
+                '--labelSecondary': '#475569',
+                '--foreground': '#072D59',
+                '--fill-control': 'rgba(7, 45, 89, 0.08)',
+                '--hairline': 'rgba(7, 45, 89, 0.15)',
+              } as React.CSSProperties}
             >
               {/* Toggle Efek Suara Interaksi */}
               <div
@@ -511,10 +534,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                     Efek Suara Interaksi
                   </div>
-                  <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                     Suara tombol antarmuka, penempatan jalan, dan konstruksi bangunan
                   </div>
                 </div>
@@ -540,10 +563,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                     Suara Suasana Kota
                   </div>
-                  <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                     Efek angin tropis, tetesan hujan, dan hembusan udara lingkungan
                   </div>
                 </div>
@@ -570,10 +593,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                       Sensitivitas Kamera &amp; Mousepad
                     </div>
-                    <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                    <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                       Responsivitas pergerakan kamera saat digeser atau diputar
                     </div>
                   </div>
@@ -581,8 +604,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     style={{
                       fontFamily: 'var(--font-mono)',
                       fontSize: '13px',
-                      fontWeight: 600,
-                      color: '#0066FF'
+                      fontWeight: 700,
+                      color: 'var(--accent)'
                     }}
                   >
                     {mousepadSensitivity.toFixed(1)}x
@@ -601,7 +624,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     width: '100%',
                     height: '4px',
                     borderRadius: '9999px',
-                    accentColor: '#0066FF',
+                    accentColor: 'var(--accent)',
                     cursor: 'pointer'
                   }}
                 />
@@ -624,7 +647,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 cursor: 'pointer',
                 fontSize: '11px',
                 fontWeight: 700,
-                color: '#475569',
+                color: 'var(--label-secondary)',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase'
               }}
@@ -635,7 +658,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 style={{
                   transform: devSectionOpen ? 'rotate(180deg)' : 'none',
                   transition: 'transform 0.2s ease',
-                  color: '#475569'
+                  color: 'var(--label-secondary)'
                 }}
               />
             </button>
@@ -664,10 +687,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                       Indikator FPS Real-Time
                     </div>
-                    <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                    <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                       Tampilkan kapsul frame rate rendering real-time di bilah atas
                     </div>
                   </div>
@@ -693,10 +716,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                       Telemetri 3-Zona LOD Real-Time
                     </div>
-                    <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                    <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                       Tampilkan jumlah gedung di Zona 0 (dekat), 1 (menengah), dan 2 (jauh) di bilah atas
                     </div>
                   </div>
@@ -721,10 +744,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                       Uji Stres Performa
                     </div>
-                    <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', fontWeight: 500 }}>
+                    <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px', fontWeight: 500 }}>
                       Simulasi beban rendering 300 gedung sekaligus
                     </div>
                   </div>
@@ -735,11 +758,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     }}
                     className="ios-btn"
                     style={{
-                      background: 'rgba(0, 102, 255, 0.1)',
-                      color: '#0066FF',
-                      border: '1px solid rgba(0, 102, 255, 0.25)',
+                      background: 'var(--accent-subtle)',
+                      color: 'var(--accent)',
+                      border: '1px solid var(--border)',
                       fontSize: '11.5px',
-                      fontWeight: 600,
+                      fontWeight: 700,
                       padding: '6px 14px',
                       borderRadius: '10px',
                       cursor: 'pointer',
@@ -764,13 +787,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               style={{
                 padding: '9px 28px',
                 borderRadius: '12px',
-                background: '#0066FF',
-                color: '#FFFFFF',
-                fontWeight: 600,
+                background: 'var(--accent)',
+                color: 'var(--on-accent)',
+                fontWeight: 700,
                 fontSize: '13px',
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(0, 102, 255, 0.3)'
+                boxShadow: 'var(--shadow-accent)'
               }}
             >
               Selesai

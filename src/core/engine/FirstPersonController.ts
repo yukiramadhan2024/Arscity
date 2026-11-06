@@ -654,7 +654,7 @@ export class FirstPersonController {
 
   public enter(startPos?: THREE.Vector3, initialYaw?: number): void {
     this.isActive = true;
-    this.camera.near = 0.06;
+    this.camera.near = 0.25;
     this.camera.updateProjectionMatrix();
     if (startPos) {
       this.position.copy(startPos);
@@ -2251,10 +2251,29 @@ export class FirstPersonController {
       const localX = Math.cos(-rot) * dx - Math.sin(-rot) * dz;
       const localZ = Math.sin(-rot) * dx + Math.cos(-rot) * dz;
       const furItem = FIRST_PERSON_FURNITURE_CATALOG.find((f) => f.id === this.selectedFurnitureId);
-      const floorY = (this.currentFloor - 1) * (bld.floorHeight || 3.2);
+      const baseFloorElevation = (this.currentFloor - 1) * (bld.floorHeight || 3.2);
       const localY = this.pendingFurnitureSlot === 'floor'
-        ? floorY
+        ? baseFloorElevation
         : (this.currentPlacementTarget.y - bld.position.y - plinthH);
+
+      const ensurePlacedFurnitureVisible = () => {
+        const bldGrp = this.buildingManager?.getBuildingGroup(bld.id);
+        if (!bldGrp) return;
+        bldGrp.visible = true;
+        const dynGrp = (bldGrp.getObjectByName('DynamicFurnitureGroup') || bldGrp.userData?.dynamicFurnitureGroup) as THREE.Group | undefined;
+        if (dynGrp) {
+          if (dynGrp.parent !== bldGrp) {
+            bldGrp.add(dynGrp);
+          }
+          dynGrp.visible = true;
+          dynGrp.frustumCulled = false;
+          dynGrp.traverse((obj) => {
+            obj.visible = true;
+            obj.frustumCulled = false;
+          });
+        }
+        bldGrp.updateMatrixWorld(true);
+      };
 
       if (this.grabbedFurniture && this.grabbedFurniture.buildingId === bld.id) {
         const prevData = this.grabbedFurniture.data;
@@ -2270,6 +2289,7 @@ export class FirstPersonController {
         };
         this.grabbedFurniture = null;
         this.engine.executeCommand(new MoveFurnitureCommand(this.engine, bld.id, prevData, nextData));
+        ensurePlacedFurnitureVisible();
         this.emitState();
         return;
       }
@@ -2288,6 +2308,7 @@ export class FirstPersonController {
       // Local spring animation (0.75 -> 1.0 over 200ms) runs directly on the furniture mesh inside attachFurniture;
       // never shake the parent building group while standing indoors.
       this.engine.executeCommand(new PlaceFurnitureCommand(this.engine, bld.id, furData));
+      ensurePlacedFurnitureVisible();
     } else if (this.activeDockTab === 'exterior' && this.isPlacementValid) {
       const extItem = FIRST_PERSON_EXTERIOR_CATALOG.find((e) => e.id === this.selectedExteriorId);
       if (extItem?.category === 'building') {

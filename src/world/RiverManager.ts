@@ -449,6 +449,31 @@ export class RiverManager {
     }
   }
 
+  /**
+   * Clears all river segments, nodes, and meshes cleanly without restoring terrain elevations.
+   */
+  public clearAll(): void {
+    for (const [id, meshGroup] of this.segmentMeshes.entries()) {
+      meshGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const m = child as THREE.Mesh;
+          m.geometry?.dispose();
+          if (Array.isArray(m.material)) {
+            m.material.forEach((mat) => mat.dispose());
+          } else if (m.material) {
+            m.material.dispose();
+          }
+        }
+      });
+      this.masterGroup.remove(meshGroup);
+    }
+    this.segmentMeshes.clear();
+    this.segments.clear();
+    this.nodes.clear();
+    this.waterMaterials = [];
+    this.onRiverUpdated?.();
+  }
+
   public dispose(): void {
     for (const segId of Array.from(this.segments.keys())) {
       this.removeRiverSegment(segId);

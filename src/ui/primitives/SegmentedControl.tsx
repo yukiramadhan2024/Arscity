@@ -86,7 +86,7 @@ export function SegmentedControl<T extends string>({
                   inset: 0,
                   borderRadius: 'var(--radius-capsule, 9999px)',
                   backgroundColor: 'var(--accent)',
-                  boxShadow: '0 2px 6px rgba(0, 122, 255, 0.35)',
+                  boxShadow: 'var(--shadow-accent, 0 4px 14px rgba(253, 110, 142, 0.40))',
                   zIndex: -1,
                 }}
               />

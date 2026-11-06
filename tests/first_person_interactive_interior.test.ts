@@ -272,12 +272,12 @@ describe('First-Person Interactive Interior & Ergonomic Seating Suite', () => {
     const grp = PrefabMeshBuilder.buildBuildingGroup(building);
     expect(grp).toBeDefined();
 
-    // Check that furniture mesh exists in interiorDetails
-    const interior = grp.userData.interiorDetails;
-    expect(interior).toBeDefined();
+    // Check that placed furniture mesh exists in root DynamicFurnitureGroup (Tahap 1.1: never culled by InteriorDetails 24m LOD)
+    const dynFurniture = grp.userData.dynamicFurnitureGroup || grp.getObjectByName('DynamicFurnitureGroup');
+    expect(dynFurniture).toBeDefined();
 
     let foundFurMesh: THREE.Object3D | null = null;
-    interior.traverse((child: any) => {
+    dynFurniture.traverse((child: any) => {
       if (child.userData?.furnitureId === 'fur_sofa_123') {
         foundFurMesh = child;
       }
@@ -302,7 +302,8 @@ describe('First-Person Interactive Interior & Ergonomic Seating Suite', () => {
 
     const grp2 = PrefabMeshBuilder.buildBuildingGroup(building);
     let foundBed: THREE.Object3D | null = null;
-    grp2.userData.interiorDetails.traverse((child: any) => {
+    const dynFurniture2 = grp2.userData.dynamicFurnitureGroup || grp2.getObjectByName('DynamicFurnitureGroup');
+    dynFurniture2.traverse((child: any) => {
       if (child.userData?.furnitureId === 'fur_bed_456') {
         foundBed = child;
       }

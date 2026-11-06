@@ -53,6 +53,14 @@ Semua aset di bawah ini diunduh secara fisik dalam resolusi 1K ke direktori `pub
 | **Batu Alam Plinth (Natural Stone Rock)** | `Rock026` | CC0 1.0 Universal | [ambientcg](https://ambientcg.com/view?id=Rock026) | color, normal, roughness, ao |
 | **Metal Lembaran / Seng Gelap (Dark Metal/Zinc)** | `Metal028` | CC0 1.0 Universal | [ambientcg](https://ambientcg.com/view?id=Metal028) | color, normal, roughness |
 | **Permukaan Air Genangan / Sungai (Water Normals)** | `WaterNormals` | MIT / CC0 Equivalent | [threejs-cc0](https://github.com/mrdoob/three.js/tree/dev/examples/textures) | normal, color |
+| **Kerikil Atap Datar (Roof Gravel)** | `Gravel015` | CC0 1.0 Universal | [ambientcg](https://ambientcg.com/view?id=Gravel015) | color, normal, roughness |
+| **Membran Kedap Air Atap Datar (Waterproof Roof Membrane)** | `Rubber001` | CC0 1.0 Universal | [ambientcg](https://ambientcg.com/view?id=Rubber001) | color, normal, roughness |
+| **Keramik & Granit Dinding (Wall Ceramic/Granite Tiles)** | `Tiles107` | CC0 1.0 Universal | [ambientcg](https://ambientcg.com/view?id=Tiles107) | color, normal, roughness, ao |
+| **Atap Spandek Baja Gelombang (Corrugated Metal Roof)** | `CorrugatedSteel005` | CC0 1.0 Universal | [ambientcg](https://ambientcg.com/view?id=CorrugatedSteel005) | color, normal, roughness |
+| **Genteng Metal Pasir Modern (Metal Roofing Tiles)** | `RoofingTiles008` | CC0 1.0 Universal | [ambientcg](https://ambientcg.com/view?id=RoofingTiles008) | color, normal, roughness |
+| **Panel Aluminium Komposit Fasad (ACP Cladding)** | `MetalPlates006` | CC0 1.0 Universal | [ambientcg](https://ambientcg.com/view?id=MetalPlates006) | color, normal, roughness |
+| **Plester Dinding Kasar & Stucco (Textured Exterior Plaster)** | `PaintedPlaster017` | CC0 1.0 Universal | [ambientcg](https://ambientcg.com/view?id=PaintedPlaster017) | color, normal, roughness |
+| **Langit Siang Menjelang Sore (Pure Sky HDRI 1K)** | `autumn_field_puresky` | CC0 1.0 Universal | [polyhaven](https://polyhaven.com/a/autumn_field_puresky) | hdr (Poly Haven CC0) |
 
 ---
 

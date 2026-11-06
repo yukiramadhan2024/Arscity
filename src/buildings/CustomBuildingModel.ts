@@ -1,5 +1,35 @@
 import * as THREE from 'three';
+export type { RoofType, WallMaterialType, RoofMaterialType } from './PrefabTypes';
 import { RoofType, WallMaterialType, RoofMaterialType } from './PrefabTypes';
+
+export type StudioCreationMode = 'building' | 'furniture' | 'pavilion';
+
+export type StudioElementType = 'gazebo' | 'gapura' | 'monumen';
+
+export type PavilionRoofStyleType =
+  | 'joglo_pendopo'
+  | 'limasan_tropis'
+  | 'candi_bentar'
+  | 'busur_modern'
+  | 'obelisk_monolit';
+
+export type PavilionMaterialType =
+  | 'teak_wood'
+  | 'andesite_stone'
+  | 'exposed_concrete'
+  | 'corten_steel';
+
+export interface StudioPavilionConfig {
+  elementType: StudioElementType;
+  name: string;
+  width: number;
+  depth: number;
+  height: number;
+  roofStyle: PavilionRoofStyleType;
+  primaryMaterial: PavilionMaterialType;
+  accentColor: string;
+  hasWarmUplight: boolean;
+}
 
 export type OpeningType =
   | 'window_single'
@@ -26,15 +56,15 @@ export interface WallSegment {
 export interface FloorDefinition {
   floorIndex: number;
   footprint: THREE.Vector2[]; // 2D polygon vertices in local building coordinates
-  height: number;            // Floor height in meters (default 3.0m)
+  height: number;             // Floor height in meters (default 3.0m)
   walls: WallSegment[];
 }
 
 export interface RoofDefinition {
   type: RoofType | 'shed';
-  pitchAngle: number;        // in degrees (default 30 deg for tropical roofs)
-  overhang: number;          // Overhang / teritis in meters (default 1.2m)
-  material: RoofMaterialType;
+  pitchAngle: number;         // in degrees (default 30 deg for tropical roofs)
+  overhang: number;           // Overhang / teritis in meters (default 1.2m)
+  material: RoofMaterialType | string;
 }
 
 export type MassingShapeType =
@@ -58,6 +88,9 @@ export interface FacadeFeatures {
   hasFrontArcade?: boolean;
   useBasePlinthMaterial?: boolean;
   baseMaterial?: WallMaterialType | string;
+  exposeSteelFrame?: boolean;
+  hasCarportAndTopBalcony?: boolean;
+  hasVerticalSecondarySkin?: boolean;
 }
 
 export interface CustomBuilding {
@@ -83,10 +116,97 @@ export interface CustomBuilding {
   mullionColor?: string;
   hasSkylight?: boolean;
   hasSolarPV?: boolean;
+  exposeSteelFrame?: boolean;
+  hasCarportAndTopBalcony?: boolean;
+  hasVerticalSecondarySkin?: boolean;
+
+  // Mode 3: Universal Creation Studio Pavilion & Park Element Extensions
+  studioElementType?: StudioElementType;
+  pavilionConfig?: StudioPavilionConfig;
+  customConfig?: Record<string, any>;
+}
+
+/**
+ * Extracts StudioPavilionConfig from a CustomBuilding instance, supporting both explicit
+ * `pavilionConfig` / `studioElementType` and serialized `massingShape: 'pavilion_*'` tags.
+ */
+export function extractPavilionConfig(building: Partial<CustomBuilding>): StudioPavilionConfig | null {
+  if (building.pavilionConfig) {
+    return building.pavilionConfig;
+  }
+
+  const customCfg = building.customConfig || (building as any).userData?.customConfig;
+  if (customCfg?.pavilionConfig) {
+    return customCfg.pavilionConfig as StudioPavilionConfig;
+  }
+
+  let elemType: StudioElementType | null = building.studioElementType || customCfg?.studioElementType || null;
+  if (!elemType && typeof building.massingShape === 'string' && building.massingShape.startsWith('pavilion_')) {
+    const suffix = building.massingShape.replace('pavilion_', '');
+    if (suffix === 'gazebo' || suffix === 'gapura' || suffix === 'monumen') {
+      elemType = suffix;
+    }
+  }
+
+  if (!elemType) return null;
+
+  // Derive footprint dimensions from floor[0] if present
+  let derivedW = 6;
+  let derivedD = 6;
+  const fp = building.floors?.[0]?.footprint;
+  if (fp && fp.length >= 3) {
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of fp) {
+      minX = Math.min(minX, p.x);
+      maxX = Math.max(maxX, p.x);
+      minZ = Math.min(minZ, p.y);
+      maxZ = Math.max(maxZ, p.y);
+    }
+    if (isFinite(minX) && isFinite(maxX)) derivedW = Math.max(2, maxX - minX);
+    if (isFinite(minZ) && isFinite(maxZ)) derivedD = Math.max(2, maxZ - minZ);
+  }
+
+  const derivedH = building.floors?.[0]?.height || (elemType === 'monumen' ? 9.0 : elemType === 'gapura' ? 6.5 : 4.2);
+
+  const validRoofs: PavilionRoofStyleType[] = [
+    'joglo_pendopo',
+    'limasan_tropis',
+    'candi_bentar',
+    'busur_modern',
+    'obelisk_monolit'
+  ];
+  const rawRoof = (customCfg?.roofStyle || building.windowStyle || '') as PavilionRoofStyleType;
+  const defaultRoof: PavilionRoofStyleType =
+    elemType === 'gapura' ? 'candi_bentar' : elemType === 'monumen' ? 'obelisk_monolit' : 'joglo_pendopo';
+  const roofStyle = validRoofs.includes(rawRoof) ? rawRoof : defaultRoof;
+
+  const validMats: PavilionMaterialType[] = [
+    'teak_wood',
+    'andesite_stone',
+    'exposed_concrete',
+    'corten_steel'
+  ];
+  const rawMat = (customCfg?.primaryMaterial || building.baseMaterial || '') as PavilionMaterialType;
+  const defaultMat: PavilionMaterialType =
+    elemType === 'gazebo' ? 'teak_wood' : 'andesite_stone';
+  const primaryMaterial = validMats.includes(rawMat) ? rawMat : defaultMat;
+
+  return {
+    elementType: elemType,
+    name: building.name || 'Elemen Taman Kustom',
+    width: customCfg?.width || derivedW,
+    depth: customCfg?.depth || derivedD,
+    height: customCfg?.height || derivedH,
+    roofStyle,
+    primaryMaterial,
+    accentColor: customCfg?.accentColor || building.mullionColor || building.wallColor || '#D97706',
+    hasWarmUplight: customCfg?.hasWarmUplight ?? building.hasSkylight ?? true
+  };
 }
 
 /**
  * Procedural floor footprint generator for the 5 architectural massing shapes
+ * plus Mode 3 pavilion/park elements.
  */
 export function generateFloorsForMassingShape(
   massingShape: MassingShapeType | string = 'box',
@@ -237,6 +357,17 @@ export function calculateBuildingAreas(
       kdb = groundFloorArea;
       const upperFloors = Math.max(0, floorCount - 1);
       klb = groundFloorArea + (upperFloors * rawFootprint);
+      break;
+    }
+    case 'pavilion_gapura': {
+      // Twin split gateway pylons occupy ~55% of bounding span
+      kdb = Math.max(4, Math.round(rawFootprint * 0.55));
+      klb = kdb;
+      break;
+    }
+    case 'pavilion_monumen': {
+      kdb = Math.max(4, Math.round(rawFootprint * 0.78));
+      klb = kdb;
       break;
     }
     case 'box':

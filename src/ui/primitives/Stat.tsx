@@ -61,7 +61,7 @@ export const Stat: React.FC<StatProps> = ({
               fontWeight: 600,
               color: getStatusColor(),
               fontVariantNumeric: 'tabular-nums',
-              fontFamily: 'monospace',
+              fontFamily: 'var(--font-mono)',
             }}
           >
             {value}

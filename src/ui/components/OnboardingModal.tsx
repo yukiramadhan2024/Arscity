@@ -194,10 +194,10 @@ export const OnboardingModal: React.FC = () => {
                 fontSize: '13px',
                 fontWeight: 700,
                 borderRadius: '14px',
-                background: '#007AFF',
+                background: 'var(--accent)',
                 color: '#FFFFFF',
                 border: 'none',
-                boxShadow: '0 4px 14px rgba(0, 122, 255, 0.35)',
+                boxShadow: 'var(--shadow-accent)',
                 cursor: 'pointer'
               }}
             >

@@ -1,0 +1,69 @@
+Total Temuan: 66
+Waktu Audit: 2026-11-02T04:38:35.019Z
+
+src\app\index.css:270 -> --background: #121214;
+src\app\index.css:607 -> background: rgba(15, 23, 42, 0.04);
+src\app\index.css:611 -> background: rgba(15, 23, 42, 0.08);
+src\app\index.css:1127 -> background: rgba(15, 23, 42, 0.35);
+src\app\index.css:1182 -> background: rgba(28, 28, 30, 0.88);
+src\app\index.css:1307 -> background: rgba(0, 0, 0, 0.88) !important;
+src\components\ui\glass-folder-cards.tsx:998 -> .gf-root[data-tone="dark"] .gf-shadow { background: rgba(0, 0, 0, .62); }
+src\components\ui\glass-folder-cards.tsx:1006 -> .gf-root[data-tone="dark"] .gf-back { background: linear-gradient(180deg, #2a2a2e 0%, #121214 100%); }
+src\components\ui\glass-folder-cards.tsx:1076 -> .gf-root[data-tone="dark"] .gf-sheet { background: linear-gradient(180deg, #2c2c30 0%, #1c1c1f 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 0 0 .5px rgba(255, 255, 255, .08), 0 12px 28px -8px rgba(0, 0, 0, .7); }
+src\components\ui\glass-folder-cards.tsx:1106 -> background: linear-gradient(180deg, rgba(0, 0, 0, .42) 0%, rgba(0, 0, 0, 0) 34%);
+src\components\ui\glass-folder-cards.tsx:1278 -> background: radial-gradient(120% 90% at 50% 0%, #3a3a3f 0%, #121214 55%, #050506 100%);
+src\components\ui\glass-folder-cards.tsx:1335 -> .gf-root[data-tone="dark"] .gf-menu { background: rgba(30, 30, 34, .72); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 .5px rgba(255, 255, 255, .1), 0 24px 48px -16px rgba(0, 0, 0, .8); }
+src\ui\components\BottomToolbar.tsx:529 -> background: 'rgba(15, 23, 42, 0.06)',
+src\ui\components\BottomToolbar.tsx:630 -> <div style={{ position: 'relative', display: 'flex', alignItems: 'center', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+src\ui\components\BottomToolbar.tsx:707 -> <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\components\BottomToolbar.tsx:742 -> style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(15, 23, 42, 0.06)', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+src\ui\components\BottomToolbar.tsx:801 -> <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\components\BottomToolbar.tsx:806 -> <div style={{ display: 'flex', alignItems: 'center', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+src\ui\components\BottomToolbar.tsx:853 -> <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\components\BottomToolbar.tsx:885 -> style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(15, 23, 42, 0.06)', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+src\ui\components\BuildingCatalogBar.tsx:193 -> <div className="segmented-control" style={{ background: '#E2E8F0', padding: '2px', borderRadius: '9999px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+src\ui\components\CustomBuildingCreatorModal.tsx:2339 -> background: 'rgba(15, 23, 42, 0.05)',
+src\ui\components\CustomBuildingCreatorModal.tsx:3237 -> <span style={{ width: '14px', height: '14px', borderRadius: '50%', background: pal.hex, border: '1px solid rgba(0,0,0,0.2)', flexShrink: 0 }} />
+src\ui\components\CustomBuildingCreatorModal.tsx:3765 -> <div style={{ height: '1px', background: 'rgba(15, 23, 42, 0.08)', margin: '2px 0' }} />
+src\ui\components\CustomBuildingCreatorModal.tsx:4217 -> background: 'rgba(15, 23, 42, 0.45)',
+src\ui\components\CustomBuildingCreatorModal.tsx:4390 -> background: 'rgba(15, 23, 42, 0.4)',
+src\ui\components\EmptyStateGuide.tsx:101 -> backgroundColor: 'rgba(0, 0, 0, 0.05)',
+src\ui\components\EmptyStateGuide.tsx:108 -> e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.09)';
+src\ui\components\EmptyStateGuide.tsx:111 -> e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+src\ui\components\EmptyStateGuide.tsx:137 -> e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.06)';
+src\ui\components\FirstPersonHUD.tsx:782 -> background: 'rgba(15, 23, 42, 0.32)',
+src\ui\components\FirstPersonHUD.tsx:1851 -> background: 'rgba(15, 23, 42, 0.35)',
+src\ui\components\FirstPersonHUD.tsx:1969 -> background: 'rgba(15, 23, 42, 0.45)',
+src\ui\components\FirstPersonHUD.tsx:2106 -> background: 'rgba(15, 23, 42, 0.4)',
+src\ui\components\HelpModal.tsx:33 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:39 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:45 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:51 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:61 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:67 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:73 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:79 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:85 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:91 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\HelpModal.tsx:97 -> <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+src\ui\components\LandscapeSubToolbar.tsx:463 -> background: 'rgba(15, 23, 42, 0.06)',
+src\ui\components\LandscapeSubToolbar.tsx:521 -> background: isSel ? 'rgba(10, 132, 255, 0.20)' : 'rgba(15, 23, 42, 0.05)',
+src\ui\components\PhotoModeOverlay.tsx:95 -> <div style={{ position: 'absolute', top: '33.3%', left: 0, width: '100%', height: '0.5px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\components\PhotoModeOverlay.tsx:96 -> <div style={{ position: 'absolute', top: '66.6%', left: 0, width: '100%', height: '0.5px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\components\PhotoModeOverlay.tsx:97 -> <div style={{ position: 'absolute', left: '33.3%', top: 0, height: '100%', width: '0.5px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\components\PhotoModeOverlay.tsx:98 -> <div style={{ position: 'absolute', left: '66.6%', top: 0, height: '100%', width: '0.5px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\components\RoadSubToolbar.tsx:43 -> <div style={{ display: 'flex', alignItems: 'center', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+src\ui\components\RoadSubToolbar.tsx:90 -> <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\components\SettingsModal.tsx:97 -> backgroundColor: 'rgba(15, 23, 42, 0.35)',
+src\ui\components\SettingsModal.tsx:187 -> background: 'rgba(15, 23, 42, 0.06)',
+src\ui\components\SideUtilityDock.tsx:375 -> background: 'rgba(0, 0, 0, 0.45)',
+src\ui\components\SnackbarHost.tsx:184 -> background: 'rgba(15, 23, 42, 0.08)',
+src\ui\components\SnackbarHost.tsx:315 -> background: 'rgba(15, 23, 42, 0.06)',
+src\ui\components\TerraformSubToolbar.tsx:155 -> background: 'rgba(15, 23, 42, 0.06)',
+src\ui\components\TerraformSubToolbar.tsx:310 -> background: contourActive ? 'rgba(34, 197, 94, 0.14)' : 'rgba(15, 23, 42, 0.05)',
+src\ui\components\WorldHubModal.tsx:375 -> background-color: rgba(15, 23, 42, 0.40);
+src\ui\components\WorldHubModal.tsx:954 -> backgroundColor: 'rgba(15, 23, 42, 0.25)',
+src\ui\components\ZoneSubToolbar.tsx:98 -> <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\components\ZoneSubToolbar.tsx:103 -> <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#E2E8F0', padding: '2px', borderRadius: '9999px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+src\ui\components\ZoneSubToolbar.tsx:135 -> <div style={{ width: '1px', height: '20px', background: 'rgba(15, 23, 42, 0.12)' }} />
+src\ui\primitives\ModalSheet.tsx:63 -> background: 'rgba(15, 23, 42, 0.35)',

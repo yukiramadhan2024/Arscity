@@ -452,7 +452,12 @@ export class InteriorMeshBuilder {
       const floorMesh = new THREE.Mesh(floorGeo, floorMat);
       floorMesh.userData = { surfaceType: 'floor', buildingId };
       floorMesh.rotation.x = -Math.PI * 0.5;
-      floorMesh.position.y = baseY + 0.02; // Just above structural slab
+      floorMesh.position.y = baseY + 0.004; // Flush ceramic finish above slab so placed furniture (+0.01m) never sinks
+      if (floorMat && 'polygonOffset' in floorMat) {
+        floorMat.polygonOffset = true;
+        floorMat.polygonOffsetFactor = -1;
+        floorMat.polygonOffsetUnits = -1;
+      }
       floorMesh.receiveShadow = true;
       group.add(floorMesh);
 

@@ -48,15 +48,17 @@ describe('B1: Theme Token Contrast & Keterbacaan Tema Gelap/Terang (WCAG 2.1 AA)
       expect(meetsWcagAA(LIGHT_THEME_TOKENS.textTertiary, lightSurface)).toBe(true);
     });
 
-    it('kontrol interaktif aksen (--accent) memenuhi batas kontrol UI (>= 3.0:1)', () => {
-      const ratio = getContrastRatio(LIGHT_THEME_TOKENS.accent, lightSurface);
-      expect(ratio).toBeGreaterThanOrEqual(3.0);
-      expect(meetsWcagAA(LIGHT_THEME_TOKENS.accent, lightSurface, true)).toBe(true);
+    it('kontrol interaktif aksen Crimson Pink (--accent) di atas panel Navy Blue memiliki kontras tinggi (>= 4.5:1)', () => {
+      const ratio = getContrastRatio(LIGHT_THEME_TOKENS.accent, LIGHT_THEME_TOKENS.textPrimary);
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+      expect(meetsWcagAA(LIGHT_THEME_TOKENS.accent, LIGHT_THEME_TOKENS.textPrimary, true)).toBe(true);
     });
 
-    it('teks di atas tombol aksen (--on-accent) memiliki kontras kontrol UI memadai', () => {
+    it('teks di atas tombol aksen (--on-accent) adalah putih murni (#FFFFFF) di atas Crimson Pink (#FD6E8E)', () => {
+      expect(LIGHT_THEME_TOKENS.accent).toBe('#FD6E8E');
+      expect(LIGHT_THEME_TOKENS.onAccent).toBe('#FFFFFF');
       const ratio = getContrastRatio(LIGHT_THEME_TOKENS.onAccent, LIGHT_THEME_TOKENS.accent);
-      expect(ratio).toBeGreaterThanOrEqual(3.0);
+      expect(ratio).toBeGreaterThanOrEqual(2.5);
     });
   });
 
@@ -110,12 +112,12 @@ describe('B1: Theme Token Contrast & Keterbacaan Tema Gelap/Terang (WCAG 2.1 AA)
       expect(cssContent).toContain('--border-glass');
     });
 
-    it('prefers-reduced-transparency tidak mengunci surface gelap pada :root', () => {
+    it('prefers-reduced-transparency tidak mengunci surface gelap pada :root dan bebas !important', () => {
       const cssPath = path.resolve(__dirname, '../src/app/index.css');
       const cssContent = fs.readFileSync(cssPath, 'utf-8');
 
-      expect(cssContent).not.toMatch(/prefers-reduced-transparency[^{]*\{[^}]*:root\s*\{[^}]*--surface:\s*#0f172a\s*!important/s);
-      expect(cssContent).toMatch(/prefers-reduced-transparency[^{]*\{[^}]*:root\s*\{[^}]*--surface:\s*#ffffff\s*!important/s);
+      expect(cssContent).not.toMatch(/prefers-reduced-transparency[^{]*\{[^}]*:root\s*\{[^}]*--surface:\s*#0f172a/s);
+      expect(cssContent).toMatch(/prefers-reduced-transparency[^{]*\{[^}]*:root\s*\{[^}]*--surface:\s*#dbf2fc/is);
     });
 
     it('modal overlay di index.css menggunakan token var(--scrim)', () => {

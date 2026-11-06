@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BuildingInstance } from './PrefabTypes';
+import { BuildingInstance, BuildingSubPartDimensions, BuildingSubPartType } from './PrefabTypes';
 import { PrefabMeshBuilder } from './PrefabMeshBuilder';
 import { CustomBuildingMeshBuilder } from './CustomBuildingMeshBuilder';
 import { CustomBuilding, generateFloorsForMassingShape, calculateBuildingAreas } from './CustomBuildingModel';
@@ -20,7 +20,9 @@ export class BuildingManager {
 
   private buildingGroups: Map<string, THREE.Group> = new Map();
   public selectedBuildingId: string | null = null;
+  public selectedSubPart: BuildingSubPartType | null = null;
   private highlightMesh: THREE.BoxHelper | null = null;
+  private subPartGlowMesh: THREE.Mesh | null = null;
 
   // Spatial Hash & Raycasting reference
   private raycastManager: RaycastManager | null = null;
@@ -114,7 +116,11 @@ export class BuildingManager {
   }
 
   private buildMeshForInstance(building: BuildingInstance): THREE.Group {
-    if (building.isCustom || (building.floors && building.floors.length > 0)) {
+    if (
+      building.isCustom ||
+      building.presetKey === 'custom_designer' ||
+      (building.floors && building.floors.length > 0)
+    ) {
       const customModel: CustomBuilding = {
         id: building.id,
         name: building.name,
@@ -150,6 +156,10 @@ export class BuildingManager {
         hasSkylight: building.hasSkylight,
         hasSolarPV: building.hasSolarPV,
       };
+      (customModel as any).subParts = building.subParts;
+      (customModel as any).exposeSteelFrame = building.exposeSteelFrame;
+      (customModel as any).hasCarportAndTopBalcony = building.hasCarportAndTopBalcony;
+      (customModel as any).hasVerticalSecondarySkin = building.hasVerticalSecondarySkin;
       (customModel as any).userData = building.userData;
       const grp = CustomBuildingMeshBuilder.buildCustomBuilding(customModel);
       grp.userData = { ...grp.userData, buildingId: building.id, type: 'building' };
@@ -308,13 +318,19 @@ export class BuildingManager {
       bld.userData.placedFurniture[existingIdx] = furData;
     }
 
-    let dynamicGroup = grp.getObjectByName('DynamicFurnitureGroup') as THREE.Group;
+    let dynamicGroup = (grp.getObjectByName('DynamicFurnitureGroup') || grp.userData.dynamicFurnitureGroup) as THREE.Group;
     if (!dynamicGroup) {
       dynamicGroup = new THREE.Group();
       dynamicGroup.name = 'DynamicFurnitureGroup';
       grp.add(dynamicGroup);
       grp.userData.dynamicFurnitureGroup = dynamicGroup;
+    } else if (dynamicGroup.parent !== grp) {
+      grp.add(dynamicGroup);
     }
+    dynamicGroup.visible = true;
+    dynamicGroup.frustumCulled = false;
+    dynamicGroup.matrixAutoUpdate = true;
+    dynamicGroup.userData.isDynamic = true;
 
     // Remove old mesh with same id if already present
     const existing = dynamicGroup.children.find((c) => c.userData?.furnitureId === furData.id);
@@ -323,20 +339,36 @@ export class BuildingManager {
     }
 
     const furMesh = FirstPersonFurnitureBuilder.buildFurniture(furData.type);
-    const plinthH = bld.plinthHeight ?? 0.35;
-    furMesh.position.set(furData.position[0], furData.position[1] + plinthH, furData.position[2]);
+    const plinthHeight = bld.plinthHeight ?? 0.35;
+    const baseFloorElevation = furData.position[1];
+    const accurateY = baseFloorElevation + plinthHeight + 0.01;
+    furMesh.position.set(furData.position[0], accurateY, furData.position[2]);
     furMesh.rotation.y = furData.rotationY || 0;
+    furMesh.visible = true;
+    furMesh.frustumCulled = false;
+    furMesh.matrixAutoUpdate = true;
     furMesh.userData = {
       furnitureId: furData.id,
       type: furData.type,
       buildingId: bld.id,
       slot: furData.slot || 'floor',
-      parentId: furData.parentId
+      parentId: furData.parentId,
+      isDynamic: true
     };
     furMesh.traverse((child) => {
+      child.visible = true;
+      child.frustumCulled = false;
+      if ((child as THREE.Mesh).isMesh) {
+        child.updateMatrix();
+        child.matrixAutoUpdate = false;
+      } else {
+        child.matrixAutoUpdate = true;
+      }
       child.userData = {
+        ...child.userData,
         furnitureId: furData.id,
         isFurniture: true,
+        isDynamic: true,
         type: furData.type,
         buildingId: bld.id,
         isSharedGeometry: true,
@@ -344,13 +376,10 @@ export class BuildingManager {
         slot: furData.slot || 'floor',
         parentId: furData.parentId
       };
-      if ((child as THREE.Mesh).isMesh) {
-        child.matrixAutoUpdate = false;
-        child.updateMatrix();
-      }
     });
 
     dynamicGroup.add(furMesh);
+    grp.visible = true;
     grp.updateMatrix();
     grp.updateMatrixWorld(true);
 
@@ -361,7 +390,7 @@ export class BuildingManager {
       const bldPos = bld.position || new THREE.Vector3();
       const worldX = bldPos.x + (furData.position[0] * Math.cos(rot) - furData.position[2] * Math.sin(rot));
       const worldZ = bldPos.z + (furData.position[0] * Math.sin(rot) + furData.position[2] * Math.cos(rot));
-      const worldY = bldPos.y + plinthH + furData.position[1];
+      const worldY = bldPos.y + accurateY;
 
       InteriorInteractiveSystem.getInstance().registerSeat({
         id: `seat_${furData.id}`,
@@ -466,10 +495,61 @@ export class BuildingManager {
     }
   }
 
-  public selectBuilding(id: string | null): void {
+  public selectBuilding(id: string | null, subPart: BuildingSubPartType | null = null): void {
     this.selectedBuildingId = id;
+    this.selectedSubPart = id ? (subPart || 'main_tower') : null;
     this.refreshHighlight();
     if (this.onSelectionChanged) this.onSelectionChanged();
+  }
+
+  public getSubPartDimensions(
+    buildingId: string,
+    partType: BuildingSubPartType
+  ): BuildingSubPartDimensions | null {
+    const bld = this.buildings.get(buildingId);
+    if (!bld) return null;
+    const eff = PrefabMeshBuilder.getEffectiveSubParts(bld);
+    return { ...eff[partType] };
+  }
+
+  public resizeBuildingSubPart(
+    buildingId: string,
+    partType: BuildingSubPartType,
+    dims: Partial<BuildingSubPartDimensions>,
+    triggerSpring: boolean = false
+  ): BuildingSubPartDimensions | null {
+    const bld = this.buildings.get(buildingId);
+    if (!bld) return null;
+
+    const eff = PrefabMeshBuilder.getEffectiveSubParts(bld);
+    const current = eff[partType];
+    const updated: BuildingSubPartDimensions = {
+      partWidth: Math.max(2.5, Math.min(80, Number((dims.partWidth ?? current.partWidth).toFixed(2)))),
+      partDepth: Math.max(2.5, Math.min(80, Number((dims.partDepth ?? current.partDepth).toFixed(2)))),
+      partFloors: Math.max(1, Math.min(40, Math.round(dims.partFloors ?? current.partFloors)))
+    };
+
+    bld.subParts = {
+      ...(bld.subParts || {}),
+      [partType]: updated
+    };
+
+    if (partType === 'main_tower') {
+      bld.width = updated.partWidth;
+      bld.length = updated.partDepth;
+      bld.floorCount = updated.partFloors;
+    }
+
+    this.updateBuilding(bld);
+
+    if (triggerSpring) {
+      const grp = this.buildingGroups.get(buildingId);
+      if (grp) {
+        springAnimator.triggerPlacementSpring(grp);
+      }
+    }
+
+    return updated;
   }
 
   private refreshHighlight(): void {
@@ -479,18 +559,59 @@ export class BuildingManager {
       (this.highlightMesh.material as THREE.Material).dispose();
       this.highlightMesh = null;
     }
+    if (this.subPartGlowMesh) {
+      this.scene.remove(this.subPartGlowMesh);
+      this.subPartGlowMesh.geometry.dispose();
+      (this.subPartGlowMesh.material as THREE.Material).dispose();
+      this.subPartGlowMesh = null;
+    }
 
     if (!this.selectedBuildingId) return;
 
     const group = this.buildingGroups.get(this.selectedBuildingId);
     if (!group) return;
 
-    // Create iOS system blue bounding highlight box helper
-    this.highlightMesh = new THREE.BoxHelper(group, 0x007aff);
+    group.updateMatrixWorld(true);
+    let targetObj: THREE.Object3D = group;
+    if (this.selectedSubPart) {
+      const subGrp = group.getObjectByName(`SubPart_${this.selectedSubPart}`);
+      if (subGrp && subGrp.children.length > 0) {
+        targetObj = subGrp;
+      }
+    }
+
+    // Crimson Pink (#FD6E8E / 0xfd6e8e) selection BoxHelper & subtle volume glow
+    this.highlightMesh = new THREE.BoxHelper(targetObj, 0xfd6e8e);
     (this.highlightMesh.material as THREE.Material).transparent = true;
-    (this.highlightMesh.material as THREE.Material).opacity = 0.85;
+    (this.highlightMesh.material as THREE.Material).opacity = 0.95;
     (this.highlightMesh.material as THREE.Material).depthTest = false;
     this.scene.add(this.highlightMesh);
+
+    const bbox = new THREE.Box3().setFromObject(targetObj);
+    if (!bbox.isEmpty()) {
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      bbox.getSize(size);
+      bbox.getCenter(center);
+
+      const glowGeo = new THREE.BoxGeometry(
+        Math.max(0.5, size.x + 0.18),
+        Math.max(0.5, size.y + 0.18),
+        Math.max(0.5, size.z + 0.18)
+      );
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: 0xfd6e8e,
+        transparent: true,
+        opacity: 0.16,
+        depthWrite: false,
+        depthTest: true
+      });
+      this.subPartGlowMesh = new THREE.Mesh(glowGeo, glowMat);
+      this.subPartGlowMesh.name = 'SelectedSubPartCrimsonGlow';
+      this.subPartGlowMesh.position.copy(center);
+      this.subPartGlowMesh.renderOrder = 995;
+      this.scene.add(this.subPartGlowMesh);
+    }
   }
 
   public getSelectedBuilding(): BuildingInstance | null {
@@ -1058,7 +1179,8 @@ export class BuildingManager {
     currentIndoorBuildingId: string | null = null,
     isIndoorHost: boolean = false,
     kacaDekat?: THREE.Material,
-    kacaJauh?: THREE.Material
+    kacaJauh?: THREE.Material,
+    footprintDistance: number = zone === 0 ? 0 : zone === 1 ? 35 : 80
   ): void {
     const isSelected = grp.userData?.buildingId === this.selectedBuildingId;
     const forceFullDetail = isSelected || isIndoorHost;
@@ -1093,21 +1215,33 @@ export class BuildingManager {
       }
     }
 
-    // Interior and placed furniture:
-    // When indoor focus is active (currentIndoorBuildingId !== null), ONLY host building gets interior/furniture visible.
+    // Interior: When indoor focus is active (currentIndoorBuildingId !== null), ONLY host building gets interior visible.
     // Otherwise, visible in Zone 0.
-    const showInteriorAndFurniture =
+    const showInterior =
       forceFullDetail ||
       (currentIndoorBuildingId !== null ? isIndoorHost : zone === 0);
 
     const interiorGroup = grp.getObjectByName('InteriorDetails') || grp.userData?.interiorDetails;
     if (interiorGroup) {
-      interiorGroup.visible = showInteriorAndFurniture;
+      interiorGroup.visible = showInterior;
     }
+
+    // TAHAP 1: NEVER hide placedFurniture (DynamicFurnitureGroup) for buildings < 30m from camera
+    // or for the building the player is currently inside in First-Person Mode.
+    const showPlacedFurniture =
+      forceFullDetail ||
+      (currentIndoorBuildingId !== null ? isIndoorHost : footprintDistance < 30.0);
 
     const dynamicFurniture = grp.getObjectByName('DynamicFurnitureGroup') || grp.userData?.dynamicFurnitureGroup;
     if (dynamicFurniture) {
-      dynamicFurniture.visible = showInteriorAndFurniture;
+      dynamicFurniture.visible = showPlacedFurniture;
+      dynamicFurniture.frustumCulled = false;
+      if (showPlacedFurniture) {
+        dynamicFurniture.traverse((child: THREE.Object3D) => {
+          child.visible = true;
+          child.frustumCulled = false;
+        });
+      }
     }
 
     // Glass material switching: Zone 0 uses kacaDekat, Zone 1 & 2 use kacaJauh
@@ -1212,7 +1346,7 @@ export class BuildingManager {
       else if (zone === 1) z1++;
       else z2++;
 
-      this.applyBuildingZoneVisibility(grp, zone, currentIndoorBuildingId, isIndoorHost, kacaDekat, kacaJauh);
+      this.applyBuildingZoneVisibility(grp, zone, currentIndoorBuildingId, isIndoorHost, kacaDekat, kacaJauh, dist);
     }
 
     this.currentLodZoneCounts = {
@@ -1226,119 +1360,136 @@ export class BuildingManager {
   }
 
   /**
-   * 3-Tier Architectural LOD & Micro-Prop Culling (Tahap V6):
-   * - LOD0 (< 80m): Full modular detail, facade equipment (AC outdoor, PLN meter, downspouts),
-   *   rooftop equipment (toren, solar arrays, chillers, vents), lot micro-props (wheel stops, grates),
-   *   and interior details (if < 60m or in first-person).
-   * - LOD1 (80m - 250m): Consolidated structural shell per material. Core walls, windows, roof, plinth,
-   *   and lot apron remain visible and sharp, but micro-equipment and props are culled.
-   * - LOD2 (> 250m): Simplified bounding massing shell (12-20 triangles) with baked facade impostor texture.
-   *   Culls full exterior shell, equipment, lot context, and interior for massive GPU polygon reduction.
-   * - Selected buildings and active section cuts force full LOD0.
+   * Tahap 1: Kunci Logika Render Jarak (LOD) Hanya di Mode First-Person (Hilangkan di Mode Orbit & Drone).
+   * - Mode Orbit & Drone (cameraMode !== 'first_person'):
+   *   * NONAKTIFKAN pemangkasan jarak (spatial distance LOD culling).
+   *   * 100% detail eksterior (dinding, jendela, kusen, balkon, atap, dan kanopi) dirender utuh dan stabil dari jarak berapa pun.
+   *   * Sembunyikan hanya grup perabot dalam ruangan (DynamicFurnitureGroup) saat di Mode 3D Orbit agar performa tetap 144 FPS
+   *     (kecuali ketika Mode 2D Denah / section cut aktif, tampilkan perabot lantai 1).
+   * - Mode First-Person / Pejalan Kaki (cameraMode === 'first_person'):
+   *   * Objek dekat (< 30 meter atau host building): 100% detail penuh termasuk seluruh perabot yang sudah ditaruh, interior, detail props.
+   *   * Objek menengah dan jauh (>= 30 meter): sederhanakan detail interior dan furniture agar penjelajahan jalan kaki sangat ringan.
    */
   public updateLOD(
     cameraPosition: THREE.Vector3,
     cameraMode: string = 'orbit',
     isSectionCutActive: boolean = false,
     isSubsurfaceLensActive: boolean = false,
-    lodCutoffDistance: number = 60,
-    graphicsPreset: string = 'high'
+    _lodCutoffDistance: number = 60,
+    _graphicsPreset: string = 'high',
+    currentIndoorBuildingId: string | null = null
   ): void {
-    const cutoffSq = lodCutoffDistance * lodCutoffDistance;
-    const fpThresholdSq = 80 * 80;
-
-    // Physical LOD thresholds in meters
-    const isEco = graphicsPreset === 'low';
-    const lod0Dist = isEco ? 60 : 80;
-    const lod1Dist = isEco ? 180 : 250;
-    const lod0DistSq = lod0Dist * lod0Dist;
-    const lod1DistSq = lod1Dist * lod1Dist;
+    const isFirstPerson = cameraMode === 'first_person';
+    const is2D = cameraMode === '2d';
 
     for (const [id, bld] of this.buildings.entries()) {
       const grp = this.buildingGroups.get(id);
       if (!grp) continue;
 
       const isSelected = id === this.selectedBuildingId;
-      const distSq = bld.position.distanceToSquared(cameraPosition);
+      const isIndoorHost = currentIndoorBuildingId !== null && id === currentIndoorBuildingId;
+      const footprintDist = BuildingManager.getDistanceToBuildingFootprint(bld, cameraPosition);
 
-      // Force full detail if selected or section cut active
-      const forceFullDetail = isSelected || isSectionCutActive;
-
-      // 1. LOD2 Massing Check (> 250m)
-      const isLOD2 = !forceFullDetail && distSq >= lod1DistSq;
+      // Architectural Layer Groups
       const lod2Massing = grp.getObjectByName('LOD2MassingGroup') || grp.userData?.lod2MassingGroup;
+      const ext = grp.getObjectByName('ExteriorShell') || grp.userData?.exteriorShell;
+      const details = grp.getObjectByName('DetailPropsGroup') || grp.userData?.detailPropsGroup;
+      const lotContext = grp.getObjectByName('LotGroundContextGroup') || grp.userData?.lotGroundContext;
+      const interior = grp.getObjectByName('InteriorDetails') || grp.userData?.interiorDetails;
+      const dynamicFurniture = grp.getObjectByName('DynamicFurnitureGroup') || grp.userData?.dynamicFurnitureGroup;
+      const subsurface = grp.getObjectByName('SubsurfaceFoundation') || grp.userData?.subsurfaceFoundation;
 
-      if (isLOD2 && lod2Massing) {
-        lod2Massing.visible = true;
+      // =========================================================================
+      // 1. NON-FIRST-PERSON MODES (Orbit, Drone, 2D Floor Plan)
+      // =========================================================================
+      if (!isFirstPerson) {
+        // Disable distance LOD culling: never show low-poly impostor massing
+        if (lod2Massing) lod2Massing.visible = false;
 
-        const ext = grp.getObjectByName('ExteriorShell') || grp.userData?.exteriorShell;
-        if (ext) ext.visible = false;
+        // 100% exterior shell and facade details are always visible without popping
+        if (ext) ext.visible = true;
+        if (details) details.visible = true;
+        if (lotContext) {
+          lotContext.visible = true;
+          const lotDetails = lotContext.getObjectByName('LotDetailProps') || lotContext.userData?.detailPropsGroup;
+          if (lotDetails) lotDetails.visible = true;
+        }
 
-        const details = grp.getObjectByName('DetailPropsGroup') || grp.userData?.detailPropsGroup;
-        if (details) details.visible = false;
+        // Interior details: only visible when in 2D Floor Plan mode or when section cut is active
+        if (interior) {
+          interior.visible = is2D || isSectionCutActive;
+        }
 
-        const lotContext = grp.getObjectByName('LotGroundContextGroup') || grp.userData?.lotGroundContext;
-        if (lotContext) lotContext.visible = false;
+        // Placed furniture: hide in 3D Orbit / Drone to maintain 144 FPS,
+        // EXCEPT when 2D Floor Plan is active or section cut is active: display Floor 1 furniture!
+        if (dynamicFurniture) {
+          if (is2D || isSectionCutActive) {
+            dynamicFurniture.visible = true;
+            dynamicFurniture.frustumCulled = false;
+            dynamicFurniture.traverse((child: THREE.Object3D) => {
+              if (child !== dynamicFurniture) {
+                child.visible = ((child.userData?.floorIndex ?? 0) <= 1 && child.position.y < 2.2);
+              }
+            });
+          } else {
+            dynamicFurniture.visible = false;
+          }
+        }
 
-        const interior = grp.getObjectByName('InteriorDetails') || grp.userData?.interiorDetails;
-        if (interior) interior.visible = false;
+        // Subsurface foundation
+        if (subsurface) {
+          subsurface.visible = isSubsurfaceLensActive || isSectionCutActive;
+        }
 
-        const dynamicFurniture = grp.getObjectByName('DynamicFurnitureGroup') || grp.userData?.dynamicFurnitureGroup;
-        if (dynamicFurniture) dynamicFurniture.visible = false;
-
-        const subsurface = grp.getObjectByName('SubsurfaceFoundation') || grp.userData?.subsurfaceFoundation;
-        if (subsurface) subsurface.visible = false;
-
+        this.buildingZones.set(id, 0);
         continue;
       }
 
-      // Not in LOD2: hide LOD2 massing shell
-      if (lod2Massing) {
-        lod2Massing.visible = false;
-      }
+      // =========================================================================
+      // 2. FIRST-PERSON MODE: Smart Distance Rendering (< 30m vs >= 30m)
+      // =========================================================================
+      const forceFullDetail = isSelected || isIndoorHost || isSectionCutActive;
+      const isNear = forceFullDetail || footprintDist < 30.0;
 
-      // Exterior shell is visible for LOD0 and LOD1
-      const ext = grp.getObjectByName('ExteriorShell') || grp.userData?.exteriorShell;
+      if (lod2Massing) lod2Massing.visible = false;
       if (ext) ext.visible = true;
 
-      // 2. LOD0 vs LOD1 Check (< 80m vs 80m-250m)
-      const isLOD0 = forceFullDetail || distSq < lod0DistSq;
-      const details = grp.getObjectByName('DetailPropsGroup') || grp.userData?.detailPropsGroup;
-      if (details) {
-        details.visible = isLOD0;
-      }
-
-      // Lot Ground Context: base visible in LOD0/LOD1, micro-props only in LOD0
-      const lotContext = grp.getObjectByName('LotGroundContextGroup') || grp.userData?.lotGroundContext;
-      if (lotContext) {
-        lotContext.visible = true;
-        const lotDetails = lotContext.getObjectByName('LotDetailProps') || lotContext.userData?.detailPropsGroup;
-        if (lotDetails) {
-          lotDetails.visible = isLOD0;
+      if (isNear) {
+        // Objek dekat (< 30 meter atau host building): 100% detail penuh termasuk furniture, interior, detail props
+        if (details) details.visible = true;
+        if (lotContext) {
+          lotContext.visible = true;
+          const lotDetails = lotContext.getObjectByName('LotDetailProps') || lotContext.userData?.detailPropsGroup;
+          if (lotDetails) lotDetails.visible = true;
         }
+
+        const showInterior = currentIndoorBuildingId !== null ? isIndoorHost : true;
+        if (interior) interior.visible = showInterior;
+
+        if (dynamicFurniture) {
+          dynamicFurniture.visible = showInterior;
+          dynamicFurniture.frustumCulled = false;
+          if (showInterior) {
+            dynamicFurniture.traverse((child: THREE.Object3D) => {
+              child.visible = true;
+              child.frustumCulled = false;
+            });
+          }
+        }
+      } else {
+        // Objek menengah dan jauh (>= 30 meter): sederhanakan detail interior & micro-props
+        if (details) details.visible = footprintDist < 60.0;
+        if (lotContext) {
+          lotContext.visible = true;
+          const lotDetails = lotContext.getObjectByName('LotDetailProps') || lotContext.userData?.detailPropsGroup;
+          if (lotDetails) lotDetails.visible = false;
+        }
+        if (interior) interior.visible = false;
+        if (dynamicFurniture) dynamicFurniture.visible = false;
       }
 
-      // 3. Interior visibility (< 60m, or first_person / section cut)
-      const showInterior =
-        forceFullDetail ||
-        distSq < cutoffSq ||
-        (cameraMode === 'first_person' && distSq < fpThresholdSq);
-
-      const interiorGroup = grp.getObjectByName('InteriorDetails') || grp.userData?.interiorDetails;
-      if (interiorGroup) {
-        interiorGroup.visible = showInterior;
-      }
-
-      const dynamicFurniture = grp.getObjectByName('DynamicFurnitureGroup') || grp.userData?.dynamicFurnitureGroup;
-      if (dynamicFurniture) {
-        dynamicFurniture.visible = showInterior;
-      }
-
-      // Subsurface visibility
-      const showSubsurface = isSubsurfaceLensActive || isSectionCutActive;
-      const subsurfaceGroup = grp.getObjectByName('SubsurfaceFoundation') || grp.userData?.subsurfaceFoundation;
-      if (subsurfaceGroup) {
-        subsurfaceGroup.visible = showSubsurface;
+      if (subsurface) {
+        subsurface.visible = isSubsurfaceLensActive || isSectionCutActive;
       }
     }
   }

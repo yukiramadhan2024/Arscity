@@ -18,17 +18,17 @@ import { useUIStore } from '../state/useUIStore';
 import { SPRING_TACTILE } from '../motion/appleSprings';
 
 const VARIANT_ICONS: Record<SnackbarVariant, React.ReactNode> = {
-  success: <CheckCircle2 size={16} strokeWidth={2.2} style={{ color: '#10B981', flexShrink: 0 }} />,
-  info: <Sparkles size={16} strokeWidth={2.2} style={{ color: '#007AFF', flexShrink: 0 }} />,
-  warning: <AlertTriangle size={16} strokeWidth={2.2} style={{ color: '#F59E0B', flexShrink: 0 }} />,
-  destructive: <Trash2 size={16} strokeWidth={2.2} style={{ color: '#EF4444', flexShrink: 0 }} />,
+  success: <CheckCircle2 size={16} strokeWidth={2.2} style={{ color: 'var(--good)', flexShrink: 0 }} />,
+  info: <Sparkles size={16} strokeWidth={2.2} style={{ color: 'var(--accent)', flexShrink: 0 }} />,
+  warning: <AlertTriangle size={16} strokeWidth={2.2} style={{ color: 'var(--warn)', flexShrink: 0 }} />,
+  destructive: <Trash2 size={16} strokeWidth={2.2} style={{ color: 'var(--bad)', flexShrink: 0 }} />,
 };
 
 const VARIANT_ACCENT_COLORS: Record<SnackbarVariant, string> = {
-  success: '#10B981',
-  info: '#007AFF',
-  warning: '#F59E0B',
-  destructive: '#EF4444',
+  success: 'var(--good)',
+  info: 'var(--accent)',
+  warning: 'var(--warn)',
+  destructive: 'var(--bad)',
 };
 
 interface SnackbarCapsuleProps {
@@ -130,12 +130,11 @@ const SnackbarCapsule: React.FC<SnackbarCapsuleProps> = ({
         display: 'inline-flex',
         alignItems: 'center',
         gap: '8px',
-        background: 'rgba(240, 245, 250, 0.90)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        border: '1.5px solid rgba(255, 255, 255, 0.85)',
-        boxShadow:
-          '0 10px 30px -4px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(0, 0, 0, 0.04)',
+        background: 'var(--surface)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        border: '1px solid var(--border-glass)',
+        boxShadow: 'var(--shadow-glass)',
         userSelect: 'none',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -148,10 +147,10 @@ const SnackbarCapsule: React.FC<SnackbarCapsuleProps> = ({
       {/* 2. Teks Judul Ringkas (font-weight 600, max 260px text-overflow ellipsis) */}
       <span
         style={{
-          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+          fontFamily: 'var(--font-sans)',
           fontSize: '12px',
           fontWeight: 600,
-          color: '#0F172A',
+          color: 'var(--label)',
           letterSpacing: '-0.01em',
           maxWidth: '260px',
           overflow: 'hidden',
@@ -164,7 +163,7 @@ const SnackbarCapsule: React.FC<SnackbarCapsuleProps> = ({
         {item.title}
       </span>
 
-      {/* 3. Badge Counter (x2, x3...) jika count > 1 */}
+      {/* 3. Badge Counter (x2, x3...) jika count > 1 (Crimson Pink #FD6E8E) */}
       <AnimatePresence>
         {item.count > 1 && (
           <motion.span
@@ -177,12 +176,13 @@ const SnackbarCapsule: React.FC<SnackbarCapsuleProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontFamily: 'JetBrains Mono, monospace',
+              fontFamily: 'var(--font-mono)',
               fontSize: '11px',
               fontWeight: 700,
-              color: '#0F172A',
-              background: 'rgba(15, 23, 42, 0.08)',
-              padding: '1px 6px',
+              color: 'var(--on-accent)',
+              background: 'var(--accent)',
+              boxShadow: 'var(--shadow-accent)',
+              padding: '1px 7px',
               borderRadius: '9999px',
               letterSpacing: '-0.02em',
               fontVariantNumeric: 'tabular-nums',
@@ -200,11 +200,11 @@ const SnackbarCapsule: React.FC<SnackbarCapsuleProps> = ({
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            fontFamily: 'JetBrains Mono, monospace',
+            fontFamily: 'var(--font-mono)',
             fontSize: '11px',
             fontWeight: 600,
-            color: '#007AFF',
-            background: 'rgba(0, 122, 255, 0.08)',
+            color: 'var(--label)',
+            background: 'var(--fill-control)',
             padding: '2px 7px',
             borderRadius: '9999px',
             whiteSpace: 'nowrap',
@@ -225,16 +225,16 @@ const SnackbarCapsule: React.FC<SnackbarCapsuleProps> = ({
             display: 'inline-flex',
             alignItems: 'center',
             gap: '4px',
-            fontFamily: 'Inter, system-ui, sans-serif',
+            fontFamily: 'var(--font-sans)',
             fontSize: '11px',
             fontWeight: 700,
-            color: '#FFFFFF',
-            background: '#007AFF',
+            color: 'var(--on-accent)',
+            background: 'var(--accent)',
             padding: '3px 9px',
             borderRadius: '9999px',
             border: 'none',
             cursor: 'pointer',
-            boxShadow: '0 2px 6px rgba(0, 122, 255, 0.35)',
+            boxShadow: 'var(--shadow-accent)',
             whiteSpace: 'nowrap',
             flexShrink: 0,
             transition: 'transform 0.1s ease',
@@ -361,8 +361,9 @@ export const SnackbarHost: React.FC = () => {
   const pauseTimer = useSnackbarStore((s) => s.pauseTimer);
   const resumeTimer = useSnackbarStore((s) => s.resumeTimer);
   const activeTool = useUIStore((s) => s.activeTool);
+  const cameraMode = useUIStore((s) => s.cameraMode);
 
-  const bottomOffset = getSnackbarBottomOffset(activeTool);
+  const bottomOffset = cameraMode === 'first_person' ? 96 : getSnackbarBottomOffset(activeTool);
 
   return (
     <div

@@ -33,17 +33,23 @@ describe('Arscity v3.2 Sprint: Subsurface Engineering, Interactive Street & Room
 
     buildingManager.addBuilding(bld);
     const grp = (buildingManager as any).buildingGroups.get('bld_drone_lod_test')!;
+    const ext = grp.getObjectByName('ExteriorShell')!;
     const interior = grp.getObjectByName('InteriorDetails')!;
     expect(interior).toBeDefined();
 
-    // Drone camera far away (100m)
+    // Drone camera far away (100m) -> 100% exterior intact, interior hidden
     const farCameraPos = new THREE.Vector3(0, 10, 100);
     buildingManager.updateLOD(farCameraPos, 'cinematic_drone', false, false, 60);
+    expect(ext.visible).toBe(true);
     expect(interior.visible).toBe(false);
 
-    // Drone camera close (40m)
-    const closeCameraPos = new THREE.Vector3(0, 5, 40);
-    buildingManager.updateLOD(closeCameraPos, 'cinematic_drone', false, false, 60);
+    // Section cut active in Drone -> interior visible
+    buildingManager.updateLOD(farCameraPos, 'cinematic_drone', true, false, 60);
+    expect(interior.visible).toBe(true);
+
+    // First person mode < 30m -> interior visible
+    const fpNearPos = new THREE.Vector3(0, 2, 10);
+    buildingManager.updateLOD(fpNearPos, 'first_person', false, false, 60);
     expect(interior.visible).toBe(true);
   });
 

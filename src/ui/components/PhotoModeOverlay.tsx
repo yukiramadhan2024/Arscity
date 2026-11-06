@@ -42,11 +42,11 @@ export const PhotoModeOverlay: React.FC = () => {
         <div
           className="interactive"
           style={{
-            background: 'rgba(244, 247, 251, 0.95)',
+            background: 'var(--surface)',
             backdropFilter: 'blur(24px) saturate(180%)',
             WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-            border: '1px solid rgba(255, 255, 255, 0.95)',
-            boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-glass)',
             borderRadius: '9999px',
             padding: '6px 14px',
             display: 'flex',
@@ -54,11 +54,11 @@ export const PhotoModeOverlay: React.FC = () => {
             gap: '8px'
           }}
         >
-          <Camera size={15} strokeWidth={1.75} style={{ color: '#007AFF' }} />
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+          <Camera size={15} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
             Mode Foto Arsitektur
           </span>
-          <span style={{ fontSize: '11px', color: '#475569' }}>
+          <span style={{ fontSize: '11px', color: 'var(--label-secondary)' }}>
             (Resolusi Tinggi Hingga 4K Tanpa Antarmuka)
           </span>
         </div>
@@ -69,9 +69,9 @@ export const PhotoModeOverlay: React.FC = () => {
           style={{
             padding: '6px 14px',
             fontSize: '12px',
-            background: '#FFFFFF',
-            border: '1px solid #CBD5E1',
-            color: '#0F172A',
+            background: 'var(--surface-raised)',
+            border: '1px solid var(--border)',
+            color: 'var(--label)',
             borderRadius: '9999px'
           }}
         >
@@ -88,7 +88,7 @@ export const PhotoModeOverlay: React.FC = () => {
           left: '15%',
           width: '70%',
           height: '70%',
-          border: '0.5px solid rgba(15, 23, 42, 0.15)',
+          border: '0.5px solid var(--hairline)',
           pointerEvents: 'none'
         }}
       >
@@ -103,11 +103,11 @@ export const PhotoModeOverlay: React.FC = () => {
         <div
           className="interactive"
           style={{
-            background: 'rgba(244, 247, 251, 0.95)',
+            background: 'var(--surface)',
             backdropFilter: 'blur(24px) saturate(180%)',
             WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-            border: '1px solid rgba(255, 255, 255, 0.95)',
-            boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-glass)',
             borderRadius: '9999px',
             padding: '8px 16px',
             display: 'flex',
@@ -116,7 +116,7 @@ export const PhotoModeOverlay: React.FC = () => {
           }}
         >
           {/* Resolution Selector */}
-          <div style={{ display: 'flex', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', gap: '2px' }}>
+          <div style={{ display: 'flex', background: 'var(--fill-control)', borderRadius: '9999px', padding: '2px', gap: '2px' }}>
             {(['1080p', '1440p', '4k'] as const).map((res) => (
               <button
                 key={res}
@@ -126,8 +126,9 @@ export const PhotoModeOverlay: React.FC = () => {
                   fontSize: '11px',
                   fontWeight: 600,
                   borderRadius: '9999px',
-                  background: resolution === res ? '#007AFF' : 'transparent',
-                  color: resolution === res ? '#FFFFFF' : '#475569',
+                  background: resolution === res ? 'var(--accent)' : 'transparent',
+                  color: resolution === res ? 'var(--on-accent)' : 'var(--label-secondary)',
+                  boxShadow: resolution === res ? 'var(--shadow-accent)' : 'none',
                   border: 'none',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease'
@@ -138,7 +139,7 @@ export const PhotoModeOverlay: React.FC = () => {
             ))}
           </div>
 
-          <div style={{ width: '1px', height: '20px', background: '#CBD5E1' }} />
+          <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
 
           {/* Tilt Shift Toggle */}
           <button
@@ -151,9 +152,9 @@ export const PhotoModeOverlay: React.FC = () => {
               fontSize: '11px',
               fontWeight: 600,
               borderRadius: '9999px',
-              background: enableTiltShift ? '#E0F2FE' : 'transparent',
-              color: enableTiltShift ? '#0369A1' : '#475569',
-              border: enableTiltShift ? '1px solid #7DD3FC' : '1px solid transparent',
+              background: enableTiltShift ? 'var(--accent-soft)' : 'transparent',
+              color: enableTiltShift ? 'var(--accent)' : 'var(--label-secondary)',
+              border: enableTiltShift ? '1px solid var(--accent)' : '1px solid transparent',
               cursor: 'pointer'
             }}
           >
@@ -172,8 +173,8 @@ export const PhotoModeOverlay: React.FC = () => {
               fontSize: '11px',
               fontWeight: 600,
               borderRadius: '9999px',
-              background: showWatermark ? '#F1F5F9' : 'transparent',
-              color: showWatermark ? '#0F172A' : '#94A3B8',
+              background: showWatermark ? 'var(--fill-control)' : 'transparent',
+              color: showWatermark ? 'var(--label)' : 'var(--label-tertiary)',
               border: '1px solid transparent',
               cursor: 'pointer'
             }}
@@ -182,7 +183,7 @@ export const PhotoModeOverlay: React.FC = () => {
             <span>Tanda Air Studio</span>
           </button>
 
-          <div style={{ width: '1px', height: '20px', background: '#CBD5E1' }} />
+          <div style={{ width: '1px', height: '20px', background: 'var(--separator)' }} />
 
           {/* Shutter Button */}
           <button
@@ -191,8 +192,11 @@ export const PhotoModeOverlay: React.FC = () => {
             style={{
               padding: '8px 20px',
               fontSize: '13px',
-              fontWeight: 600,
-              borderRadius: '9999px'
+              fontWeight: 700,
+              borderRadius: '9999px',
+              background: 'var(--accent)',
+              color: 'var(--on-accent)',
+              boxShadow: 'var(--shadow-accent)'
             }}
           >
             <Camera size={16} strokeWidth={1.75} />

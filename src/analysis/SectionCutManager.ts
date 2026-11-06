@@ -12,7 +12,7 @@ export class SectionCutManager {
 
   private horizontalPlane: THREE.Plane;
   private verticalPlane: THREE.Plane;
-  public cutHeight: number = 2.2; // Default horizontal floor plan slice (0.5m to 12.0m)
+  public cutHeight: number = 2.4; // Default horizontal floor plan slice (0.5m to 12.0m)
   public cutOffset: number = 0;   // Default vertical slice offset
 
   // 3D Visualizer & Interactive Drag Handle
@@ -23,7 +23,7 @@ export class SectionCutManager {
 
   private isDraggingHandle: boolean = false;
   private dragStartY: number = 0;
-  private dragStartHeight: number = 2.2;
+  private dragStartHeight: number = 2.4;
 
   constructor(
     renderer: THREE.WebGLRenderer,
@@ -63,6 +63,15 @@ export class SectionCutManager {
     if (!this.visualizerGroup.parent) {
       this.scene.add(this.visualizerGroup);
     }
+  }
+
+  public setCamera(camera: THREE.Camera): void {
+    this.camera = camera;
+  }
+
+  public getHorizontalPlane(): THREE.Plane {
+    this.horizontalPlane.constant = this.cutHeight;
+    return this.horizontalPlane;
   }
 
   private build3DVisualizer(): void {

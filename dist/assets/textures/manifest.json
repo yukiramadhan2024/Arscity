@@ -1,6 +1,6 @@
 {
   "title": "Arscity CC0 PBR Texture Manifest",
-  "generatedAt": "2026-10-14T07:42:46.682Z",
+  "generatedAt": "2026-10-31T20:02:37.675Z",
   "resolution": "1K",
   "format": "JPG",
   "materials": {
@@ -11,7 +11,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=Asphalt010",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 4,
       "files": {
         "color": "/assets/textures/aspal/color.jpg",
@@ -26,7 +26,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=Concrete034",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 3,
       "files": {
         "color": "/assets/textures/beton/color.jpg",
@@ -41,7 +41,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=Bricks059",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 2,
       "files": {
         "color": "/assets/textures/bata_merah/color.jpg",
@@ -57,7 +57,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=Plaster001",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 3,
       "files": {
         "color": "/assets/textures/plester/color.jpg",
@@ -72,7 +72,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=RoofingTiles001",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 2,
       "files": {
         "color": "/assets/textures/genteng/color.jpg",
@@ -87,7 +87,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=Wood051",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 2.5,
       "files": {
         "color": "/assets/textures/kayu/color.jpg",
@@ -102,7 +102,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=Grass001",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 4,
       "files": {
         "color": "/assets/textures/rumput/color.jpg",
@@ -118,7 +118,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=PavingStones038",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 2,
       "files": {
         "color": "/assets/textures/paving/color.jpg",
@@ -134,7 +134,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=PavingStones067",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 2,
       "files": {
         "color": "/assets/textures/trotoar/color.jpg",
@@ -150,7 +150,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=Ground003",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 4,
       "files": {
         "color": "/assets/textures/tanah/color.jpg",
@@ -165,7 +165,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=Rock026",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 3,
       "files": {
         "color": "/assets/textures/batu_alam/color.jpg",
@@ -181,7 +181,7 @@
       "source": "ambientcg",
       "license": "CC0 1.0 Universal",
       "sourceUrl": "https://ambientcg.com/view?id=Metal028",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 2,
       "files": {
         "color": "/assets/textures/metal/color.jpg",
@@ -196,11 +196,132 @@
       "source": "threejs-cc0",
       "license": "MIT / CC0 Equivalent",
       "sourceUrl": "https://github.com/mrdoob/three.js/tree/dev/examples/textures",
-      "downloadDate": "2026-10-14",
+      "downloadDate": "2026-10-31",
       "uvScaleM": 4,
       "files": {
         "normal": "/assets/textures/air/normal.jpg",
         "color": "/assets/textures/air/color.jpg"
+      }
+    },
+    "sky_hdri": {
+      "name": "sky_hdri",
+      "label": "Langit Siang Menjelang Sore (Poly Haven CC0 Pure Sky)",
+      "assetId": "autumn_field_puresky",
+      "source": "polyhaven",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://polyhaven.com/a/autumn_field_puresky",
+      "downloadDate": "2026-11-01",
+      "files": {
+        "hdr": "/assets/textures/sky/autumn_field_puresky_1k.hdr"
+      }
+    },
+    "kerikil_atap": {
+      "name": "kerikil_atap",
+      "label": "Kerikil Atap Datar (Roof Gravel)",
+      "assetId": "Gravel015",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Gravel015",
+      "downloadDate": "2026-10-31",
+      "uvScaleM": 2,
+      "files": {
+        "color": "/assets/textures/kerikil_atap/color.jpg",
+        "normal": "/assets/textures/kerikil_atap/normal.jpg",
+        "roughness": "/assets/textures/kerikil_atap/roughness.jpg",
+        "ao": "/assets/textures/kerikil_atap/ao.jpg"
+      }
+    },
+    "membran_atap": {
+      "name": "membran_atap",
+      "label": "Membran Kedap Air Atap Datar (Waterproof Roof Membrane)",
+      "assetId": "Rubber001",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Rubber001",
+      "downloadDate": "2026-10-31",
+      "uvScaleM": 3,
+      "files": {
+        "color": "/assets/textures/membran_atap/color.jpg",
+        "normal": "/assets/textures/membran_atap/normal.jpg",
+        "roughness": "/assets/textures/membran_atap/roughness.jpg"
+      }
+    },
+    "keramik_granit": {
+      "name": "keramik_granit",
+      "label": "Keramik & Granit Dinding (Wall Ceramic/Granite Tiles)",
+      "assetId": "Tiles107",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=Tiles107",
+      "downloadDate": "2026-10-31",
+      "uvScaleM": 2,
+      "files": {
+        "color": "/assets/textures/keramik_granit/color.jpg",
+        "normal": "/assets/textures/keramik_granit/normal.jpg",
+        "roughness": "/assets/textures/keramik_granit/roughness.jpg",
+        "ao": "/assets/textures/keramik_granit/ao.jpg"
+      }
+    },
+    "spandek": {
+      "name": "spandek",
+      "label": "Atap Spandek Baja Gelombang (Corrugated Metal Roof)",
+      "assetId": "CorrugatedSteel005",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=CorrugatedSteel005",
+      "downloadDate": "2026-10-31",
+      "uvScaleM": 2.5,
+      "files": {
+        "color": "/assets/textures/spandek/color.jpg",
+        "normal": "/assets/textures/spandek/normal.jpg",
+        "roughness": "/assets/textures/spandek/roughness.jpg",
+        "ao": "/assets/textures/spandek/ao.jpg"
+      }
+    },
+    "genteng_metal": {
+      "name": "genteng_metal",
+      "label": "Genteng Metal Pasir Modern (Metal Roofing Tiles)",
+      "assetId": "RoofingTiles008",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=RoofingTiles008",
+      "downloadDate": "2026-10-31",
+      "uvScaleM": 2,
+      "files": {
+        "color": "/assets/textures/genteng_metal/color.jpg",
+        "normal": "/assets/textures/genteng_metal/normal.jpg",
+        "roughness": "/assets/textures/genteng_metal/roughness.jpg",
+        "ao": "/assets/textures/genteng_metal/ao.jpg"
+      }
+    },
+    "acp": {
+      "name": "acp",
+      "label": "Panel Aluminium Komposit Fasad (ACP Cladding)",
+      "assetId": "MetalPlates006",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=MetalPlates006",
+      "downloadDate": "2026-10-31",
+      "uvScaleM": 2.4,
+      "files": {
+        "color": "/assets/textures/acp/color.jpg",
+        "normal": "/assets/textures/acp/normal.jpg",
+        "roughness": "/assets/textures/acp/roughness.jpg"
+      }
+    },
+    "plester_kasar": {
+      "name": "plester_kasar",
+      "label": "Plester Dinding Kasar & Stucco (Textured Exterior Plaster)",
+      "assetId": "PaintedPlaster017",
+      "source": "ambientcg",
+      "license": "CC0 1.0 Universal",
+      "sourceUrl": "https://ambientcg.com/view?id=PaintedPlaster017",
+      "downloadDate": "2026-10-31",
+      "uvScaleM": 3,
+      "files": {
+        "color": "/assets/textures/plester_kasar/color.jpg",
+        "normal": "/assets/textures/plester_kasar/normal.jpg",
+        "roughness": "/assets/textures/plester_kasar/roughness.jpg"
       }
     }
   }

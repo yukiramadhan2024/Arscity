@@ -194,24 +194,40 @@ export class RoadGeometryBuilder {
       rawGroundY.push(gy);
     }
 
-    // River / valley crossing: keep deck level at bank height (deckY >= 0.10m)
-    const startBankY = rawGroundY[0];
-    const endBankY = rawGroundY[segments];
+    // River / valley crossing (groundY < -0.20m): keep asphalt deck flat above water (deckY >= 0.28m)
+    const startBankY = Math.max(0.28, rawGroundY[0]);
+    const endBankY = Math.max(0.28, rawGroundY[segments]);
     let hasBridge = false;
 
     for (let i = 0; i <= segments; i++) {
       const raw = rawGroundY[i];
-      if (raw < -0.25) {
+      if (raw < -0.20) {
         hasBridge = true;
         isBridgeSample[i] = true;
         const t = i / segments;
         const bankY = THREE.MathUtils.lerp(startBankY, endBankY, t);
-        effectiveGroundY[i] = Math.max(bankY, 0.10);
+        effectiveGroundY[i] = Math.max(bankY, 0.28);
       } else {
         isBridgeSample[i] = false;
         effectiveGroundY[i] = raw;
       }
     }
+
+    // Smooth bank approach transitions into bridge deck so road never kinks at riverbanks
+    if (hasBridge) {
+      for (let i = 0; i <= segments; i++) {
+        if (!isBridgeSample[i]) {
+          const prevBridge = i > 0 && isBridgeSample[i - 1];
+          const nextBridge = i < segments && isBridgeSample[i + 1];
+          if (prevBridge || nextBridge) {
+            const adjDeckY = prevBridge ? effectiveGroundY[i - 1] : effectiveGroundY[i + 1];
+            effectiveGroundY[i] = Math.max(effectiveGroundY[i], THREE.MathUtils.lerp(effectiveGroundY[i], adjDeckY, 0.65));
+          }
+        }
+      }
+    }
+    edge.isBridge = hasBridge;
+    group.userData.isBridge = hasBridge;
 
     // 1. Road Carriageway Ribbon (Badan Jalan Utama)
     const halfWidth = profile.width * 0.5;
@@ -755,13 +771,14 @@ export class RoadGeometryBuilder {
       normals,
       distances,
       effectiveGroundY,
+      isBridgeSample,
       segments,
       startRadius,
       endRadius,
       roadManager
     });
 
-    // 5. Automatic Bridge Deck, Parapets & Riverbed Piers when crossing rivers/valleys (groundY < -0.25m)
+    // 5. Automatic Bridge Deck, Parapets & Riverbed Piers when crossing rivers/valleys (groundY < -0.20m)
     if (hasBridge) {
       const bridgeDeckGeom = new THREE.BufferGeometry();
       const bridgePositions: number[] = [];
@@ -775,7 +792,7 @@ export class RoadGeometryBuilder {
         color: 0x94a3b8
       });
 
-      // 5a. Underside structural deck slab
+      // 5a. 3D Box-Girder Concrete Bridge Deck Slab (top flange underside + side fascia walls + bottom soffit)
       for (let i = 0; i <= segments; i++) {
         if (!isBridgeSample[i] && !(i > 0 && isBridgeSample[i - 1]) && !(i < segments && isBridgeSample[i + 1])) {
           continue;
@@ -783,23 +800,39 @@ export class RoadGeometryBuilder {
         const pt = points[i];
         const norm = normals[i];
         const gy = effectiveGroundY[i];
-        const deckBottomY = gy - 0.45;
+        const deckTopY = gy + 0.06;
+        const deckBottomY = gy - 0.42;
 
         const leftOuter = pt.clone().addScaledVector(norm, -totalBridgeHalfW);
         const rightOuter = pt.clone().addScaledVector(norm, totalBridgeHalfW);
 
+        // 4 vertices per cross-section: [leftTop, rightTop, leftBottom, rightBottom]
+        bridgePositions.push(leftOuter.x, deckTopY, leftOuter.z);
+        bridgePositions.push(rightOuter.x, deckTopY, rightOuter.z);
         bridgePositions.push(leftOuter.x, deckBottomY, leftOuter.z);
         bridgePositions.push(rightOuter.x, deckBottomY, rightOuter.z);
 
-        if (bVertCount >= 2) {
-          const v0 = bVertCount - 2;
-          const v1 = bVertCount - 1;
-          const v2 = bVertCount;
-          const v3 = bVertCount + 1;
-          bridgeIndices.push(v0, v1, v2);
-          bridgeIndices.push(v1, v3, v2);
+        if (bVertCount >= 4) {
+          const pLT = bVertCount - 4;
+          const pRT = bVertCount - 3;
+          const pLB = bVertCount - 2;
+          const pRB = bVertCount - 1;
+          const cLT = bVertCount;
+          const cRT = bVertCount + 1;
+          const cLB = bVertCount + 2;
+          const cRB = bVertCount + 3;
+
+          // Bottom soffit face
+          bridgeIndices.push(pLB, cLB, pRB);
+          bridgeIndices.push(pRB, cLB, cRB);
+          // Left concrete fascia wall
+          bridgeIndices.push(pLT, pLB, cLT);
+          bridgeIndices.push(pLB, cLB, cLT);
+          // Right concrete fascia wall
+          bridgeIndices.push(pRT, cRT, pRB);
+          bridgeIndices.push(pRB, cRT, cRB);
         }
-        bVertCount += 2;
+        bVertCount += 4;
       }
 
       if (bridgePositions.length > 0) {
@@ -814,8 +847,8 @@ export class RoadGeometryBuilder {
       }
 
       // 5b. Bridge Parapet Railings on both sides of sidewalk
-      const railH = 0.95;
-      const railThick = 0.12;
+      const railH = 1.02;
+      const railThick = 0.16;
       [-1, 1].forEach((side) => {
         const railPositions: number[] = [];
         const railIndices: number[] = [];
@@ -875,24 +908,29 @@ export class RoadGeometryBuilder {
         }
       });
 
-      // 5c. Concrete Piers supporting deck down to riverbed
+      // 5c. Vertical Concrete Support Piers descending down to riverbed
       const pierInterval = Math.max(2, Math.floor(segments / 4));
       let pierIdx = 0;
       for (let i = 1; i < segments; i++) {
         if (isBridgeSample[i] && (i % pierInterval === 0 || i === Math.floor(segments / 2))) {
           const pt = points[i];
-          const deckY = effectiveGroundY[i];
+          const norm = normals[i];
+          const deckBottomY = effectiveGroundY[i] - 0.40;
           const bedY = rawGroundY[i];
-          const pierH = Math.max(0.5, deckY - bedY);
-          const pierRadius = Math.min(0.8, totalBridgeHalfW * 0.25);
+          const pierH = Math.max(0.6, deckBottomY - bedY);
+          const pierRadius = Math.min(0.65, Math.max(0.32, totalBridgeHalfW * 0.14));
 
-          const pierGeom = new THREE.CylinderGeometry(pierRadius, pierRadius * 1.15, pierH, 16);
-          const pierMesh = new THREE.Mesh(pierGeom, concreteMat);
-          pierMesh.name = `BridgePier_${pierIdx++}`;
-          pierMesh.position.set(pt.x, bedY + pierH * 0.5, pt.z);
-          pierMesh.castShadow = true;
-          pierMesh.receiveShadow = true;
-          group.add(pierMesh);
+          const lateralOffsets = totalBridgeHalfW >= 6.5 ? [-totalBridgeHalfW * 0.52, totalBridgeHalfW * 0.52] : [0];
+          for (const latOff of lateralOffsets) {
+            const pierPos = pt.clone().addScaledVector(norm, latOff);
+            const pierGeom = new THREE.CylinderGeometry(pierRadius, pierRadius * 1.18, pierH, 16);
+            const pierMesh = new THREE.Mesh(pierGeom, concreteMat);
+            pierMesh.name = `BridgePier_${pierIdx++}`;
+            pierMesh.position.set(pierPos.x, bedY + pierH * 0.5, pierPos.z);
+            pierMesh.castShadow = true;
+            pierMesh.receiveShadow = true;
+            group.add(pierMesh);
+          }
         }
       }
     }

@@ -97,6 +97,264 @@ export class LotManager {
     return createdParcels;
   }
 
+  public static formatIndonesianInt(n: number): string {
+    const rounded = Math.max(0, Math.round(n));
+    return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  public static formatParkingBadgeText(areaM2: number, stallCount: number): string {
+    return `Luas ${LotManager.formatIndonesianInt(areaM2)} m2 - ${Math.max(0, Math.round(stallCount))} Slot Parkir`;
+  }
+
+  public static computePolygonAreaAndCentroid(poly: Vec2D[]): { areaM2: number; centroid: Vec2D } {
+    if (!poly || poly.length < 3) {
+      return { areaM2: 0, centroid: { x: 0, y: 0 } };
+    }
+    let signedArea2 = 0;
+    let cx = 0;
+    let cy = 0;
+    for (let i = 0; i < poly.length; i++) {
+      const p0 = poly[i];
+      const p1 = poly[(i + 1) % poly.length];
+      const cross = p0.x * p1.y - p1.x * p0.y;
+      signedArea2 += cross;
+      cx += (p0.x + p1.x) * cross;
+      cy += (p0.y + p1.y) * cross;
+    }
+    const area = Math.abs(signedArea2) * 0.5;
+    if (area < 1e-4) {
+      let sx = 0;
+      let sy = 0;
+      for (const p of poly) {
+        sx += p.x;
+        sy += p.y;
+      }
+      return { areaM2: 0, centroid: { x: sx / poly.length, y: sy / poly.length } };
+    }
+    const factor = 1 / (3 * signedArea2);
+    return {
+      areaM2: Math.round(area * 10) / 10,
+      centroid: { x: cx * factor, y: cy * factor }
+    };
+  }
+
+  /**
+   * Computes 2.5m x 5.0m parking stalls aligned with the longest polygon edge,
+   * separated by 6.0m two-way circulation aisles, inset safely inside the polygon boundary.
+   */
+  public static computeParkingLotLayout(poly: Vec2D[]): {
+    areaM2: number;
+    centroid: Vec2D;
+    longestEdgeIndex: number;
+    axisU: Vec2D;
+    axisV: Vec2D;
+    stalls: { center: Vec2D; facingSign: 1 | -1 }[];
+    aisles: { start: Vec2D; end: Vec2D }[];
+    badgeText: string;
+  } {
+    const { areaM2, centroid } = LotManager.computePolygonAreaAndCentroid(poly);
+    if (!poly || poly.length < 3 || areaM2 < 12) {
+      return {
+        areaM2,
+        centroid,
+        longestEdgeIndex: 0,
+        axisU: { x: 1, y: 0 },
+        axisV: { x: 0, y: 1 },
+        stalls: [],
+        aisles: [],
+        badgeText: LotManager.formatParkingBadgeText(areaM2, 0)
+      };
+    }
+
+    // 1. Find longest polygon edge
+    let longestEdgeIndex = 0;
+    let maxEdgeLen = -1;
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i];
+      const b = poly[(i + 1) % poly.length];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len > maxEdgeLen) {
+        maxEdgeLen = len;
+        longestEdgeIndex = i;
+      }
+    }
+    const pA = poly[longestEdgeIndex];
+    const pB = poly[(longestEdgeIndex + 1) % poly.length];
+    const eLen = Math.max(1e-4, Math.hypot(pB.x - pA.x, pB.y - pA.y));
+    const axisU: Vec2D = { x: (pB.x - pA.x) / eLen, y: (pB.y - pA.y) / eLen };
+    const axisV: Vec2D = { x: -axisU.y, y: axisU.x };
+
+    const toLocal = (w: Vec2D) => {
+      const dx = w.x - centroid.x;
+      const dy = w.y - centroid.y;
+      return { u: dx * axisU.x + dy * axisU.y, v: dx * axisV.x + dy * axisV.y };
+    };
+    const toWorld = (u: number, v: number): Vec2D => ({
+      x: centroid.x + u * axisU.x + v * axisV.x,
+      y: centroid.y + u * axisU.y + v * axisV.y
+    });
+
+    let minU = Infinity;
+    let maxU = -Infinity;
+    let minV = Infinity;
+    let maxV = -Infinity;
+    for (const p of poly) {
+      const loc = toLocal(p);
+      minU = Math.min(minU, loc.u);
+      maxU = Math.max(maxU, loc.u);
+      minV = Math.min(minV, loc.v);
+      maxV = Math.max(maxV, loc.v);
+    }
+
+    const STALL_W = 2.5;
+    const STALL_D = 5.0;
+    const AISLE_W = 6.0;
+    const MARGIN = 0.65;
+
+    const isInsideWithMargin = (pt: Vec2D, margin: number): boolean => {
+      if (!PolygonMath.isPointInPolygon(pt, poly)) return false;
+      if (margin <= 0) return true;
+      for (let i = 0; i < poly.length; i++) {
+        const d = PolygonMath.distancePointToSegment(pt, poly[i], poly[(i + 1) % poly.length]);
+        if (d < margin) return false;
+      }
+      return true;
+    };
+
+    const stalls: { center: Vec2D; facingSign: 1 | -1 }[] = [];
+    const aisles: { start: Vec2D; end: Vec2D }[] = [];
+
+    const spanV = maxV - minV - MARGIN * 2;
+    const rowSpecs: { vCenter: number; facingSign: 1 | -1 }[] = [];
+    const aisleVs: number[] = [];
+
+    if (spanV >= STALL_D * 2 + AISLE_W) {
+      // Double-loaded module repeating every (STALL_D + AISLE_W + STALL_D = 16m)
+      let cursorV = minV + MARGIN;
+      while (cursorV + STALL_D <= maxV - MARGIN + 0.05) {
+        // Bottom stall row facing +V into aisle
+        rowSpecs.push({ vCenter: cursorV + STALL_D * 0.5, facingSign: 1 });
+        cursorV += STALL_D;
+
+        if (cursorV + AISLE_W <= maxV - MARGIN + 0.5) {
+          aisleVs.push(cursorV + AISLE_W * 0.5);
+          cursorV += AISLE_W;
+
+          if (cursorV + STALL_D <= maxV - MARGIN + 0.05) {
+            // Top stall row facing -V into aisle
+            rowSpecs.push({ vCenter: cursorV + STALL_D * 0.5, facingSign: -1 });
+            cursorV += STALL_D + 0.6; // Buffer island between bays
+          }
+        } else {
+          break;
+        }
+      }
+    } else if (spanV >= STALL_D) {
+      // Single-loaded row + circulation lane
+      const vRow = minV + MARGIN + STALL_D * 0.5;
+      rowSpecs.push({ vCenter: vRow, facingSign: 1 });
+      if (maxV - (minV + MARGIN + STALL_D) >= 3.5) {
+        aisleVs.push(minV + MARGIN + STALL_D + Math.min(AISLE_W * 0.5, (maxV - (minV + MARGIN + STALL_D)) * 0.5));
+      }
+    }
+
+    for (const row of rowSpecs) {
+      for (let u = minU + MARGIN + STALL_W * 0.5; u <= maxU - MARGIN - STALL_W * 0.5 + 0.01; u += STALL_W) {
+        const hw = STALL_W * 0.48;
+        const hd = STALL_D * 0.48;
+        const c0 = toWorld(u - hw, row.vCenter - hd);
+        const c1 = toWorld(u + hw, row.vCenter - hd);
+        const c2 = toWorld(u + hw, row.vCenter + hd);
+        const c3 = toWorld(u - hw, row.vCenter + hd);
+        if (
+          isInsideWithMargin(c0, 0.35) &&
+          isInsideWithMargin(c1, 0.35) &&
+          isInsideWithMargin(c2, 0.35) &&
+          isInsideWithMargin(c3, 0.35)
+        ) {
+          stalls.push({ center: toWorld(u, row.vCenter), facingSign: row.facingSign });
+        }
+      }
+    }
+
+    for (const av of aisleVs) {
+      let firstU: number | null = null;
+      let lastU: number | null = null;
+      for (let u = minU + 1.5; u <= maxU - 1.5; u += 1.0) {
+        const wPt = toWorld(u, av);
+        if (isInsideWithMargin(wPt, 0.8)) {
+          if (firstU === null) firstU = u;
+          lastU = u;
+        }
+      }
+      if (firstU !== null && lastU !== null && lastU - firstU >= 4.0) {
+        aisles.push({ start: toWorld(firstU, av), end: toWorld(lastU, av) });
+      }
+    }
+
+    return {
+      areaM2,
+      centroid,
+      longestEdgeIndex,
+      axisU,
+      axisV,
+      stalls,
+      aisles,
+      badgeText: LotManager.formatParkingBadgeText(areaM2, stalls.length)
+    };
+  }
+
+  public createPolygonLot(
+    polygonPoints: Vec2D[],
+    zone: ZoneType = 'parking_lot'
+  ): LotParcel {
+    const cleanPoly = polygonPoints.map((p) => ({ x: p.x, y: p.y }));
+    const { areaM2, centroid } = LotManager.computePolygonAreaAndCentroid(cleanPoly);
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of cleanPoly) {
+      minX = Math.min(minX, p.x);
+      maxX = Math.max(maxX, p.x);
+      minZ = Math.min(minZ, p.y);
+      maxZ = Math.max(maxZ, p.y);
+    }
+    const width = Math.max(4, maxX - minX);
+    const length = Math.max(4, maxZ - minZ);
+    const id = `lot_${this.nextLotId++}`;
+
+    const parcel: LotParcel = {
+      id,
+      name: zone === 'parking_lot' ? `Parkir Terpadu #${this.nextLotId - 1}` : `Kavling #${this.nextLotId - 1}`,
+      zone,
+      position: new THREE.Vector3(centroid.x, 0, centroid.y),
+      width,
+      length,
+      areaM2: Math.max(16, areaM2),
+      polygon: cleanPoly,
+      containedBuildingIds: [],
+      metrics: {
+        groundFootprintM2: 0,
+        totalFloorAreaM2: 0,
+        greenAreaM2: Math.round(areaM2 * 0.16),
+        pavedAreaM2: Math.round(areaM2 * 0.84),
+        kdbPercent: 0,
+        klbRatio: 0,
+        kdhPercent: 16,
+        gsbFrontActualM: 1.5,
+        gsbSideActualM: 1.5,
+        gsbRearActualM: 1.5,
+        gsbDistanceM: 1.5,
+        maxFloors: 0
+      },
+      violations: []
+    };
+
+    this.lots.set(id, parcel);
+    this.evaluateBuildingCode(parcel);
+    this.rebuildLotMesh(parcel);
+    if (this.onLotsUpdated) this.onLotsUpdated();
+    return parcel;
+  }
+
   public createLot(
     position: THREE.Vector3,
     width: number,
@@ -178,6 +436,9 @@ export class LotManager {
    * Edge 3: C3 -> C0 (West / left edge)
    */
   public getLotCorners2D(lot: LotParcel): Vec2D[] {
+    if (lot.polygon && lot.polygon.length >= 3) {
+      return lot.polygon;
+    }
     const hw = lot.width * 0.5;
     const hl = lot.length * 0.5;
     const cx = lot.position.x;
@@ -201,14 +462,15 @@ export class LotManager {
     sideIndices: number[];
   } {
     const corners = this.getLotCorners2D(lot);
-    let frontIdx = 2; // Default to South edge (Z+)
+    const n = corners.length;
+    let frontIdx = Math.min(2, n - 1);
 
     if (this.roadManager && this.roadManager.graph.edges.size > 0) {
       let minDistanceToRoad = Infinity;
 
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < n; i++) {
         const p1 = corners[i];
-        const p2 = corners[(i + 1) % 4];
+        const p2 = corners[(i + 1) % n];
         const edgeMid = { x: (p1.x + p2.x) * 0.5, y: (p1.y + p2.y) * 0.5 };
 
         for (const edge of this.roadManager.graph.edges.values()) {
@@ -228,24 +490,51 @@ export class LotManager {
       }
     }
 
-    const rearIdx = (frontIdx + 2) % 4;
-    const sideIndices = [(frontIdx + 1) % 4, (frontIdx + 3) % 4];
+    const rearIdx = (frontIdx + Math.max(1, Math.floor(n / 2))) % n;
+    const sideIndices = [(frontIdx + 1) % n, (frontIdx + n - 1) % n];
 
     return { frontIdx, rearIdx, sideIndices };
   }
 
   public evaluateBuildingCode(lot: LotParcel): void {
+    if (lot.zone === 'parking_lot') {
+      const poly = this.getLotCorners2D(lot);
+      const layout = LotManager.computeParkingLotLayout(poly);
+      lot.areaM2 = Math.max(16, layout.areaM2);
+      lot.parkingCapacity = layout.stalls.length;
+      lot.userData = {
+        ...(lot.userData || {}),
+        parkingCapacity: layout.stalls.length,
+        infoBadgeText: layout.badgeText
+      };
+      const greenM2 = Math.round(lot.areaM2 * 0.16);
+      lot.metrics = {
+        groundFootprintM2: 0,
+        totalFloorAreaM2: 0,
+        greenAreaM2: greenM2,
+        pavedAreaM2: Math.max(0, lot.areaM2 - greenM2),
+        kdbPercent: 0,
+        klbRatio: 0,
+        kdhPercent: 16,
+        gsbFrontActualM: 1.5,
+        gsbSideActualM: 1.5,
+        gsbRearActualM: 1.5,
+        gsbDistanceM: 1.5,
+        maxFloors: 0
+      };
+      lot.violations = [];
+      return;
+    }
+
     const rule = ZONE_RULES[lot.zone];
     const lotCorners = this.getLotCorners2D(lot);
     const { frontIdx, rearIdx, sideIndices } = this.getLotEdgeClassification(lot);
 
     // Edges of the lot
-    const lotEdges = [
-      { start: lotCorners[0], end: lotCorners[1] },
-      { start: lotCorners[1], end: lotCorners[2] },
-      { start: lotCorners[2], end: lotCorners[3] },
-      { start: lotCorners[3], end: lotCorners[0] },
-    ];
+    const lotEdges = lotCorners.map((pt, idx) => ({
+      start: pt,
+      end: lotCorners[(idx + 1) % lotCorners.length]
+    }));
 
     const insideBuildingIds: string[] = [];
     let groundArea = 0;
@@ -508,6 +797,456 @@ export class LotManager {
     }
   }
 
+  private createParkedCarSilhouette(colorHex: number): THREE.Group {
+    const car = new THREE.Group();
+    car.name = 'ParkedCarSilhouette';
+
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: colorHex,
+      roughness: 0.35,
+      metalness: 0.25
+    });
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.15,
+      metalness: 0.6
+    });
+    const wheelMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.85,
+      metalness: 0.1
+    });
+
+    // Lower chassis (1.82m wide x 4.2m long)
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.56, 4.2), bodyMat);
+    chassis.position.set(0, 0.42, 0);
+    chassis.castShadow = true;
+    chassis.receiveShadow = true;
+    car.add(chassis);
+
+    // Cabin greenhouse
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.50, 2.15), glassMat);
+    cabin.position.set(0, 0.92, -0.15);
+    cabin.castShadow = true;
+    car.add(cabin);
+
+    // Roof cap
+    const roofCap = new THREE.Mesh(new THREE.BoxGeometry(1.50, 0.08, 1.90), bodyMat);
+    roofCap.position.set(0, 1.18, -0.15);
+    car.add(roofCap);
+
+    // Four wheels
+    const wheelGeom = new THREE.CylinderGeometry(0.30, 0.30, 0.22, 12);
+    wheelGeom.rotateZ(Math.PI / 2);
+    const wheelOffsets = [
+      [-0.86, 0.30, 1.28],
+      [0.86, 0.30, 1.28],
+      [-0.86, 0.30, -1.28],
+      [0.86, 0.30, -1.28]
+    ];
+    for (const [wx, wy, wz] of wheelOffsets) {
+      const w = new THREE.Mesh(wheelGeom, wheelMat);
+      w.position.set(wx, wy, wz);
+      car.add(w);
+    }
+
+    return car;
+  }
+
+  private createParkingGardenLamp(): THREE.Group {
+    const lamp = new THREE.Group();
+    lamp.name = 'ParkingLightPole';
+
+    const poleMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.45,
+      metalness: 0.65
+    });
+    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xfef3c7 });
+
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 4.4, 10), poleMat);
+    pole.position.set(0, 2.2, 0);
+    pole.castShadow = true;
+    lamp.add(pole);
+
+    const crossArm = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.07, 0.12), poleMat);
+    crossArm.position.set(0, 4.38, 0);
+    lamp.add(crossArm);
+
+    for (const side of [-0.52, 0.52]) {
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.09, 0.22), poleMat);
+      head.position.set(side, 4.35, 0);
+      lamp.add(head);
+
+      const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.16), bulbMat);
+      lens.rotateX(Math.PI / 2);
+      lens.position.set(side, 4.30, 0);
+      lamp.add(lens);
+    }
+
+    return lamp;
+  }
+
+  private buildParkingLotMeshGroup(lot: LotParcel, group: THREE.Group): void {
+    const poly = this.getLotCorners2D(lot);
+    const layout = LotManager.computeParkingLotLayout(poly);
+    lot.areaM2 = Math.max(16, layout.areaM2);
+    lot.parkingCapacity = layout.stalls.length;
+    lot.userData = {
+      ...(lot.userData || {}),
+      parkingCapacity: layout.stalls.length,
+      infoBadgeText: layout.badgeText
+    };
+
+    const cx = lot.position.x;
+    const cz = lot.position.z;
+
+    // 1. Dark-Grey Smooth Parking Asphalt Polygon
+    const shape = new THREE.Shape();
+    poly.forEach((pt, idx) => {
+      const lx = pt.x - cx;
+      const ly = -(pt.y - cz);
+      if (idx === 0) shape.moveTo(lx, ly);
+      else shape.lineTo(lx, ly);
+    });
+    shape.closePath();
+
+    const asphaltGeom = new THREE.ShapeGeometry(shape);
+    asphaltGeom.rotateX(-Math.PI / 2);
+    const asphaltMat = new THREE.MeshStandardMaterial({
+      color: 0x2c3543,
+      roughness: 0.86,
+      metalness: 0.04,
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    });
+    const asphaltMesh = new THREE.Mesh(asphaltGeom, asphaltMat);
+    asphaltMesh.name = 'ParkingAsphaltSurface';
+    asphaltMesh.position.y = 0.015;
+    asphaltMesh.receiveShadow = true;
+    group.add(asphaltMesh);
+
+    // Identify nearest road edge for entrance apron & curb cut
+    const { frontIdx } = this.getLotEdgeClassification(lot);
+    const frontA = poly[frontIdx];
+    const frontB = poly[(frontIdx + 1) % poly.length];
+    const frontMid: Vec2D = { x: (frontA.x + frontB.x) * 0.5, y: (frontA.y + frontB.y) * 0.5 };
+
+    // 2. Crisp White Concrete Perimeter Curbs (with 6.0m entrance opening on front edge)
+    const curbMat = new THREE.MeshStandardMaterial({
+      color: 0xeef2f6,
+      roughness: 0.72,
+      metalness: 0.05
+    });
+    const curbGroup = new THREE.Group();
+    curbGroup.name = 'ParkingPerimeterCurb';
+
+    const addCurbSegment = (a: Vec2D, b: Vec2D) => {
+      const dx = b.x - a.x;
+      const dz = b.y - a.y;
+      const segLen = Math.hypot(dx, dz);
+      if (segLen < 0.25) return;
+      const segMesh = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.18, segLen), curbMat);
+      segMesh.position.set(((a.x + b.x) * 0.5) - cx, 0.10, ((a.y + b.y) * 0.5) - cz);
+      segMesh.rotation.y = Math.atan2(dx, dz);
+      segMesh.castShadow = true;
+      segMesh.receiveShadow = true;
+      curbGroup.add(segMesh);
+    };
+
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i];
+      const b = poly[(i + 1) % poly.length];
+      const edgeLen = Math.hypot(b.x - a.x, b.y - a.y);
+      if (i === frontIdx && edgeLen > 7.5) {
+        const halfGapRatio = Math.min(0.4, 3.0 / edgeLen);
+        const g1: Vec2D = {
+          x: THREE.MathUtils.lerp(a.x, b.x, 0.5 - halfGapRatio),
+          y: THREE.MathUtils.lerp(a.y, b.y, 0.5 - halfGapRatio)
+        };
+        const g2: Vec2D = {
+          x: THREE.MathUtils.lerp(a.x, b.x, 0.5 + halfGapRatio),
+          y: THREE.MathUtils.lerp(a.y, b.y, 0.5 + halfGapRatio)
+        };
+        addCurbSegment(a, g1);
+        addCurbSegment(g2, b);
+      } else {
+        addCurbSegment(a, b);
+      }
+    }
+    group.add(curbGroup);
+
+    // 3. Green Landscaped Corner Planter Islands
+    const planterGrassMat = new THREE.MeshStandardMaterial({
+      color: 0x2e7d32,
+      roughness: 0.88,
+      metalness: 0.02
+    });
+    const bushMat = new THREE.MeshStandardMaterial({
+      color: 0x388e3c,
+      roughness: 0.82,
+      metalness: 0.02
+    });
+
+    for (let i = 0; i < poly.length; i++) {
+      const corner = poly[i];
+      const toC = { x: layout.centroid.x - corner.x, y: layout.centroid.y - corner.y };
+      const distToC = Math.hypot(toC.x, toC.y);
+      if (distToC < 3.2) continue;
+      const insetX = corner.x + (toC.x / distToC) * 1.55;
+      const insetZ = corner.y + (toC.y / distToC) * 1.55;
+      if (!PolygonMath.isPointInPolygon({ x: insetX, y: insetZ }, poly)) continue;
+
+      const island = new THREE.Group();
+      island.name = 'CornerPlanterIsland';
+      island.position.set(insetX - cx, 0.02, insetZ - cz);
+
+      const ringCurb = new THREE.Mesh(new THREE.CylinderGeometry(1.08, 1.14, 0.20, 14), curbMat);
+      ringCurb.position.y = 0.10;
+      island.add(ringCurb);
+
+      const turf = new THREE.Mesh(new THREE.CylinderGeometry(0.96, 0.96, 0.22, 14), planterGrassMat);
+      turf.position.y = 0.11;
+      island.add(turf);
+
+      const shrub = new THREE.Mesh(new THREE.DodecahedronGeometry(0.68, 1), bushMat);
+      shrub.scale.set(1.15, 0.85, 1.15);
+      shrub.position.y = 0.56;
+      shrub.castShadow = true;
+      island.add(shrub);
+
+      group.add(island);
+    }
+
+    // 4. Entrance Apron Connecting to Nearest Road
+    const fDx = frontB.x - frontA.x;
+    const fDz = frontB.y - frontA.y;
+    const fLen = Math.max(1e-4, Math.hypot(fDx, fDz));
+    let outNx = -fDz / fLen;
+    let outNz = fDx / fLen;
+    // Ensure normal points outward from centroid
+    if ((frontMid.x - layout.centroid.x) * outNx + (frontMid.y - layout.centroid.y) * outNz < 0) {
+      outNx = -outNx;
+      outNz = -outNz;
+    }
+
+    let apronLen = 3.2;
+    if (this.roadManager) {
+      const sample = this.roadManager.getNearestRoadSample(new THREE.Vector2(frontMid.x, frontMid.y));
+      if (sample && sample.distance < 24) {
+        apronLen = Math.max(2.0, Math.min(12.0, sample.distance - sample.asphaltHalfWidth + 0.35));
+      }
+    }
+
+    const apronGroup = new THREE.Group();
+    apronGroup.name = 'ParkingEntranceApron';
+    apronGroup.position.set(
+      frontMid.x + outNx * (apronLen * 0.5) - cx,
+      0.02,
+      frontMid.y + outNz * (apronLen * 0.5) - cz
+    );
+    apronGroup.rotation.y = Math.atan2(outNx, outNz);
+
+    const apronSlab = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.05, apronLen), asphaltMat);
+    apronSlab.receiveShadow = true;
+    apronGroup.add(apronSlab);
+    group.add(apronGroup);
+
+    // 5. Procedural 2.5m x 5.0m White Stall Lines, Circulation Arrows, Lamps & Low-Poly Cars
+    const lineMat = new THREE.MeshBasicMaterial({
+      color: 0xf8fafc,
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    });
+
+    const stallPositions: number[] = [];
+    const stallIndices: number[] = [];
+    let sVert = 0;
+
+    const pushWorldQuad = (centerW: Vec2D, halfU: number, halfV: number, yLocal: number) => {
+      const ux = layout.axisU.x;
+      const uz = layout.axisU.y;
+      const vx = layout.axisV.x;
+      const vz = layout.axisV.y;
+
+      const cornersLocal = [
+        [-halfU, -halfV],
+        [halfU, -halfV],
+        [halfU, halfV],
+        [-halfU, halfV]
+      ];
+      const base = sVert;
+      for (const [cu, cv] of cornersLocal) {
+        const wx = centerW.x + cu * ux + cv * vx - cx;
+        const wz = centerW.y + cu * uz + cv * vz - cz;
+        stallPositions.push(wx, yLocal, wz);
+        sVert++;
+      }
+      stallIndices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    };
+
+    const CAR_PALETTE = [0xf8fafc, 0xcbd5e1, 0x072d59, 0x334155, 0xfd6e8e, 0x1e3a8a];
+    const rowAngleY = Math.atan2(layout.axisV.x, layout.axisV.y);
+
+    layout.stalls.forEach((stall, idx) => {
+      const ux = layout.axisU.x;
+      const uz = layout.axisU.y;
+      const vx = layout.axisV.x;
+      const vz = layout.axisV.y;
+
+      // Left & right 5.0m stall divider lines (width 0.09m, length 5.0m)
+      for (const sideU of [-1.25, 1.25]) {
+        const lineCenter: Vec2D = {
+          x: stall.center.x + sideU * ux,
+          y: stall.center.y + sideU * uz
+        };
+        pushWorldQuad(lineCenter, 0.045, 2.48, 0.035);
+      }
+      // Rear wheel-stop line opposite facingSign
+      const backV = -stall.facingSign * 2.45;
+      pushWorldQuad(
+        { x: stall.center.x + backV * vx, y: stall.center.y + backV * vz },
+        1.25,
+        0.05,
+        0.035
+      );
+
+      // Spawn neatly parked 3D low-poly car silhouette in ~50% of stalls
+      if ((idx * 7 + 3) % 10 < 5) {
+        const carColor = CAR_PALETTE[idx % CAR_PALETTE.length];
+        const car = this.createParkedCarSilhouette(carColor);
+        car.position.set(stall.center.x - cx, 0.02, stall.center.y - cz);
+        car.rotation.y = stall.facingSign > 0 ? rowAngleY : rowAngleY + Math.PI;
+        group.add(car);
+      }
+    });
+
+    if (stallPositions.length > 0) {
+      const stallGeom = new THREE.BufferGeometry();
+      stallGeom.setAttribute('position', new THREE.Float32BufferAttribute(stallPositions, 3));
+      stallGeom.setIndex(stallIndices);
+      stallGeom.computeVertexNormals();
+      const stallMesh = new THREE.Mesh(stallGeom, lineMat);
+      stallMesh.name = 'ParkingStallLines';
+      group.add(stallMesh);
+    }
+
+    // Two-way circulation aisle arrows + garden lamps
+    const arrowAngleY = Math.atan2(layout.axisU.x, layout.axisU.y);
+    for (const aisle of layout.aisles) {
+      const adx = aisle.end.x - aisle.start.x;
+      const adz = aisle.end.y - aisle.start.y;
+      const aLen = Math.hypot(adx, adz);
+      const steps = Math.max(1, Math.floor(aLen / 11));
+
+      for (let s = 0; s <= steps; s++) {
+        const t = steps === 0 ? 0.5 : (s + 0.5) / (steps + 1);
+        const ax = THREE.MathUtils.lerp(aisle.start.x, aisle.end.x, t) - cx;
+        const az = THREE.MathUtils.lerp(aisle.start.y, aisle.end.y, t) - cz;
+
+        for (const laneSign of [-1, 1]) {
+          const arrowGroup = new THREE.Group();
+          arrowGroup.name = 'CirculationArrow';
+          arrowGroup.position.set(
+            ax + layout.axisV.x * laneSign * 1.35,
+            0.038,
+            az + layout.axisV.y * laneSign * 1.35
+          );
+          arrowGroup.rotation.y = laneSign > 0 ? arrowAngleY : arrowAngleY + Math.PI;
+
+          const shaft = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 1.8), lineMat);
+          shaft.rotateX(-Math.PI / 2);
+          arrowGroup.add(shaft);
+
+          const headGeom = new THREE.ConeGeometry(0.45, 0.75, 3);
+          headGeom.rotateX(Math.PI / 2);
+          headGeom.scale(1, 0.05, 1);
+          const head = new THREE.Mesh(headGeom, lineMat);
+          head.position.set(0, 0, 1.15);
+          arrowGroup.add(head);
+
+          group.add(arrowGroup);
+        }
+      }
+
+      // Garden lamp at aisle start & end
+      const lampA = this.createParkingGardenLamp();
+      lampA.position.set(aisle.start.x - cx, 0.02, aisle.start.y - cz);
+      group.add(lampA);
+      if (aLen >= 14) {
+        const lampB = this.createParkingGardenLamp();
+        lampB.position.set(aisle.end.x - cx, 0.02, aisle.end.y - cz);
+        group.add(lampB);
+      }
+    }
+
+    // Ensure at least one garden lamp even for compact lots
+    if (layout.aisles.length === 0) {
+      const lampCenter = this.createParkingGardenLamp();
+      lampCenter.position.set(0, 0.02, 0);
+      group.add(lampCenter);
+    }
+
+    // 6. Floating Indonesian Info Badge ("Luas 1.450 m2 - 32 Slot Parkir")
+    let badgeTex: THREE.CanvasTexture | undefined;
+    if (typeof document !== 'undefined') {
+      try {
+        const badgeCanvas = document.createElement('canvas');
+        badgeCanvas.width = 860;
+        badgeCanvas.height = 148;
+        const bCtx = badgeCanvas.getContext('2d');
+        if (bCtx) {
+          bCtx.clearRect(0, 0, 860, 148);
+          bCtx.beginPath();
+          bCtx.fillStyle = '#072D59';
+          if ((bCtx as any).roundRect) {
+            (bCtx as any).roundRect(6, 6, 848, 136, 36);
+          } else {
+            bCtx.rect(6, 6, 848, 136);
+          }
+          bCtx.fill();
+          bCtx.strokeStyle = '#FD6E8E';
+          bCtx.lineWidth = 5;
+          bCtx.stroke();
+
+          bCtx.fillStyle = '#DBF2FC';
+          bCtx.font = 'bold 42px "Plus Jakarta Sans", sans-serif';
+          bCtx.textAlign = 'center';
+          bCtx.textBaseline = 'middle';
+          bCtx.fillText(layout.badgeText, 430, 74);
+
+          badgeTex = new THREE.CanvasTexture(badgeCanvas);
+          badgeTex.colorSpace = THREE.SRGBColorSpace;
+        }
+      } catch {
+        // Ignore headless canvas context unavailability
+      }
+    }
+
+    const badgeSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        ...(badgeTex ? { map: badgeTex } : { color: 0x072d59 }),
+        depthTest: false,
+        depthWrite: false,
+        transparent: true
+      })
+    );
+    badgeSprite.position.set(0, 5.4, 0);
+    badgeSprite.scale.set(8.2, 1.42, 1.0);
+    badgeSprite.name = 'ParkingInfoBadge';
+    badgeSprite.userData = {
+      isParkingInfoBadge: true,
+      lotId: lot.id,
+      badgeText: layout.badgeText
+    };
+    badgeSprite.renderOrder = 999;
+    group.add(badgeSprite);
+  }
+
   public rebuildLotMesh(lot: LotParcel): void {
     const existing = this.lotMeshGroups.get(lot.id);
     if (existing) {
@@ -518,7 +1257,14 @@ export class LotManager {
     const group = new THREE.Group();
     group.name = `Lot_${lot.id}`;
     group.position.set(lot.position.x, 0.03, lot.position.z);
-    group.userData = { lotId: lot.id, type: 'lot' };
+    group.userData = { lotId: lot.id, type: 'lot', zone: lot.zone };
+
+    if (lot.zone === 'parking_lot') {
+      this.buildParkingLotMeshGroup(lot, group);
+      this.masterGroup.add(group);
+      this.lotMeshGroups.set(lot.id, group);
+      return;
+    }
 
     const rule = ZONE_RULES[lot.zone];
     const hasViolations = lot.violations.length > 0;
@@ -690,14 +1436,21 @@ export class LotManager {
       const isSelected = lotId === this.selectedLotId;
       const isHovered = lotId === hoveredLotId;
       const lot = this.lots.get(lotId);
+      const isParkingLot = lot?.zone === 'parking_lot';
       const hasViolations = Boolean(lot && lot.violations && lot.violations.length > 0);
 
-      if (showAll || isSelected || isHovered) {
+      if (isParkingLot || showAll || isSelected || isHovered) {
         group.visible = true;
       } else if (hasViolations && activeToolName === 'analyze') {
         group.visible = true;
       } else {
         group.visible = false;
+      }
+
+      const parkingBadge = group.getObjectByName('ParkingInfoBadge');
+      if (parkingBadge) {
+        parkingBadge.visible =
+          isSelected || isHovered || activeToolName === 'zone' || activeToolName === 'analyze' || forceOverlays;
       }
 
       const badge = group.getObjectByName('ViolationBadge');

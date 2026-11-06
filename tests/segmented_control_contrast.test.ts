@@ -19,8 +19,8 @@ describe('T1.7: SegmentedControl Graphics Preset Label Contrast & Active Pill', 
     // Active pill background is var(--accent)
     expect(segContent).toContain("backgroundColor: 'var(--accent)'");
 
-    // Active pill shadow has 0 2px 6px accent glow
-    expect(segContent).toContain("boxShadow: '0 2px 6px rgba(0, 122, 255, 0.35)'");
+    // Active pill shadow uses Crimson Pink accent glow token
+    expect(segContent).toContain("boxShadow: 'var(--shadow-accent, 0 4px 14px rgba(253, 110, 142, 0.40))'");
 
     // Active icon uses #FFFFFF
     expect(segContent).toContain("color: isSelected ? '#FFFFFF' : 'inherit'");

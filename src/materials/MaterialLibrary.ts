@@ -225,6 +225,9 @@ export class MaterialLibrary {
       clearcoatRoughness: 0.03,
       envMapIntensity: 2.2,
       depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
     this.kacaDekat.userData.isSharedMaterial = true;
 
@@ -242,6 +245,9 @@ export class MaterialLibrary {
       clearcoatRoughness: 0.05,
       envMapIntensity: 2.0,
       depthWrite: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
     this.kacaJauh.userData.isSharedMaterial = true;
   }
@@ -958,6 +964,9 @@ export class MaterialLibrary {
           envMapIntensity: 2.2,
           emissive: new THREE.Color(0x000000),
           emissiveIntensity: 0,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
         return mat;
       }
@@ -979,6 +988,9 @@ export class MaterialLibrary {
           envMapIntensity: 1.8,
           emissive: new THREE.Color(0x000000),
           emissiveIntensity: 0,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
         return mat;
       }
@@ -993,6 +1005,9 @@ export class MaterialLibrary {
           metalness: 0.1,
           emissive: new THREE.Color(0xfef08a),
           emissiveIntensity: glow > 0 ? glow * 2.5 : 0.05,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
       }
 
@@ -1002,6 +1017,34 @@ export class MaterialLibrary {
           color: options.color !== undefined ? new THREE.Color(options.color) : 0x1e293b,
           roughness: 0.4,
           metalness: 0.8,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        });
+      }
+
+      // Floor Belt / Fascia Band
+      case 'floor_belt': {
+        return new THREE.MeshStandardMaterial({
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0xe2e8f0,
+          roughness: 0.72,
+          metalness: 0.08,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        });
+      }
+
+      // Road Lane & Crosswalk Markings (polygonOffset enabled to eliminate road surface z-fighting)
+      case 'road_marking':
+      case 'marking': {
+        return new THREE.MeshStandardMaterial({
+          color: options.color !== undefined ? new THREE.Color(options.color) : 0xf8fafc,
+          roughness: 0.75,
+          metalness: 0.04,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
       }
 
@@ -1019,6 +1062,9 @@ export class MaterialLibrary {
           color: options.color !== undefined ? new THREE.Color(options.color) : 0xffffff,
           roughness: options.roughness ?? 0.45,
           metalness: options.metalness ?? 0.70,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
         this.injectParallaxReliefShader(mat, 0.035);
         return mat;
@@ -1486,6 +1532,7 @@ export class MaterialLibrary {
           depthWrite: false,
           polygonOffset: true,
           polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
       }
 
@@ -1496,7 +1543,8 @@ export class MaterialLibrary {
           roughness: 0.55,
           metalness: 0.05,
           polygonOffset: true,
-          polygonOffsetFactor: -2,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
       }
 
@@ -1506,7 +1554,8 @@ export class MaterialLibrary {
           roughness: 0.55,
           metalness: 0.05,
           polygonOffset: true,
-          polygonOffsetFactor: -2,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
       }
 

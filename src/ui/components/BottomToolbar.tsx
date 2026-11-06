@@ -64,14 +64,14 @@ interface ToolItem {
 }
 
 const TOOLS: ToolItem[] = [
-  { id: 'select', label: MAIN_TOOLS_I18N.select.label, icon: MousePointer, hotkey: 'V' },
-  { id: 'road', label: MAIN_TOOLS_I18N.road.label, icon: Route, hotkey: 'R' },
-  { id: 'zone', label: MAIN_TOOLS_I18N.zone.label, icon: LayoutGrid, hotkey: 'Z' },
-  { id: 'build', label: MAIN_TOOLS_I18N.build.label, icon: Building2, hotkey: 'B' },
-  { id: 'nature', label: MAIN_TOOLS_I18N.nature.label, icon: Trees, hotkey: 'T' },
-  { id: 'terraform', label: MAIN_TOOLS_I18N.terraform.label, icon: Waves, hotkey: 'W' },
-  { id: 'demolish', label: MAIN_TOOLS_I18N.demolish.label, icon: Trash2, hotkey: 'X' },
-  { id: 'analyze', label: MAIN_TOOLS_I18N.analyze.label, icon: SlidersHorizontal, hotkey: 'A' },
+  { id: 'select', label: MAIN_TOOLS_I18N.select.label, icon: MousePointer, hotkey: '1' },
+  { id: 'road', label: MAIN_TOOLS_I18N.road.label, icon: Route, hotkey: '2' },
+  { id: 'zone', label: MAIN_TOOLS_I18N.zone.label, icon: LayoutGrid, hotkey: '3' },
+  { id: 'build', label: MAIN_TOOLS_I18N.build.label, icon: Building2, hotkey: '4' },
+  { id: 'nature', label: MAIN_TOOLS_I18N.nature.label, icon: Trees, hotkey: '5' },
+  { id: 'terraform', label: MAIN_TOOLS_I18N.terraform.label, icon: Waves, hotkey: '6' },
+  { id: 'demolish', label: MAIN_TOOLS_I18N.demolish.label, icon: Trash2, hotkey: '7' },
+  { id: 'analyze', label: MAIN_TOOLS_I18N.analyze.label, icon: SlidersHorizontal, hotkey: '8' },
 ];
 
 
@@ -201,9 +201,10 @@ export const BottomToolbar: React.FC = React.memo(() => {
       {/* Contextual Hint Bar (Spec A5: Nama alat aktif + langkah berikutnya + Esc) */}
       <ContextualHintBar />
 
-      {/* Tier 1: Main Dock (Capsule Rounded-Full with Tools) */}
+      {/* Tier 1: Main Dock (Navy Blue Structural Capsule + Crimson Pink Active Pill) */}
       <div
-        className="arscity-glass-bar"
+        className="arscity-navy-panel"
+        onMouseLeave={() => setHoveredToolIndex(null)}
         style={{
           position: 'relative',
           display: 'flex',
@@ -217,16 +218,13 @@ export const BottomToolbar: React.FC = React.memo(() => {
         {TOOLS.map((tool, index) => {
           const Icon = tool.icon;
           const isActive = activeTool === tool.id;
-          const dist = hoveredToolIndex !== null ? Math.abs(index - hoveredToolIndex) : 999;
-          const dockScale = dist === 0 ? 1.20 : dist === 1 ? 1.10 : dist === 2 ? 1.04 : 1.0;
 
           return (
             <motion.button
               key={tool.id}
-              animate={{ scale: dockScale }}
-              transition={SPRING_TACTILE}
+              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onMouseEnter={() => setHoveredToolIndex(index)}
+              transition={SPRING_TACTILE}
               onPointerDown={() => proceduralAudio.playTaptic('light')}
               onClick={() => {
                 if (activeTool === tool.id && tool.id !== 'select') {
@@ -246,7 +244,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
                 borderRadius: '9999px',
                 border: 'none',
                 background: 'transparent',
-                color: isActive ? 'var(--accent)' : 'var(--label-secondary)',
+                color: isActive ? 'var(--on-accent)' : 'var(--label-on-navy)',
                 cursor: 'pointer',
                 minWidth: '58px',
                 zIndex: 1
@@ -263,21 +261,20 @@ export const BottomToolbar: React.FC = React.memo(() => {
                     position: 'absolute',
                     inset: 0,
                     borderRadius: '9999px',
-                    border: '1px solid rgba(0, 122, 255, 0.40)',
-                    background: 'var(--accent-subtle)',
-                    boxShadow: '0 1px 4px rgba(0, 122, 255, 0.15)',
+                    background: 'var(--accent)',
+                    boxShadow: 'var(--shadow-accent)',
                     zIndex: -1
                   }}
                 />
               )}
-              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? 'var(--accent)' : 'currentColor' }} />
+              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? 'var(--on-accent)' : 'currentColor' }} />
               <span
                 style={{
                   fontSize: '11px',
                   fontWeight: isActive ? 700 : 500,
                   whiteSpace: 'nowrap',
                   letterSpacing: '-0.01em',
-                  color: isActive ? 'var(--accent)' : 'currentColor'
+                  color: isActive ? 'var(--on-accent)' : 'currentColor'
                 }}
               >
                 {tool.label}
@@ -302,7 +299,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
               borderRadius: '50%',
               background: 'transparent',
               border: 'none',
-              color: 'var(--label)',
+              color: 'var(--label-on-navy)',
               opacity: canUndo ? 1 : 0.35,
               cursor: canUndo ? 'pointer' : 'not-allowed',
               display: 'flex',
@@ -328,7 +325,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
               borderRadius: '50%',
               background: 'transparent',
               border: 'none',
-              color: 'var(--label)',
+              color: 'var(--label-on-navy)',
               opacity: canRedo ? 1 : 0.35,
               cursor: canRedo ? 'pointer' : 'not-allowed',
               display: 'flex',
@@ -406,7 +403,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
                             borderRadius: '9999px',
                             border: 'none',
                             background: 'transparent',
-                            color: isCatActive ? '#007AFF' : '#475569',
+                            color: isCatActive ? 'var(--on-accent)' : 'var(--label)',
                             fontSize: '11px',
                             fontWeight: isCatActive ? 700 : 500,
                             cursor: 'pointer',
@@ -422,13 +419,13 @@ export const BottomToolbar: React.FC = React.memo(() => {
                                 position: 'absolute',
                                 inset: 0,
                                 borderRadius: '9999px',
-                                border: '1px solid rgba(10, 132, 255, 0.35)',
-                                background: 'rgba(10, 132, 255, 0.14)',
+                                background: 'var(--accent)',
+                                boxShadow: 'var(--shadow-accent)',
                                 zIndex: -1
                               }}
                             />
                           )}
-                          <Icon size={12} strokeWidth={1.8} style={{ color: isCatActive ? '#007AFF' : '#64748B' }} />
+                          <Icon size={12} strokeWidth={1.8} style={{ color: isCatActive ? 'var(--on-accent)' : 'var(--label-secondary)' }} />
                           <span>{cat.label}</span>
                         </motion.button>
                       );
@@ -442,13 +439,13 @@ export const BottomToolbar: React.FC = React.memo(() => {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        background: 'rgba(255, 255, 255, 0.85)',
-                        border: '1px solid rgba(15, 23, 42, 0.12)',
+                        background: 'var(--surface-raised)',
+                        border: '1px solid var(--border)',
                         borderRadius: '9999px',
                         padding: '3px 10px'
                       }}
                     >
-                      <Search size={13} style={{ color: '#64748B' }} />
+                      <Search size={13} style={{ color: 'var(--label-secondary)' }} />
                       <input
                         type="text"
                         placeholder="Cari gedung..."
@@ -458,7 +455,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
                           background: 'transparent',
                           border: 'none',
                           outline: 'none',
-                          color: '#0F172A',
+                          color: 'var(--label)',
                           fontSize: '11px',
                           width: '100px'
                         }}
@@ -466,7 +463,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
                       {searchQuery && (
                         <button
                           onClick={() => setSearchQuery('')}
-                          style={{ background: 'transparent', border: 'none', color: '#64748B', cursor: 'pointer', padding: 0 }}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--label-secondary)', cursor: 'pointer', padding: 0 }}
                         >
                           <X size={11} />
                         </button>
@@ -483,9 +480,9 @@ export const BottomToolbar: React.FC = React.memo(() => {
                         gap: '4px',
                         padding: '4px 10px',
                         borderRadius: '9999px',
-                        background: 'rgba(255, 255, 255, 0.85)',
-                        border: '1px solid rgba(15, 23, 42, 0.12)',
-                        color: '#0F172A',
+                        background: 'var(--surface-raised)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--label)',
                         fontSize: '11px',
                         fontWeight: 600,
                         cursor: 'pointer'
@@ -506,9 +503,10 @@ export const BottomToolbar: React.FC = React.memo(() => {
                         gap: '4px',
                         padding: '4px 10px',
                         borderRadius: '9999px',
-                        background: 'rgba(10, 132, 255, 0.14)',
-                        border: '1px solid rgba(10, 132, 255, 0.35)',
-                        color: '#007AFF',
+                        background: 'var(--accent)',
+                        border: 'none',
+                        color: 'var(--on-accent)',
+                        boxShadow: 'var(--shadow-accent)',
                         fontSize: '11px',
                         fontWeight: 700,
                         cursor: 'pointer'
@@ -572,12 +570,12 @@ export const BottomToolbar: React.FC = React.memo(() => {
                           padding: '6px',
                           borderRadius: '14px',
                           background: isSelected
-                            ? 'rgba(10, 132, 255, 0.10)'
-                            : 'rgba(255, 255, 255, 0.85)',
+                            ? 'var(--accent-subtle)'
+                            : 'var(--surface-raised)',
                           border: isSelected
-                            ? '1.5px solid #007AFF'
-                            : '1px solid rgba(15, 23, 42, 0.08)',
-                          boxShadow: isSelected ? '0 0 12px rgba(10, 132, 255, 0.25)' : '0 2px 6px rgba(15, 23, 42, 0.04)',
+                            ? '1.5px solid var(--accent)'
+                            : '1px solid var(--border)',
+                          boxShadow: isSelected ? 'var(--shadow-accent)' : 'var(--shadow-card)',
                           cursor: 'pointer'
                         }}
                         title={item.description}
@@ -589,15 +587,15 @@ export const BottomToolbar: React.FC = React.memo(() => {
                             borderRadius: '8px',
                             overflow: 'hidden',
                             marginBottom: '5px',
-                            background: '#E2E8F0'
+                            background: 'var(--surface-solid)'
                           }}
                         >
                           <img src={thumb} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {item.name}
                         </div>
-                        <div className="font-mono tabular-nums" style={{ fontSize: '9px', color: '#64748B' }}>
+                        <div className="font-mono tabular-nums" style={{ fontSize: '9px', color: 'var(--label-secondary)' }}>
                           {item.defaultWidth}×{item.defaultDepth}m • {item.defaultFloors} Lt
                         </div>
                       </motion.div>
@@ -627,7 +625,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
             className="arscity-glass-bar"
           >
             {/* Straight vs Bezier with layoutId spring indicator */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', background: 'var(--fill-control)', borderRadius: '9999px', padding: '2px', border: '1px solid var(--border)' }}>
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onPointerDown={() => proceduralAudio.playTaptic('selection')}
@@ -641,7 +639,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
                   borderRadius: '9999px',
                   border: 'none',
                   background: 'transparent',
-                  color: roadDrawMode === 'straight' ? '#007AFF' : '#475569',
+                  color: roadDrawMode === 'straight' ? 'var(--on-accent)' : 'var(--label)',
                   fontSize: '11px',
                   fontWeight: roadDrawMode === 'straight' ? 700 : 500,
                   cursor: 'pointer',
@@ -656,8 +654,8 @@ export const BottomToolbar: React.FC = React.memo(() => {
                       position: 'absolute',
                       inset: 0,
                       borderRadius: '9999px',
-                      background: 'rgba(255, 255, 255, 0.95)',
-                      boxShadow: '0 1px 4px rgba(15, 23, 42, 0.12)',
+                      background: 'var(--accent)',
+                      boxShadow: 'var(--shadow-accent)',
                       zIndex: -1
                     }}
                   />
@@ -678,7 +676,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
                   borderRadius: '9999px',
                   border: 'none',
                   background: 'transparent',
-                  color: roadDrawMode === 'bezier' ? '#007AFF' : '#475569',
+                  color: roadDrawMode === 'bezier' ? 'var(--on-accent)' : 'var(--label)',
                   fontSize: '11px',
                   fontWeight: roadDrawMode === 'bezier' ? 700 : 500,
                   cursor: 'pointer',
@@ -693,8 +691,8 @@ export const BottomToolbar: React.FC = React.memo(() => {
                       position: 'absolute',
                       inset: 0,
                       borderRadius: '9999px',
-                      background: 'rgba(255, 255, 255, 0.95)',
-                      boxShadow: '0 1px 4px rgba(15, 23, 42, 0.12)',
+                      background: 'var(--accent)',
+                      boxShadow: 'var(--shadow-accent)',
                       zIndex: -1
                     }}
                   />
@@ -721,9 +719,10 @@ export const BottomToolbar: React.FC = React.memo(() => {
                     style={{
                       padding: '4px 10px',
                       borderRadius: '9999px',
-                      border: isSel ? '1.5px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.08)',
-                      background: isSel ? 'rgba(10, 132, 255, 0.14)' : 'rgba(255, 255, 255, 0.85)',
-                      color: isSel ? '#007AFF' : '#475569',
+                      border: isSel ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      background: isSel ? 'var(--accent)' : 'var(--surface-raised)',
+                      color: isSel ? 'var(--on-accent)' : 'var(--label)',
+                      boxShadow: isSel ? 'var(--shadow-accent)' : 'none',
                       fontSize: '11px',
                       fontWeight: isSel ? 700 : 500,
                       cursor: 'pointer',
@@ -782,16 +781,17 @@ export const BottomToolbar: React.FC = React.memo(() => {
                       gap: '6px',
                       padding: '4px 10px',
                       borderRadius: '9999px',
-                      border: isSel ? '1.5px solid #007AFF' : '1px solid rgba(15, 23, 42, 0.08)',
-                      background: isSel ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
-                      color: isSel ? '#0F172A' : '#475569',
-                      boxShadow: isSel ? '0 1px 4px rgba(15, 23, 42, 0.10)' : 'none',
+                      border: isSel ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      background: isSel ? 'var(--accent)' : 'transparent',
+                      color: isSel ? 'var(--on-accent)' : 'var(--label)',
+                      boxShadow: isSel ? 'var(--shadow-accent)' : 'none',
                       fontSize: '11px',
                       fontWeight: isSel ? 700 : 500,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
                     }}
                   >
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: rule.color }} />
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: rule.color, border: isSel ? '1px solid var(--on-accent)' : 'none' }} />
                     <span>{rule.name.split(' (')[0]}</span>
                   </motion.button>
                 );
@@ -802,8 +802,8 @@ export const BottomToolbar: React.FC = React.memo(() => {
 
             {/* Lot Size Selector with layoutId indicator */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Kavling:</span>
-              <div style={{ display: 'flex', alignItems: 'center', background: '#E2E8F0', borderRadius: '9999px', padding: '2px', border: '1px solid rgba(15, 23, 42, 0.06)' }}>
+              <span style={{ fontSize: '11px', color: 'var(--label-secondary)', fontWeight: 600 }}>Kavling:</span>
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--fill-control)', borderRadius: '9999px', padding: '2px', border: '1px solid var(--border)' }}>
                 {[
                   { w: 12, l: 15, label: '12×15m' },
                   { w: 15, l: 20, label: '15×20m' },
@@ -822,7 +822,7 @@ export const BottomToolbar: React.FC = React.memo(() => {
                         borderRadius: '9999px',
                         border: 'none',
                         background: 'transparent',
-                        color: isSel ? '#007AFF' : '#475569',
+                        color: isSel ? 'var(--on-accent)' : 'var(--label)',
                         fontSize: '11px',
                         fontWeight: isSel ? 700 : 500,
                         cursor: 'pointer',
@@ -837,8 +837,8 @@ export const BottomToolbar: React.FC = React.memo(() => {
                             position: 'absolute',
                             inset: 0,
                             borderRadius: '9999px',
-                            background: 'rgba(255, 255, 255, 0.95)',
-                            boxShadow: '0 1px 4px rgba(15, 23, 42, 0.12)',
+                            background: 'var(--accent)',
+                            boxShadow: 'var(--shadow-accent)',
                             zIndex: -1
                           }}
                         />

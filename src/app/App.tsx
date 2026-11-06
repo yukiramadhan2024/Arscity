@@ -18,6 +18,7 @@ import { LoginPage } from '../ui/components/LoginPage';
 import { WorldHubModal } from '../ui/components/WorldHubModal';
 import { FirstPersonHUD } from '../ui/components/FirstPersonHUD';
 import { SnackbarHost } from '../ui/components/SnackbarHost';
+import { NewMapCustomizerModal } from '../ui/components/NewMapCustomizerModal';
 
 export const App: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -128,17 +129,17 @@ export const App: React.FC = () => {
         if (useUIStore.getState().activeTool !== 'select') {
           useUIStore.getState().setActiveTool('select');
         }
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && useUIStore.getState().cameraMode === 'orbit') {
-        // Quick Tool Switching Hotkeys (1-8)
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && (useUIStore.getState().cameraMode === 'orbit' || useUIStore.getState().cameraMode === '2d')) {
+        // Quick Tool Switching Hotkeys (1-8) matching exact visual order of BottomToolbar
         const toolMap: Record<string, import('../ui/state/useUIStore').MainToolType> = {
-          '1': 'select',
-          '2': 'road',
-          '3': 'zone',
-          '4': 'build',
-          '5': 'nature',
-          '6': 'analyze',
-          '7': 'terraform',
-          '8': 'demolish'
+          '1': 'select',     // 1. Pilih
+          '2': 'road',       // 2. Jalan
+          '3': 'zone',       // 3. Zona
+          '4': 'build',      // 4. Bangun
+          '5': 'nature',     // 5. Lansekap
+          '6': 'terraform',  // 6. Tanah dan Air
+          '7': 'demolish',   // 7. Bongkar
+          '8': 'analyze'     // 8. Analisis
         };
         const targetTool = toolMap[e.key];
         if (targetTool) {
@@ -176,7 +177,7 @@ export const App: React.FC = () => {
         <>
           <FirstPersonHUD />
 
-          {!isPhotoMode && cameraMode === 'orbit' && (
+          {!isPhotoMode && (cameraMode === 'orbit' || cameraMode === '2d') && (
             <HudLayout onOpenHelp={() => setShowHelp(true)} />
           )}
 
@@ -213,6 +214,9 @@ export const App: React.FC = () => {
           }}
         />
       )}
+
+      {/* Modal Kustomisasi Peta Baru (Tahap 2) */}
+      <NewMapCustomizerModal />
 
       {/* Global Apple Dynamic Island Feedback Host */}
       <SnackbarHost />

@@ -219,6 +219,9 @@ interface UIState {
 
   // World Hub & Map Loading Pipeline
   isMapHubOpen: boolean;
+  isNewMapCustomizerOpen: boolean;
+  openNewMapCustomizer: () => void;
+  closeNewMapCustomizer: () => void;
   isLoadingMap: boolean;
   loadingMapMessage: string;
   activeMapId: string;
@@ -941,6 +944,9 @@ export const useUIStore = create<UIState>((set, get) => {
 
     // World Hub & Map Loading Pipeline
     isMapHubOpen: true,
+    isNewMapCustomizerOpen: false,
+    openNewMapCustomizer: () => set({ isNewMapCustomizerOpen: true }),
+    closeNewMapCustomizer: () => set({ isNewMapCustomizerOpen: false }),
     isLoadingMap: false,
     loadingMapMessage: 'Menyiapkan geometri jalan & bangunan...',
     activeMapId: 'empty_map',

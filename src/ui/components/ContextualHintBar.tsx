@@ -48,11 +48,11 @@ export const ContextualHintBar: React.FC = React.memo(() => {
           gap: '8px',
           padding: '5px 14px',
           borderRadius: '9999px',
-          background: 'rgba(255, 255, 255, 0.92)',
+          background: 'var(--surface)',
           backdropFilter: 'blur(20px) saturate(180%)',
           WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          border: '1px solid rgba(255, 255, 255, 0.85)',
-          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04)',
+          border: '1px solid var(--border-glass)',
+          boxShadow: 'var(--shadow-card)',
           marginBottom: '8px',
           pointerEvents: 'auto',
           userSelect: 'none'
@@ -66,12 +66,12 @@ export const ContextualHintBar: React.FC = React.memo(() => {
             display: 'flex',
             alignItems: 'center',
             gap: '5px',
-            color: '#007AFF',
+            color: 'var(--accent)',
             fontWeight: 700,
             fontSize: '12px'
           }}
         >
-          <ToolIcon size={14} strokeWidth={2} style={{ color: '#007AFF' }} />
+          <ToolIcon size={14} strokeWidth={2} style={{ color: 'var(--accent)' }} />
           <span>{toolInfo.label}:</span>
         </div>
 
@@ -79,7 +79,7 @@ export const ContextualHintBar: React.FC = React.memo(() => {
         <span
           style={{
             fontSize: '12px',
-            color: '#334155',
+            color: 'var(--label)',
             fontWeight: 500,
             letterSpacing: '-0.01em'
           }}
@@ -88,7 +88,7 @@ export const ContextualHintBar: React.FC = React.memo(() => {
         </span>
 
         {/* Separator Dot */}
-        <span style={{ color: '#CBD5E1', fontSize: '10px' }}>•</span>
+        <span style={{ color: 'var(--separator)', fontSize: '10px' }}>•</span>
 
         {/* Esc to Cancel Pill Button */}
         {activeTool !== 'select' ? (
@@ -100,9 +100,9 @@ export const ContextualHintBar: React.FC = React.memo(() => {
               gap: '4px',
               padding: '2px 8px',
               borderRadius: '9999px',
-              background: 'rgba(0, 122, 255, 0.08)',
-              border: '1px solid rgba(0, 122, 255, 0.25)',
-              color: '#007AFF',
+              background: 'var(--fill-control)',
+              border: '1px solid var(--border)',
+              color: 'var(--accent)',
               fontSize: '11px',
               fontWeight: 600,
               cursor: 'pointer',
@@ -117,9 +117,9 @@ export const ContextualHintBar: React.FC = React.memo(() => {
                 fontSize: '10px',
                 padding: '0 3px',
                 borderRadius: '4px',
-                background: 'rgba(255, 255, 255, 0.9)',
-                border: '1px solid rgba(0, 122, 255, 0.2)',
-                color: '#007AFF'
+                background: 'var(--surface-raised)',
+                border: '1px solid var(--border)',
+                color: 'var(--accent)'
               }}
             >
               Esc
@@ -130,7 +130,7 @@ export const ContextualHintBar: React.FC = React.memo(() => {
           <span
             style={{
               fontSize: '11px',
-              color: '#64748B',
+              color: 'var(--label-secondary)',
               fontWeight: 500
             }}
           >

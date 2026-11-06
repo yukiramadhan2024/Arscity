@@ -123,11 +123,11 @@ describe('Tahap 2: Render Jarak Bertingkat (3-Zone Spatial LOD) - T2.1 Verificat
       expect(buildingManager.buildingZones.get('bld_lod_test'), 'Hysteresis keeps Z0 at 26m').toBe(0);
 
       // 3. Move to distance = 28m (> 27m exit threshold). Now exits to Zone 1!
-      // X = 5 + 28 = 33m.
+      // X = 5 + 28 = 33m. Note: placedFurniture remains visible < 45m per Tahap 1.1!
       buildingManager.updateSpatialLOD(new THREE.Vector3(33, 2, 0), false, null, true);
       expect(buildingManager.buildingZones.get('bld_lod_test')).toBe(1);
       expect(interior.visible, 'Interior culled in Zone 1').toBe(false);
-      expect(dynamicFur.visible, 'Furniture culled in Zone 1').toBe(false);
+      expect(dynamicFur.visible, 'Placed furniture stays visible < 45m').toBe(true);
       expect(details.visible, 'Exterior details remain visible in Zone 1').toBe(true);
 
       // Glass material swaps to kacaJauh (opacity 0.88, roughness 0.1)

@@ -1,56 +1,186 @@
+import * as THREE from 'three';
 import { Engine } from '../core/engine/Engine';
 import { proceduralAudio } from '../audio/ProceduralAudio';
 
+export interface PhotoExportOptions {
+  resolution?: '1080p' | '1440p' | '4k';
+  enableTiltShift?: boolean;
+  tiltShiftFocusY?: number; // 0..1 (default 0.52)
+  accumulationPasses?: number; // 1 to 4
+  showWatermark?: boolean;
+  filename?: string;
+}
+
 export class ScreenshotExporter {
   public static captureScreenshot(engine: Engine, filename?: string): void {
-    // Render an immediate frame
-    engine.renderer.render(engine.scene, engine.cameraController.activeCamera);
-    const canvas = engine.renderer.domElement;
+    this.captureHighResPhoto(engine, { resolution: '1080p', showWatermark: true, filename });
+  }
 
-    // Create a 2D composite canvas with brand watermark
-    const compositeCanvas = document.createElement('canvas');
-    compositeCanvas.width = canvas.width;
-    compositeCanvas.height = canvas.height;
-    const ctx = compositeCanvas.getContext('2d');
-    if (!ctx) return;
+  /**
+   * High-Resolution Architectural Photo Capture (up to 4K UHD).
+   * Features:
+   * - Multi-pass accumulation anti-aliasing with subpixel camera jitter.
+   * - Optional tilt-shift depth of field (miniature city builder optical lens blur).
+   * - Clean UI-free rendering.
+   * - Offline instant canvas composition.
+   */
+  public static captureHighResPhoto(engine: Engine, options: PhotoExportOptions = {}): string | null {
+    const {
+      resolution = '1080p',
+      enableTiltShift = false,
+      tiltShiftFocusY = 0.52,
+      accumulationPasses = 2,
+      showWatermark = true,
+      filename
+    } = options;
 
-    // Draw 3D scene
-    ctx.drawImage(canvas, 0, 0);
+    if (!engine || !engine.renderer) return null;
 
-    // Draw Watermark Badge
-    const pad = 24;
-    ctx.save();
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-    ctx.beginPath();
-    ctx.roundRect(pad, compositeCanvas.height - 64, 220, 40, 10);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    let targetW = 1920;
+    let targetH = 1080;
+    if (resolution === '4k') {
+      targetW = 3840;
+      targetH = 2160;
+    } else if (resolution === '1440p') {
+      targetW = 2560;
+      targetH = 1440;
+    }
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = "600 13px 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText('Arscity', pad + 14, compositeCanvas.height - 39);
+    const renderer = engine.renderer;
+    const origDomW = renderer.domElement.width;
+    const origDomH = renderer.domElement.height;
+    const origPixelRatio = renderer.getPixelRatio();
+    const camera = engine.cameraController ? engine.cameraController.activeCamera : null;
 
-    ctx.fillStyle = '#007aff';
-    ctx.font = "500 11px 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText('Tata Kota & Arsitektur', pad + 70, compositeCanvas.height - 39);
-    ctx.restore();
+    try {
+      renderer.setPixelRatio(1);
+      renderer.setSize(targetW, targetH, false);
 
-    // Trigger download
-    const dataUrl = compositeCanvas.toDataURL('image/png');
-    const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const actualFilename = filename || `arscity_photo_${dateStr}.png`;
+      if (camera && camera instanceof THREE.PerspectiveCamera) {
+        camera.aspect = targetW / targetH;
+        camera.updateProjectionMatrix();
+      }
 
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = actualFilename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+      // Main accumulation canvas
+      const compCanvas = document.createElement('canvas');
+      compCanvas.width = targetW;
+      compCanvas.height = targetH;
+      const ctx = compCanvas.getContext('2d');
+      if (!ctx) return null;
 
-    proceduralAudio.playCameraSnap();
+      const passes = Math.max(1, Math.min(4, accumulationPasses));
+      for (let p = 0; p < passes; p++) {
+        if (p > 0 && camera && camera instanceof THREE.PerspectiveCamera) {
+          const jitterX = (Math.random() - 0.5) * (1 / targetW);
+          const jitterY = (Math.random() - 0.5) * (1 / targetH);
+          camera.setViewOffset(targetW, targetH, jitterX * targetW, jitterY * targetH, targetW, targetH);
+        }
+
+        if (engine.postProcessingManager && engine.postProcessingManager.isEnabled() && engine.currentQuality !== 'low') {
+          engine.postProcessingManager.render();
+        } else if (camera) {
+          renderer.render(engine.scene, camera);
+        }
+
+        ctx.globalAlpha = 1.0 / (p + 1);
+        ctx.drawImage(renderer.domElement, 0, 0);
+
+        if (p > 0 && camera && camera instanceof THREE.PerspectiveCamera) {
+          camera.clearViewOffset();
+          camera.updateProjectionMatrix();
+        }
+      }
+      ctx.globalAlpha = 1.0;
+
+      // Subtle Tilt-Shift Depth-of-Field filter
+      if (enableTiltShift) {
+        const blurCanvas = document.createElement('canvas');
+        blurCanvas.width = targetW;
+        blurCanvas.height = targetH;
+        const bCtx = blurCanvas.getContext('2d');
+        if (bCtx) {
+          bCtx.filter = `blur(${Math.round(targetH * 0.012)}px)`;
+          bCtx.drawImage(compCanvas, 0, 0);
+
+          // Create gradient mask
+          const maskCanvas = document.createElement('canvas');
+          maskCanvas.width = targetW;
+          maskCanvas.height = targetH;
+          const mCtx = maskCanvas.getContext('2d');
+          if (mCtx) {
+            const grad = mCtx.createLinearGradient(0, 0, 0, targetH);
+            const focus = THREE.MathUtils.clamp(tiltShiftFocusY, 0.2, 0.8);
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+            grad.addColorStop(Math.max(0, focus - 0.22), 'rgba(0, 0, 0, 0.85)');
+            grad.addColorStop(Math.max(0, focus - 0.08), 'rgba(0, 0, 0, 0)');
+            grad.addColorStop(Math.min(1, focus + 0.08), 'rgba(0, 0, 0, 0)');
+            grad.addColorStop(Math.min(1, focus + 0.22), 'rgba(0, 0, 0, 0.85)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
+            mCtx.fillStyle = grad;
+            mCtx.fillRect(0, 0, targetW, targetH);
+
+            bCtx.filter = 'none';
+            bCtx.globalCompositeOperation = 'destination-in';
+            bCtx.drawImage(maskCanvas, 0, 0);
+
+            ctx.drawImage(blurCanvas, 0, 0);
+          }
+        }
+      }
+
+      // Watermark
+      if (showWatermark) {
+        const scale = targetH / 1080;
+        const pad = 28 * scale;
+        const badgeW = 240 * scale;
+        const badgeH = 44 * scale;
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+        ctx.beginPath();
+        ctx.roundRect(pad, targetH - pad - badgeH, badgeW, badgeH, 10 * scale);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+        ctx.lineWidth = 1 * scale;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `600 ${Math.round(14 * scale)}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText('Arscity', pad + 16 * scale, targetH - pad - badgeH * 0.38);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = `500 ${Math.round(11 * scale)}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText(`Mode Foto ${resolution.toUpperCase()}`, pad + 82 * scale, targetH - pad - badgeH * 0.38);
+        ctx.restore();
+      }
+
+      const dataUrl = compCanvas.toDataURL('image/png');
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const actualFilename = filename || `arscity_photo_${resolution}_${dateStr}.png`;
+
+      if (typeof document !== 'undefined') {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = actualFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        proceduralAudio.playCameraSnap();
+      }
+      return dataUrl;
+    } finally {
+      renderer.setPixelRatio(origPixelRatio);
+      renderer.setSize(origDomW / origPixelRatio, origDomH / origPixelRatio, false);
+      if (camera && camera instanceof THREE.PerspectiveCamera) {
+        camera.aspect = (origDomW / origPixelRatio) / (origDomH / origPixelRatio);
+        camera.updateProjectionMatrix();
+      }
+      if (engine.postProcessingManager && engine.postProcessingManager.isEnabled() && engine.currentQuality !== 'low') {
+        engine.postProcessingManager.render();
+      } else if (camera) {
+        renderer.render(engine.scene, camera);
+      }
+    }
   }
 
   public static exportFloorPlanToSvg(engine: Engine): void {
@@ -75,8 +205,8 @@ export class ScreenshotExporter {
     .road { stroke: #334155; fill: none; stroke-linecap: round; }
     .road-center { stroke: #f8fafc; stroke-width: 1.5; stroke-dasharray: 6 6; fill: none; }
     .building { fill: #0284c7; stroke: #38bdf8; stroke-width: 1.5; }
-    .label { font-family: 'Inter', sans-serif; font-size: 10px; fill: #94a3b8; }
-    .title { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: bold; fill: #f8fafc; }
+    .label { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 10px; fill: #94a3b8; }
+    .title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: bold; fill: #f8fafc; }
   </style>
   <rect width="${svgSize}" height="${svgSize}" class="bg" />
 `;
@@ -111,7 +241,7 @@ export class ScreenshotExporter {
 
       svgContent += `  <g transform="translate(${cx}, ${cy}) rotate(${rotDeg})">\n`;
       svgContent += `    <rect x="${-bw / 2}" y="${-bl / 2}" width="${bw}" height="${bl}" class="building" />\n`;
-      svgContent += `    <text x="0" y="3" text-anchor="middle" font-size="8" fill="#ffffff" font-family="sans-serif">${b.name}</text>\n`;
+      svgContent += `    <text x="0" y="3" text-anchor="middle" font-size="8" fill="#ffffff" font-family="'Plus Jakarta Sans', sans-serif">${b.name}</text>\n`;
       svgContent += `  </g>\n`;
     });
 
@@ -167,8 +297,8 @@ export class ScreenshotExporter {
     const colorWarn = '#ff9500';
     const colorAccent = '#38bdf8';
 
-    const monoFont = "'JetBrains Mono', 'SF Mono', Consolas, monospace";
-    const sansFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+    const monoFont = "'JetBrains Mono', monospace";
+    const sansFont = "'Plus Jakarta Sans', sans-serif";
 
     // Background
     ctx.fillStyle = bgDark;

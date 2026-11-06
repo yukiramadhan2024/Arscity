@@ -47,6 +47,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
   const engine = uiStore.engine ?? state.engine;
   const activeMapId = uiStore.activeMapId ?? state.activeMapId;
   const activeMapName = uiStore.activeMapName ?? state.activeMapName;
+  const openNewMapCustomizer = uiStore.openNewMapCustomizer ?? state.openNewMapCustomizer;
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [activeMenuMapId, setActiveMenuMapId] = useState<string | null>(null);
@@ -416,27 +417,28 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           max-height: 90vh;
           border-radius: 28px;
           overflow: hidden;
-          background: rgba(244, 247, 251, 0.96);
+          background: var(--surface);
           backdrop-filter: blur(24px) saturate(180%);
           -webkit-backdrop-filter: blur(24px) saturate(180%);
-          border: 1px solid rgba(255, 255, 255, 0.95);
-          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
+          border: 1px solid var(--border-glass);
+          box-shadow: var(--shadow-glass);
           display: flex;
           flex-direction: column;
           box-sizing: border-box;
-          color: #0F172A;
+          color: var(--label);
         }
         .wh-header {
           position: relative;
           z-index: 10;
           padding: 18px 28px;
-          border-bottom: 1px solid #CBD5E1;
+          border-bottom: 1px solid var(--border-on-navy);
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 16px;
           flex-wrap: wrap;
-          background-color: rgba(244, 247, 251, 0.98);
+          background-color: var(--surface-navy);
+          color: var(--label-on-navy);
         }
         .wh-logo-wrap {
           display: flex;
@@ -465,10 +467,10 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           justify-content: space-between;
           gap: 12px;
           padding: 10px 16px;
-          background: #FFFFFF;
-          border: 1px solid #CBD5E1;
+          background: var(--surface-raised);
+          border: 1px solid var(--border);
           border-radius: 16px;
-          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+          box-shadow: var(--shadow-card);
         }
         .wh-folders-stage {
           position: relative;
@@ -503,24 +505,24 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             <ArscityLogo size={38} />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: '#0F172A' }}>
+                <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--label-on-navy)' }}>
                   ARSCITY
                 </span>
                 <span
                   style={{
                     fontSize: '11px',
-                    fontWeight: 600,
+                    fontWeight: 700,
                     padding: '2px 9px',
                     borderRadius: '9999px',
-                    backgroundColor: 'rgba(0, 122, 255, 0.12)',
-                    color: '#007AFF',
-                    border: '1px solid rgba(0, 122, 255, 0.28)',
+                    backgroundColor: 'var(--accent)',
+                    color: 'var(--on-accent)',
+                    boxShadow: 'var(--shadow-accent)',
                   }}
                 >
                   Penyimpanan Lokal
                 </span>
               </div>
-              <p style={{ fontSize: '13px', color: '#475569', margin: '2px 0 0 0' }}>
+              <p style={{ fontSize: '13px', color: 'var(--label-muted-on-navy)', margin: '2px 0 0 0' }}>
                 Perpustakaan Kota · Kota tersimpan di perangkat ini
               </p>
             </div>
@@ -535,15 +537,14 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 gap: '6px',
                 padding: '6px 12px',
                 borderRadius: '9999px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #CBD5E1',
+                backgroundColor: 'var(--fill-on-navy)',
+                border: '1px solid var(--border-on-navy)',
                 fontSize: '11.5px',
                 fontWeight: 600,
-                color: '#334155',
-                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+                color: 'var(--label-on-navy)',
               }}
             >
-              <HardDrive size={13} style={{ color: '#007AFF' }} />
+              <HardDrive size={13} style={{ color: 'var(--accent)' }} />
               <span>{savedMapsList.length} Kota Tersimpan</span>
             </div>
 
@@ -555,18 +556,17 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 gap: '6px',
                 padding: '6px 14px',
                 borderRadius: '9999px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #CBD5E1',
+                backgroundColor: 'var(--fill-on-navy)',
+                border: '1px solid var(--border-on-navy)',
                 fontSize: '12px',
                 fontWeight: 600,
-                color: '#0F172A',
+                color: 'var(--label-on-navy)',
                 cursor: 'pointer',
                 transition: 'all 120ms ease',
-                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
               }}
               title="Impor peta dari berkas .geojson atau proyek .arscity"
             >
-              <Upload size={13} strokeWidth={2} style={{ color: '#007AFF' }} />
+              <Upload size={13} strokeWidth={2} style={{ color: 'var(--accent)' }} />
               <span>Impor Berkas</span>
             </button>
             <input
@@ -583,15 +583,14 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 width: '32px',
                 height: '32px',
                 borderRadius: '50%',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #CBD5E1',
+                backgroundColor: 'var(--fill-on-navy)',
+                border: '1px solid var(--border-on-navy)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#334155',
+                color: 'var(--label-on-navy)',
                 cursor: 'pointer',
                 transition: 'all 120ms ease',
-                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
               }}
               title="Tutup Perpustakaan Kota"
               aria-label="Tutup Perpustakaan Kota"
@@ -627,8 +626,8 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           {/* Quick Action Bar: Resume last / New City */}
           <div className="wh-quick-bar">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FolderOpen size={16} style={{ color: '#007AFF' }} />
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+              <FolderOpen size={16} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                 {savedMapsList.length > 0
                   ? `Terakhir disunting: ${savedMapsList[0].name}`
                   : 'Belum ada kota kustom yang tersimpan'}
@@ -645,37 +644,40 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                     gap: '6px',
                     padding: '6px 14px',
                     borderRadius: '9999px',
-                    backgroundColor: '#007AFF',
+                    backgroundColor: 'var(--accent)',
                     border: 'none',
                     fontSize: '12px',
-                    fontWeight: 600,
-                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    color: 'var(--on-accent)',
                     cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(0, 122, 255, 0.25)',
+                    boxShadow: 'var(--shadow-accent)',
                   }}
                 >
-                  <Play size={12} fill="#FFFFFF" />
+                  <Play size={12} fill="currentColor" />
                   <span>Lanjutkan Kota Terakhir</span>
                 </button>
               )}
 
               <button
-                onClick={handleCreateNewCitySlot}
+                onClick={() => {
+                  if (openNewMapCustomizer) openNewMapCustomizer();
+                  else handleCreateNewCitySlot();
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
                   padding: '6px 14px',
                   borderRadius: '9999px',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #CBD5E1',
+                  backgroundColor: 'var(--surface-navy)',
+                  border: '1px solid var(--border-on-navy)',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#0F172A',
+                  color: 'var(--label-on-navy)',
                   cursor: 'pointer',
                 }}
               >
-                <Plus size={13} strokeWidth={2} style={{ color: '#007AFF' }} />
+                <Plus size={13} strokeWidth={2} style={{ color: 'var(--accent)' }} />
                 <span>+ Kota Baru</span>
               </button>
             </div>
@@ -834,11 +836,12 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                         style={{
                           padding: '4px 10px',
                           borderRadius: '8px',
-                          background: 'rgba(0, 122, 255, 0.1)',
-                          border: '1px solid rgba(0, 122, 255, 0.25)',
-                          color: '#007AFF',
+                          background: 'var(--accent)',
+                          border: 'none',
+                          color: 'var(--on-accent)',
+                          boxShadow: 'var(--shadow-accent)',
                           fontSize: '11px',
-                          fontWeight: 600,
+                          fontWeight: 700,
                           cursor: 'pointer'
                         }}
                       >

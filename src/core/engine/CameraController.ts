@@ -143,7 +143,7 @@ export class CameraController {
 
     this.bindEvents();
     this.updateCameraTransform(1.0); // Immediate snap
-    this.camera.near = 0.06;
+    this.camera.near = 0.25;
     this.camera.updateProjectionMatrix();
   }
 
@@ -936,15 +936,15 @@ export class CameraController {
   }
 
   private updateAdaptiveNearPlane(): void {
-    let targetNear = 0.08;
+    let targetNear = 0.25;
     if (this.isWalkMode) {
-      targetNear = 0.06;
+      targetNear = 0.25;
     } else if (this.isDroneMode) {
-      targetNear = Math.max(0.1, Math.min(this.camera.position.y * 0.005, 1.2));
+      targetNear = Math.max(0.25, Math.min(this.camera.position.y * 0.005, 1.2));
     } else {
-      // Orbit God-Eye Mode: scale near plane from 0.15m up to 1.5m at high altitude/distance
+      // Orbit God-Eye Mode: scale near plane from 0.25m up to 1.5m at high altitude/distance
       const alt = this.camera.position.y;
-      targetNear = Math.max(0.15, Math.min(alt * 0.006 + this.distance * 0.002, 1.5));
+      targetNear = Math.max(0.25, Math.min(alt * 0.006 + this.distance * 0.002, 1.5));
     }
 
     if (Math.abs(this.camera.near - targetNear) > 0.01) {

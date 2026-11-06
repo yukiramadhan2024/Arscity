@@ -96,46 +96,49 @@ export class SubQuadWallBuilder {
         wallSubGroup.add(mesh);
       }
 
-      // 4. Opening Insert (3D Architectural Reveal + Recessed Glass or Open Door Portal)
+      // 4. Opening Insert (>= 0.06m outward facade offset + polygonOffset materials for zero z-fighting)
       const opH = op.y1 - op.y0;
       const frameCasingThickness = 0.05;
-      const revealDepth = 0.18; // 18cm recessed window reveal depth into wall cavity
-      const sillProjection = 0.06; // 6cm outward projection for stone/concrete sill
+      const facadeOffsetZ = thickness * 0.5 + 0.06;
+      const frameDepth = 0.08;
+      const sillProjection = 0.08;
 
       if (op.type.startsWith('window')) {
-        // Window Reveal Head (Ambang Atas Ceruk 18cm)
-        const headGeom = new THREE.BoxGeometry(opW, frameCasingThickness, revealDepth);
-        headGeom.translate(op.x0 + opW * 0.5, baseY + op.y1 - frameCasingThickness * 0.5, -revealDepth * 0.5);
+        // Window Head Frame (>= 0.06m proud of wall outer plane)
+        const headGeom = new THREE.BoxGeometry(opW, frameCasingThickness, frameDepth);
+        headGeom.translate(op.x0 + opW * 0.5, baseY + op.y1 - frameCasingThickness * 0.5, facadeOffsetZ);
         const headMesh = new THREE.Mesh(headGeom, frameMaterial);
         headMesh.castShadow = true;
         wallSubGroup.add(headMesh);
 
-        // Window Reveal Left Jamb (Kusen Ceruk Kiri 18cm)
-        const jambLeftGeom = new THREE.BoxGeometry(frameCasingThickness, opH - frameCasingThickness, revealDepth);
-        jambLeftGeom.translate(op.x0 + frameCasingThickness * 0.5, baseY + op.y0 + opH * 0.5, -revealDepth * 0.5);
+        // Window Left Jamb Frame
+        const jambLeftGeom = new THREE.BoxGeometry(frameCasingThickness, opH - frameCasingThickness, frameDepth);
+        jambLeftGeom.translate(op.x0 + frameCasingThickness * 0.5, baseY + op.y0 + opH * 0.5, facadeOffsetZ);
         const jambLeftMesh = new THREE.Mesh(jambLeftGeom, frameMaterial);
         jambLeftMesh.castShadow = true;
         wallSubGroup.add(jambLeftMesh);
 
-        // Window Reveal Right Jamb (Kusen Ceruk Kanan 18cm)
-        const jambRightGeom = new THREE.BoxGeometry(frameCasingThickness, opH - frameCasingThickness, revealDepth);
-        jambRightGeom.translate(op.x1 - frameCasingThickness * 0.5, baseY + op.y0 + opH * 0.5, -revealDepth * 0.5);
+        // Window Right Jamb Frame
+        const jambRightGeom = new THREE.BoxGeometry(frameCasingThickness, opH - frameCasingThickness, frameDepth);
+        jambRightGeom.translate(op.x1 - frameCasingThickness * 0.5, baseY + op.y0 + opH * 0.5, facadeOffsetZ);
         const jambRightMesh = new THREE.Mesh(jambRightGeom, frameMaterial);
         jambRightMesh.castShadow = true;
         wallSubGroup.add(jambRightMesh);
 
-        // 3D Projecting Stone/Concrete Sill (Ambang Bawah Timbul 6cm keluar dari dinding)
-        const sillDepth = revealDepth + sillProjection;
+        // 3D Projecting Stone/Concrete Sill
+        const sillDepth = frameDepth + sillProjection;
         const sillGeom = new THREE.BoxGeometry(opW + 0.12, frameCasingThickness + 0.02, sillDepth);
-        sillGeom.translate(op.x0 + opW * 0.5, baseY + op.y0 + (frameCasingThickness + 0.02) * 0.5, -revealDepth * 0.5 + sillProjection * 0.5);
+        sillGeom.translate(op.x0 + opW * 0.5, baseY + op.y0 + (frameCasingThickness + 0.02) * 0.5, facadeOffsetZ + sillProjection * 0.3);
         const sillMesh = new THREE.Mesh(sillGeom, frameMaterial);
         sillMesh.castShadow = true;
         wallSubGroup.add(sillMesh);
 
-        // 3D Recessed Glass Pane (Mundur 18cm ke dalam dinding)
+        // 3D Glass Pane (>= 0.06m offset from outer wall face)
         const glassGeom = new THREE.BoxGeometry(Math.max(0.1, opW - frameCasingThickness * 2), Math.max(0.1, opH - frameCasingThickness * 2), 0.02);
-        glassGeom.translate(op.x0 + opW * 0.5, baseY + op.y0 + opH * 0.5, -revealDepth);
+        glassGeom.translate(op.x0 + opW * 0.5, baseY + op.y0 + opH * 0.5, facadeOffsetZ);
         const glassMesh = new THREE.Mesh(glassGeom, glassMaterial);
+        glassMesh.name = 'WindowGlass';
+        glassMesh.userData.isWindowGlass = true;
         wallSubGroup.add(glassMesh);
       } else {
         // Door Head Casing

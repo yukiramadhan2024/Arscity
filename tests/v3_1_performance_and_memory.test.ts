@@ -87,23 +87,28 @@ describe('Arscity v3.1 Sprint: Performance, Memory & Zero-Jank Optimization Suit
 
       buildingManager.addBuilding(bld);
 
-      // Camera far away: 150m (Orbit mode)
+      // Camera in Orbit mode: hides interior in 3D Orbit to maintain 144 FPS
       const farCam = new THREE.Vector3(150, 80, 150);
       buildingManager.updateLOD(farCam, 'orbit', false, false, 60);
 
       const grp = (buildingManager as any).buildingGroups.get('lod_dist_bld') as THREE.Group;
       const intGroup = grp.getObjectByName('InteriorDetails') as THREE.Group;
-      expect(intGroup.visible, 'Interior details must be culled at > 60m').toBe(false);
+      expect(intGroup.visible, 'Interior details hidden in 3D Orbit').toBe(false);
 
-      // Camera close up: 35m (Orbit mode)
+      // Camera in 2D Plan mode -> interior details rendered
       const closeCam = new THREE.Vector3(20, 10, 20);
-      buildingManager.updateLOD(closeCam, 'orbit', false, false, 60);
-      expect(intGroup.visible, 'Interior details must be rendered at < 60m').toBe(true);
+      buildingManager.updateLOD(closeCam, '2d', false, false, 60);
+      expect(intGroup.visible, 'Interior details must be rendered in 2D mode').toBe(true);
 
-      // First person mode within 80m threshold -> interior MUST remain visible!
-      const fpCam = new THREE.Vector3(45, 10, 45); // dist ~64m (between 60m and 80m)
-      buildingManager.updateLOD(fpCam, 'first_person', false, false, 60);
-      expect(intGroup.visible, 'Interior details must be visible in first_person mode within 80m').toBe(true);
+      // First person mode within 30m threshold -> interior visible!
+      const fpCamNear = new THREE.Vector3(10, 1.8, 10);
+      buildingManager.updateLOD(fpCamNear, 'first_person', false, false, 60);
+      expect(intGroup.visible, 'Interior details must be visible in first_person mode < 30m').toBe(true);
+
+      // First person mode far (>= 30m) -> interior culled!
+      const fpCamFar = new THREE.Vector3(45, 10, 45);
+      buildingManager.updateLOD(fpCamFar, 'first_person', false, false, 60);
+      expect(intGroup.visible, 'Interior details culled in first_person mode >= 30m').toBe(false);
 
       // Camera far away (150m) but section cut is active -> interior MUST be visible!
       buildingManager.updateLOD(farCam, 'orbit', true, false, 60);
