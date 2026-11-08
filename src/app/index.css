@@ -858,14 +858,87 @@ input[type="range"].ios-slider:focus-visible {
 }
 
 .ios-btn-primary {
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 700;
-  box-shadow: var(--shadow-accent);
+  background: linear-gradient(180deg, #FE8CA5 0%, #FD6E8E 100%);
+  color: #072D59;
+  font-weight: 800;
+  border: 1.5px solid #D64C6D;
+  box-shadow: 0 3px 0 #D64C6D, 0 6px 14px rgba(253, 110, 142, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.12s ease;
 }
 
 .ios-btn-primary:hover {
-  background: var(--accent-hover);
+  filter: brightness(1.04);
+}
+
+.ios-btn-primary:active {
+  transform: translateY(2px) scale(0.99);
+  box-shadow: 0 1px 0 #D64C6D, 0 3px 6px rgba(253, 110, 142, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.40);
+}
+
+/* ====================================================
+   3D PASTEL BUTTON DESIGN SYSTEM (TACTILE PHYSICAL BEVELS)
+   ==================================================== */
+.btn-3d-pastel-pink {
+  background: linear-gradient(180deg, #FE8CA5 0%, #FD6E8E 100%);
+  color: #072D59;
+  font-weight: 800;
+  border: 1.5px solid #D64C6D;
+  box-shadow: 0 4px 0 #D64C6D, 0 8px 18px rgba(253, 110, 142, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.12s ease;
+  user-select: none;
+}
+
+.btn-3d-pastel-pink:hover {
+  filter: brightness(1.04);
+}
+
+.btn-3d-pastel-pink:active {
+  transform: translateY(2px) scale(0.99);
+  box-shadow: 0 1px 0 #D64C6D, 0 3px 8px rgba(253, 110, 142, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.40);
+}
+
+.btn-3d-pastel-navy {
+  background: linear-gradient(180deg, #103B6B 0%, #072D59 100%);
+  color: #DBF2FC;
+  font-weight: 700;
+  border: 1.5px solid rgba(219, 242, 252, 0.32);
+  box-shadow: 0 4px 0 #041B38, 0 10px 22px rgba(7, 45, 89, 0.22), inset 0 1px 0 rgba(219, 242, 252, 0.35);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.12s ease;
+  user-select: none;
+}
+
+.btn-3d-pastel-navy:hover {
+  filter: brightness(1.05);
+}
+
+.btn-3d-pastel-navy:active {
+  transform: translateY(2px) scale(0.99);
+  box-shadow: 0 1px 0 #041B38, 0 4px 10px rgba(7, 45, 89, 0.18), inset 0 1px 0 rgba(219, 242, 252, 0.20);
+}
+
+.btn-3d-pastel-light {
+  background: linear-gradient(180deg, #FFFFFF 0%, #EAF5FB 100%);
+  color: #072D59;
+  font-weight: 700;
+  border: 1.5px solid #BDDEEE;
+  box-shadow: 0 3px 0 #A9D1E5, 0 6px 14px rgba(7, 45, 89, 0.08), inset 0 1px 0 #FFFFFF;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.12s ease;
+  user-select: none;
+}
+
+.btn-3d-pastel-light:hover {
+  filter: brightness(1.02);
+}
+
+.btn-3d-pastel-light:active {
+  transform: translateY(2px) scale(0.99);
+  box-shadow: 0 1px 0 #A9D1E5, 0 3px 6px rgba(7, 45, 89, 0.06), inset 0 1px 0 #FFFFFF;
 }
 
 .ios-btn-destructive {

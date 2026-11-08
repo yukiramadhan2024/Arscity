@@ -65,10 +65,11 @@ function computeRoadLengthKmFromSave(data: CitySaveData): number {
 /**
  * LoginPage - Halaman Masuk Utama Arscity
  *
- * Desain arsitektural 2 kolom yang presisi dan mewah:
- * - Menggunakan palet wajib: Seal Blue (#DBF2FC), Navy Blue (#072D59), Crimson Pink (#FD6E8E)
- * - Bebas dari segala bentuk indikasi AI (tanpa tag floating "Tugu Pal Putih", tanpa teks HUD palsu, tanpa teks terdistorsi)
- * - Kolom kanan diperbagus dengan karya seni vektor isometrik arsitektur 100% SVG yang tajam, ringan, dan andal
+ * Desain arsitektural 2 kolom yang presisi, mewah, dan bertema pastel:
+ * - Menggunakan palet pastel wajib: Seal Blue (#DBF2FC), Navy Blue (#072D59), Crimson Pink (#FD6E8E)
+ * - Tombol-tombol bergaya 3D pastel fisik dengan efek tekan mekanikal yang sangat memuaskan
+ * - Bebas dari segala bentuk indikasi AI
+ * - Kolom kanan diperbagus dengan karya seni vektor isometrik arsitektur 100% SVG yang lembut dan tajam
  */
 export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
   const {
@@ -216,7 +217,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
-        background: 'linear-gradient(155deg, #DBF2FC 0%, #EFF8FD 52%, #D3EFFA 100%)',
+        background: 'linear-gradient(155deg, #DBF2FC 0%, #F0F9FE 52%, #D8F0FA 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -226,7 +227,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* 1. Latar Belakang Garis Gambar Kerja Isometrik & Topografi Arsitektur */}
+      {/* 1. Latar Belakang Gambar Kerja Isometrik & Topografi Pastel Halus */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
         viewBox="0 0 1440 900"
@@ -235,7 +236,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         aria-hidden="true"
       >
         <g fill="none" stroke="#072D59">
-          {/* Garis Kontur Topografi Halus */}
           <path
             d="M-80 180 C 180 110, 420 260, 720 190 C 980 130, 1210 60, 1520 160"
             strokeOpacity="0.08"
@@ -256,7 +256,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
             strokeOpacity="0.08"
             strokeWidth="1.2"
           />
-          {/* Jaringan Koridor Masterplan Kota */}
           <path
             d="M -40 540 Q 410 470, 760 515 T 1500 410"
             strokeOpacity="0.10"
@@ -275,7 +274,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         </g>
       </svg>
 
-      {/* Tombol Suara Kapsul Kaca */}
+      {/* Tombol Suara Kapsul Kaca 3D Pastel */}
       <button
         onClick={toggleAudio}
         style={{
@@ -286,36 +285,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '8px 16px',
+          padding: '8px 18px',
           borderRadius: '9999px',
-          background: 'rgba(7, 45, 89, 0.92)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(219, 242, 252, 0.28)',
-          boxShadow: '0 6px 18px rgba(7, 45, 89, 0.16)',
+          background: 'linear-gradient(180deg, #123E6E 0%, #072D59 100%)',
+          border: '1.5px solid rgba(219, 242, 252, 0.35)',
+          boxShadow: '0 4px 0 #041C38, 0 8px 18px rgba(7, 45, 89, 0.22), inset 0 1px 0 rgba(219, 242, 252, 0.4)',
           color: '#DBF2FC',
           fontSize: '12px',
-          fontWeight: 600,
+          fontWeight: 700,
           cursor: 'pointer',
+          transition: 'transform 0.12s ease, box-shadow 0.12s ease',
         }}
+        className="active:translate-y-[2px] active:shadow-[0_1px_0_#041C38,0_4px_8px_rgba(7,45,89,0.15)] hover:brightness-105"
         title={isAudioMuted ? 'Suara disenyapkan (Klik untuk mengaktifkan)' : 'Suara aktif (Klik untuk menyenyapkan)'}
         aria-label="Pengaturan Suara"
       >
-        {isAudioMuted ? <VolumeX size={15} strokeWidth={1.75} /> : <Volume2 size={15} strokeWidth={1.75} />}
+        {isAudioMuted ? <VolumeX size={15} strokeWidth={2} /> : <Volume2 size={15} strokeWidth={2} />}
         <span>{isAudioMuted ? 'Senyap' : 'Suara Aktif'}</span>
       </button>
 
-      {/* 2. Kartu Kaca Utama (Main Frosted Glass Container) */}
+      {/* 2. Kartu Kaca Utama Pastel (Main Frosted Glass Container) */}
       <div
-        className="relative z-10 w-full max-w-[1180px] min-h-[590px] max-h-[92vh] rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-12"
+        className="relative z-10 w-full max-w-[1180px] min-h-[590px] max-h-[92vh] rounded-[36px] overflow-hidden grid grid-cols-1 lg:grid-cols-12"
         style={{
-          background: 'rgba(239, 248, 253, 0.94)',
-          backdropFilter: 'blur(26px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(26px) saturate(180%)',
-          border: '1.5px solid rgba(7, 45, 89, 0.18)',
-          boxShadow: '0 28px 70px rgba(7, 45, 89, 0.16), 0 2px 10px rgba(7, 45, 89, 0.06)',
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(226, 245, 254, 0.88) 100%)',
+          backdropFilter: 'blur(28px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+          border: '2px solid rgba(255, 255, 255, 0.95)',
+          boxShadow: '0 32px 75px rgba(7, 45, 89, 0.14), 0 4px 16px rgba(7, 45, 89, 0.05), inset 0 1px 0 #FFFFFF',
         }}
       >
-        {/* 3. KOLOM KIRI: Brand Header, Tipografi, CTA & Panel Proyek Kota */}
+        {/* 3. KOLOM KIRI: Brand Header, Tipografi, CTA 3D Pastel & Panel Proyek Kota */}
         <div className="lg:col-span-6 p-8 sm:p-10 lg:p-12 flex flex-col justify-between z-20">
           <div>
             {/* Logo Vektor Arscity */}
@@ -343,40 +343,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               Sandbox arsitektur dan tata kota tropis: rancang jaringan jalan, tata bangunan publik dan hunian, lalu jelajahi kotamu dalam skala manusia nyata.
             </p>
 
-            {/* Tombol Utama Kapsul Crimson Pink */}
+            {/* Tombol Utama Bergaya 3D Pastel Crimson Pink */}
             <div className="mb-6">
               <button
                 type="button"
                 onClick={handleStartPlay}
-                className="group inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded-full font-bold text-base tracking-wide transition-all active:scale-95 hover:brightness-105"
+                className="group inline-flex items-center justify-center gap-3.5 px-8 py-3.5 rounded-2xl font-extrabold text-base tracking-wide cursor-pointer transition-all active:translate-y-[3px] active:shadow-[0_1px_0_#D64C6D,0_4px_10px_rgba(253,110,142,0.25)] hover:brightness-105"
                 style={{
-                  background: '#FD6E8E',
+                  background: 'linear-gradient(180deg, #FE8CA5 0%, #FD6E8E 100%)',
                   color: '#072D59',
-                  boxShadow: '0 10px 24px rgba(253, 110, 142, 0.42)',
-                  border: '1px solid rgba(7, 45, 89, 0.12)',
-                  cursor: 'pointer',
+                  border: '1.5px solid #D64C6D',
+                  boxShadow: '0 4px 0 #D64C6D, 0 10px 24px rgba(253, 110, 142, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55)',
                 }}
               >
-                <Sparkles className="w-5 h-5 text-[#072D59] stroke-[2.2]" />
+                <Sparkles className="w-5 h-5 text-[#072D59] stroke-[2.3]" />
                 <span>Buat Kota Baru</span>
                 <ArrowRight className="w-5 h-5 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1" />
               </button>
             </div>
           </div>
 
-          {/* Panel Kontrol Proyek: Kartu Lanjutkan & Alat Studio Sekunder */}
+          {/* Panel Kontrol Proyek: Kartu Lanjutkan & Alat Studio Sekunder 3D Pastel */}
           <div className="flex flex-col gap-3">
-            {/* Kartu Lanjutkan Pembangunan dengan Ringkasan Nyata */}
+            {/* Kartu Lanjutkan Pembangunan 3D Pastel */}
             <button
               type="button"
               onClick={handleContinueLast}
-              className="w-full p-4 rounded-2xl text-left transition-all flex items-center justify-between gap-4 hover:brightness-95 group"
+              className="w-full p-4 rounded-2xl text-left cursor-pointer transition-all flex items-center justify-between gap-4 hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_#041B38,0_6px_14px_rgba(7,45,89,0.18)] group"
               style={{
-                background: 'rgba(7, 45, 89, 0.94)',
-                border: '1px solid rgba(219, 242, 252, 0.24)',
-                boxShadow: '0 10px 26px rgba(7, 45, 89, 0.18)',
+                background: 'linear-gradient(180deg, #0A3566 0%, #072D59 100%)',
+                border: '1.5px solid rgba(219, 242, 252, 0.32)',
+                boxShadow: '0 4px 0 #041B38, 0 12px 28px rgba(7, 45, 89, 0.22), inset 0 1px 0 rgba(219, 242, 252, 0.28)',
                 color: '#DBF2FC',
-                cursor: 'pointer',
               }}
             >
               <div className="min-w-0 flex-1">
@@ -392,43 +390,45 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
                 <div className="text-sm font-bold truncate text-[#FFFFFF]" style={{ color: '#DBF2FC' }}>
                   {latestSummary.name}
                 </div>
-                <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] font-medium" style={{ color: 'rgba(219, 242, 252, 0.82)' }}>
+                <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] font-medium" style={{ color: 'rgba(219, 242, 252, 0.85)' }}>
                   <span className="inline-flex items-center gap-1 tabular-nums">
-                    <Building2 className="w-3 h-3 text-[#FD6E8E]" />
+                    <Building2 className="w-3.5 h-3.5 text-[#FD6E8E]" />
                     {latestSummary.buildingCount} Bangunan
                   </span>
                   <span className="inline-flex items-center gap-1 tabular-nums">
-                    <Route className="w-3 h-3 text-[#FD6E8E]" />
+                    <Route className="w-3.5 h-3.5 text-[#FD6E8E]" />
                     {latestSummary.roadLengthKm.toFixed(2)} km Jalan
                   </span>
                   <span className="inline-flex items-center gap-1 tabular-nums">
-                    <Clock className="w-3 h-3 text-[#FD6E8E]" />
+                    <Clock className="w-3.5 h-3.5 text-[#FD6E8E]" />
                     {formatWibClock(latestSummary.timeOfDay)}
                   </span>
                 </div>
               </div>
               <div
-                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform group-hover:translate-x-0.5"
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:translate-x-0.5"
                 style={{
-                  background: 'rgba(219, 242, 252, 0.14)',
+                  background: 'linear-gradient(180deg, rgba(219, 242, 252, 0.25) 0%, rgba(219, 242, 252, 0.12) 100%)',
                   color: '#DBF2FC',
+                  border: '1px solid rgba(219, 242, 252, 0.35)',
+                  boxShadow: '0 2px 0 rgba(7, 45, 89, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
                 }}
               >
                 <ArrowRight className="w-4 h-4" />
               </div>
             </button>
 
-            {/* Tiga Tombol Aksi Studio Berdampingan */}
+            {/* Tiga Tombol Aksi Studio Bergaya Ubin 3D Pastel */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={handleOpenLibrary}
-                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                className="p-3 rounded-2xl text-left cursor-pointer transition-all flex items-center gap-2.5 active:translate-y-[2px] active:shadow-[0_1px_0_#A9D1E5,0_3px_6px_rgba(7,45,89,0.06)] hover:brightness-102"
                 style={{
-                  background: 'rgba(219, 242, 252, 0.72)',
-                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF5FB 100%)',
+                  border: '1.5px solid #BDDEEE',
+                  boxShadow: '0 3px 0 #A9D1E5, 0 6px 14px rgba(7, 45, 89, 0.08), inset 0 1px 0 #FFFFFF',
                   color: '#072D59',
-                  cursor: 'pointer',
                 }}
               >
                 <FolderOpen className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
@@ -438,12 +438,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               <button
                 type="button"
                 onClick={handleOpenStandaloneCad}
-                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                className="p-3 rounded-2xl text-left cursor-pointer transition-all flex items-center gap-2.5 active:translate-y-[2px] active:shadow-[0_1px_0_#A9D1E5,0_3px_6px_rgba(7,45,89,0.06)] hover:brightness-102"
                 style={{
-                  background: 'rgba(219, 242, 252, 0.72)',
-                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF5FB 100%)',
+                  border: '1.5px solid #BDDEEE',
+                  boxShadow: '0 3px 0 #A9D1E5, 0 6px 14px rgba(7, 45, 89, 0.08), inset 0 1px 0 #FFFFFF',
                   color: '#072D59',
-                  cursor: 'pointer',
                 }}
               >
                 <Compass className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
@@ -454,12 +454,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isImporting}
-                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                className="p-3 rounded-2xl text-left cursor-pointer transition-all flex items-center gap-2.5 active:translate-y-[2px] active:shadow-[0_1px_0_#A9D1E5,0_3px_6px_rgba(7,45,89,0.06)] hover:brightness-102"
                 style={{
-                  background: 'rgba(219, 242, 252, 0.72)',
-                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF5FB 100%)',
+                  border: '1.5px solid #BDDEEE',
+                  boxShadow: '0 3px 0 #A9D1E5, 0 6px 14px rgba(7, 45, 89, 0.08), inset 0 1px 0 #FFFFFF',
                   color: '#072D59',
-                  cursor: 'pointer',
                 }}
               >
                 <Upload className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
@@ -485,14 +485,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
           </div>
         </div>
 
-        {/* 4. KOLOM KANAN: Karya Seni Vektor Isometrik Arsitektur 100% SVG */}
+        {/* 4. KOLOM KANAN: Karya Seni Vektor Isometrik Arsitektur 100% SVG Pastel */}
         <div className="lg:col-span-6 p-5 pl-0 hidden lg:flex items-stretch justify-center">
           <div
-            className="w-full h-full rounded-[24px] overflow-hidden relative"
+            className="w-full h-full rounded-[28px] overflow-hidden relative"
             style={{
-              background: '#DBF2FC',
-              border: '1.5px solid rgba(7, 45, 89, 0.18)',
-              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 12px 30px rgba(7, 45, 89, 0.12)',
+              background: 'linear-gradient(145deg, #DBF2FC 0%, #EBF6FD 60%, #D2EDFA 100%)',
+              border: '2px solid rgba(255, 255, 255, 0.85)',
+              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.65), 0 16px 36px rgba(7, 45, 89, 0.12)',
             }}
           >
             <ArchitecturalVectorDiorama />

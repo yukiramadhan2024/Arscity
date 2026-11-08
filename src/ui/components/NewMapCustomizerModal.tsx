@@ -960,10 +960,12 @@ export const NewMapCustomizerModal: React.FC = () => {
           <button
             type="button"
             onClick={closeNewMapCustomizer}
-            className="px-5 py-2.5 rounded-full font-bold text-sm cursor-pointer"
+            className="px-5 py-2.5 rounded-full font-bold text-sm cursor-pointer transition-all active:translate-y-[2px]"
             style={{
               color: '#072D59',
-              background: 'rgba(7, 45, 89, 0.10)',
+              background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF5FB 100%)',
+              border: '1.5px solid #BDDEEE',
+              boxShadow: '0 3px 0 #A9D1E5, inset 0 1px 0 #FFFFFF',
             }}
           >
             Batal
@@ -973,11 +975,12 @@ export const NewMapCustomizerModal: React.FC = () => {
             type="button"
             onClick={handleBuildCity}
             disabled={isSubmitting}
-            className="flex items-center gap-2.5 px-7 py-3 rounded-full font-bold text-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-2.5 px-7 py-3 rounded-full font-extrabold text-sm transition-all cursor-pointer active:translate-y-[2px] disabled:opacity-50 hover:brightness-105"
             style={{
-              background: '#FD6E8E',
+              background: 'linear-gradient(180deg, #FE8CA5 0%, #FD6E8E 100%)',
               color: '#072D59',
-              boxShadow: '0 8px 22px rgba(253, 110, 142, 0.42)',
+              border: '1.5px solid #D64C6D',
+              boxShadow: '0 4px 0 #D64C6D, 0 10px 24px rgba(253, 110, 142, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55)',
             }}
           >
             <span>{isSubmitting ? 'Membangun Distrik...' : 'Bangun & Masuk ke Kota'}</span>
