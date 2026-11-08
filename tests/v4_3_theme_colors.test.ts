@@ -68,21 +68,22 @@ describe('Arscity Mandatory 8-Color Theme System (COLORS Specification Card)', (
     expect(content).toContain('ARSCITY');
   });
 
-  it('8. LoginPage renders honest, clear landing page without AI badges or decorative HUD', () => {
+  it('8. LoginPage renders clean Architectural Launchpad with vector artwork and zero AI indicators', () => {
     const loginPath = path.resolve(__dirname, '../src/ui/components/LoginPage.tsx');
     const content = fs.readFileSync(loginPath, 'utf-8');
 
-    expect(content).toContain('Belajar arsitektur dengan membangun kotamu sendiri.');
-    expect(content).toContain('Gambar jalan, rancang rumah, lalu lihat bagaimana matahari, hujan, dan aturan bangunan memengaruhinya.');
-    expect(content).toContain('Mulai Bermain');
-    expect(content).toContain('Buka Kota Tersimpan');
-    expect(content).toContain('Rancang Bangunan');
-    expect(content).toContain('Impor Berkas');
-    expect(content).toContain('Kota tersimpan di perangkat ini. Tidak ada akun, tidak ada unggahan.');
+    expect(content).toContain('Rancang Kota Impian');
+    expect(content).toContain("di <span style={{ color: '#FD6E8E' }}>ARSCITY</span>");
+    expect(content).toContain('Buat Kota Baru');
+    expect(content).toContain('Lanjutkan Pembangunan');
+    expect(content).toContain('Buka Peta Tersimpan');
+    expect(content).toContain('Studio CAD Mandiri');
+    expect(content).toContain('Impor Peta');
+    expect(content).toContain('ArchitecturalVectorDiorama');
+    expect(content).not.toContain('Tugu Pal Putih Yogyakarta');
+    expect(content).not.toContain('LRT Koridor Tropis');
     expect(content).not.toContain('LIVE 3D VIEWPORT');
     expect(content).not.toContain('STUDIO RELEASE');
-    expect(content).not.toContain('TROPICAL MODULAR ARCHETYPE');
-    expect(content).not.toContain('LAT LON');
   });
 });
 

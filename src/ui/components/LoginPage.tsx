@@ -1,28 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
+  RotateCcw,
   FolderOpen,
   Upload,
   Volume2,
   VolumeX,
   ArrowRight,
   Compass,
-  Play,
-  RotateCcw,
-  CheckCircle2,
-  Sun,
-  ShieldCheck,
-  Waves,
-  Building,
+  Building2,
   Route,
-  Calendar,
+  Clock,
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import { useUIStore } from '../state/useUIStore';
 import { ArscityLogo } from './ArscityLogo';
+import { ArchitecturalVectorDiorama } from './ArchitecturalVectorDiorama';
 import { IndexedDBStorage, SavedMapMeta } from '../../io/IndexedDBStorage';
 import { GeoJSONImporter } from '../../io/GeoJSONImporter';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { showSnackbar } from '../state/useSnackbarStore';
 import { CitySaveData } from '../../io/CitySerializer';
+import { createMalioboroMapData } from '../../world/MalioboroPreset';
 
 export interface LoginPageProps {
   onSuccess?: () => void;
@@ -32,12 +31,20 @@ export const ArchitecturalCityBackground: React.FC<React.HTMLAttributes<HTMLDivE
   <div {...props} style={{ pointerEvents: 'none', ...(props.style || {}) }} />
 );
 
-interface RealSavedCitySummary {
-  id: string;
+interface CityLaunchSummary {
+  id: string | null;
   name: string;
   buildingCount: number;
   roadLengthKm: number;
-  updatedAtText: string;
+  timeOfDay: number;
+  isFallbackPreset: boolean;
+}
+
+function formatWibClock(hourFloat: number): string {
+  const normalized = ((hourFloat % 24) + 24) % 24;
+  const hh = Math.floor(normalized);
+  const mm = Math.round((normalized - hh) * 60) % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} WIB`;
 }
 
 function computeRoadLengthKmFromSave(data: CitySaveData): number {
@@ -55,38 +62,13 @@ function computeRoadLengthKmFromSave(data: CitySaveData): number {
   return totalMeters / 1000;
 }
 
-function formatIndonesianNumber(value: number): string {
-  return value.toFixed(2).replace('.', ',');
-}
-
-function formatIndonesianDateTime(dateInput: Date | number | string): string {
-  try {
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return 'Baru saja';
-    const day = d.getDate();
-    const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${day} ${month} ${year}, ${hours}:${minutes} WIB`;
-  } catch {
-    return 'Baru saja';
-  }
-}
-
 /**
- * LoginPage - Halaman Awal Arscity (Jujur, Jelas, & Berbasis Token Aplikasi)
+ * LoginPage - Halaman Masuk Utama Arscity
  *
- * Sesuai spesifikasi desain:
- * - Menjelaskan fungsi nyata game untuk pemula tanpa jargon teknis
- * - Menampilkan visual nyata dari game sungguhan
- * - Satu identitas visual dengan token aplikasi (kaca terang, aksen biru sistem #007AFF)
- * - Kartu simpanan hanya muncul jika ada data simpanan nyata
- * - Tipografi natural Bahasa Indonesia
+ * Desain arsitektural 2 kolom yang presisi dan mewah:
+ * - Menggunakan palet wajib: Seal Blue (#DBF2FC), Navy Blue (#072D59), Crimson Pink (#FD6E8E)
+ * - Bebas dari segala bentuk indikasi AI (tanpa tag floating "Tugu Pal Putih", tanpa teks HUD palsu, tanpa teks terdistorsi)
+ * - Kolom kanan diperbagus dengan karya seni vektor isometrik arsitektur 100% SVG yang tajam, ringan, dan andal
  */
 export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
   const {
@@ -100,54 +82,57 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [savedMaps, setSavedMaps] = useState<SavedMapMeta[]>([]);
-  const [realSavedCity, setRealSavedCity] = useState<RealSavedCitySummary | null>(null);
+  const [latestSummary, setLatestSummary] = useState<CityLaunchSummary>(() => {
+    const preset = createMalioboroMapData();
+    return {
+      id: null,
+      name: preset.cityTitle || 'Koridor Malioboro Yogyakarta',
+      buildingCount: (preset.buildings?.length || 0) + (preset.customBuildings?.length || 0),
+      roadLengthKm: computeRoadLengthKmFromSave(preset),
+      timeOfDay: preset.environment?.timeOfDay ?? 16.25,
+      isFallbackPreset: true,
+    };
+  });
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(true);
   const [isImporting, setIsImporting] = useState<boolean>(false);
-  const [showLicenseModal, setShowLicenseModal] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
     IndexedDBStorage.listSavedMaps()
       .then(async (list) => {
-        if (!isMounted || !list || list.length === 0) {
-          if (isMounted) setSavedMaps([]);
-          return;
-        }
+        if (!isMounted || !list || list.length === 0) return;
         setSavedMaps(list);
         const latestMeta = list[0];
         const saveData = await IndexedDBStorage.loadMapById(latestMeta.id);
         if (!isMounted) return;
-
         if (saveData) {
-          setRealSavedCity({
+          setLatestSummary({
             id: latestMeta.id,
             name: saveData.cityTitle || latestMeta.name,
-            buildingCount: (saveData.buildings?.length || 0) + (saveData.customBuildings?.length || 0),
+            buildingCount:
+              (saveData.buildings?.length || 0) + (saveData.customBuildings?.length || 0),
             roadLengthKm: computeRoadLengthKmFromSave(saveData),
-            updatedAtText: formatIndonesianDateTime(latestMeta.updatedAt || Date.now()),
+            timeOfDay: saveData.environment?.timeOfDay ?? 16.25,
+            isFallbackPreset: false,
           });
         } else {
-          setRealSavedCity({
+          setLatestSummary({
             id: latestMeta.id,
             name: latestMeta.name,
             buildingCount: latestMeta.buildingCount || 0,
             roadLengthKm: (latestMeta.roadCount || 0) * 0.06,
-            updatedAtText: formatIndonesianDateTime(latestMeta.updatedAt || Date.now()),
+            timeOfDay: 16.25,
+            isFallbackPreset: false,
           });
         }
       })
-      .catch(() => {
-        if (isMounted) {
-          setSavedMaps([]);
-          setRealSavedCity(null);
-        }
-      });
+      .catch(() => {});
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const handleStartNewCity = () => {
+  const handleStartPlay = () => {
     proceduralAudio.playTaptic('medium');
     loginAsGuest();
     useUIStore.setState({ isMapHubOpen: false });
@@ -155,11 +140,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
     if (onSuccess) onSuccess();
   };
 
-  const handleContinueSavedCity = async () => {
-    if (!realSavedCity) return;
+  const handleContinueLast = async () => {
     proceduralAudio.playTaptic('medium');
     loginAsGuest();
-    await loadMap('saved', realSavedCity.id, realSavedCity.name);
+    if (latestSummary.id && savedMaps.length > 0) {
+      await loadMap('saved', latestSummary.id, latestSummary.name);
+    } else {
+      await loadMap('malioboro', 'malioboro_preset', 'Koridor Malioboro Yogyakarta');
+    }
     useUIStore.setState({ currentScreen: 'game', isMapHubOpen: false });
     if (onSuccess) onSuccess();
   };
@@ -193,8 +181,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         const res = await GeoJSONImporter.importFromFile(file, targetEngine);
         showSnackbar({
           variant: 'success',
-          title: 'Berkas Berhasil Dimuat',
-          detail: `+${res.roadsCount} jalan • +${res.buildingsCount} bangunan`,
+          title: 'Peta Berhasil Diimpor',
+          detail: `+${res.roadsCount} Jalan • +${res.buildingsCount} Gedung`,
         });
       }
       useUIStore.setState({ currentScreen: 'game', isMapHubOpen: false });
@@ -202,8 +190,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
     } catch (err: any) {
       showSnackbar({
         variant: 'warning',
-        title: 'Gagal Memuat Berkas',
-        detail: err?.message || 'Format berkas tidak sesuai',
+        title: 'Gagal Mengimpor',
+        detail: err?.message || 'Format tidak valid',
       });
     } finally {
       setIsImporting(false);
@@ -217,297 +205,268 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
     proceduralAudio.setMuted(nextMuted);
   };
 
-  const hasRealSave = realSavedCity !== null;
-
   return (
     <main
       className="auth-root-container"
-      aria-label="Halaman Awal Arscity"
+      aria-label="Gerbang Masuk Arscity"
       style={{
         position: 'fixed',
         inset: 0,
         zIndex: 70,
         width: '100vw',
         height: '100vh',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        background: 'linear-gradient(180deg, #F5FAFD 0%, #E8F4F9 100%)',
-        color: '#0A2E5B',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        WebkitFontSmoothing: 'antialiased',
+        overflow: 'hidden',
+        background: 'linear-gradient(155deg, #DBF2FC 0%, #EFF8FD 52%, #D3EFFA 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        boxSizing: 'border-box',
+        userSelect: 'none',
+        fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* Tombol Kontrol Suara - Bergaya Tombol Kaca Bulat di Sudut Kanan Atas */}
-      <div style={{ position: 'absolute', top: 20, right: 24, zIndex: 50 }}>
-        <button
-          type="button"
-          onClick={toggleAudio}
-          aria-label={isAudioMuted ? 'Suara mati' : 'Suara menyala'}
-          title={isAudioMuted ? 'Suara mati (klik untuk menyalakan)' : 'Suara menyala (klik untuk mematikan)'}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            background: 'rgba(255, 255, 255, 0.85)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(10, 46, 91, 0.14)',
-            boxShadow: '0 2px 8px rgba(10, 46, 91, 0.08)',
-            color: '#0A2E5B',
-            cursor: 'pointer',
-            transition: 'transform 0.15s ease, background 0.15s ease',
-          }}
-          className="hover:bg-white active:scale-95"
-        >
-          {isAudioMuted ? (
-            <VolumeX size={18} strokeWidth={2} />
-          ) : (
-            <Volume2 size={18} strokeWidth={2} />
-          )}
-        </button>
-      </div>
+      {/* 1. Latar Belakang Garis Gambar Kerja Isometrik & Topografi Arsitektur */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <g fill="none" stroke="#072D59">
+          {/* Garis Kontur Topografi Halus */}
+          <path
+            d="M-80 180 C 180 110, 420 260, 720 190 C 980 130, 1210 60, 1520 160"
+            strokeOpacity="0.08"
+            strokeWidth="1.2"
+          />
+          <path
+            d="M-80 230 C 190 160, 450 315, 740 245 C 1010 180, 1230 115, 1520 215"
+            strokeOpacity="0.06"
+            strokeWidth="1"
+          />
+          <path
+            d="M-80 285 C 210 215, 480 370, 760 300 C 1030 235, 1250 170, 1520 270"
+            strokeOpacity="0.05"
+            strokeWidth="0.9"
+          />
+          <path
+            d="M-60 690 C 240 610, 520 790, 860 700 C 1120 630, 1300 720, 1510 660"
+            strokeOpacity="0.08"
+            strokeWidth="1.2"
+          />
+          {/* Jaringan Koridor Masterplan Kota */}
+          <path
+            d="M -40 540 Q 410 470, 760 515 T 1500 410"
+            strokeOpacity="0.10"
+            strokeWidth="2.2"
+          />
+          <path
+            d="M 210 -30 C 280 240, 295 520, 390 930"
+            strokeOpacity="0.08"
+            strokeWidth="1.6"
+          />
+          <path
+            d="M 1110 -30 C 1050 280, 1140 590, 1210 930"
+            strokeOpacity="0.08"
+            strokeWidth="1.6"
+          />
+        </g>
+      </svg>
 
-      {/* Konten Utama Terpusat & Responsif */}
-      <div
+      {/* Tombol Suara Kapsul Kaca */}
+      <button
+        onClick={toggleAudio}
         style={{
-          width: '100%',
-          maxWidth: 1200,
-          margin: '0 auto',
-          padding: '32px 24px 48px',
-          boxSizing: 'border-box',
-          minHeight: '100vh',
+          position: 'absolute',
+          top: '20px',
+          right: '24px',
+          zIndex: 40,
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 16px',
+          borderRadius: '9999px',
+          background: 'rgba(7, 45, 89, 0.92)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(219, 242, 252, 0.28)',
+          boxShadow: '0 6px 18px rgba(7, 45, 89, 0.16)',
+          color: '#DBF2FC',
+          fontSize: '12px',
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+        title={isAudioMuted ? 'Suara disenyapkan (Klik untuk mengaktifkan)' : 'Suara aktif (Klik untuk menyenyapkan)'}
+        aria-label="Pengaturan Suara"
+      >
+        {isAudioMuted ? <VolumeX size={15} strokeWidth={1.75} /> : <Volume2 size={15} strokeWidth={1.75} />}
+        <span>{isAudioMuted ? 'Senyap' : 'Suara Aktif'}</span>
+      </button>
+
+      {/* 2. Kartu Kaca Utama (Main Frosted Glass Container) */}
+      <div
+        className="relative z-10 w-full max-w-[1180px] min-h-[590px] max-h-[92vh] rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-12"
+        style={{
+          background: 'rgba(239, 248, 253, 0.94)',
+          backdropFilter: 'blur(26px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(26px) saturate(180%)',
+          border: '1.5px solid rgba(7, 45, 89, 0.18)',
+          boxShadow: '0 28px 70px rgba(7, 45, 89, 0.16), 0 2px 10px rgba(7, 45, 89, 0.06)',
         }}
       >
-        {/* Header Logo */}
-        <header style={{ marginBottom: 32 }}>
-          <ArscityLogo size={36} variant="dark" />
-        </header>
+        {/* 3. KOLOM KIRI: Brand Header, Tipografi, CTA & Panel Proyek Kota */}
+        <div className="lg:col-span-6 p-8 sm:p-10 lg:p-12 flex flex-col justify-between z-20">
+          <div>
+            {/* Logo Vektor Arscity */}
+            <div className="mb-7">
+              <ArscityLogo size={34} showText={true} variant="light" textColor="#072D59" />
+            </div>
 
-        {/* Bagian Hero: Kolom Teks di Kiri & Render Game Nyata di Kanan */}
-        <section
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 40,
-            alignItems: 'center',
-            marginBottom: 48,
-          }}
-        >
-          {/* Kolom Teks & Aksi */}
-          <div style={{ maxWidth: 540 }}>
+            {/* Tipografi Utama */}
             <h1
+              className="font-extrabold tracking-tight leading-[1.12] mb-3"
               style={{
-                fontSize: 'clamp(28px, 4vw, 42px)',
-                fontWeight: 600,
-                lineHeight: 1.2,
-                letterSpacing: '-0.02em',
-                color: '#0A2E5B',
-                margin: '0 0 16px 0',
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 'clamp(32px, 3.5vw, 46px)',
+                color: '#072D59',
               }}
             >
-              Belajar arsitektur dengan membangun kotamu sendiri.
+              Rancang Kota Impian <br />
+              di <span style={{ color: '#FD6E8E' }}>ARSCITY</span>
             </h1>
 
             <p
-              style={{
-                fontSize: '17px',
-                lineHeight: 1.6,
-                color: '#3A4750',
-                margin: '0 0 28px 0',
-                maxWidth: '56ch',
-              }}
+              className="text-sm font-medium leading-relaxed max-w-md mb-7"
+              style={{ color: '#1E4673' }}
             >
-              Gambar jalan, rancang rumah, lalu lihat bagaimana matahari, hujan, dan aturan bangunan memengaruhinya. Tanpa akun, langsung di browser.
+              Sandbox arsitektur dan tata kota tropis: rancang jaringan jalan, tata bangunan publik dan hunian, lalu jelajahi kotamu dalam skala manusia nyata.
             </p>
 
-            {/* Panel Aksi Utama & Aksi Kedua */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Jika Ada Simpanan Nyata: Kartu Lanjutkan Kota Terakhir menjadi Aksi Utama */}
-              {hasRealSave && realSavedCity && (
-                <button
-                  type="button"
-                  onClick={handleContinueSavedCity}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '16px 20px',
-                    borderRadius: 14,
-                    background: '#007AFF',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(0, 122, 255, 0.32)',
-                    transition: 'transform 0.15s ease, background 0.15s ease',
-                    textAlign: 'left',
-                  }}
-                  className="active:scale-[0.98] hover:bg-[#0069D9]"
-                >
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <RotateCcw size={14} strokeWidth={2.2} />
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>Lanjutkan Kota Terakhir</span>
-                    </div>
-                    <div style={{ fontSize: 17, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {realSavedCity.name}
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: 14,
-                        fontSize: 12,
-                        opacity: 0.9,
-                        marginTop: 6,
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <Building size={13} />
-                        {realSavedCity.buildingCount} bangunan
-                      </span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <Route size={13} />
-                        {formatIndonesianNumber(realSavedCity.roadLengthKm)} km jalan
-                      </span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <Calendar size={13} />
-                        {realSavedCity.updatedAtText}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ marginLeft: 16 }}>
-                    <ArrowRight size={20} strokeWidth={2.4} />
-                  </div>
-                </button>
-              )}
-
-              {/* Tombol Mulai Bermain (Aksi Utama jika belum ada simpanan, atau aksi kedua jika sudah ada) */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={handleStartNewCity}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    padding: hasRealSave ? '11px 20px' : '14px 28px',
-                    borderRadius: 12,
-                    background: hasRealSave ? 'rgba(255, 255, 255, 0.85)' : '#007AFF',
-                    color: hasRealSave ? '#0A2E5B' : '#FFFFFF',
-                    border: hasRealSave ? '1px solid rgba(10, 46, 91, 0.16)' : 'none',
-                    fontSize: hasRealSave ? 14 : 16,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: hasRealSave ? '0 2px 6px rgba(10, 46, 91, 0.06)' : '0 4px 14px rgba(0, 122, 255, 0.3)',
-                    transition: 'transform 0.15s ease, background 0.15s ease',
-                  }}
-                  className="active:scale-[0.97] hover:brightness-105"
-                >
-                  <Play size={hasRealSave ? 15 : 18} fill={hasRealSave ? '#0A2E5B' : '#FFFFFF'} />
-                  <span>Mulai Bermain</span>
-                </button>
-
-                {/* Aksi Kedua 1: Buka Kota Tersimpan */}
-                <button
-                  type="button"
-                  onClick={handleOpenLibrary}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    padding: '11px 18px',
-                    borderRadius: 12,
-                    background: 'rgba(255, 255, 255, 0.85)',
-                    color: '#0A2E5B',
-                    border: '1px solid rgba(10, 46, 91, 0.16)',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(10, 46, 91, 0.06)',
-                    transition: 'transform 0.15s ease, background 0.15s ease',
-                  }}
-                  className="active:scale-[0.97] hover:bg-white"
-                >
-                  <FolderOpen size={16} strokeWidth={2} />
-                  <span>Buka Kota Tersimpan</span>
-                </button>
-
-                {/* Aksi Kedua 2: Rancang Bangunan (Studio CAD) */}
-                <button
-                  type="button"
-                  onClick={handleOpenStandaloneCad}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    padding: '11px 18px',
-                    borderRadius: 12,
-                    background: 'rgba(255, 255, 255, 0.85)',
-                    color: '#0A2E5B',
-                    border: '1px solid rgba(10, 46, 91, 0.16)',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(10, 46, 91, 0.06)',
-                    transition: 'transform 0.15s ease, background 0.15s ease',
-                  }}
-                  className="active:scale-[0.97] hover:bg-white"
-                >
-                  <Compass size={16} strokeWidth={2} />
-                  <span>Rancang Bangunan</span>
-                </button>
-
-                {/* Aksi Kedua 3: Impor Berkas */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isImporting}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    padding: '11px 18px',
-                    borderRadius: 12,
-                    background: 'rgba(255, 255, 255, 0.85)',
-                    color: '#0A2E5B',
-                    border: '1px solid rgba(10, 46, 91, 0.16)',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(10, 46, 91, 0.06)',
-                    transition: 'transform 0.15s ease, background 0.15s ease',
-                  }}
-                  className="active:scale-[0.97] hover:bg-white"
-                >
-                  <Upload size={16} strokeWidth={2} />
-                  <span>{isImporting ? 'Memuat...' : 'Impor Berkas'}</span>
-                </button>
-              </div>
-
-              {/* Keterangan Penyimpanan Lokal yang Jujur & Manusiawi */}
-              <div
+            {/* Tombol Utama Kapsul Crimson Pink */}
+            <div className="mb-6">
+              <button
+                type="button"
+                onClick={handleStartPlay}
+                className="group inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded-full font-bold text-base tracking-wide transition-all active:scale-95 hover:brightness-105"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontSize: 13,
-                  color: '#4A5568',
-                  marginTop: 6,
+                  background: '#FD6E8E',
+                  color: '#072D59',
+                  boxShadow: '0 10px 24px rgba(253, 110, 142, 0.42)',
+                  border: '1px solid rgba(7, 45, 89, 0.12)',
+                  cursor: 'pointer',
                 }}
               >
-                <CheckCircle2 size={15} color="#007AFF" />
-                <span>Kota tersimpan di perangkat ini. Tidak ada akun, tidak ada unggahan.</span>
+                <Sparkles className="w-5 h-5 text-[#072D59] stroke-[2.2]" />
+                <span>Buat Kota Baru</span>
+                <ArrowRight className="w-5 h-5 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1" />
+              </button>
+            </div>
+          </div>
+
+          {/* Panel Kontrol Proyek: Kartu Lanjutkan & Alat Studio Sekunder */}
+          <div className="flex flex-col gap-3">
+            {/* Kartu Lanjutkan Pembangunan dengan Ringkasan Nyata */}
+            <button
+              type="button"
+              onClick={handleContinueLast}
+              className="w-full p-4 rounded-2xl text-left transition-all flex items-center justify-between gap-4 hover:brightness-95 group"
+              style={{
+                background: 'rgba(7, 45, 89, 0.94)',
+                border: '1px solid rgba(219, 242, 252, 0.24)',
+                boxShadow: '0 10px 26px rgba(7, 45, 89, 0.18)',
+                color: '#DBF2FC',
+                cursor: 'pointer',
+              }}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <RotateCcw className="w-3.5 h-3.5 text-[#FD6E8E]" />
+                  <span
+                    className="text-[11px] font-bold uppercase tracking-wider"
+                    style={{ color: '#FD6E8E' }}
+                  >
+                    Lanjutkan Pembangunan
+                  </span>
+                </div>
+                <div className="text-sm font-bold truncate text-[#FFFFFF]" style={{ color: '#DBF2FC' }}>
+                  {latestSummary.name}
+                </div>
+                <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] font-medium" style={{ color: 'rgba(219, 242, 252, 0.82)' }}>
+                  <span className="inline-flex items-center gap-1 tabular-nums">
+                    <Building2 className="w-3 h-3 text-[#FD6E8E]" />
+                    {latestSummary.buildingCount} Bangunan
+                  </span>
+                  <span className="inline-flex items-center gap-1 tabular-nums">
+                    <Route className="w-3 h-3 text-[#FD6E8E]" />
+                    {latestSummary.roadLengthKm.toFixed(2)} km Jalan
+                  </span>
+                  <span className="inline-flex items-center gap-1 tabular-nums">
+                    <Clock className="w-3 h-3 text-[#FD6E8E]" />
+                    {formatWibClock(latestSummary.timeOfDay)}
+                  </span>
+                </div>
               </div>
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform group-hover:translate-x-0.5"
+                style={{
+                  background: 'rgba(219, 242, 252, 0.14)',
+                  color: '#DBF2FC',
+                }}
+              >
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </button>
+
+            {/* Tiga Tombol Aksi Studio Berdampingan */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <button
+                type="button"
+                onClick={handleOpenLibrary}
+                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                style={{
+                  background: 'rgba(219, 242, 252, 0.72)',
+                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  color: '#072D59',
+                  cursor: 'pointer',
+                }}
+              >
+                <FolderOpen className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
+                <span className="font-bold text-xs leading-tight">Buka Peta Tersimpan</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenStandaloneCad}
+                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                style={{
+                  background: 'rgba(219, 242, 252, 0.72)',
+                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  color: '#072D59',
+                  cursor: 'pointer',
+                }}
+              >
+                <Compass className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
+                <span className="font-bold text-xs leading-tight">Studio CAD Mandiri</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                style={{
+                  background: 'rgba(219, 242, 252, 0.72)',
+                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  color: '#072D59',
+                  cursor: 'pointer',
+                }}
+              >
+                <Upload className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
+                <span className="font-bold text-xs leading-tight">
+                  {isImporting ? 'Mengimpor...' : 'Impor Peta'}
+                </span>
+              </button>
             </div>
 
             <input
@@ -517,306 +476,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               style={{ display: 'none' }}
               onChange={handleFileImport}
             />
-          </div>
 
-          {/* Kolom Visual: Tangkapan Layar Render Game Sungguhan */}
-          <div>
-            <div
-              style={{
-                borderRadius: 18,
-                overflow: 'hidden',
-                background: '#FFFFFF',
-                border: '1px solid rgba(10, 46, 91, 0.12)',
-                boxShadow: '0 16px 40px rgba(10, 46, 91, 0.1)',
-              }}
-            >
-              <img
-                src="/assets/images/game_hero_city.png"
-                alt="Tangkapan layar game Arscity menampilkan kota bertekstur, jaringan jalan, dan bayangan sore"
-                style={{
-                  width: '100%',
-                  height: 'auto',
-                  display: 'block',
-                  aspectRatio: '16 / 10',
-                  objectFit: 'cover',
-                  objectPosition: 'center',
-                }}
-                loading="eager"
-              />
-            </div>
-            <p
-              style={{
-                fontSize: 13,
-                color: '#556575',
-                margin: '10px 0 0 4px',
-                lineHeight: 1.4,
-              }}
-            >
-              Simulasi tata kota nyata di Arscity: jaringan jalan, sempadan sungai, dan bayangan matahari sore.
-            </p>
-          </div>
-        </section>
-
-        {/* Bagian "Yang kamu pelajari" - Tiga Item Pendek Berilustrasi Nyata */}
-        <section
-          style={{
-            borderTop: '1px solid rgba(10, 46, 91, 0.12)',
-            paddingTop: 32,
-            marginBottom: 36,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              color: '#556575',
-              marginBottom: 16,
-            }}
-          >
-            Yang dapat kamu pelajari
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: 20,
-            }}
-          >
-            {/* Item 1: Aturan Bangunan */}
-            <div
-              style={{
-                background: 'rgba(255, 255, 255, 0.75)',
-                backdropFilter: 'blur(12px)',
-                borderRadius: 14,
-                padding: 16,
-                border: '1px solid rgba(10, 46, 91, 0.1)',
-                display: 'flex',
-                gap: 14,
-                alignItems: 'flex-start',
-              }}
-            >
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 10,
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                  border: '1px solid rgba(10, 46, 91, 0.1)',
-                  background: '#E2EEF4',
-                }}
-              >
-                <img
-                  src="/assets/images/feature_rules.png"
-                  alt="Denah dan aturan bangunan"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  loading="lazy"
-                />
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <ShieldCheck size={16} color="#007AFF" />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#0A2E5B' }}>Aturan Tata Ruang</span>
-                </div>
-                <p style={{ fontSize: 13, color: '#4A5568', margin: 0, lineHeight: 1.4 }}>
-                  Aturan bangunan (KDB, GSB) dicek otomatis saat kamu mendirikan gedung.
-                </p>
-              </div>
-            </div>
-
-            {/* Item 2: Matahari & Iklim */}
-            <div
-              style={{
-                background: 'rgba(255, 255, 255, 0.75)',
-                backdropFilter: 'blur(12px)',
-                borderRadius: 14,
-                padding: 16,
-                border: '1px solid rgba(10, 46, 91, 0.1)',
-                display: 'flex',
-                gap: 14,
-                alignItems: 'flex-start',
-              }}
-            >
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 10,
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                  border: '1px solid rgba(10, 46, 91, 0.1)',
-                  background: '#E2EEF4',
-                }}
-              >
-                <img
-                  src="/assets/images/feature_solar.png"
-                  alt="Pencahayaan matahari dan interior"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  loading="lazy"
-                />
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <Sun size={16} color="#007AFF" />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#0A2E5B' }}>Pencahayaan Alami</span>
-                </div>
-                <p style={{ fontSize: 13, color: '#4A5568', margin: 0, lineHeight: 1.4 }}>
-                  Lihat bayangan matahari dan arah angin pada bangunanmu sepanjang hari.
-                </p>
-              </div>
-            </div>
-
-            {/* Item 3: Simulasi Lingkungan */}
-            <div
-              style={{
-                background: 'rgba(255, 255, 255, 0.75)',
-                backdropFilter: 'blur(12px)',
-                borderRadius: 14,
-                padding: 16,
-                border: '1px solid rgba(10, 46, 91, 0.1)',
-                display: 'flex',
-                gap: 14,
-                alignItems: 'flex-start',
-              }}
-            >
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 10,
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                  border: '1px solid rgba(10, 46, 91, 0.1)',
-                  background: '#E2EEF4',
-                }}
-              >
-                <img
-                  src="/assets/images/feature_simulation.png"
-                  alt="Persimpangan jalan dan uji infrastruktur"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  loading="lazy"
-                />
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <Waves size={16} color="#007AFF" />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#0A2E5B' }}>Uji Ketahanan</span>
-                </div>
-                <p style={{ fontSize: 13, color: '#4A5568', margin: 0, lineHeight: 1.4 }}>
-                  Uji risiko banjir dari sempadan sungai serta kekuatan struktur bertingkat.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Footer Kecil & Jujur */}
-        <footer
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            paddingTop: 16,
-            borderTop: '1px solid rgba(10, 46, 91, 0.08)',
-            fontSize: 12,
-            color: '#556575',
-          }}
-        >
-          <div>
-            <span>Arscity · Versi 4.0</span>
-          </div>
-
-          <div style={{ display: 'flex', gap: 18 }}>
-            <button
-              type="button"
-              onClick={() => setShowLicenseModal(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                color: '#0A2E5B',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                fontSize: 12,
-              }}
-            >
-              Kredit &amp; Lisensi
-            </button>
-            <a
-              href="https://github.com/yukiramadhan2024/Arscity"
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: '#0A2E5B', textDecoration: 'underline' }}
-            >
-              Repositori GitHub
-            </a>
-          </div>
-        </footer>
-      </div>
-
-      {/* Modal Sederhana Kredit & Lisensi */}
-      {showLicenseModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Kredit dan Lisensi"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            background: 'rgba(7, 26, 56, 0.45)',
-            backdropFilter: 'blur(10px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
-          }}
-          onClick={() => setShowLicenseModal(false)}
-        >
-          <div
-            style={{
-              background: '#FFFFFF',
-              borderRadius: 18,
-              maxWidth: 520,
-              width: '100%',
-              padding: 28,
-              boxShadow: '0 20px 48px rgba(7, 26, 56, 0.25)',
-              border: '1px solid rgba(10, 46, 91, 0.16)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px 0', color: '#0A2E5B' }}>
-              Kredit &amp; Lisensi Terbuka
-            </h2>
-            <p style={{ fontSize: 14, color: '#3A4750', lineHeight: 1.6, margin: '0 0 16px 0' }}>
-              Arscity dibangun menggunakan teknologi web modern bebas ketergantungan jaringan luar. Seluruh tekstur arsitektur, tipografi, dan suara menggunakan lisensi terbuka publik (CC0, MIT, Apache 2.0, dan SIL Open Font License).
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setShowLicenseModal(false)}
-                style={{
-                  padding: '9px 18px',
-                  borderRadius: 10,
-                  background: '#007AFF',
-                  color: '#FFFFFF',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                Tutup
-              </button>
+            {/* Keterangan Kejujuran Penyimpanan Lokal */}
+            <div className="pt-1 flex items-center gap-1.5 text-[11px] font-medium text-[#1E4673]">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#072D59]" />
+              <span>Penyimpanan lokal di perangkat Anda • Data tersimpan aman tanpa akun</span>
             </div>
           </div>
         </div>
-      )}
+
+        {/* 4. KOLOM KANAN: Karya Seni Vektor Isometrik Arsitektur 100% SVG */}
+        <div className="lg:col-span-6 p-5 pl-0 hidden lg:flex items-stretch justify-center">
+          <div
+            className="w-full h-full rounded-[24px] overflow-hidden relative"
+            style={{
+              background: '#DBF2FC',
+              border: '1.5px solid rgba(7, 45, 89, 0.18)',
+              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 12px 30px rgba(7, 45, 89, 0.12)',
+            }}
+          >
+            <ArchitecturalVectorDiorama />
+          </div>
+        </div>
+      </div>
     </main>
   );
 };
