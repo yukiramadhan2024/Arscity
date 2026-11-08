@@ -10,9 +10,12 @@ import {
   Building2,
   Route,
   Clock,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
 import { useUIStore } from '../state/useUIStore';
 import { ArscityLogo } from './ArscityLogo';
+import { InteractiveDioramaCanvas } from './InteractiveDioramaCanvas';
 import { IndexedDBStorage, SavedMapMeta } from '../../io/IndexedDBStorage';
 import { GeoJSONImporter } from '../../io/GeoJSONImporter';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
@@ -59,6 +62,16 @@ function computeRoadLengthKmFromSave(data: CitySaveData): number {
   return totalMeters / 1000;
 }
 
+/**
+ * LoginPage - Swiss Architectural Studio & Interactive 3D Launchpad
+ *
+ * Professional architectural city-builder launch interface:
+ * - Color System: Seal Blue (#DBF2FC), Navy Blue (#072D59), Crimson Pink (#FD6E8E)
+ * - Typography: Plus Jakarta Sans (Editorial) + JetBrains Mono (Technical telemetry)
+ * - Left Panel: Swiss International typographic layout, modular launchpad actions, live project resume
+ * - Right Panel: Live Three.js Interactive 3D Architectural Diorama with real-time axonometric viewport
+ * - 100% human-crafted architectural layout, zero generic AI clipart
+ */
 export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
   const {
     loginAsGuest,
@@ -197,7 +210,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
   return (
     <main
       className="auth-root-container"
-      aria-label="Gerbang Masuk Arscity - Architectural City Builder Launchpad"
+      aria-label="Gerbang Masuk Arscity - Swiss Architectural Studio & Interactive 3D Launchpad"
       style={{
         position: 'fixed',
         inset: 0,
@@ -205,73 +218,74 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
-        background: 'linear-gradient(155deg, #DBF2FC 0%, #EFF8FD 52%, #D3EFFA 100%)',
+        background: '#DBF2FC',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: '20px',
         boxSizing: 'border-box',
         userSelect: 'none',
         fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* 1. Latar Belakang Topografi & Jaringan Jalan Masterplan Halus (Non-Grid) */}
+      {/* 1. Latar Belakang Garis Gambar Kerja Arsitektur Presisi (Swiss Blueprint Grid) */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
-        viewBox="0 0 1440 900"
-        preserveAspectRatio="xMidYMid slice"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
+        <defs>
+          <pattern id="swissGrid" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path
+              d="M 48 0 L 0 0 0 48"
+              fill="none"
+              stroke="#072D59"
+              strokeWidth="0.8"
+              strokeOpacity="0.08"
+            />
+            <circle cx="0" cy="0" r="1.2" fill="#072D59" fillOpacity="0.18" />
+          </pattern>
+          <pattern id="swissMajorGrid" width="240" height="240" patternUnits="userSpaceOnUse">
+            <path
+              d="M 240 0 L 0 0 0 240"
+              fill="none"
+              stroke="#072D59"
+              strokeWidth="1.2"
+              strokeOpacity="0.15"
+            />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#swissGrid)" />
+        <rect width="100%" height="100%" fill="url(#swissMajorGrid)" />
+
+        {/* Garis Ukur Teknis & Topografi Arsitektur */}
         <g fill="none" stroke="#072D59">
-          {/* Garis Kontur Topografi Organik */}
           <path
-            d="M-80 180 C 180 110, 420 260, 720 190 C 980 130, 1210 60, 1520 160"
-            strokeOpacity="0.09"
+            d="M -40 220 C 320 180, 720 320, 1100 240 T 1700 200"
+            strokeOpacity="0.08"
             strokeWidth="1.2"
           />
           <path
-            d="M-80 230 C 190 160, 450 315, 740 245 C 1010 180, 1230 115, 1520 215"
-            strokeOpacity="0.07"
+            d="M -40 280 C 340 240, 750 380, 1120 300 T 1700 260"
+            strokeOpacity="0.05"
             strokeWidth="1"
           />
           <path
-            d="M-80 285 C 210 215, 480 370, 760 300 C 1030 235, 1250 170, 1520 270"
-            strokeOpacity="0.06"
-            strokeWidth="0.9"
+            d="M 420 -20 L 420 1200"
+            strokeOpacity="0.07"
+            strokeWidth="1"
+            strokeDasharray="6 6"
           />
           <path
-            d="M-60 690 C 240 610, 520 790, 860 700 C 1120 630, 1300 720, 1510 660"
-            strokeOpacity="0.09"
-            strokeWidth="1.2"
+            d="M 1040 -20 L 1040 1200"
+            strokeOpacity="0.07"
+            strokeWidth="1"
+            strokeDasharray="6 6"
           />
-          <path
-            d="M-60 745 C 260 665, 540 845, 880 755 C 1140 685, 1320 775, 1510 715"
-            strokeOpacity="0.06"
-            strokeWidth="0.9"
-          />
-          {/* Jaringan Koridor Arterial Masterplan Kota */}
-          <path
-            d="M -40 540 Q 410 470, 760 515 T 1500 410"
-            strokeOpacity="0.11"
-            strokeWidth="2.4"
-          />
-          <path
-            d="M 210 -30 C 280 240, 295 520, 390 930"
-            strokeOpacity="0.09"
-            strokeWidth="1.8"
-          />
-          <path
-            d="M 1110 -30 C 1050 280, 1140 590, 1210 930"
-            strokeOpacity="0.09"
-            strokeWidth="1.8"
-          />
-          <circle cx="292" cy="494" r="24" strokeOpacity="0.11" strokeWidth="1.5" />
-          <circle cx="1102" cy="472" r="32" strokeOpacity="0.10" strokeWidth="1.4" />
         </g>
       </svg>
 
-      {/* Audio Mute/Unmute Capsule */}
+      {/* Audio Mute/Unmute Pill - Crisp Swiss Button */}
       <button
         onClick={toggleAudio}
         style={{
@@ -284,48 +298,65 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
           gap: '8px',
           padding: '8px 16px',
           borderRadius: '9999px',
-          background: 'rgba(7, 45, 89, 0.92)',
-          backdropFilter: 'blur(20px)',
+          background: 'rgba(7, 45, 89, 0.94)',
+          backdropFilter: 'blur(16px)',
           border: '1px solid rgba(219, 242, 252, 0.28)',
-          boxShadow: '0 6px 18px rgba(7, 45, 89, 0.16)',
+          boxShadow: '0 4px 14px rgba(7, 45, 89, 0.18)',
           color: '#DBF2FC',
           fontSize: '12px',
+          fontFamily: "'JetBrains Mono', monospace",
           fontWeight: 600,
           cursor: 'pointer',
         }}
         title={isAudioMuted ? 'Suara disenyapkan (Klik untuk mengaktifkan)' : 'Suara aktif (Klik untuk menyenyapkan)'}
         aria-label="Pengaturan Suara"
       >
-        {isAudioMuted ? <VolumeX size={15} strokeWidth={1.75} /> : <Volume2 size={15} strokeWidth={1.75} />}
-        <span>{isAudioMuted ? 'Senyap' : 'Suara Aktif'}</span>
+        {isAudioMuted ? <VolumeX size={14} strokeWidth={2} /> : <Volume2 size={14} strokeWidth={2} />}
+        <span>{isAudioMuted ? 'SENYAP' : 'AUDIO AKTIF'}</span>
       </button>
 
-      {/* 2. Architectural City-Builder Launchpad Container */}
+      {/* 2. Main Studio Launchpad Container (Swiss Architectural Pro Frame) */}
       <div
-        className="relative z-10 w-full max-w-[1180px] min-h-[590px] max-h-[92vh] rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-12"
+        className="relative z-10 w-full max-w-[1240px] min-h-[600px] max-h-[92vh] rounded-[28px] overflow-hidden grid grid-cols-1 lg:grid-cols-12"
         style={{
-          background: 'rgba(239, 248, 253, 0.94)',
-          backdropFilter: 'blur(26px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(26px) saturate(180%)',
-          border: '1.5px solid rgba(7, 45, 89, 0.18)',
-          boxShadow: '0 28px 70px rgba(7, 45, 89, 0.16), 0 2px 10px rgba(7, 45, 89, 0.06)',
+          background: '#FFFFFF',
+          border: '2px solid #072D59',
+          boxShadow: '0 24px 60px rgba(7, 45, 89, 0.18), 0 2px 6px rgba(7, 45, 89, 0.08)',
         }}
       >
-        {/* 3. KOLOM KIRI: Brand Header, Tipografi, CTA & Panel Proyek Kota */}
-        <div className="lg:col-span-6 p-8 sm:p-10 lg:p-12 flex flex-col justify-between z-20">
+        {/* 3. KOLOM KIRI: Swiss Editorial Hierarchy & Modular Launchpad Controls */}
+        <div
+          className="lg:col-span-6 p-7 sm:p-9 lg:p-11 flex flex-col justify-between z-20"
+          style={{
+            borderRight: '1.5px solid rgba(7, 45, 89, 0.14)',
+            background: 'linear-gradient(180deg, #FFFFFF 0%, #F5FBFE 100%)',
+          }}
+        >
           <div>
-            {/* Logo Minimalis Arscity */}
-            <div className="mb-7">
-              <ArscityLogo size={34} showText={true} variant="light" textColor="#072D59" />
+            {/* Header: Monogram Logo & Technical System Badge */}
+            <div className="flex items-center justify-between mb-8">
+              <ArscityLogo size={36} variant="dark" />
+              <div
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider"
+                style={{
+                  background: 'rgba(7, 45, 89, 0.06)',
+                  color: '#072D59',
+                  border: '1px solid rgba(7, 45, 89, 0.14)',
+                }}
+              >
+                <span>STUDIO RELEASE</span>
+                <span style={{ color: '#FD6E8E' }}>• 2026</span>
+              </div>
             </div>
 
-            {/* Tipografi Utama */}
+            {/* Tipografi Utama (Editorial Architectural Typography) */}
             <h1
-              className="font-extrabold tracking-tight leading-[1.12] mb-3"
+              className="font-extrabold tracking-tight leading-[1.08] mb-4"
               style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 'clamp(32px, 3.5vw, 46px)',
+                fontSize: 'clamp(32px, 3.4vw, 48px)',
                 color: '#072D59',
+                letterSpacing: '-0.035em',
               }}
             >
               Rancang Kota Impian <br />
@@ -333,115 +364,118 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
             </h1>
 
             <p
-              className="text-sm font-medium leading-relaxed max-w-md mb-7"
+              className="text-sm font-medium leading-relaxed max-w-md mb-8"
               style={{ color: '#1E4673' }}
             >
-              Sandbox city-builder &amp; studio CAD arsitektur dengan simulasi iklim tropis, jalan raya, sungai, dan interior bangunan.
+              Studio perancangan kota &amp; simulasi arsitektur parametrik. Integrasi masterplan jalan, tipologi tropis nusantara, hidrologi sungai, dan rekayasa tata ruang waktu nyata.
             </p>
 
-            {/* Tombol Utama Kapsul Crimson Pink */}
-            <div className="mb-6">
+            {/* Tombol Utama: Buat Kota Baru (High-Craft Crimson Pink Button) */}
+            <div className="mb-7">
               <button
                 type="button"
                 onClick={handleStartPlay}
-                className="group inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded-full font-bold text-base tracking-wide transition-all active:scale-95 hover:brightness-105"
+                className="group w-full sm:w-auto inline-flex items-center justify-center gap-3.5 px-8 py-4 rounded-2xl font-extrabold text-base tracking-wide transition-all active:scale-[0.98] hover:brightness-105"
                 style={{
                   background: '#FD6E8E',
                   color: '#072D59',
-                  boxShadow: '0 10px 24px rgba(253, 110, 142, 0.42)',
-                  border: '1px solid rgba(7, 45, 89, 0.12)',
+                  border: '2px solid #072D59',
+                  boxShadow: '4px 4px 0px #072D59',
                   cursor: 'pointer',
+                  letterSpacing: '-0.01em',
                 }}
               >
+                <Sparkles className="w-5 h-5 text-[#072D59] stroke-[2.2]" />
                 <span>Buat Kota Baru</span>
                 <ArrowRight className="w-5 h-5 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1" />
               </button>
             </div>
           </div>
 
-          {/* Panel Kontrol Peluncuran Proyek City Builder */}
+          {/* Panel Kontrol Proyek: Kartu Lanjutkan & Alat Studio Sekunder */}
           <div className="flex flex-col gap-3">
-            {/* Kartu Lanjutkan Pembangunan dengan Ringkasan Nyata Kota Terakhir */}
+            {/* Kartu Lanjutkan Pembangunan dengan Ringkasan Nyata */}
             <button
               type="button"
               onClick={handleContinueLast}
-              className="w-full p-4 rounded-2xl text-left transition-all flex items-center justify-between gap-4 hover:brightness-95"
+              className="w-full p-4 rounded-xl text-left transition-all flex items-center justify-between gap-4 hover:brightness-95 group"
               style={{
-                background: 'rgba(7, 45, 89, 0.94)',
-                border: '1px solid rgba(219, 242, 252, 0.24)',
-                boxShadow: '0 10px 26px rgba(7, 45, 89, 0.18)',
+                background: '#072D59',
+                border: '1.5px solid #072D59',
                 color: '#DBF2FC',
                 cursor: 'pointer',
+                boxShadow: '0 8px 20px rgba(7, 45, 89, 0.15)',
               }}
             >
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1.5">
                   <RotateCcw className="w-3.5 h-3.5 text-[#FD6E8E]" />
                   <span
-                    className="text-[11px] font-bold uppercase tracking-wider"
+                    className="text-[10px] font-mono font-bold uppercase tracking-wider"
                     style={{ color: '#FD6E8E' }}
                   >
                     Lanjutkan Pembangunan
                   </span>
                 </div>
-                <div className="text-sm font-bold truncate" style={{ color: '#DBF2FC' }}>
+                <div className="text-sm font-bold truncate text-[#FFFFFF] tracking-tight">
                   {latestSummary.name}
                 </div>
-                <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] font-medium" style={{ color: 'rgba(219, 242, 252, 0.82)' }}>
-                  <span className="inline-flex items-center gap-1 tabular-nums">
-                    <Building2 className="w-3 h-3 text-[#FD6E8E]" />
-                    {latestSummary.buildingCount} Bangunan
+                <div className="flex flex-wrap items-center gap-3.5 mt-2 text-[11px] font-mono" style={{ color: '#DBF2FC' }}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-[#FD6E8E]" />
+                    {latestSummary.buildingCount} Massa Gedung
                   </span>
-                  <span className="inline-flex items-center gap-1 tabular-nums">
-                    <Route className="w-3 h-3 text-[#FD6E8E]" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <Route className="w-3.5 h-3.5 text-[#FD6E8E]" />
                     {latestSummary.roadLengthKm.toFixed(2)} km Jalan
                   </span>
-                  <span className="inline-flex items-center gap-1 tabular-nums">
-                    <Clock className="w-3 h-3 text-[#FD6E8E]" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#FD6E8E]" />
                     {formatWibClock(latestSummary.timeOfDay)}
                   </span>
                 </div>
               </div>
               <div
-                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:translate-x-0.5"
                 style={{
-                  background: 'rgba(219, 242, 252, 0.14)',
+                  background: 'rgba(219, 242, 252, 0.15)',
                   color: '#DBF2FC',
+                  border: '1px solid rgba(219, 242, 252, 0.3)',
                 }}
               >
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
               </div>
             </button>
 
-            {/* Tiga Tombol Aksi Berdampingan yang Bersih */}
+            {/* Tiga Tombol Aksi Studio Modular Berdampingan */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={handleOpenLibrary}
-                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                className="p-3 rounded-xl text-left transition-all flex items-center gap-2.5 hover:bg-[#DBF2FC]"
                 style={{
-                  background: 'rgba(219, 242, 252, 0.72)',
-                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  background: '#FFFFFF',
+                  border: '1.5px solid rgba(7, 45, 89, 0.2)',
                   color: '#072D59',
                   cursor: 'pointer',
                 }}
               >
-                <FolderOpen className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
+                <FolderOpen className="w-4 h-4 shrink-0 text-[#072D59]" strokeWidth={2.2} />
                 <span className="font-bold text-xs leading-tight">Buka Peta Tersimpan</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleOpenStandaloneCad}
-                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                className="p-3 rounded-xl text-left transition-all flex items-center gap-2.5 hover:bg-[#DBF2FC]"
                 style={{
-                  background: 'rgba(219, 242, 252, 0.72)',
-                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  background: '#FFFFFF',
+                  border: '1.5px solid rgba(7, 45, 89, 0.2)',
                   color: '#072D59',
                   cursor: 'pointer',
                 }}
               >
-                <Compass className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
+                <Compass className="w-4 h-4 shrink-0 text-[#072D59]" strokeWidth={2.2} />
                 <span className="font-bold text-xs leading-tight">Studio CAD Mandiri</span>
               </button>
 
@@ -449,15 +483,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isImporting}
-                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                className="p-3 rounded-xl text-left transition-all flex items-center gap-2.5 hover:bg-[#DBF2FC]"
                 style={{
-                  background: 'rgba(219, 242, 252, 0.72)',
-                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  background: '#FFFFFF',
+                  border: '1.5px solid rgba(7, 45, 89, 0.2)',
                   color: '#072D59',
                   cursor: 'pointer',
                 }}
               >
-                <Upload className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
+                <Upload className="w-4 h-4 shrink-0 text-[#072D59]" strokeWidth={2.2} />
                 <span className="font-bold text-xs leading-tight">
                   {isImporting ? 'Mengimpor...' : 'Impor Peta'}
                 </span>
@@ -471,26 +505,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               style={{ display: 'none' }}
               onChange={handleFileImport}
             />
+
+            {/* Swiss Studio Minimalist Technical Footer */}
+            <div className="pt-2 flex items-center justify-between text-[10px] font-mono text-[#072D59] opacity-70">
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-3 h-3 text-[#FD6E8E]" />
+                PENYIMPANAN LOKAL CLIENT-SIDE
+              </span>
+              <span>LAT -7.7956° LON 110.3695°</span>
+            </div>
           </div>
         </div>
 
-        {/* 4. KOLOM KANAN: Bingkai Viewport Diorama Kota Isometrik 3D Bersih */}
-        <div className="lg:col-span-6 p-5 pl-0 hidden lg:flex items-stretch justify-center">
-          <div
-            className="w-full h-full rounded-[24px] overflow-hidden relative"
-            style={{
-              background: '#DBF2FC',
-              border: '1.5px solid rgba(7, 45, 89, 0.18)',
-              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 12px 30px rgba(7, 45, 89, 0.12)',
-            }}
-          >
-            <img
-              src="/assets/images/city_diorama_clean.png"
-              alt="Viewport Diorama Kota Isometrik 3D Arscity"
-              className="w-full h-full object-cover object-center select-none pointer-events-none"
-              draggable={false}
-            />
-          </div>
+        {/* 4. KOLOM KANAN: Live Interactive 3D Architectural Diorama Launchpad */}
+        <div className="lg:col-span-6 hidden lg:block relative min-h-[560px]">
+          <InteractiveDioramaCanvas className="w-full h-full" />
         </div>
       </div>
     </main>

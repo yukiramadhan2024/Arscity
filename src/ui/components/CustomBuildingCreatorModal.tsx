@@ -3474,7 +3474,7 @@ export const CustomBuildingCreatorModal: React.FC<CustomBuildingCreatorModalProp
                 justifyContent: 'center'
               }}
             >
-              <ArscityLogo size={22} />
+              <ArscityLogo size={22} iconOnly variant="dark" />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

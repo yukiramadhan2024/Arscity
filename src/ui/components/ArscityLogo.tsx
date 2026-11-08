@@ -1,45 +1,41 @@
 import React from 'react';
 
 export interface ArscityLogoProps {
+  iconOnly?: boolean;
   size?: number;
+  variant?: 'dark' | 'light';
+  showText?: boolean;
   className?: string;
   style?: React.CSSProperties;
-  showText?: boolean;
-  iconOnly?: boolean;
-  variant?: 'dark' | 'light';
   textColor?: string;
   badge?: string;
 }
 
-/**
- * ArscityLogo - Minimalist Geometric City-Builder Emblem
- *
- * Dual-contrast architectural "A" prism & urban skyline mark:
- * - On Navy Blue (#072D59) dark surfaces (`variant="dark"`): Seal Blue (#DBF2FC) & Crimson Pink (#FD6E8E)
- * - On Light / Seal Blue (#DBF2FC) surfaces (`variant="light"`): Navy Blue (#072D59) & Crimson Pink (#FD6E8E)
- */
 export const ArscityLogo: React.FC<ArscityLogoProps> = ({
-  size = 36,
+  iconOnly = false,
+  size = 32,
+  variant = 'dark',
+  showText = true,
   className = '',
   style = {},
-  showText = true,
-  iconOnly = false,
-  variant = 'light',
   textColor,
-  badge,
+  badge = '4.0',
 }) => {
-  const isDarkSurface = variant === 'dark';
-  const primaryColor = isDarkSurface ? '#DBF2FC' : '#072D59';
-  const secondaryColor = isDarkSurface ? '#9ADCF9' : '#133F6E';
+  const primaryColor = textColor || (variant === 'dark' ? '#072D59' : '#DBF2FC');
   const accentColor = '#FD6E8E';
-  const resolvedTextColor = textColor || (isDarkSurface ? '#DBF2FC' : '#072D59');
   const shouldRenderText = showText && !iconOnly;
-  const gradId = `arscityPrism_${variant}_${size}`;
+  const gradId = `arscityTowerGrad_${variant}_${size}`;
 
   return (
     <div
-      className={`inline-flex items-center gap-2.5 select-none ${className}`}
-      style={{ display: 'inline-flex', alignItems: 'center', ...style }}
+      className={className}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: Math.round(size * 0.35),
+        userSelect: 'none',
+        ...style,
+      }}
     >
       <svg
         width={size}
@@ -51,68 +47,86 @@ export const ArscityLogo: React.FC<ArscityLogoProps> = ({
         aria-label="Logo Arscity"
       >
         <defs>
-          <linearGradient id={gradId} x1="6" y1="6" x2="34" y2="34" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor={primaryColor} />
-            <stop offset="100%" stopColor={secondaryColor} />
+          <linearGradient
+            id={gradId}
+            x1="11"
+            y1="9.5"
+            x2="29"
+            y2="30"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop offset="0%" stopColor="#DBF2FC" />
+            <stop offset="100%" stopColor={variant === 'dark' ? '#8ECAE6' : '#DBF2FC'} />
           </linearGradient>
         </defs>
 
-        {/* Left Ascending Architectural Monolith */}
-        <path
-          d="M 8 33.5 L 18.2 7.2 C 18.9 5.5 21.1 5.5 21.8 7.2 L 24.4 13.8 L 16.5 33.5 Z"
-          fill={`url(#${gradId})`}
+        {/* Bingkai Dasar Persegi Arsitektur Presisi */}
+        <rect
+          x="2"
+          y="2"
+          width="36"
+          height="36"
+          rx="8"
+          fill={variant === 'dark' ? '#072D59' : 'rgba(219, 242, 252, 0.12)'}
+          stroke={variant === 'dark' ? '#072D59' : 'rgba(219, 242, 252, 0.35)'}
+          strokeWidth="1.5"
         />
 
-        {/* Right Structural Buttress */}
+        {/* Pilar Kiri Menara Isometrik (Membentuk Kaki Kiri A) */}
         <path
-          d="M 24.4 13.8 L 32 33.5 L 25.4 33.5 L 20.6 20.6 Z"
-          fill={secondaryColor}
+          d="M11 30V15L20 9.5V24.5L11 30Z"
+          fill="#DBF2FC"
         />
 
-        {/* Dynamic Crimson Pink Canton Crossbar / Roof Prism Accent */}
+        {/* Pilar Kanan Menara Isometrik (Membentuk Kaki Kanan A) */}
         <path
-          d="M 15.2 23.2 L 26.8 23.2 L 28.4 27.6 L 13.6 27.6 Z"
+          d="M29 30V15L20 9.5V24.5L29 30Z"
+          fill={variant === 'dark' ? '#8ECAE6' : '#DBF2FC'}
+          fillOpacity="0.75"
+        />
+
+        {/* Balok Kantilever Melintang (Palang Huruf A & Aksen Crimson Pink) */}
+        <path
+          d="M9 22.5L20 16L31 22.5L20 29L9 22.5Z"
           fill={accentColor}
         />
 
-        {/* Minimal Apex Beacon Triangle */}
+        {/* Void Struktur Tengah */}
         <path
-          d="M 20 6 L 23.4 13.6 L 16.6 13.6 Z"
-          fill={accentColor}
+          d="M16.5 22.5L20 20.3L23.5 22.5L20 24.7L16.5 22.5Z"
+          fill="#072D59"
         />
       </svg>
 
       {shouldRenderText && (
-        <span
-          style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: `${size * 0.56}px`,
-            fontWeight: 800,
-            letterSpacing: '0.12em',
-            color: resolvedTextColor,
-            lineHeight: 1,
-            textTransform: 'uppercase',
-          }}
-        >
-          ARSCITY
-        </span>
-      )}
-
-      {badge && (
-        <span
-          style={{
-            fontSize: `${Math.max(10, size * 0.28)}px`,
-            fontWeight: 700,
-            padding: '2px 7px',
-            borderRadius: '9999px',
-            background: '#FD6E8E',
-            color: '#FFFFFF',
-            marginLeft: '2px',
-          }}
-        >
-          {badge}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+          <span
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 800,
+              fontSize: Math.round(size * 0.56),
+              letterSpacing: '-0.03em',
+              color: primaryColor,
+              lineHeight: 1,
+            }}
+          >
+            ARSCITY
+          </span>
+          <span
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontWeight: 600,
+              fontSize: Math.round(size * 0.28),
+              color: accentColor,
+              letterSpacing: '0.05em',
+            }}
+          >
+            {badge}
+          </span>
+        </div>
       )}
     </div>
   );
 };
+
+export default ArscityLogo;

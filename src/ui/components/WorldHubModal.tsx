@@ -502,7 +502,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
         {/* Header Section */}
         <div className="wh-header">
           <div className="wh-logo-wrap">
-            <ArscityLogo size={38} />
+            <ArscityLogo size={38} iconOnly variant="dark" />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--label-on-navy)' }}>
