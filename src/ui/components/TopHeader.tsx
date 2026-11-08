@@ -429,14 +429,15 @@ export const TopHeader: React.FC = React.memo(() => {
                         position: 'absolute',
                         inset: 0,
                         borderRadius: '9999px',
-                        background: 'var(--accent)',
-                        boxShadow: 'var(--shadow-accent)',
+                        background: '#FD6E8E',
+                        border: '1.5px solid #072D59',
+                        boxShadow: '2px 2px 0px #072D59',
                         zIndex: -1
                       }}
                     />
                   )}
-                  <IconComp size={15} strokeWidth={2} style={{ color: isActive ? '#FFFFFF' : 'var(--label-secondary)' }} />
-                  <span>{m.label}</span>
+                  <IconComp size={15} strokeWidth={isActive ? 2.5 : 2} style={{ color: isActive ? '#072D59' : 'var(--label-secondary)' }} />
+                  <span style={{ color: isActive ? '#072D59' : 'inherit', fontWeight: isActive ? 800 : 500 }}>{m.label}</span>
                 </motion.button>
               );
             })}

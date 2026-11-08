@@ -890,10 +890,12 @@ export const NewMapCustomizerModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setPreviewProjection('isometric')}
-                  className="px-3 py-1 rounded-full text-[11px] font-bold cursor-pointer"
+                  className="px-3 py-1 rounded-full text-[11px] font-extrabold cursor-pointer transition-all"
                   style={{
                     background: previewProjection === 'isometric' ? '#FD6E8E' : 'transparent',
                     color: previewProjection === 'isometric' ? '#072D59' : '#DBF2FC',
+                    border: previewProjection === 'isometric' ? '1.5px solid #072D59' : '1.5px solid transparent',
+                    boxShadow: previewProjection === 'isometric' ? '2px 2px 0px #072D59' : 'none',
                   }}
                 >
                   Isometrik
@@ -901,10 +903,12 @@ export const NewMapCustomizerModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setPreviewProjection('plan2d')}
-                  className="px-3 py-1 rounded-full text-[11px] font-bold cursor-pointer"
+                  className="px-3 py-1 rounded-full text-[11px] font-extrabold cursor-pointer transition-all"
                   style={{
                     background: previewProjection === 'plan2d' ? '#FD6E8E' : 'transparent',
                     color: previewProjection === 'plan2d' ? '#072D59' : '#DBF2FC',
+                    border: previewProjection === 'plan2d' ? '1.5px solid #072D59' : '1.5px solid transparent',
+                    boxShadow: previewProjection === 'plan2d' ? '2px 2px 0px #072D59' : 'none',
                   }}
                 >
                   Denah 2D
@@ -949,7 +953,7 @@ export const NewMapCustomizerModal: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions (3D Pastel Buttons) */}
         <div
           className="flex items-center justify-between px-7 py-4 border-t"
           style={{
@@ -960,12 +964,12 @@ export const NewMapCustomizerModal: React.FC = () => {
           <button
             type="button"
             onClick={closeNewMapCustomizer}
-            className="px-5 py-2.5 rounded-full font-bold text-sm cursor-pointer transition-all active:translate-y-[2px]"
+            className="px-6 py-2.5 rounded-full font-bold text-sm cursor-pointer transition-all active:translate-x-[2px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#072D59]"
             style={{
               color: '#072D59',
-              background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF5FB 100%)',
-              border: '1.5px solid #BDDEEE',
-              boxShadow: '0 3px 0 #A9D1E5, inset 0 1px 0 #FFFFFF',
+              background: '#FFFFFF',
+              border: '2px solid #072D59',
+              boxShadow: '3px 4px 0px #072D59',
             }}
           >
             Batal
@@ -975,12 +979,12 @@ export const NewMapCustomizerModal: React.FC = () => {
             type="button"
             onClick={handleBuildCity}
             disabled={isSubmitting}
-            className="flex items-center gap-2.5 px-7 py-3 rounded-full font-extrabold text-sm transition-all cursor-pointer active:translate-y-[2px] disabled:opacity-50 hover:brightness-105"
+            className="flex items-center gap-2.5 px-7 py-3 rounded-full font-extrabold text-sm transition-all cursor-pointer active:translate-x-[3px] active:translate-y-[4px] active:shadow-[1px_1px_0px_#072D59] disabled:opacity-50 hover:brightness-103"
             style={{
-              background: 'linear-gradient(180deg, #FE8CA5 0%, #FD6E8E 100%)',
+              background: '#FD6E8E',
               color: '#072D59',
-              border: '1.5px solid #D64C6D',
-              boxShadow: '0 4px 0 #D64C6D, 0 10px 24px rgba(253, 110, 142, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55)',
+              border: '2.5px solid #072D59',
+              boxShadow: '4px 5px 0px #072D59',
             }}
           >
             <span>{isSubmitting ? 'Membangun Distrik...' : 'Bangun & Masuk ke Kota'}</span>

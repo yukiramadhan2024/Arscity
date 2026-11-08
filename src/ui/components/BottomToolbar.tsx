@@ -261,20 +261,21 @@ export const BottomToolbar: React.FC = React.memo(() => {
                     position: 'absolute',
                     inset: 0,
                     borderRadius: '9999px',
-                    background: 'var(--accent)',
-                    boxShadow: 'var(--shadow-accent)',
+                    background: '#FD6E8E',
+                    border: '2px solid #072D59',
+                    boxShadow: '2px 3px 0px #072D59',
                     zIndex: -1
                   }}
                 />
               )}
-              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} style={{ color: isActive ? 'var(--on-accent)' : 'currentColor' }} />
+              <Icon size={18} strokeWidth={isActive ? 2.5 : 1.75} style={{ color: isActive ? '#072D59' : 'currentColor' }} />
               <span
                 style={{
                   fontSize: '11px',
-                  fontWeight: isActive ? 700 : 500,
+                  fontWeight: isActive ? 800 : 500,
                   whiteSpace: 'nowrap',
                   letterSpacing: '-0.01em',
-                  color: isActive ? 'var(--on-accent)' : 'currentColor'
+                  color: isActive ? '#072D59' : 'currentColor'
                 }}
               >
                 {tool.label}
@@ -419,14 +420,15 @@ export const BottomToolbar: React.FC = React.memo(() => {
                                 position: 'absolute',
                                 inset: 0,
                                 borderRadius: '9999px',
-                                background: 'var(--accent)',
-                                boxShadow: 'var(--shadow-accent)',
+                                background: '#FD6E8E',
+                                border: '1.5px solid #072D59',
+                                boxShadow: '2px 2px 0px #072D59',
                                 zIndex: -1
                               }}
                             />
                           )}
-                          <Icon size={12} strokeWidth={1.8} style={{ color: isCatActive ? 'var(--on-accent)' : 'var(--label-secondary)' }} />
-                          <span>{cat.label}</span>
+                          <Icon size={12} strokeWidth={2} style={{ color: isCatActive ? '#072D59' : 'var(--label-secondary)' }} />
+                          <span style={{ color: isCatActive ? '#072D59' : 'inherit', fontWeight: isCatActive ? 800 : 500 }}>{cat.label}</span>
                         </motion.button>
                       );
                     })}
@@ -480,16 +482,17 @@ export const BottomToolbar: React.FC = React.memo(() => {
                         gap: '4px',
                         padding: '4px 10px',
                         borderRadius: '9999px',
-                        background: 'var(--surface-raised)',
-                        border: '1px solid var(--border)',
-                        color: 'var(--label)',
+                        background: '#FFFFFF',
+                        border: '1.5px solid #072D59',
+                        boxShadow: '2px 2px 0px #072D59',
+                        color: '#072D59',
                         fontSize: '11px',
-                        fontWeight: 600,
+                        fontWeight: 700,
                         cursor: 'pointer'
                       }}
                       title="Putar Orientasi Bangunan (R)"
                     >
-                      <RotateCw size={12} />
+                      <RotateCw size={12} strokeWidth={2.2} />
                       <span>Putar (R)</span>
                     </motion.button>
 
@@ -503,17 +506,17 @@ export const BottomToolbar: React.FC = React.memo(() => {
                         gap: '4px',
                         padding: '4px 10px',
                         borderRadius: '9999px',
-                        background: 'var(--accent)',
-                        border: 'none',
-                        color: 'var(--on-accent)',
-                        boxShadow: 'var(--shadow-accent)',
+                        background: '#FD6E8E',
+                        border: '1.5px solid #072D59',
+                        boxShadow: '2px 2px 0px #072D59',
+                        color: '#072D59',
                         fontSize: '11px',
-                        fontWeight: 700,
+                        fontWeight: 800,
                         cursor: 'pointer'
                       }}
                       title="Studio Rancang Bangunan (Studio CAD)"
                     >
-                      <PenTool size={12} />
+                      <PenTool size={12} strokeWidth={2.2} />
                       <span>+ Rancang</span>
                     </motion.button>
 

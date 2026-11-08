@@ -638,22 +638,23 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
               {savedMapsList.length > 0 && (
                 <button
                   onClick={handleResumeLastCity}
+                  className="transition-all active:translate-x-[2px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#072D59]"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    padding: '6px 14px',
+                    padding: '6px 16px',
                     borderRadius: '9999px',
-                    backgroundColor: 'var(--accent)',
-                    border: 'none',
+                    backgroundColor: '#FD6E8E',
+                    border: '2px solid #072D59',
                     fontSize: '12px',
-                    fontWeight: 700,
-                    color: 'var(--on-accent)',
+                    fontWeight: 800,
+                    color: '#072D59',
                     cursor: 'pointer',
-                    boxShadow: 'var(--shadow-accent)',
+                    boxShadow: '3px 4px 0px #072D59',
                   }}
                 >
-                  <Play size={12} fill="currentColor" />
+                  <Play size={12} fill="#072D59" stroke="#072D59" />
                   <span>Lanjutkan Kota Terakhir</span>
                 </button>
               )}
@@ -663,21 +664,23 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                   if (openNewMapCustomizer) openNewMapCustomizer();
                   else handleCreateNewCitySlot();
                 }}
+                className="transition-all active:translate-x-[2px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#041B38]"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
                   padding: '6px 14px',
                   borderRadius: '9999px',
-                  backgroundColor: 'var(--surface-navy)',
-                  border: '1px solid var(--border-on-navy)',
+                  backgroundColor: '#072D59',
+                  border: '2px solid #041B38',
                   fontSize: '12px',
-                  fontWeight: 600,
-                  color: 'var(--label-on-navy)',
+                  fontWeight: 700,
+                  color: '#DBF2FC',
                   cursor: 'pointer',
+                  boxShadow: '3px 4px 0px #041B38',
                 }}
               >
-                <Plus size={13} strokeWidth={2} style={{ color: 'var(--accent)' }} />
+                <Plus size={13} strokeWidth={2.5} style={{ color: '#FD6E8E' }} />
                 <span>+ Kota Baru</span>
               </button>
             </div>
@@ -833,15 +836,16 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <button
                         onClick={() => loadMap('saved', m.id, m.name)}
+                        className="transition-all active:translate-x-[1px] active:translate-y-[2px] active:shadow-[1px_1px_0px_#072D59]"
                         style={{
-                          padding: '4px 10px',
-                          borderRadius: '8px',
-                          background: 'var(--accent)',
-                          border: 'none',
-                          color: 'var(--on-accent)',
-                          boxShadow: 'var(--shadow-accent)',
+                          padding: '4px 12px',
+                          borderRadius: '9999px',
+                          background: '#FD6E8E',
+                          border: '1.5px solid #072D59',
+                          color: '#072D59',
+                          boxShadow: '2px 2px 0px #072D59',
                           fontSize: '11px',
-                          fontWeight: 700,
+                          fontWeight: 800,
                           cursor: 'pointer'
                         }}
                       >

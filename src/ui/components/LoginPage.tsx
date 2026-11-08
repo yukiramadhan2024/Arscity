@@ -127,7 +127,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
           });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       isMounted = false;
     };
@@ -287,16 +287,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
           gap: '8px',
           padding: '8px 18px',
           borderRadius: '9999px',
-          background: 'linear-gradient(180deg, #123E6E 0%, #072D59 100%)',
-          border: '1.5px solid rgba(219, 242, 252, 0.35)',
-          boxShadow: '0 4px 0 #041C38, 0 8px 18px rgba(7, 45, 89, 0.22), inset 0 1px 0 rgba(219, 242, 252, 0.4)',
+          background: 'linear-gradient(180deg, #103B6B 0%, #072D59 100%)',
+          border: '2px solid #072D59',
+          boxShadow: '3px 4px 0px #072D59',
           color: '#DBF2FC',
           fontSize: '12px',
           fontWeight: 700,
           cursor: 'pointer',
-          transition: 'transform 0.12s ease, box-shadow 0.12s ease',
+          transition: 'transform 0.10s ease, box-shadow 0.10s ease',
         }}
-        className="active:translate-y-[2px] active:shadow-[0_1px_0_#041C38,0_4px_8px_rgba(7,45,89,0.15)] hover:brightness-105"
+        className="active:translate-x-[2px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#072D59] hover:brightness-105"
         title={isAudioMuted ? 'Suara disenyapkan (Klik untuk mengaktifkan)' : 'Suara aktif (Klik untuk menyenyapkan)'}
         aria-label="Pengaturan Suara"
       >
@@ -343,17 +343,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               Sandbox arsitektur dan tata kota tropis: rancang jaringan jalan, tata bangunan publik dan hunian, lalu jelajahi kotamu dalam skala manusia nyata.
             </p>
 
-            {/* Tombol Utama Bergaya 3D Pastel Crimson Pink */}
+            {/* Tombol Utama Bergaya 3D Pastel Crimson Pink (Persis Referensi Pengguna) */}
             <div className="mb-6">
               <button
                 type="button"
                 onClick={handleStartPlay}
-                className="group inline-flex items-center justify-center gap-3.5 px-8 py-3.5 rounded-2xl font-extrabold text-base tracking-wide cursor-pointer transition-all active:translate-y-[3px] active:shadow-[0_1px_0_#D64C6D,0_4px_10px_rgba(253,110,142,0.25)] hover:brightness-105"
+                className="group inline-flex items-center justify-center gap-3.5 px-8 py-3.5 rounded-full font-extrabold text-base tracking-wide cursor-pointer transition-all active:translate-x-[3px] active:translate-y-[4px] active:shadow-[1px_1px_0px_#072D59] hover:brightness-103"
                 style={{
-                  background: 'linear-gradient(180deg, #FE8CA5 0%, #FD6E8E 100%)',
+                  background: '#FD6E8E',
                   color: '#072D59',
-                  border: '1.5px solid #D64C6D',
-                  boxShadow: '0 4px 0 #D64C6D, 0 10px 24px rgba(253, 110, 142, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55)',
+                  border: '2.5px solid #072D59',
+                  boxShadow: '4px 5px 0px #072D59',
                 }}
               >
                 <Sparkles className="w-5 h-5 text-[#072D59] stroke-[2.3]" />
@@ -369,11 +369,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
             <button
               type="button"
               onClick={handleContinueLast}
-              className="w-full p-4 rounded-2xl text-left cursor-pointer transition-all flex items-center justify-between gap-4 hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_#041B38,0_6px_14px_rgba(7,45,89,0.18)] group"
+              className="w-full p-4 rounded-2xl text-left cursor-pointer transition-all flex items-center justify-between gap-4 hover:brightness-105 active:translate-x-[3px] active:translate-y-[4px] active:shadow-[1px_1px_0px_#072D59] group"
               style={{
                 background: 'linear-gradient(180deg, #0A3566 0%, #072D59 100%)',
-                border: '1.5px solid rgba(219, 242, 252, 0.32)',
-                boxShadow: '0 4px 0 #041B38, 0 12px 28px rgba(7, 45, 89, 0.22), inset 0 1px 0 rgba(219, 242, 252, 0.28)',
+                border: '2.5px solid #072D59',
+                boxShadow: '4px 5px 0px #072D59',
                 color: '#DBF2FC',
               }}
             >
@@ -408,10 +408,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:translate-x-0.5"
                 style={{
-                  background: 'linear-gradient(180deg, rgba(219, 242, 252, 0.25) 0%, rgba(219, 242, 252, 0.12) 100%)',
+                  background: 'rgba(219, 242, 252, 0.18)',
                   color: '#DBF2FC',
-                  border: '1px solid rgba(219, 242, 252, 0.35)',
-                  boxShadow: '0 2px 0 rgba(7, 45, 89, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+                  border: '1.5px solid #072D59',
+                  boxShadow: '2px 2px 0px #072D59',
                 }}
               >
                 <ArrowRight className="w-4 h-4" />
@@ -423,11 +423,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               <button
                 type="button"
                 onClick={handleOpenLibrary}
-                className="p-3 rounded-2xl text-left cursor-pointer transition-all flex items-center gap-2.5 active:translate-y-[2px] active:shadow-[0_1px_0_#A9D1E5,0_3px_6px_rgba(7,45,89,0.06)] hover:brightness-102"
+                className="p-3 rounded-2xl text-left cursor-pointer transition-all flex items-center gap-2.5 active:translate-x-[2px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#072D59] hover:brightness-98"
                 style={{
-                  background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF5FB 100%)',
-                  border: '1.5px solid #BDDEEE',
-                  boxShadow: '0 3px 0 #A9D1E5, 0 6px 14px rgba(7, 45, 89, 0.08), inset 0 1px 0 #FFFFFF',
+                  background: '#FFFFFF',
+                  border: '2px solid #072D59',
+                  boxShadow: '3px 4px 0px #072D59',
                   color: '#072D59',
                 }}
               >
@@ -438,11 +438,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               <button
                 type="button"
                 onClick={handleOpenStandaloneCad}
-                className="p-3 rounded-2xl text-left cursor-pointer transition-all flex items-center gap-2.5 active:translate-y-[2px] active:shadow-[0_1px_0_#A9D1E5,0_3px_6px_rgba(7,45,89,0.06)] hover:brightness-102"
+                className="p-3 rounded-2xl text-left cursor-pointer transition-all flex items-center gap-2.5 active:translate-x-[2px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#072D59] hover:brightness-98"
                 style={{
-                  background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF5FB 100%)',
-                  border: '1.5px solid #BDDEEE',
-                  boxShadow: '0 3px 0 #A9D1E5, 0 6px 14px rgba(7, 45, 89, 0.08), inset 0 1px 0 #FFFFFF',
+                  background: '#FFFFFF',
+                  border: '2px solid #072D59',
+                  boxShadow: '3px 4px 0px #072D59',
                   color: '#072D59',
                 }}
               >
@@ -454,11 +454,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isImporting}
-                className="p-3 rounded-2xl text-left cursor-pointer transition-all flex items-center gap-2.5 active:translate-y-[2px] active:shadow-[0_1px_0_#A9D1E5,0_3px_6px_rgba(7,45,89,0.06)] hover:brightness-102"
+                className="p-3 rounded-2xl text-left cursor-pointer transition-all flex items-center gap-2.5 active:translate-x-[2px] active:translate-y-[3px] active:shadow-[1px_1px_0px_#072D59] hover:brightness-98"
                 style={{
-                  background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF5FB 100%)',
-                  border: '1.5px solid #BDDEEE',
-                  boxShadow: '0 3px 0 #A9D1E5, 0 6px 14px rgba(7, 45, 89, 0.08), inset 0 1px 0 #FFFFFF',
+                  background: '#FFFFFF',
+                  border: '2px solid #072D59',
+                  boxShadow: '3px 4px 0px #072D59',
                   color: '#072D59',
                 }}
               >
