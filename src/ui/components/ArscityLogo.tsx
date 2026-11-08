@@ -19,7 +19,7 @@ export const ArscityLogo: React.FC<ArscityLogoProps> = ({
   className = '',
   style = {},
   textColor,
-  badge = '4.0',
+  badge,
 }) => {
   const primaryColor = textColor || (variant === 'dark' ? '#072D59' : '#DBF2FC');
   const accentColor = '#FD6E8E';
@@ -102,27 +102,29 @@ export const ArscityLogo: React.FC<ArscityLogoProps> = ({
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
           <span
             style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
               fontWeight: 800,
               fontSize: Math.round(size * 0.56),
-              letterSpacing: '-0.03em',
+              letterSpacing: '-0.02em',
               color: primaryColor,
               lineHeight: 1,
             }}
           >
             ARSCITY
           </span>
-          <span
-            style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontWeight: 600,
-              fontSize: Math.round(size * 0.28),
-              color: accentColor,
-              letterSpacing: '0.05em',
-            }}
-          >
-            {badge}
-          </span>
+          {badge && (
+            <span
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontWeight: 600,
+                fontSize: Math.round(size * 0.28),
+                color: accentColor,
+                letterSpacing: '0.05em',
+              }}
+            >
+              {badge}
+            </span>
+          )}
         </div>
       )}
     </div>
