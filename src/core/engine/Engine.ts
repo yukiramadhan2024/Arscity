@@ -140,6 +140,14 @@ export class Engine {
   public isLowPowerMode: boolean = false;
   public isSubsurfaceLensActive: boolean = false;
   public isUIInteractionActive: boolean = false;
+  public activeCityId: string | null = null;
+  public hasUnsavedChanges: boolean = false;
+  public markUnsavedChanges(dirty: boolean = true): void {
+    this.hasUnsavedChanges = dirty;
+    try {
+      useUIStore.getState().setHasUnsavedChanges(dirty);
+    } catch {}
+  }
   private uiInteractionDebounceTimer: number | null = null;
   private lodFrameCount: number = 0;
 
@@ -664,12 +672,14 @@ export class Engine {
   public executeCommand(command: ICommand): void {
     this.commandManager.execute(command);
     this.lightingSystem.markShadowsDirty();
+    this.markUnsavedChanges(true);
   }
 
   public undo(): boolean {
     const success = this.commandManager.undo();
     if (success) {
       this.lightingSystem.markShadowsDirty();
+      this.markUnsavedChanges(true);
       if (this.onSelectionChanged) this.onSelectionChanged();
     }
     return success;
@@ -679,6 +689,7 @@ export class Engine {
     const success = this.commandManager.redo();
     if (success) {
       this.lightingSystem.markShadowsDirty();
+      this.markUnsavedChanges(true);
       if (this.onSelectionChanged) this.onSelectionChanged();
     }
     return success;
@@ -1438,6 +1449,10 @@ export class Engine {
     mapId?: string,
     customData?: CitySaveData
   ): Promise<boolean> {
+    const resolvedId = mapId || (mapType === 'malioboro' ? 'malioboro_preset' : mapType === 'empty' ? 'empty_map' : 'saved_map');
+    this.activeCityId = resolvedId;
+    this.hasUnsavedChanges = false;
+
     if (mapType === 'empty') {
       this.clearCurrentWorld();
       this.setTimeOfDay(9.0, 172);
@@ -1620,6 +1635,13 @@ export class Engine {
       currentCityData.cityTitle = config.cityName || 'Kota Tropis Nusantara';
       const mapId = `custom_map_${Date.now()}`;
       await IndexedDBStorage.saveMapById(mapId, currentCityData.cityTitle, currentCityData);
+      this.activeCityId = mapId;
+      this.hasUnsavedChanges = false;
+      try {
+        useUIStore.getState().setActiveCityId(mapId);
+        useUIStore.getState().setActiveMap(mapId, currentCityData.cityTitle);
+        useUIStore.getState().setHasUnsavedChanges(false);
+      } catch {}
       localStorage.setItem('arscity_last_custom_map_config', JSON.stringify(config));
       localStorage.setItem('arscity_current_active_map_id', mapId);
     } catch (err) {

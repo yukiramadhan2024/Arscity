@@ -225,6 +225,8 @@ interface UIState {
   isLoadingMap: boolean;
   loadingMapMessage: string;
   activeMapId: string;
+  activeCityId: string | null;
+  hasUnsavedChanges: boolean;
   activeMapName: string;
   savedMapsList: SavedMapMeta[];
   openMapHub: () => void;
@@ -232,6 +234,8 @@ interface UIState {
   startGame: () => void;
   setLoadingMap: (loading: boolean, message?: string) => void;
   setActiveMap: (id: string, name: string) => void;
+  setActiveCityId: (id: string | null) => void;
+  setHasUnsavedChanges: (dirty: boolean) => void;
   setSavedMapsList: (list: SavedMapMeta[]) => void;
   refreshSavedMaps: () => Promise<void>;
   loadMap: (mapType: 'empty' | 'malioboro' | 'saved', mapId?: string, mapName?: string) => Promise<boolean>;
@@ -949,6 +953,8 @@ export const useUIStore = create<UIState>((set, get) => {
     isLoadingMap: false,
     loadingMapMessage: 'Menyiapkan geometri jalan & bangunan...',
     activeMapId: 'empty_map',
+    activeCityId: 'empty_map',
+    hasUnsavedChanges: false,
     activeMapName: 'Map Kosong Baru',
     savedMapsList: [],
     openMapHub: () => {
@@ -965,7 +971,13 @@ export const useUIStore = create<UIState>((set, get) => {
       set({ isLoadingMap, loadingMapMessage });
     },
     setActiveMap: (activeMapId: string, activeMapName: string) => {
-      set({ activeMapId, activeMapName });
+      set({ activeMapId, activeCityId: activeMapId, activeMapName });
+    },
+    setActiveCityId: (activeCityId: string | null) => {
+      set({ activeCityId });
+    },
+    setHasUnsavedChanges: (hasUnsavedChanges: boolean) => {
+      set({ hasUnsavedChanges });
     },
     setSavedMapsList: (savedMapsList: SavedMapMeta[]) => {
       set({ savedMapsList });
@@ -1011,10 +1023,17 @@ export const useUIStore = create<UIState>((set, get) => {
 
         set({
           activeMapId: resolvedId,
+          activeCityId: resolvedId,
           activeMapName: resolvedName,
+          hasUnsavedChanges: false,
           currentScreen: 'game',
           isMapHubOpen: false,
         });
+
+        if (store.engine) {
+          store.engine.activeCityId = resolvedId;
+          store.engine.hasUnsavedChanges = false;
+        }
 
         // Delay 400ms for smooth glass transition animation
         await new Promise((r) => setTimeout(r, 400));

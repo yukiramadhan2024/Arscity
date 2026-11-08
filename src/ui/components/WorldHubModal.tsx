@@ -329,13 +329,13 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
       id: 'preset-malioboro',
       name: 'Koridor Malioboro',
       meta: 'YOGYAKARTA · CAGAR BUDAYA',
-      art: 'ember',
+      art: 'pastelNavy',
     },
     {
       id: 'preset-empty',
       name: 'Lahan Kosong Standar',
       meta: '1600×1600M · DATAR',
-      art: 'glacier',
+      art: 'pastelSeal',
     },
   ];
 
@@ -347,11 +347,11 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             id: 'new-city-placeholder',
             name: 'Kota Tropis Baru',
             meta: 'KLIK UNTUK MULAI',
-            art: 'glacier',
+            art: 'pastelSeal',
           },
         ]
       : savedMapsList.slice(0, 6).map((map, idx) => {
-          const arts: ('glacier' | 'verdant' | 'dusk')[] = ['glacier', 'verdant', 'dusk'];
+          const arts: ('pastelSeal' | 'pastelNavy' | 'pastelPink')[] = ['pastelSeal', 'pastelNavy', 'pastelPink'];
           return {
             id: map.id,
             name: map.name,
@@ -367,19 +367,19 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
       id: 'action-import',
       name: 'Impor Berkas .Arscity / .GeoJSON',
       meta: 'BUKA DARI PERANGKAT',
-      art: 'dusk',
+      art: 'pastelNavy',
     },
     {
       id: 'action-export',
       name: 'Ekspor Kota Aktif (.Arscity)',
       meta: 'ARSIP LOKAL GZIP',
-      art: 'verdant',
+      art: 'pastelPink',
     },
     {
       id: 'action-clear',
       name: 'Kelola & Bersihkan Slot',
       meta: 'MANAJEMEN MEMORI',
-      art: 'glacier',
+      art: 'pastelSeal',
     },
   ];
 
@@ -417,28 +417,26 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           max-height: 90vh;
           border-radius: 28px;
           overflow: hidden;
-          background: var(--surface);
-          backdrop-filter: blur(24px) saturate(180%);
-          -webkit-backdrop-filter: blur(24px) saturate(180%);
-          border: 1px solid var(--border-glass);
-          box-shadow: var(--shadow-glass);
+          background: linear-gradient(145deg, #DBF2FC 0%, #EBF7FD 100%);
+          border: 2px solid #072D59;
+          box-shadow: 0 16px 40px rgba(7, 45, 89, 0.18);
           display: flex;
           flex-direction: column;
           box-sizing: border-box;
-          color: var(--label);
+          color: #072D59;
         }
         .wh-header {
           position: relative;
           z-index: 10;
           padding: 18px 28px;
-          border-bottom: 1px solid var(--border-on-navy);
+          border-bottom: 2px solid rgba(7, 45, 89, 0.20);
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 16px;
           flex-wrap: wrap;
-          background-color: var(--surface-navy);
-          color: var(--label-on-navy);
+          background-color: #072D59;
+          color: #DBF2FC;
         }
         .wh-logo-wrap {
           display: flex;
@@ -458,7 +456,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           width: 6px;
         }
         .wh-body::-webkit-scrollbar-thumb {
-          background: rgba(148, 163, 184, 0.4);
+          background: rgba(7, 45, 89, 0.2);
           border-radius: 9999px;
         }
         .wh-quick-bar {
@@ -467,10 +465,11 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           justify-content: space-between;
           gap: 12px;
           padding: 10px 16px;
-          background: var(--surface-raised);
-          border: 1px solid var(--border);
+          background: #FFFFFF;
+          border: 1.5px solid rgba(7, 45, 89, 0.14);
           border-radius: 16px;
-          box-shadow: var(--shadow-card);
+          box-shadow: 0 4px 12px rgba(7, 45, 89, 0.06);
+          color: #072D59;
         }
         .wh-folders-stage {
           position: relative;
@@ -505,7 +504,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             <ArscityLogo size={38} iconOnly variant="dark" />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--label-on-navy)' }}>
+                <span style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.02em', color: '#DBF2FC' }}>
                   ARSCITY
                 </span>
                 <span
@@ -514,15 +513,17 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                     fontWeight: 700,
                     padding: '2px 9px',
                     borderRadius: '9999px',
-                    backgroundColor: 'var(--accent)',
-                    color: 'var(--on-accent)',
-                    boxShadow: 'var(--shadow-accent)',
+                    backgroundColor: '#FD6E8E',
+                    color: '#FFFFFF',
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '0.02em',
+                    boxShadow: 'none',
                   }}
                 >
                   Penyimpanan Lokal
                 </span>
               </div>
-              <p style={{ fontSize: '13px', color: 'var(--label-muted-on-navy)', margin: '2px 0 0 0' }}>
+              <p style={{ fontSize: '13px', color: 'rgba(219, 242, 252, 0.78)', margin: '2px 0 0 0' }}>
                 Perpustakaan Kota · Kota tersimpan di perangkat ini
               </p>
             </div>
@@ -537,36 +538,33 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 gap: '6px',
                 padding: '6px 12px',
                 borderRadius: '9999px',
-                backgroundColor: 'var(--fill-on-navy)',
-                border: '1px solid var(--border-on-navy)',
+                backgroundColor: 'rgba(219, 242, 252, 0.12)',
+                border: '1px solid rgba(219, 242, 252, 0.25)',
                 fontSize: '11.5px',
                 fontWeight: 600,
-                color: 'var(--label-on-navy)',
+                color: '#DBF2FC',
               }}
             >
-              <HardDrive size={13} style={{ color: 'var(--accent)' }} />
+              <HardDrive size={13} style={{ color: '#FD6E8E' }} />
               <span>{savedMapsList.length} Kota Tersimpan</span>
             </div>
 
             <button
               onClick={() => fileInputRef.current?.click()}
+              className="btn-3d-pastel-light"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '6px 14px',
                 borderRadius: '9999px',
-                backgroundColor: 'var(--fill-on-navy)',
-                border: '1px solid var(--border-on-navy)',
                 fontSize: '12px',
-                fontWeight: 600,
-                color: 'var(--label-on-navy)',
+                fontWeight: 700,
                 cursor: 'pointer',
-                transition: 'all 120ms ease',
               }}
               title="Impor peta dari berkas .geojson atau proyek .arscity"
             >
-              <Upload size={13} strokeWidth={2} style={{ color: 'var(--accent)' }} />
+              <Upload size={13} strokeWidth={2.2} style={{ color: '#FD6E8E' }} />
               <span>Impor Berkas</span>
             </button>
             <input
@@ -579,23 +577,21 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
 
             <button
               onClick={handleClose}
+              className="btn-3d-pastel-pink"
               style={{
-                width: '32px',
-                height: '32px',
+                width: '34px',
+                height: '34px',
                 borderRadius: '50%',
-                backgroundColor: 'var(--fill-on-navy)',
-                border: '1px solid var(--border-on-navy)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--label-on-navy)',
+                color: '#FFFFFF',
                 cursor: 'pointer',
-                transition: 'all 120ms ease',
               }}
               title="Tutup Perpustakaan Kota"
               aria-label="Tutup Perpustakaan Kota"
             >
-              <X size={16} strokeWidth={2} />
+              <X size={16} strokeWidth={2.4} />
             </button>
           </div>
         </div>
@@ -691,7 +687,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             {/* Folder 1 (Kiri): Peta Bawaan Nusantara */}
             <GlassFolder
               label="Peta Bawaan Nusantara"
-              art="verdant"
+              art="pastelSeal"
               action="more"
               width={310}
               tone="light"
@@ -720,7 +716,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             {/* Folder 2 (Tengah): Penyimpanan Kota Saya */}
             <GlassFolder
               label="Penyimpanan Kota Saya"
-              art="glacier"
+              art="pastelNavy"
               action="add"
               width={310}
               tone="light"
@@ -738,7 +734,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
             {/* Folder 3 (Kanan): Berkas Proyek & CAD */}
             <GlassFolder
               label="Berkas Proyek & CAD"
-              art="dusk"
+              art="pastelPink"
               action="more"
               labelPlacement="top-left"
               width={310}

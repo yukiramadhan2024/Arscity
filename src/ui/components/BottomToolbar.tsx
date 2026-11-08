@@ -54,7 +54,6 @@ import { LandscapeType } from '../../world/LandscapeManager';
 import { LandscapeSubToolbar } from './LandscapeSubToolbar';
 import { TerraformSubToolbar } from './TerraformSubToolbar';
 import { MAIN_TOOLS_I18N } from '../constants/i18n';
-import { ContextualHintBar } from './ContextualHintBar';
 
 interface ToolItem {
   id: MainToolType;
@@ -198,9 +197,6 @@ export const BottomToolbar: React.FC = React.memo(() => {
         userSelect: 'none'
       }}
     >
-      {/* Contextual Hint Bar (Spec A5: Nama alat aktif + langkah berikutnya + Esc) */}
-      <ContextualHintBar />
-
       {/* Tier 1: Main Dock (Navy Blue Structural Capsule + Crimson Pink Active Pill) */}
       <div
         className="arscity-navy-panel"

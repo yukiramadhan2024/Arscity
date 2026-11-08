@@ -67,34 +67,34 @@ export const ArscityLogo: React.FC<ArscityLogoProps> = ({
           width="36"
           height="36"
           rx="8"
-          fill={variant === 'dark' ? '#072D59' : 'rgba(219, 242, 252, 0.12)'}
-          stroke={variant === 'dark' ? '#072D59' : 'rgba(219, 242, 252, 0.35)'}
-          strokeWidth="1.5"
+          fill={variant === 'dark' ? 'rgba(219, 242, 252, 0.06)' : 'rgba(7, 45, 89, 0.04)'}
+          stroke={variant === 'dark' ? 'rgba(219, 242, 252, 0.24)' : 'rgba(7, 45, 89, 0.16)'}
+          strokeWidth="1.2"
         />
 
         {/* Pilar Kiri Menara Isometrik (Membentuk Kaki Kiri A) */}
         <path
-          d="M11 30V15L20 9.5V24.5L11 30Z"
-          fill="#DBF2FC"
+          d="M7 35V13.5L20 6V24.5L7 35Z"
+          fill={variant === 'dark' ? '#DBF2FC' : '#072D59'}
         />
 
         {/* Pilar Kanan Menara Isometrik (Membentuk Kaki Kanan A) */}
         <path
-          d="M29 30V15L20 9.5V24.5L29 30Z"
-          fill={variant === 'dark' ? '#8ECAE6' : '#DBF2FC'}
-          fillOpacity="0.75"
+          d="M33 35V13.5L20 6V24.5L33 35Z"
+          fill={variant === 'dark' ? '#8ECAE6' : '#1E4673'}
+          fillOpacity={variant === 'dark' ? 0.85 : 0.80}
         />
 
         {/* Balok Kantilever Melintang (Palang Huruf A & Aksen Crimson Pink) */}
         <path
-          d="M9 22.5L20 16L31 22.5L20 29L9 22.5Z"
+          d="M4 23.5L20 14.5L36 23.5L20 32.5L4 23.5Z"
           fill={accentColor}
         />
 
         {/* Void Struktur Tengah */}
         <path
-          d="M16.5 22.5L20 20.3L23.5 22.5L20 24.7L16.5 22.5Z"
-          fill="#072D59"
+          d="M15 23.5L20 20.5L25 23.5L20 26.5L15 23.5Z"
+          fill={variant === 'dark' ? '#072D59' : '#DBF2FC'}
         />
       </svg>
 

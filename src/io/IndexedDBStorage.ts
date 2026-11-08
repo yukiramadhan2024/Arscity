@@ -464,7 +464,27 @@ export class IndexedDBStorage {
       try {
         const res = await this.postToWorker('LIST_ALL_MAPS', {});
         if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
-          return (res.data as SavedMapMeta[]).sort((a, b) => b.updatedAt - a.updatedAt);
+          const sorted = (res.data as SavedMapMeta[]).sort((a, b) => b.updatedAt - a.updatedAt);
+          const seenNames = new Set<string>();
+          const deduplicated: SavedMapMeta[] = [];
+          const duplicateIdsToDelete: string[] = [];
+          for (const m of sorted) {
+            const normalizedName = (m.name || '').trim().toLowerCase();
+            if (!normalizedName) {
+              deduplicated.push(m);
+              continue;
+            }
+            if (seenNames.has(normalizedName)) {
+              duplicateIdsToDelete.push(m.id);
+            } else {
+              seenNames.add(normalizedName);
+              deduplicated.push(m);
+            }
+          }
+          if (duplicateIdsToDelete.length > 0) {
+            Promise.all(duplicateIdsToDelete.map((dupId) => this.deleteMapById(dupId))).catch(() => {});
+          }
+          return deduplicated;
         }
       } catch (workerErr) {
         console.warn('[IndexedDBStorage] Worker list maps failed, fallback to main thread:', workerErr);
@@ -536,7 +556,34 @@ export class IndexedDBStorage {
       }
     }
 
-    return Array.from(mapsMap.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+    const sorted = Array.from(mapsMap.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+    
+    // Automatic Deduplication Migration:
+    // If multiple saved slots have identical city names, keep ONLY the latest updated slot,
+    // and prune older duplicates from IndexedDB and fallback storage safely.
+    const seenNames = new Set<string>();
+    const deduplicated: SavedMapMeta[] = [];
+    const duplicateIdsToDelete: string[] = [];
+
+    for (const m of sorted) {
+      const normalizedName = (m.name || '').trim().toLowerCase();
+      if (!normalizedName) {
+        deduplicated.push(m);
+        continue;
+      }
+      if (seenNames.has(normalizedName)) {
+        duplicateIdsToDelete.push(m.id);
+      } else {
+        seenNames.add(normalizedName);
+        deduplicated.push(m);
+      }
+    }
+
+    if (duplicateIdsToDelete.length > 0) {
+      Promise.all(duplicateIdsToDelete.map((dupId) => this.deleteMapById(dupId))).catch(() => {});
+    }
+
+    return deduplicated;
   }
 
   public static async loadMapById(id: string): Promise<CitySaveData | null> {
@@ -549,7 +596,7 @@ export class IndexedDBStorage {
     state: CitySaveData
   ): Promise<{ success: boolean; error?: string }> {
     state.cityTitle = name;
-    state.timestamp = Date.now();
+    state.timestamp = state.timestamp || Date.now();
     this.addKnownMapId(id);
     return this.saveSlot(id, state);
   }

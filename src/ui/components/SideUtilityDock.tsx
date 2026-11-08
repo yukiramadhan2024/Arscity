@@ -40,6 +40,8 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
   const isExpanded = useUIStore((s) => s.isSideDockExpanded);
   const setIsExpanded = useUIStore((s) => s.setIsSideDockExpanded);
   const canUndo = useUIStore((s) => s.canUndo);
+  const activeCityId = useUIStore((s) => s.activeCityId);
+  const hasUnsavedChanges = useUIStore((s) => s.hasUnsavedChanges);
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
 
   // Auto-collapse when Analysis is active so there's zero overlap
@@ -64,18 +66,21 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
   }, [isExpanded, setIsExpanded]);
 
   const handleReturnHome = () => {
-    if (canUndo) {
+    if (hasUnsavedChanges || canUndo) {
       setShowExitConfirm(true);
     } else {
       openMapHub();
     }
   };
 
-  const handleConfirmExitWithSave = () => {
+  const handleConfirmExitWithSave = async () => {
     if (engine) {
       try {
-        const data = CitySerializer.serialize(engine, activeMapName || 'Kota Saat Ini');
-        IndexedDBStorage.saveSlot('autosave', data);
+        const cityId = activeCityId || 'autosave';
+        const cityName = activeMapName || 'Kota Saat Ini';
+        const data = CitySerializer.serialize(engine, cityName);
+        await IndexedDBStorage.saveMapById(cityId, cityName, data);
+        engine.markUnsavedChanges(false);
       } catch (err) {
         console.warn('Autosave before exit failed:', err);
       }
@@ -85,15 +90,21 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
   };
 
   const handleConfirmExitWithoutSave = () => {
+    if (engine) {
+      engine.markUnsavedChanges(false);
+    }
     setShowExitConfirm(false);
     openMapHub();
   };
 
-  const handleSwitchMap = () => {
-    if (engine) {
+  const handleSwitchMap = async () => {
+    if (engine && (hasUnsavedChanges || canUndo)) {
       try {
-        const data = CitySerializer.serialize(engine, activeMapName || 'Kota Saat Ini');
-        IndexedDBStorage.saveSlot('autosave', data);
+        const cityId = activeCityId || 'autosave';
+        const cityName = activeMapName || 'Kota Saat Ini';
+        const data = CitySerializer.serialize(engine, cityName);
+        await IndexedDBStorage.saveMapById(cityId, cityName, data);
+        engine.markUnsavedChanges(false);
       } catch (err) {
         console.warn('Autosave before map switch failed:', err);
       }
@@ -156,8 +167,9 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
       aria-label="Utilitas Sistem Kota"
       style={{
         position: 'fixed',
-        top: '16px',
         left: '16px',
+        top: '50%',
+        transform: 'translateY(-50%)',
         zIndex: 950
       }}
     >
@@ -197,10 +209,10 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
               justifyContent: 'center',
               width: '36px',
               height: '36px',
-              borderRadius: '9999px',
-              background: '#072D59',
-              border: '1.5px solid rgba(219, 242, 252, 0.36)',
-              boxShadow: '0 4px 12px rgba(7, 26, 56, 0.35)',
+              borderRadius: '8px',
+              background: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
               flexShrink: 0,
               cursor: 'pointer',
               padding: 0
@@ -208,7 +220,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             title={isExpanded ? 'Ciutkan Menu Kota ([)' : 'Perluas Menu Kota ([)'}
             aria-label={isExpanded ? 'Ciutkan Menu Kota' : 'Perluas Menu Kota'}
           >
-            <ArscityLogo size={22} iconOnly variant="dark" />
+            <ArscityLogo size={30} iconOnly variant="dark" />
           </button>
 
           {isExpanded && (
@@ -401,53 +413,50 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
           }}
         >
           <div
-            className="arscity-glass-bar"
+            className="modal-sheet"
             style={{
-              width: '360px',
-              background: 'var(--surface-raised)',
-              border: '1px solid var(--border-glass)',
-              borderRadius: '20px',
-              padding: '20px',
-              boxShadow: 'var(--shadow-popover)',
+              width: '380px',
+              maxWidth: '92vw',
+              background: 'linear-gradient(145deg, #DBF2FC 0%, #EBF7FD 100%)',
+              border: '2px solid #072D59',
+              borderRadius: '24px',
+              padding: '24px',
+              boxShadow: '0 12px 36px rgba(7, 45, 89, 0.20)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px',
-              color: 'var(--label)'
+              gap: '14px',
+              color: '#072D59'
             }}
           >
-            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--label)' }}>
+            <div style={{ fontSize: '17px', fontWeight: 800, color: '#072D59', letterSpacing: '-0.02em' }}>
               Kembali ke Layar Awal?
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--label-secondary)', lineHeight: 1.5 }}>
-              Ada perubahan tata kota yang belum disimpan. Apakah Anda ingin menyimpan perubahan ini ke slot penyimpanan otomatis?
+            <div style={{ fontSize: '13px', color: 'rgba(7, 45, 89, 0.76)', lineHeight: 1.5, fontWeight: 500 }}>
+              Ada perubahan tata kota yang belum disimpan. Apakah Anda ingin menyimpan perubahan ini ke slot penyimpanan aktif?
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
               <button
                 onClick={handleConfirmExitWithSave}
+                className="btn-3d-pastel-pink"
                 style={{
-                  padding: '9px 14px',
-                  borderRadius: '10px',
-                  background: 'var(--accent)',
-                  color: 'var(--on-accent)',
-                  boxShadow: 'var(--shadow-accent)',
-                  border: 'none',
+                  padding: '10px 16px',
+                  borderRadius: '12px',
                   fontWeight: 700,
                   fontSize: '13px',
                   cursor: 'pointer'
                 }}
               >
-                Simpan & Kembali
+                Simpan &amp; Kembali
               </button>
               <button
                 onClick={handleConfirmExitWithoutSave}
+                className="btn-3d-pastel-light"
                 style={{
-                  padding: '9px 14px',
-                  borderRadius: '10px',
-                  background: 'var(--fill-control)',
-                  color: 'var(--bad)',
-                  border: '1px solid var(--border)',
+                  padding: '9px 16px',
+                  borderRadius: '12px',
                   fontWeight: 600,
-                  fontSize: '13px',
+                  fontSize: '12.5px',
+                  color: '#BA1A1A',
                   cursor: 'pointer'
                 }}
               >
@@ -459,10 +468,10 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
                   padding: '8px 14px',
                   borderRadius: '10px',
                   background: 'transparent',
-                  color: 'var(--label-secondary)',
+                  color: 'rgba(7, 45, 89, 0.65)',
                   border: 'none',
-                  fontWeight: 500,
-                  fontSize: '13px',
+                  fontWeight: 600,
+                  fontSize: '12.5px',
                   cursor: 'pointer'
                 }}
               >

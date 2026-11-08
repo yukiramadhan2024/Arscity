@@ -133,7 +133,7 @@
   --accent-rgb: 253, 110, 142;
   --accent-hover: #F45579;
   --accent-subtle: rgba(253, 110, 142, 0.16);
-  --shadow-accent: 0 4px 14px rgba(253, 110, 142, 0.40);
+  --shadow-accent: 0 4px 12px rgba(7, 45, 89, 0.08);
   --info: #0A2E5B;
   --info-rgb: 10, 46, 91;
   --good: #10B981;
@@ -177,7 +177,7 @@
   --lab-pill-bg: rgba(7, 45, 89, 0.08);
   --lab-pill-active-bg: #FD6E8E;
   --lab-pill-active-text: #FFFFFF;
-  --lab-pill-active-shadow: 0 4px 14px rgba(253, 110, 142, 0.40);
+  --lab-pill-active-shadow: 0 4px 12px rgba(7, 45, 89, 0.08);
 
   /* ---------- RADIUS (Concentric Hierarchy) ---------- */
   --radius-capsule: 9999px;
@@ -279,7 +279,7 @@
   --accent-rgb: 253, 110, 142;
   --accent-hover: #F45579;
   --accent-subtle: rgba(253, 110, 142, 0.16);
-  --shadow-accent: 0 4px 14px rgba(253, 110, 142, 0.40);
+  --shadow-accent: 0 4px 12px rgba(7, 45, 89, 0.08);
   --info: #072D59;
   --info-rgb: 7, 45, 89;
   --good: #10B981;
@@ -320,7 +320,7 @@
   --lab-pill-bg: rgba(7, 45, 89, 0.08);
   --lab-pill-active-bg: #FD6E8E;
   --lab-pill-active-text: #FFFFFF;
-  --lab-pill-active-shadow: 0 4px 14px rgba(253, 110, 142, 0.40);
+  --lab-pill-active-shadow: 0 4px 12px rgba(7, 45, 89, 0.08);
 
   color-scheme: light;
 }
@@ -366,7 +366,7 @@
   --accent-rgb: 253, 110, 142;
   --accent-hover: #FF85A0;
   --accent-subtle: rgba(253, 110, 142, 0.22);
-  --shadow-accent: 0 4px 14px rgba(253, 110, 142, 0.40);
+  --shadow-accent: 0 4px 12px rgba(7, 45, 89, 0.08);
   --info: #DBF2FC;
   --info-rgb: 219, 242, 252;
   --good: #30D158;
@@ -405,7 +405,7 @@
   --lab-pill-bg: rgba(219, 242, 252, 0.14);
   --lab-pill-active-bg: #FD6E8E;
   --lab-pill-active-text: #FFFFFF;
-  --lab-pill-active-shadow: 0 4px 14px rgba(253, 110, 142, 0.40);
+  --lab-pill-active-shadow: 0 4px 12px rgba(7, 45, 89, 0.08);
 
   color-scheme: dark;
 }
@@ -569,7 +569,7 @@ html[data-theme="light"],
   --lab-pill-bg: rgba(7, 45, 89, 0.08);
   --lab-pill-active-bg: #FD6E8E;
   --lab-pill-active-text: #FFFFFF;
-  --lab-pill-active-shadow: 0 4px 14px rgba(253, 110, 142, 0.40);
+  --lab-pill-active-shadow: 0 4px 12px rgba(7, 45, 89, 0.08);
 }
 
 .interactive {

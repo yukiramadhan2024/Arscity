@@ -290,7 +290,7 @@ export const AnalysisOverlay: React.FC = () => {
                       border: 'none',
                       borderRadius: '6px',
                       cursor: 'pointer',
-                      boxShadow: isSel ? '0 2px 6px rgba(253, 110, 142, 0.35)' : 'none'
+                      boxShadow: isSel ? '0 2px 6px rgba(7, 45, 89, 0.12)' : 'none'
                     }}
                   >
                     <span>{lens.label}</span>
@@ -380,7 +380,7 @@ export const AnalysisOverlay: React.FC = () => {
                 justifyContent: 'center',
                 color: isSel ? '#072D59' : '#DBF2FC',
                 fontWeight: isSel ? 700 : 500,
-                boxShadow: isSel ? '0 3px 10px rgba(253, 110, 142, 0.35)' : 'none',
+                boxShadow: isSel ? '0 2px 8px rgba(7, 45, 89, 0.12)' : 'none',
                 transition: 'all 0.12s ease'
               }}
               title={tab.label}
@@ -664,7 +664,7 @@ export const AnalysisOverlay: React.FC = () => {
                 border: 'none',
                 color: isCurrentlyShaking ? '#072D59' : '#DBF2FC',
                 cursor: 'pointer',
-                boxShadow: isCurrentlyShaking ? '0 3px 12px rgba(253, 110, 142, 0.4)' : '0 2px 8px rgba(7, 45, 89, 0.2)',
+                boxShadow: isCurrentlyShaking ? '0 2px 8px rgba(7, 45, 89, 0.25)' : '0 2px 8px rgba(7, 45, 89, 0.15)',
                 transition: 'all 0.2s ease'
               }}
             >

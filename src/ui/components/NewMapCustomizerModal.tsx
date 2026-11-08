@@ -518,7 +518,7 @@ export const NewMapCustomizerModal: React.FC = () => {
               style={{
                 background: '#FD6E8E',
                 color: '#072D59',
-                boxShadow: '0 4px 12px rgba(253, 110, 142, 0.35)',
+                boxShadow: '0 4px 12px rgba(7, 45, 89, 0.08)',
               }}
             >
               <Compass className="w-5 h-5" strokeWidth={2.2} />
@@ -559,7 +559,7 @@ export const NewMapCustomizerModal: React.FC = () => {
         {/* 2-Column Studio Body */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
           {/* KOLOM KIRI: Parameter Peta */}
-          <div className="lg:col-span-7 p-6 space-y-5 overflow-y-auto custom-scrollbar" style={{ color: '#072D59' }}>
+          <div className="lg:col-span-7 p-6 pb-12 space-y-5 overflow-y-auto custom-scrollbar" style={{ color: '#072D59', paddingBottom: '48px' }}>
             {/* a. Nama Kota */}
             <div>
               <label

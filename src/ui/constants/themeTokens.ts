@@ -78,7 +78,7 @@ export const TRIAD_PALETTE = {
   navyShadow: '0 12px 32px rgba(7, 45, 89, 0.18)',
   crimsonPink: '#FD6E8E',
   crimsonPinkHover: '#F45579',
-  crimsonPinkShadow: '0 4px 14px rgba(253, 110, 142, 0.40)'
+  crimsonPinkShadow: '0 4px 12px rgba(7, 45, 89, 0.08)'
 } as const;
 
 export const LIGHT_THEME_TOKENS: ThemeColors = {

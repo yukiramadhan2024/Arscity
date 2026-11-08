@@ -27,7 +27,7 @@ import * as React from "react"
  * Self-contained: React is the only import. No CSS file, no images, no fonts.
  */
 
-export type ArtPreset = "aurora" | "ember" | "dusk" | "glacier" | "verdant" | "tropical" | "malioboro"
+export type ArtPreset = "aurora" | "ember" | "dusk" | "glacier" | "verdant" | "tropical" | "malioboro" | "pastelSeal" | "pastelNavy" | "pastelPink"
 
 export type ArtRecipe = {
   /** `marble` folds the colours through each other; `streak` pulls them into a long exposure. */
@@ -181,6 +181,36 @@ export const ART_PRESETS: Record<ArtPreset, ArtRecipe> = {
     angle: -0.4,
     gloss: 0.35,
     veins: 0.2,
+  },
+  // Clean Pastel Seal Blue for Arscity Swiss Architecture
+  pastelSeal: {
+    style: "streak",
+    colors: ["#DBF2FC", "#C5E8F8", "#EBF7FD", "#072D59", "#FD6E8E", "#FFFFFF"],
+    scale: 0.8,
+    warp: 1.1,
+    angle: 0.4,
+    gloss: 0.15,
+    veins: 0,
+  },
+  // Clean Pastel Navy Blue for Arscity Swiss Architecture
+  pastelNavy: {
+    style: "streak",
+    colors: ["#072D59", "#103C6D", "#1C4E8A", "#DBF2FC", "#FD6E8E", "#FFFFFF"],
+    scale: 0.8,
+    warp: 1.1,
+    angle: -0.4,
+    gloss: 0.15,
+    veins: 0,
+  },
+  // Clean Pastel Crimson Pink for Arscity Swiss Architecture
+  pastelPink: {
+    style: "streak",
+    colors: ["#FD6E8E", "#FF8DA7", "#DBF2FC", "#072D59", "#FFFFFF"],
+    scale: 0.8,
+    warp: 1.1,
+    angle: 0.8,
+    gloss: 0.15,
+    veins: 0,
   },
 }
 

@@ -10,7 +10,6 @@ import {
   Building2,
   Route,
   Clock,
-  Sparkles,
   ShieldCheck,
 } from 'lucide-react';
 import { useUIStore } from '../state/useUIStore';
@@ -320,7 +319,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
           <div>
             {/* Logo Vektor Arscity */}
             <div className="mb-7">
-              <ArscityLogo size={34} showText={true} variant="light" textColor="#072D59" />
+              <ArscityLogo size={36} showText={true} variant="light" textColor="#072D59" />
             </div>
 
             {/* Tipografi Utama */}
@@ -356,7 +355,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
                   boxShadow: '4px 5px 0px #072D59',
                 }}
               >
-                <Sparkles className="w-5 h-5 text-[#072D59] stroke-[2.3]" />
                 <span>Buat Kota Baru</span>
                 <ArrowRight className="w-5 h-5 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1" />
               </button>
