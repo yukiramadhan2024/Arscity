@@ -107,4 +107,4 @@ Seluruh kalkulasi kritis teruji secara otomatis:
 
 ## Lisensi & Atribusi Aset
 
-Seluruh kode sumber dilisensikan di bawah [MIT License](./LICENSE). Seluruh aset foto tekstur dan font menggunakan lisensi domain publik (CC0 1.0 Universal) atau SIL OFL 1.1. Rincian atribusi lengkap dan transparan tercantum di file [CREDITS.md](./CREDITS.md).
+Seluruh kode sumber dilisensikan di bawah [MIT License](./LICENSE). Seluruh aset foto tekstur dan font menggunakan lisensi domain publik (CC0 1.0 Universal) atau SIL OFL 1.1 yang tercatat pada katalog terbuka [manifest.json](./public/assets/textures/manifest.json).

@@ -21,61 +21,66 @@ export const MAIN_TOOLS_I18N: Record<string, ToolI18n> = {
     id: 'select',
     label: 'Pilih',
     hint: 'Klik objek, kavling, atau jalan untuk melihat rincian inspeksi',
-    shortcut: 'V',
+    shortcut: '1',
     description: 'Pilih dan periksa elemen kota'
   },
   road: {
     id: 'road',
     label: 'Jalan',
     hint: 'Klik titik awal lalu klik titik tujuan untuk membangun jaringan jalan',
-    shortcut: 'R',
+    shortcut: '2',
     description: 'Bangun jalan aspal dan trotoar pejalan kaki'
   },
   zone: {
     id: 'zone',
     label: 'Zona',
     hint: 'Pilih kavling untuk menetapkan peruntukan lahan (Komersial, Hunian, Publik)',
-    shortcut: 'Z',
+    shortcut: '3',
     description: 'Bagi peruntukan kawasan kota'
   },
   build: {
     id: 'build',
     label: 'Bangun',
     hint: 'Pilih model bangunan lalu klik pada kavling yang sesuai untuk mendirikan gedung',
-    shortcut: 'B',
+    shortcut: '4',
     description: 'Katalog arsitektur bangunan nusantara & modern'
   },
   nature: {
     id: 'nature',
     label: 'Lansekap',
     hint: 'Pilih vegetasi atau perabot luar ruang dan letakkan di area terbuka',
-    shortcut: 'T',
+    shortcut: '5',
     description: 'Penghijauan, taman tropis, dan perabot jalan'
   },
   terraform: {
     id: 'terraform',
     label: 'Tanah dan Air',
     hint: 'Pahat saluran air, ratakan kontur tanah, atau bangun tanggul sungai',
-    shortcut: 'W',
+    shortcut: '6',
     description: 'Bentuk topografi, sungai, dan perairan'
   },
   demolish: {
     id: 'demolish',
     label: 'Bongkar',
     hint: 'Arahkan buldoser ke gedung atau segmen jalan yang ingin dirobohkan',
-    shortcut: 'X',
+    shortcut: '7',
     description: 'Hapus dan bersihkan kavling atau infrastruktur'
   },
   analyze: {
     id: 'analyze',
     label: 'Analisis',
     hint: 'Pantau radiasi matahari, ventilasi angin, dan kesesuaian aturan bangunan',
-    shortcut: 'A',
+    shortcut: '8',
     description: 'Laboratorium simulasi termal dan mikroklimat'
   }
 };
 
 export const CAMERA_MODES_I18N = {
+  plan2d: {
+    id: '2d',
+    label: '2D Denah',
+    detail: 'Denah ortografis 90 derajat masterplan kota dan pemilihan potongan lantai'
+  },
   orbit: {
     id: 'orbit',
     label: 'Orbit',

@@ -20,23 +20,17 @@ import { MaterialLibrary } from '../materials/MaterialLibrary';
 export class TectonicComponents {
   private static matLib = MaterialLibrary.getInstance();
 
+  private static signMatCache: Map<string, THREE.MeshStandardMaterial> = new Map();
+
   public static getMaterial(type: string, color?: string): THREE.Material {
     if (type === 'warm_led' || type === 'warm_light') {
-      return new THREE.MeshBasicMaterial({ color: 0xfff1dc });
+      return this.matLib.getMaterial('warm_led', { color });
     }
     if (type === 'brand_gold') {
-      return new THREE.MeshStandardMaterial({
-        color: 0xf59e0b,
-        roughness: 0.25,
-        metalness: 0.85
-      });
+      return this.matLib.getMaterial('gold_leaf', { color: '#f59e0b', roughness: 0.25, metalness: 0.85 });
     }
     if (type === 'brand_red') {
-      return new THREE.MeshStandardMaterial({
-        color: 0xdc2626,
-        roughness: 0.35,
-        metalness: 0.1
-      });
+      return this.matLib.getMaterial('plaster', { color: '#dc2626', roughness: 0.35, metalness: 0.1 });
     }
     if (type === 'dark_aluminum') {
       return this.matLib.getMaterial('frame', { color: '#18181b' });
@@ -67,7 +61,7 @@ export class TectonicComponents {
     const mullionWidth = 0.08;
     const colW = width / cols;
     const rowH = height / rows;
-    const glassZ = 0.06; // >= 0.06m forward offset from mounting wall surface
+    const glassZ = 0.12; // >= 0.12m forward offset from mounting wall surface (eliminates Z-fighting)
     const frameZ = glassZ + Math.max(0.03, frameDepth * 0.35);
 
     // Vertical Mullions
@@ -1214,15 +1208,24 @@ export class TectonicComponents {
     depth: number = 0.12
   ): THREE.Group {
     const group = new THREE.Group();
-    const signTex = this.createSignageTexture(mainText, subText);
-    const signMat = new THREE.MeshStandardMaterial({
-      map: signTex,
-      emissive: new THREE.Color(0xfffae0),
-      emissiveMap: signTex,
-      emissiveIntensity: 0.85,
-      roughness: 0.25,
-      metalness: 0.85
-    });
+    const cacheKey = `${mainText}_${subText || ''}`;
+    let signMat = this.signMatCache.get(cacheKey);
+    if (!signMat) {
+      const signTex = this.createSignageTexture(mainText, subText);
+      signMat = new THREE.MeshStandardMaterial({
+        map: signTex,
+        emissive: new THREE.Color(0xfffae0),
+        emissiveMap: signTex,
+        emissiveIntensity: 0.85,
+        roughness: 0.25,
+        metalness: 0.85,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+      });
+      signMat.userData.isSharedMaterial = true;
+      this.signMatCache.set(cacheKey, signMat);
+    }
 
     const boxGeom = new THREE.BoxGeometry(width, height, depth);
     const mesh = new THREE.Mesh(boxGeom, signMat);
@@ -1291,11 +1294,7 @@ export class TectonicComponents {
    */
   public static buildColumnUplightGlow(radius: number = 0.35): THREE.Mesh {
     const glowGeom = new THREE.CylinderGeometry(radius, radius * 1.15, 0.06, 16);
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: 0xffb347, // 2700K warm uplight glow
-      transparent: true,
-      opacity: 0.95
-    });
+    const glowMat = this.matLib.getMaterial('warm_uplight');
     return new THREE.Mesh(glowGeom, glowMat);
   }
 

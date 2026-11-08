@@ -206,9 +206,10 @@ export class MaterialLibrary {
     colorAttr.needsUpdate = true;
   }
 
-  // Shared Singleton Glass Materials for 3-Zone Spatial LOD (Tahap 2)
+  // Shared Singleton Glass Materials for 3-Zone Spatial LOD (Tahap 2 & Tahap 6)
   public readonly kacaDekat: THREE.MeshPhysicalMaterial;
   public readonly kacaJauh: THREE.MeshPhysicalMaterial;
+  public readonly kacaJauhOpaque: THREE.MeshPhysicalMaterial;
 
   private constructor() {
     this.kacaDekat = new THREE.MeshPhysicalMaterial({
@@ -226,8 +227,8 @@ export class MaterialLibrary {
       envMapIntensity: 2.2,
       depthWrite: false,
       polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
     this.kacaDekat.userData.isSharedMaterial = true;
 
@@ -246,10 +247,29 @@ export class MaterialLibrary {
       envMapIntensity: 2.0,
       depthWrite: true,
       polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
     this.kacaJauh.userData.isSharedMaterial = true;
+
+    // Distant First-Person (> 110m) solid opaque glass to prevent depth-sorting flicker & transparent overdraw
+    this.kacaJauhOpaque = new THREE.MeshPhysicalMaterial({
+      name: 'kacaJauhOpaque',
+      color: new THREE.Color(0x475569),
+      transparent: false,
+      opacity: 1.0,
+      roughness: 0.14,
+      metalness: 0.25,
+      reflectivity: 0.92,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.08,
+      envMapIntensity: 1.8,
+      depthWrite: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    this.kacaJauhOpaque.userData.isSharedMaterial = true;
   }
 
   public static getKacaDekat(): THREE.MeshPhysicalMaterial {
@@ -258,6 +278,10 @@ export class MaterialLibrary {
 
   public static getKacaJauh(): THREE.MeshPhysicalMaterial {
     return MaterialLibrary.getInstance().kacaJauh;
+  }
+
+  public static getKacaJauhOpaque(): THREE.MeshPhysicalMaterial {
+    return MaterialLibrary.getInstance().kacaJauhOpaque;
   }
 
   public static getInstance(): MaterialLibrary {
@@ -945,6 +969,9 @@ export class MaterialLibrary {
       case 'kacaJauh':
         return this.kacaJauh as any;
 
+      case 'kacaJauhOpaque':
+        return this.kacaJauhOpaque as any;
+
       // Architectural PBR Glass (Ultra-Clear Reflective Sky Glass with Fresnel)
       case 'glass':
       case 'glass_lit':
@@ -954,9 +981,9 @@ export class MaterialLibrary {
           color: options.color !== undefined ? new THREE.Color(options.color) : new THREE.Color(0xdbeafe),
           roughness: options.roughness ?? 0.04,
           metalness: options.metalness ?? 0.1,
-          transparent: true,
+          transparent: options.transparent ?? true,
           opacity: options.opacity ?? 0.35,
-          transmission: 0.65,
+          transmission: options.transparent === false ? 0 : 0.65,
           ior: 1.52,
           reflectivity: 0.90,
           clearcoat: 1.0,
@@ -964,9 +991,35 @@ export class MaterialLibrary {
           envMapIntensity: 2.2,
           emissive: new THREE.Color(0x000000),
           emissiveIntensity: 0,
+          depthWrite: options.transparent === false,
           polygonOffset: true,
-          polygonOffsetFactor: -1,
-          polygonOffsetUnits: -1,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+        });
+        return mat;
+      }
+
+      // Ultra-clear curtain/skylight architectural glazing (pooled, no per-building material alloc)
+      case 'ultra_glass':
+      case 'emerald_dome': {
+        const defaultTint = type === 'emerald_dome' ? 0xa7f3d0 : 0xdbeafe;
+        const mat = new THREE.MeshPhysicalMaterial({
+          name: type,
+          color: options.color !== undefined ? new THREE.Color(options.color) : new THREE.Color(defaultTint),
+          roughness: options.roughness ?? 0.05,
+          metalness: options.metalness ?? 0.12,
+          transparent: true,
+          opacity: options.opacity ?? 0.42,
+          transmission: 0.55,
+          ior: 1.52,
+          reflectivity: 0.92,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.04,
+          envMapIntensity: 2.0,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
         });
         return mat;
       }
@@ -988,26 +1041,46 @@ export class MaterialLibrary {
           envMapIntensity: 1.8,
           emissive: new THREE.Color(0x000000),
           emissiveIntensity: 0,
+          depthWrite: false,
           polygonOffset: true,
-          polygonOffsetFactor: -1,
-          polygonOffsetUnits: -1,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
         });
         return mat;
       }
 
       // Warm Architectural Lighting Apertures, Street Lamps & Sconces
       case 'lamp_glow':
-      case 'warm_light': {
+      case 'warm_light':
+      case 'warm_led':
+      case 'warm_uplight': {
         const glow = this.nightGlowFactor;
+        const isStaticLed = type === 'warm_led' || type === 'warm_uplight';
         return new THREE.MeshStandardMaterial({
-          color: options.color !== undefined ? new THREE.Color(options.color) : new THREE.Color(0x334155),
+          color: options.color !== undefined ? new THREE.Color(options.color) : new THREE.Color(isStaticLed ? 0xffedd5 : 0x334155),
           roughness: 0.2,
           metalness: 0.1,
-          emissive: new THREE.Color(0xfef08a),
-          emissiveIntensity: glow > 0 ? glow * 2.5 : 0.05,
+          emissive: new THREE.Color(type === 'warm_uplight' ? 0xffb347 : 0xfef08a),
+          emissiveIntensity: isStaticLed ? 0.85 : glow > 0 ? glow * 2.5 : 0.05,
+          transparent: type === 'warm_uplight',
+          opacity: type === 'warm_uplight' ? 0.95 : 1.0,
           polygonOffset: true,
-          polygonOffsetFactor: -1,
-          polygonOffsetUnits: -1,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+        });
+      }
+
+      case 'indicator_led':
+      case 'infiltration_glow': {
+        const emissiveHex = type === 'infiltration_glow' ? 0x0ea5e9 : 0x38bdf8;
+        return new THREE.MeshStandardMaterial({
+          color: options.color !== undefined ? new THREE.Color(options.color) : new THREE.Color(emissiveHex),
+          roughness: 0.2,
+          metalness: 0.1,
+          emissive: new THREE.Color(emissiveHex),
+          emissiveIntensity: type === 'infiltration_glow' ? 0.75 : 0.9,
+          transparent: type === 'infiltration_glow',
+          opacity: options.opacity ?? (type === 'infiltration_glow' ? 0.7 : 1.0),
         });
       }
 
@@ -1030,8 +1103,8 @@ export class MaterialLibrary {
           roughness: 0.72,
           metalness: 0.08,
           polygonOffset: true,
-          polygonOffsetFactor: -1,
-          polygonOffsetUnits: -1,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
         });
       }
 
@@ -1043,8 +1116,46 @@ export class MaterialLibrary {
           roughness: 0.75,
           metalness: 0.04,
           polygonOffset: true,
-          polygonOffsetFactor: -1,
-          polygonOffsetUnits: -1,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+        });
+      }
+
+      // Pooled ceramic grid tiles for CAD & interior slabs (cached per color)
+      case 'ceramic_grid': {
+        const hex = typeof options.color === 'string' ? options.color : '#f1f5f9';
+        const texKey = `ceramic_grid_${hex}`;
+        let tex = this.textureCache.get(texKey);
+        if (!tex && typeof document !== 'undefined') {
+          const canvas = document.createElement('canvas');
+          canvas.width = 256;
+          canvas.height = 256;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = hex;
+            ctx.fillRect(0, 0, 256, 256);
+            ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+            ctx.lineWidth = 2;
+            for (let x = 0; x <= 256; x += 64) {
+              ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 256); ctx.stroke();
+            }
+            for (let y = 0; y <= 256; y += 64) {
+              ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(256, y); ctx.stroke();
+            }
+          }
+          const cTex = new THREE.CanvasTexture(canvas);
+          cTex.wrapS = THREE.RepeatWrapping;
+          cTex.wrapT = THREE.RepeatWrapping;
+          cTex.colorSpace = THREE.SRGBColorSpace;
+          cTex.needsUpdate = true;
+          tex = cTex;
+          this.textureCache.set(texKey, cTex);
+        }
+        return new THREE.MeshStandardMaterial({
+          map: tex,
+          color: 0xffffff,
+          roughness: options.roughness ?? 0.35,
+          metalness: options.metalness ?? 0.08,
         });
       }
 
@@ -1092,8 +1203,12 @@ export class MaterialLibrary {
       // 24. Papan Nama Toko (Storefront Commercial Signage)
       case 'storefront_sign':
       case 'store_sign': {
-        const seed = typeof options.color === 'number' ? options.color : 0;
-        const tex = ProceduralTextureGen.getStoreSignboardTexture(seed);
+        const numericSeed = typeof options.color === 'number'
+          ? options.color
+          : typeof options.color === 'string'
+          ? Array.from(options.color).reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+          : 0;
+        const tex = ProceduralTextureGen.getStoreSignboardTexture(numericSeed);
         return new THREE.MeshStandardMaterial({
           map: tex,
           roughness: 0.25,
@@ -1101,17 +1216,22 @@ export class MaterialLibrary {
           emissive: new THREE.Color(0xffffff),
           emissiveMap: tex,
           emissiveIntensity: 0.15,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
         });
       }
 
-      // Foliage (Leaves & Plants)
-      case 'foliage': {
+      // Foliage (Leaves & Plants, pooled across all urban trees & shrubs)
+      case 'foliage':
+      case 'foliage_canopy':
+      case 'shrub_foliage': {
         const tex = ProceduralTextureGen.getFoliageTexture(256);
         const mat = new THREE.MeshStandardMaterial({
           map: tex,
           color: options.color !== undefined ? new THREE.Color(options.color) : 0x22c55e,
-          roughness: 0.9,
-          metalness: 0.05,
+          roughness: options.roughness ?? 0.88,
+          metalness: options.metalness ?? 0.04,
         });
         applyWindShader(mat);
         return mat;

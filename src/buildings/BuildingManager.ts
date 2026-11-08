@@ -1226,7 +1226,7 @@ export class BuildingManager {
       interiorGroup.visible = showInterior;
     }
 
-    // TAHAP 1: NEVER hide placedFurniture (DynamicFurnitureGroup) for buildings < 30m from camera
+    // TAHAP 6: NEVER hide placedFurniture (DynamicFurnitureGroup) for buildings < 110m from camera
     // or for the building the player is currently inside in First-Person Mode.
     const showPlacedFurniture =
       forceFullDetail ||
@@ -1377,10 +1377,13 @@ export class BuildingManager {
     isSubsurfaceLensActive: boolean = false,
     _lodCutoffDistance: number = 60,
     _graphicsPreset: string = 'high',
-    currentIndoorBuildingId: string | null = null
+    currentIndoorBuildingId: string | null = null,
+    active2DFloorIndex: number = 0,
+    fpNearRadius: number = 30.0
   ): void {
     const isFirstPerson = cameraMode === 'first_person';
     const is2D = cameraMode === '2d';
+    const safeFloorIdx = Number.isFinite(active2DFloorIndex) ? Math.max(0, Math.floor(active2DFloorIndex)) : 0;
 
     for (const [id, bld] of this.buildings.entries()) {
       const grp = this.buildingGroups.get(id);
@@ -1389,6 +1392,8 @@ export class BuildingManager {
       const isSelected = id === this.selectedBuildingId;
       const isIndoorHost = currentIndoorBuildingId !== null && id === currentIndoorBuildingId;
       const footprintDist = BuildingManager.getDistanceToBuildingFootprint(bld, cameraPosition);
+      const totalFloors = Math.max(1, bld.floorCount || 1);
+      const hasRequested2DFloor = !is2D || safeFloorIdx < totalFloors;
 
       // Architectural Layer Groups
       const lod2Massing = grp.getObjectByName('LOD2MassingGroup') || grp.userData?.lod2MassingGroup;
@@ -1406,31 +1411,32 @@ export class BuildingManager {
         // Disable distance LOD culling: never show low-poly impostor massing
         if (lod2Massing) lod2Massing.visible = false;
 
-        // 100% exterior shell and facade details are always visible without popping
-        if (ext) ext.visible = true;
-        if (details) details.visible = true;
+        // 100% exterior shell and facade details are visible without popping;
+        // In 2D Plan mode, buildings with fewer floors than active floor show silhouette
+        if (ext) ext.visible = !is2D || hasRequested2DFloor;
+        if (details) details.visible = hasRequested2DFloor;
         if (lotContext) {
           lotContext.visible = true;
           const lotDetails = lotContext.getObjectByName('LotDetailProps') || lotContext.userData?.detailPropsGroup;
-          if (lotDetails) lotDetails.visible = true;
+          if (lotDetails) lotDetails.visible = hasRequested2DFloor;
         }
 
-        // Interior details: only visible when in 2D Floor Plan mode or when section cut is active
+        // Interior details: only visible when in 2D Floor Plan mode (if building has active floor) or section cut
         if (interior) {
-          interior.visible = is2D || isSectionCutActive;
+          interior.visible = is2D ? hasRequested2DFloor : isSectionCutActive;
         }
 
         // Placed furniture: hide in 3D Orbit / Drone to maintain 144 FPS,
-        // EXCEPT when 2D Floor Plan is active or section cut is active: display Floor 1 furniture!
+        // EXCEPT when 2D Floor Plan is active (matching active floor) or section cut is active
         if (dynamicFurniture) {
-          if (is2D || isSectionCutActive) {
+          if ((is2D && hasRequested2DFloor) || (!is2D && isSectionCutActive)) {
             dynamicFurniture.visible = true;
             dynamicFurniture.frustumCulled = false;
-            dynamicFurniture.traverse((child: THREE.Object3D) => {
-              if (child !== dynamicFurniture) {
-                child.visible = ((child.userData?.floorIndex ?? 0) <= 1 && child.position.y < 2.2);
-              }
-            });
+            const targetFloor = is2D ? safeFloorIdx : 0;
+            for (const child of dynamicFurniture.children) {
+              const childFloor = typeof child.userData?.floorIndex === 'number' ? child.userData.floorIndex : 0;
+              child.visible = childFloor === targetFloor;
+            }
           } else {
             dynamicFurniture.visible = false;
           }
@@ -1446,16 +1452,17 @@ export class BuildingManager {
       }
 
       // =========================================================================
-      // 2. FIRST-PERSON MODE: Smart Distance Rendering (< 30m vs >= 30m)
+      // 2. FIRST-PERSON MODE: Smart Distance Rendering (< 110m vs >= 110m)
       // =========================================================================
       const forceFullDetail = isSelected || isIndoorHost || isSectionCutActive;
-      const isNear = forceFullDetail || footprintDist < 30.0;
+      const nearThreshold = Number.isFinite(fpNearRadius) ? fpNearRadius : 30.0;
+      const isNear = forceFullDetail || footprintDist < nearThreshold;
 
       if (lod2Massing) lod2Massing.visible = false;
       if (ext) ext.visible = true;
 
       if (isNear) {
-        // Objek dekat (< 30 meter atau host building): 100% detail penuh termasuk furniture, interior, detail props
+        // Objek dekat (< 110 meter atau host building): 100% detail penuh termasuk furniture, interior, detail props
         if (details) details.visible = true;
         if (lotContext) {
           lotContext.visible = true;
@@ -1476,9 +1483,23 @@ export class BuildingManager {
             });
           }
         }
+
+        // Near glass: keep transparency for crystal-clear architectural windows
+        if (ext) {
+          ext.traverse((child: THREE.Object3D) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const mesh = child as THREE.Mesh;
+              const mat = mesh.material as any;
+              if (mat && mat.name && (mat.name.includes('glass') || mat.name.includes('window'))) {
+                mat.transparent = true;
+                mat.depthWrite = false;
+              }
+            }
+          });
+        }
       } else {
-        // Objek menengah dan jauh (>= 30 meter): sederhanakan detail interior & micro-props
-        if (details) details.visible = footprintDist < 60.0;
+        // Objek menengah dan jauh (>= 110 meter): sederhanakan detail interior & micro-props
+        if (details) details.visible = footprintDist < 180.0;
         if (lotContext) {
           lotContext.visible = true;
           const lotDetails = lotContext.getObjectByName('LotDetailProps') || lotContext.userData?.detailPropsGroup;
@@ -1486,6 +1507,20 @@ export class BuildingManager {
         }
         if (interior) interior.visible = false;
         if (dynamicFurniture) dynamicFurniture.visible = false;
+
+        // Distant glass beyond 110m: switch to opaque to eliminate z-fighting depth sorting
+        if (ext) {
+          ext.traverse((child: THREE.Object3D) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const mesh = child as THREE.Mesh;
+              const mat = mesh.material as any;
+              if (mat && mat.name && (mat.name.includes('glass') || mat.name.includes('window'))) {
+                mat.transparent = false;
+                mat.depthWrite = true;
+              }
+            }
+          });
+        }
       }
 
       if (subsurface) {

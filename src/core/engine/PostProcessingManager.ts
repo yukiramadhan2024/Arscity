@@ -166,6 +166,9 @@ export class PostProcessingManager {
   }
 
   public setSize(width: number, height: number): void {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return;
+    }
     this.width = width;
     this.height = height;
     if (!this.composer) return;

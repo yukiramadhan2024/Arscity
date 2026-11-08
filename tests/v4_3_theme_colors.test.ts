@@ -58,27 +58,31 @@ describe('Arscity Mandatory 8-Color Theme System (COLORS Specification Card)', (
     expect(cssContent).toMatch(/\.ios-btn-destructive\s*\{[^}]*#133F6E/);
   });
 
-  it('7. ArscityLogo defines 3-facet ribbon "A" with #072D59, #1F6AB0, #54B4F8, and #1A5B9C', () => {
+  it('7. ArscityLogo defines crisp geometric emblem with #072D59, #DBF2FC, and #FD6E8E', () => {
     const logoPath = path.resolve(__dirname, '../src/ui/components/ArscityLogo.tsx');
     const content = fs.readFileSync(logoPath, 'utf-8');
 
     expect(content).toContain('#072D59');
-    expect(content).toContain('#1F6AB0');
-    expect(content).toContain('#54B4F8');
-    expect(content).toContain('#1A5B9C');
+    expect(content).toContain('#DBF2FC');
+    expect(content).toContain('#FD6E8E');
     expect(content).toContain('ARSCITY');
   });
 
-  it('8. LoginPage renders "Rancang Kota Impian", "di ARSCITY", and single-icon CTA "Mulai Rancang Kota"', () => {
+  it('8. LoginPage renders clean Architectural Launchpad without AI badges or rigid box grid', () => {
     const loginPath = path.resolve(__dirname, '../src/ui/components/LoginPage.tsx');
     const content = fs.readFileSync(loginPath, 'utf-8');
 
     expect(content).toContain('Rancang Kota Impian');
-    expect(content).toContain('di <span style={{ color: \'#FD6E8E\' }}>ARSCITY</span>');
-    expect(content).toContain('Mulai Rancang Kota');
-    expect(content).toContain('Lanjutkan Kota');
-    expect(content).toContain('Perpustakaan Peta');
-    expect(content).toContain('Impor Berkas CAD');
+    expect(content).toContain("di <span style={{ color: '#FD6E8E' }}>ARSCITY</span>");
+    expect(content).toContain('Buat Kota Baru');
+    expect(content).toContain('Lanjutkan Pembangunan');
+    expect(content).toContain('Buka Peta Tersimpan');
+    expect(content).toContain('Studio CAD Mandiri');
+    expect(content).toContain('Impor Peta');
+    expect(content).not.toContain('Tugu Pal Putih Yogyakarta');
+    expect(content).not.toContain('LRT Koridor Tropis');
+    expect(content).not.toContain('Penyimpanan lokal di peramban Anda');
+    expect(content).not.toContain('isoBlueprintGrid');
   });
 });
 

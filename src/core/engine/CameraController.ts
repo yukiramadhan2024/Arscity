@@ -122,11 +122,20 @@ export class CameraController {
     target: THREE.Vector3;
   };
 
+  private getSafeAspect(): number {
+    const w = this.domElement?.clientWidth ?? 0;
+    const h = this.domElement?.clientHeight ?? 0;
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+      return 16 / 9;
+    }
+    return THREE.MathUtils.clamp(w / h, 0.2, 5.0);
+  }
+
   constructor(domElement: HTMLElement, options: CameraOptions = {}) {
     this.domElement = domElement;
 
-    const aspect = domElement.clientWidth / domElement.clientHeight || 1;
-    this.camera = new THREE.PerspectiveCamera(options.fov || 45, aspect, 0.06, 4000);
+    const aspect = this.getSafeAspect();
+    this.camera = new THREE.PerspectiveCamera(options.fov || 45, aspect, 0.35, 2500);
 
     const orthoFrustum = 60;
     this.orthoCamera = new THREE.OrthographicCamera(
@@ -134,8 +143,8 @@ export class CameraController {
       (orthoFrustum * aspect) / 2,
       orthoFrustum / 2,
       -orthoFrustum / 2,
-      1,
-      4000
+      0.5,
+      2500
     );
 
     if (options.minDistance) this.minDistance = options.minDistance;
@@ -143,7 +152,8 @@ export class CameraController {
 
     this.bindEvents();
     this.updateCameraTransform(1.0); // Immediate snap
-    this.camera.near = 0.25;
+    this.camera.near = 0.35;
+    this.camera.far = 2500;
     this.camera.updateProjectionMatrix();
   }
 
@@ -818,6 +828,20 @@ export class CameraController {
   }
 
   private updateCameraTransform(dampingFactor: number): void {
+    // Guard against NaN/Infinity propagation in targets or spherical coords
+    if (!Number.isFinite(this.target.x) || !Number.isFinite(this.target.y) || !Number.isFinite(this.target.z)) {
+      this.target.set(0, 0, 0);
+    }
+    if (!Number.isFinite(this.targetGoal.x) || !Number.isFinite(this.targetGoal.y) || !Number.isFinite(this.targetGoal.z)) {
+      this.targetGoal.copy(this.target);
+    }
+    if (!Number.isFinite(this.distance) || this.distance <= 0) this.distance = 60;
+    if (!Number.isFinite(this.distanceGoal) || this.distanceGoal <= 0) this.distanceGoal = 60;
+    if (!Number.isFinite(this.azimuth)) this.azimuth = 0;
+    if (!Number.isFinite(this.azimuthGoal)) this.azimuthGoal = this.azimuth;
+    if (!Number.isFinite(this.polar)) this.polar = (45 * Math.PI) / 180;
+    if (!Number.isFinite(this.polarGoal)) this.polarGoal = this.polar;
+
     // Smooth lerp towards goals
     this.target.lerp(this.targetGoal, dampingFactor);
     this.distance = THREE.MathUtils.lerp(this.distance, this.distanceGoal, dampingFactor);
@@ -839,10 +863,11 @@ export class CameraController {
 
     this.updateAdaptiveNearPlane();
 
-    // Sync orthographic camera
+    // Sync orthographic camera with finite, non-degenerate frustum bounds
     if (this.isOrthographic) {
-      const orthoSize = this.distance * 0.9;
-      const aspect = this.domElement.clientWidth / this.domElement.clientHeight || 1;
+      const safeDist = Number.isFinite(this.distance) && this.distance > 0 ? this.distance : 60;
+      const orthoSize = Math.max(12, safeDist * 0.9);
+      const aspect = this.getSafeAspect();
       this.orthoCamera.left = (-orthoSize * aspect) / 2;
       this.orthoCamera.right = (orthoSize * aspect) / 2;
       this.orthoCamera.top = orthoSize / 2;
@@ -857,7 +882,13 @@ export class CameraController {
         this.orthoCamera.lookAt(this.target.x, this.target.y, this.target.z);
       } else {
         // Straight 90-degree Top-Down Orthographic ('top' | 'plan')
-        this.orthoCamera.up.set(-Math.sin(this.azimuth), 0, -Math.cos(this.azimuth)).normalize();
+        const upX = -Math.sin(this.azimuth);
+        const upZ = -Math.cos(this.azimuth);
+        if (Number.isFinite(upX) && Number.isFinite(upZ) && (upX * upX + upZ * upZ) > 1e-6) {
+          this.orthoCamera.up.set(upX, 0, upZ).normalize();
+        } else {
+          this.orthoCamera.up.set(0, 0, -1);
+        }
         this.orthoCamera.position.set(this.target.x, 250, this.target.z);
         this.orthoCamera.lookAt(this.target.x, this.target.y, this.target.z);
       }
@@ -885,11 +916,11 @@ export class CameraController {
       }
       this.isOrthographic = true;
       this.orthoMode = mode;
-      if (focusTarget) {
+      if (focusTarget && Number.isFinite(focusTarget.x) && Number.isFinite(focusTarget.y) && Number.isFinite(focusTarget.z)) {
         this.target.copy(focusTarget);
         this.targetGoal.copy(focusTarget);
       }
-      if (approxDistance) {
+      if (approxDistance !== undefined && Number.isFinite(approxDistance) && approxDistance > 0) {
         this.distance = approxDistance;
         this.distanceGoal = approxDistance;
       }
@@ -936,15 +967,15 @@ export class CameraController {
   }
 
   private updateAdaptiveNearPlane(): void {
-    let targetNear = 0.25;
+    let targetNear = 0.35;
     if (this.isWalkMode) {
-      targetNear = 0.25;
+      targetNear = 0.35;
     } else if (this.isDroneMode) {
-      targetNear = Math.max(0.25, Math.min(this.camera.position.y * 0.005, 1.2));
+      targetNear = Math.max(0.35, Math.min(this.camera.position.y * 0.005, 1.2));
     } else {
-      // Orbit God-Eye Mode: scale near plane from 0.25m up to 1.5m at high altitude/distance
+      // Orbit God-Eye Mode: scale near plane from 0.35m up to 1.5m at high altitude/distance
       const alt = this.camera.position.y;
-      targetNear = Math.max(0.25, Math.min(alt * 0.006 + this.distance * 0.002, 1.5));
+      targetNear = Math.max(0.35, Math.min(alt * 0.006 + this.distance * 0.002, 1.5));
     }
 
     if (Math.abs(this.camera.near - targetNear) > 0.01) {
@@ -954,12 +985,13 @@ export class CameraController {
   }
 
   public handleResize(): void {
-    const aspect = this.domElement.clientWidth / this.domElement.clientHeight || 1;
+    const aspect = this.getSafeAspect();
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
 
     if (this.isOrthographic) {
-      const orthoSize = this.distance * 0.9;
+      const safeDist = Number.isFinite(this.distance) && this.distance > 0 ? this.distance : 60;
+      const orthoSize = Math.max(12, safeDist * 0.9);
       this.orthoCamera.left = (-orthoSize * aspect) / 2;
       this.orthoCamera.right = (orthoSize * aspect) / 2;
       this.orthoCamera.top = orthoSize / 2;

@@ -79,21 +79,8 @@ export const HudLayout: React.FC<HudLayoutProps> = ({ onOpenHelp }) => {
         <EmptyStateGuide />
       </div>
 
-      {/* ZONE 2: Left Utility Rail (Icon Dock) */}
-      <div
-        id="hud-zone-rail"
-        style={{
-          position: 'absolute',
-          left: 'var(--hud-edge, 16px)',
-          top: 'var(--hud-top-offset, 76px)',
-          pointerEvents: 'none',
-          zIndex: 20,
-        }}
-      >
-        <div style={{ pointerEvents: 'auto' }}>
-          <SideUtilityDock onOpenHelp={onOpenHelp} />
-        </div>
-      </div>
+      {/* ZONE 2: Left Utility Rail (Fixed Top-Left Dock Anchored Directly inside SideUtilityDock) */}
+      <SideUtilityDock onOpenHelp={onOpenHelp} />
 
       {/* ZONE 3: Left Laboratory Panel (Analysis Overlay) */}
       <AnimatePresence>
@@ -102,10 +89,10 @@ export const HudLayout: React.FC<HudLayoutProps> = ({ onOpenHelp }) => {
             id="hud-zone-left-panel"
             style={{
               position: 'absolute',
-              left: 'calc(var(--hud-rail-width, 48px) + var(--hud-gap, 16px) + 12px)',
+              left: '88px',
               top: 'var(--hud-top-offset, 76px)',
               bottom: 'var(--hud-bottom-reserve, 80px)',
-              width: 'var(--hud-left-panel-width, clamp(280px, 24vw, 340px))',
+              width: 'var(--hud-left-panel-width, clamp(300px, 25vw, 348px))',
               pointerEvents: 'none',
             }}
           >

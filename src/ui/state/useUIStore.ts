@@ -483,11 +483,13 @@ export const useUIStore = create<UIState>((set, get) => {
     cameraMode: 'orbit',
     active2DFloorIndex: 0,
     set2DFloorIndex: (index: number) => {
+      const safeIndex = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
+      if (get().active2DFloorIndex === safeIndex) return;
       const engine = get().engine;
       if (engine && typeof engine.set2DFloor === 'function') {
-        engine.set2DFloor(index);
+        engine.set2DFloor(safeIndex);
       }
-      set({ active2DFloorIndex: index });
+      set({ active2DFloorIndex: safeIndex });
     },
     setCameraMode: (mode) => {
       const engine = get().engine;
@@ -497,9 +499,6 @@ export const useUIStore = create<UIState>((set, get) => {
             engine.setCameraMode('2d');
           }
         } else {
-          if (engine.is2DPlanMode) {
-            engine.set2DPlanMode(false);
-          }
           const engineMode = mode === 'drone' ? 'cinematic_drone' : (mode === 'fps' ? 'first_person' : mode);
           engine.setCameraMode(engineMode);
         }

@@ -42,13 +42,13 @@ export class RaycastManager {
     this.mouse = new THREE.Vector2(-999, -999);
     this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-    // Subtle Apple-style cyan halo ring on the terrain
+    // Crisp Crimson Pink halo ring on the terrain
     const ringGeom = new THREE.RingGeometry(0.3, 0.45, 32);
     ringGeom.rotateX(-Math.PI / 2);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: 0x007aff,
+      color: 0xfd6e8e,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.72,
       side: THREE.DoubleSide,
       depthWrite: false
     });
@@ -75,8 +75,15 @@ export class RaycastManager {
     if (!this.rafPending) {
       this.rafPending = true;
       requestAnimationFrame(() => {
-        if (!this.domElement) return;
+        if (!this.domElement) {
+          this.rafPending = false;
+          return;
+        }
         const rect = this.domElement.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+          this.rafPending = false;
+          return;
+        }
         this.mouse.x = ((this.pendingClientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((this.pendingClientY - rect.top) / rect.height) * 2 + 1;
         this.update();
@@ -93,13 +100,14 @@ export class RaycastManager {
 
   public updateMousePosition(clientX: number, clientY: number): void {
     const rect = this.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
     this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     this.update();
   }
 
   public update(): void {
-    if (this.mouse.x < -1 || this.mouse.x > 1 || this.mouse.y < -1 || this.mouse.y > 1) {
+    if (!this.camera || this.mouse.x < -1 || this.mouse.x > 1 || this.mouse.y < -1 || this.mouse.y > 1) {
       this.isHoveringGround = false;
       this.cursorMarker.visible = false;
       return;

@@ -42,14 +42,17 @@ import { CitySerializer, CitySaveData } from '../../io/CitySerializer';
 import { createMalioboroMapData } from '../../world/MalioboroPreset';
 import { createModernGridMapData } from '../../world/ModernGridPreset';
 import { IndexedDBStorage } from '../../io/IndexedDBStorage';
+import {
+  CustomMapConfig,
+  computeRiverCurves,
+  createCustomMapCityData,
+  generateDeterministicTreeCandidates,
+  normalizeTopographyMode,
+  resolveRiverMode,
+  resolveTreeDensityPercent,
+} from '../../world/MapCustomGenerator';
 
-export interface CustomMapConfig {
-  cityName: string;
-  layoutTemplate: 'blank_canvas' | 'malioboro_corridor' | 'modern_grid';
-  topography: 'flat_plain' | 'tropical_river_valley' | 'natural_hills';
-  treeDensity: 'none' | 'medium' | 'lush';
-  startTime: number;
-}
+export type { CustomMapConfig };
 import { ZONE_RULES } from '../../zones/ZoneTypes';
 import { runoffSimulator } from '../../simulation/RunoffSimulator';
 import { cityScoreAnalyzer } from '../../analysis/CityScoreAnalyzer';
@@ -111,6 +114,7 @@ export class Engine {
   public solarAnalyzer: SolarAnalyzer;
   public ventilationAnalyzer: VentilationAnalyzer;
   public sectionCutManager: SectionCutManager;
+  public readonly slicePlane: THREE.Plane;
   public floorPlanAnnotationOverlay: FloorPlanAnnotationOverlay;
   public runoffOverlay: RunoffOverlay;
   public cityScoreOverlay: CityScoreOverlay;
@@ -182,6 +186,7 @@ export class Engine {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05; // Calibrated 1.05 outdoor baseline (T3.1)
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.localClippingEnabled = true;
     MaterialLibrary.getInstance().initKTX2(this.renderer);
 
     container.appendChild(this.renderer.domElement);
@@ -197,7 +202,8 @@ export class Engine {
     );
 
     this.cameraController = new CameraController(this.renderer.domElement);
-    this.cameraController.camera.near = 0.25;
+    this.cameraController.camera.near = 0.35;
+    this.cameraController.camera.far = 2500;
     this.cameraController.camera.updateProjectionMatrix();
     this.lightingSystem = new LightingSystem(this.scene);
     this.lightingSystem.initEnvironment(this.renderer);
@@ -272,6 +278,7 @@ export class Engine {
     this.solarAnalyzer = new SolarAnalyzer(this.buildingManager, this.scene);
     this.ventilationAnalyzer = new VentilationAnalyzer(this.buildingManager, this.scene, this.landscapeManager);
     this.sectionCutManager = new SectionCutManager(this.renderer);
+    this.slicePlane = this.sectionCutManager.slicePlane;
     this.floorPlanAnnotationOverlay = new FloorPlanAnnotationOverlay(this.scene, this.buildingManager);
     this.runoffOverlay = new RunoffOverlay(this.scene);
     this.cityScoreOverlay = new CityScoreOverlay(this.scene);
@@ -771,23 +778,37 @@ export class Engine {
   public active2DFloorIndex: number = 0;
   public previousCameraMode: 'orbit' | 'first_person' | 'cinematic_drone' = 'orbit';
 
+  private compute2DSliceHeight(floorIndex: number): number {
+    const selectedFloor = Math.max(1, Math.floor(floorIndex) + 1);
+    const baseGroundY = 0;
+    return baseGroundY + ((selectedFloor - 1) * 3.6) + 2.2;
+  }
+
   public set2DPlanMode(enabled: boolean): void {
     this.is2DPlanMode = enabled;
     if (this.cameraController) {
       this.cameraController.setOrthographicMode(enabled, 'plan');
     }
+    if (this.raycastManager && this.cameraController) {
+      this.raycastManager.setCamera(this.cameraController.activeCamera);
+    }
     if (this.sectionCutManager) {
+      if (this.cameraController) {
+        this.sectionCutManager.setCamera(this.cameraController.activeCamera);
+      }
       if (enabled) {
+        const sliceHeight = this.compute2DSliceHeight(this.active2DFloorIndex);
+        this.slicePlane.constant = sliceHeight;
+        this.sectionCutManager.setCutHeight(sliceHeight);
         this.sectionCutManager.setCutMode('floor_plan');
         this.sectionCutManager.visualizerGroup.visible = false;
-        this.set2DFloor(this.active2DFloorIndex);
       } else {
         this.sectionCutManager.setCutMode('none');
       }
     }
     if (this.floorPlanAnnotationOverlay) {
       this.floorPlanAnnotationOverlay.setActiveFloor(this.active2DFloorIndex);
-      this.floorPlanAnnotationOverlay.setVisible(enabled, (this.active2DFloorIndex * 3.2) + 1.2);
+      this.floorPlanAnnotationOverlay.setVisible(enabled, this.compute2DSliceHeight(this.active2DFloorIndex));
     }
     if (this.landscapeManager) {
       this.landscapeManager.set2DSymbolMode(enabled);
@@ -795,29 +816,74 @@ export class Engine {
   }
 
   public set2DFloor(floorIndex: number): void {
-    this.active2DFloorIndex = Math.max(0, floorIndex);
-    const floorHeight = 3.2;
-    // Potongan horizontal 1.2 m di atas permukaan lantai aktif (T5.6)
-    const cutHeight = (this.active2DFloorIndex * floorHeight) + 1.2;
+    const safeIdx = Number.isFinite(floorIndex) ? Math.max(0, Math.floor(floorIndex)) : 0;
+    this.active2DFloorIndex = safeIdx;
+    const sliceHeight = this.compute2DSliceHeight(safeIdx);
+    this.slicePlane.constant = sliceHeight;
     if (this.sectionCutManager) {
-      this.sectionCutManager.setCutHeight(cutHeight);
+      this.sectionCutManager.setCutHeight(sliceHeight);
     }
     if (this.floorPlanAnnotationOverlay) {
-      this.floorPlanAnnotationOverlay.setActiveFloor(this.active2DFloorIndex);
-      this.floorPlanAnnotationOverlay.setVisible(true, cutHeight);
+      this.floorPlanAnnotationOverlay.setActiveFloor(safeIdx);
+      if (this.is2DPlanMode) {
+        this.floorPlanAnnotationOverlay.setVisible(true, sliceHeight);
+      }
+    }
+    if (this.is2DPlanMode && this.buildingManager && this.cameraController) {
+      this.buildingManager.updateLOD(
+        this.cameraController.camera.position,
+        '2d',
+        true,
+        this.isSubsurfaceLensActive,
+        60,
+        this.currentQuality,
+        null,
+        safeIdx
+      );
     }
   }
 
   public setCameraMode(mode: 'orbit' | 'first_person' | 'cinematic_drone' | '2d'): void {
     if (mode === '2d') {
-      if (this.currentCameraMode !== '2d') {
-        this.previousCameraMode = this.currentCameraMode;
+      if (this.currentCameraMode === '2d' && this.is2DPlanMode) return;
+
+      // Cleanly teardown first-person or drone state before switching to orthographic 2D plan
+      if (this.currentCameraMode === 'first_person') {
+        this.cameraController.target.copy(this.firstPersonController.position);
+        this.cameraController.target.y = 0;
+        this.firstPersonController.exit();
+        this.cameraController.enabled = true;
+      } else if (this.currentCameraMode === 'cinematic_drone') {
+        this.cinematicDroneController.stopTour();
+        this.cameraController.setDroneMode(false);
+        this.cameraController.enabled = true;
       }
+
+      if (this.currentCameraMode !== '2d') {
+        this.previousCameraMode =
+          this.currentCameraMode === 'first_person' || this.currentCameraMode === 'cinematic_drone'
+            ? this.currentCameraMode
+            : 'orbit';
+      }
+
       this.set2DPlanMode(true);
       this.currentCameraMode = '2d';
+      this.cameraController.enabled = true;
       if (this.onCameraModeChanged) this.onCameraModeChanged('2d');
+
+      const indoorId2D = this.firstPersonController ? this.firstPersonController.getInsideBuildingId() : null;
+      this.buildingManager.updateLOD(
+        this.cameraController.camera.position,
+        '2d',
+        true,
+        this.isSubsurfaceLensActive,
+        60,
+        this.currentQuality,
+        indoorId2D,
+        this.active2DFloorIndex
+      );
       return;
-    } else if (this.is2DPlanMode) {
+    } else if (this.is2DPlanMode || this.currentCameraMode === '2d') {
       this.set2DPlanMode(false);
     }
 
@@ -873,7 +939,8 @@ export class Engine {
       this.isSubsurfaceLensActive,
       60,
       this.currentQuality,
-      indoorId
+      indoorId,
+      this.active2DFloorIndex
     );
     if (this.landscapeManager) {
       if (this.currentCameraMode !== 'first_person') {
@@ -1044,7 +1111,8 @@ export class Engine {
         this.isSubsurfaceLensActive,
         cutoff,
         this.currentQuality,
-        indoorId
+        indoorId,
+        this.active2DFloorIndex
       );
     }
 
@@ -1094,8 +1162,8 @@ export class Engine {
     this.weatherSystem.update(deltaTime, this.cameraController.camera.position);
     updateWindTime(deltaTime);
 
-    // Render: uses PostProcessingManager if enabled (GTAO + SMAA + Bloom + Tone Mapping), otherwise direct WebGLRenderer
-    if (this.postProcessingManager.isEnabled()) {
+    // Render: uses PostProcessingManager if enabled in 3D perspective modes, otherwise direct WebGLRenderer (safe & sharp for Orthographic 2D Plan)
+    if (this.postProcessingManager.isEnabled() && !this.is2DPlanMode && !this.cameraController.isOrthographic) {
       this.postProcessingManager.update(
         this.cameraController.camera.position,
         this.cameraController.target
@@ -1427,43 +1495,59 @@ export class Engine {
       this.terrain.resetFlat();
     }
 
-    // 2. Sculpt topography
-    let riverCurve: THREE.Vector3[] | null = null;
-    if (config.topography === 'tropical_river_valley') {
-      if (this.terrain && typeof this.terrain.generateTropicalRiverValley === 'function') {
-        riverCurve = this.terrain.generateTropicalRiverValley();
-      }
-    } else if (config.topography === 'natural_hills') {
-      if (this.terrain && typeof this.terrain.generateNaturalPerimeterHills === 'function') {
+    // 2. Sculpt topography + configurable river parameters
+    const topoMode = normalizeTopographyMode(config.topography);
+    const riverMode = resolveRiverMode(config);
+    const riverWidth = Math.max(8, Math.min(36, config.riverWidth ?? 18));
+    const riverAngleDeg = config.riverAngleDeg ?? 20;
+    const hillHeight = Math.max(4, Math.min(24, config.hillHeight ?? 12));
+
+    const riverCurves2D = riverMode !== 'none'
+      ? computeRiverCurves(riverMode, riverAngleDeg, 175)
+      : [];
+
+    if (topoMode === 'hills' && this.terrain) {
+      if (typeof this.terrain.generateHillsWithHeight === 'function') {
+        this.terrain.generateHillsWithHeight(hillHeight);
+      } else if (typeof this.terrain.generateNaturalPerimeterHills === 'function') {
         this.terrain.generateNaturalPerimeterHills();
       }
+    } else if (topoMode === 'river_valley' && this.terrain && typeof this.terrain.generateRiverValleySlope === 'function') {
+      this.terrain.generateRiverValleySlope(riverCurves2D.map((c) => c.points));
     }
 
-    // 3. Layout template
-    if (config.layoutTemplate === 'blank_canvas') {
-      // Clean empty terrain, ready to build from scratch
-    } else if (config.layoutTemplate === 'malioboro_corridor') {
-      const data = createMalioboroMapData();
-      data.cityTitle = config.cityName || 'Koridor Malioboro Yogyakarta';
-      this.loadWorldState(data);
-    } else if (config.layoutTemplate === 'modern_grid') {
-      const data = createModernGridMapData();
-      data.cityTitle = config.cityName || 'Grid Arsitektur Modern';
-      this.loadWorldState(data);
+    let riverCurves: THREE.Vector3[][] = [];
+    if (riverCurves2D.length > 0 && this.terrain) {
+      if (typeof this.terrain.generateCustomRiverChannels === 'function') {
+        riverCurves = this.terrain.generateCustomRiverChannels(
+          riverCurves2D.map((c) => c.points),
+          riverWidth,
+          riverMode === 'confluence'
+        );
+      } else if (typeof this.terrain.generateTropicalRiverValley === 'function') {
+        riverCurves = [this.terrain.generateTropicalRiverValley()];
+      }
     }
 
-    // If roads exist and river was carved, ensure all road geometries and bridges are fully rebuilt
-    if (config.topography === 'tropical_river_valley' && this.roadManager) {
+    // 3. Layout template (blank, malioboro, modern_grid, radial_boulevard, waterfront_coastal)
+    const presetCityData = createCustomMapCityData(config);
+    if (presetCityData) {
+      this.loadWorldState(presetCityData);
+    }
+
+    // Rebuild all road geometries and automatic concrete bridges across carved rivers
+    if (riverCurves.length > 0 && this.roadManager) {
       this.roadManager.rebuildAll();
     }
 
-    // 4. Initial tree scattering according to treeDensity
-    if (config.treeDensity === 'none') {
+    // 4. Initial tree scattering according to treeDensityPercent (0% - 100%)
+    const treePercent = resolveTreeDensityPercent(config);
+    if (treePercent <= 0) {
       if (config.layoutTemplate === 'blank_canvas') {
         this.landscapeManager.clearAll();
       }
     } else {
-      const count = config.treeDensity === 'lush' ? 55 : 22;
+      const targetTreeCount = Math.round((treePercent / 100) * 85);
       const treeSpecies: LandscapeType[] = [
         'shade_tree',
         'tree_tabebuya_pink',
@@ -1471,25 +1555,22 @@ export class Engine {
         'tree_flamboyan',
         'tree_asam_jawa',
       ];
+      const candidates = generateDeterministicTreeCandidates(targetTreeCount, 125);
       let seeded = 0;
-      let attempts = 0;
-      while (seeded < count && attempts < count * 4) {
-        attempts++;
-        const angle = Math.random() * Math.PI * 2;
-        const rad = 15 + Math.random() * 85;
-        const tx = Math.cos(angle) * rad;
-        const tz = Math.sin(angle) * rad;
+      for (const cand of candidates) {
+        if (seeded >= targetTreeCount) break;
+        const { x: tx, z: tz, rotY, scale } = cand;
 
         // Avoid river trench if present
-        if (riverCurve && this.terrain) {
+        if (riverCurves.length > 0 && this.terrain) {
           const elev = this.terrain.getHeightAt(tx, tz);
           if (elev < -0.1) continue;
         }
 
-        // Avoid asphalt if roads exist
+        // Avoid asphalt/sidewalks if roads exist
         if (this.roadManager && typeof this.roadManager.getNearestRoadSample === 'function') {
           const sample = this.roadManager.getNearestRoadSample(new THREE.Vector2(tx, tz));
-          if (sample && sample.distance < sample.corridorHalfWidth + 2.0) {
+          if (sample && sample.distance < sample.corridorHalfWidth + 2.2) {
             continue;
           }
         }
@@ -1500,8 +1581,6 @@ export class Engine {
         }
 
         const species = treeSpecies[seeded % treeSpecies.length];
-        const rotY = Math.random() * Math.PI * 2;
-        const scale = 0.85 + Math.random() * 0.35;
         const elev = this.terrain ? this.terrain.getHeightAt(tx, tz) : 0;
         this.landscapeManager.addItem({
           id: `custom_tree_${seeded}_${Date.now()}`,
@@ -1512,6 +1591,18 @@ export class Engine {
         });
         seeded++;
       }
+    }
+
+    // Emit latest city stats to UIStore HUD
+    if (this.onBuildingStatsChanged) {
+      let totalFootprint = 0;
+      for (const b of this.buildingManager.buildings.values()) {
+        totalFootprint += BuildingManager.getBuildingGroundArea(b);
+      }
+      this.onBuildingStatsChanged(this.buildingManager.buildings.size, totalFootprint);
+    }
+    if (this.onRoadStatsChanged) {
+      this.onRoadStatsChanged(this.roadManager.graph.getTotalLengthKm());
     }
 
     // 5. Start time and weather
@@ -1599,6 +1690,9 @@ export class Engine {
     if (!this.container) return;
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return;
+    }
 
     this.renderer.setSize(width, height);
     this.cameraController.handleResize();

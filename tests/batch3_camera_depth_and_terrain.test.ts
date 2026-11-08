@@ -47,10 +47,10 @@ describe('B3 & T2, T3: Glitch Jarak Jauh, Horizon Fog, & Floor Plane Alignment',
     const depthRatio = cameraController.camera.far / nearHigh;
     expect(depthRatio).toBeLessThanOrEqual(4000);
 
-    // 3. Walk mode switch: near stays at 0.25 to preserve distant logarithmic depth precision
+    // 3. Walk mode switch: near stays at 0.35 to preserve distant logarithmic depth precision
     cameraController.setWalkMode(true);
     cameraController.update(0.1);
-    expect(cameraController.camera.near).toBeCloseTo(0.25, 2);
+    expect(cameraController.camera.near).toBeCloseTo(0.35, 2);
 
     cameraController.dispose();
   });

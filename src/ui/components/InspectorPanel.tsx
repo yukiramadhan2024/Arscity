@@ -100,9 +100,9 @@ const WhyCard: React.FC<{ principle: WhyPrinciple; targetPos?: THREE.Vector3 }> 
               padding: '6px 12px',
               fontSize: '12px',
               gap: '6px',
-              background: 'rgba(0, 122, 255, 0.1)',
+              background: 'var(--accent-subtle)',
               color: 'var(--accent)',
-              borderColor: 'rgba(0, 122, 255, 0.3)'
+              borderColor: 'var(--border)'
             }}
           >
             <Sparkles size={13} strokeWidth={1.75} />
@@ -184,7 +184,7 @@ export const InspectorPanel: React.FC = () => {
           WebkitBackdropFilter: 'blur(var(--glass-blur)) saturate(180%)',
           border: '1px solid var(--hairline)',
           borderRadius: '24px',
-          boxShadow: '0 0 0 1px rgba(15, 23, 42, 0.09), 0 20px 50px rgba(15, 23, 42, 0.16)',
+          boxShadow: 'var(--shadow-glass)',
           padding: '16px',
           display: 'flex',
           flexDirection: 'column',
@@ -202,8 +202,8 @@ export const InspectorPanel: React.FC = () => {
               {kdbDisplay}%
             </span>
           </div>
-          <div style={{ width: '100%', height: '5px', background: 'var(--fill-control-active)', borderRadius: '9999px', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(100, Math.max(5, kdbDisplay))}%`, height: '100%', background: '#34C759', borderRadius: '9999px' }} />
+          <div style={{ width: '100%', height: '5px', background: 'var(--fill-control)', borderRadius: '9999px', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(100, Math.max(5, kdbDisplay))}%`, height: '100%', background: 'var(--good)', borderRadius: '9999px' }} />
           </div>
         </div>
 
@@ -243,8 +243,8 @@ export const InspectorPanel: React.FC = () => {
               {kdhDisplay}%
             </span>
           </div>
-          <div style={{ width: '100%', height: '5px', background: 'var(--fill-control-active)', borderRadius: '9999px', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(100, Math.max(5, kdhDisplay))}%`, height: '100%', background: '#34C759', borderRadius: '9999px' }} />
+          <div style={{ width: '100%', height: '5px', background: 'var(--fill-control)', borderRadius: '9999px', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(100, Math.max(5, kdhDisplay))}%`, height: '100%', background: 'var(--good)', borderRadius: '9999px' }} />
           </div>
         </div>
 
@@ -253,7 +253,7 @@ export const InspectorPanel: React.FC = () => {
         {/* Blok 4: Termometer */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Thermometer size={16} strokeWidth={2.2} style={{ color: '#007AFF' }} />
+            <Thermometer size={16} strokeWidth={2.2} style={{ color: 'var(--accent)' }} />
             <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--label-secondary)' }}>SUHU</span>
           </div>
           <span className="font-mono tabular-nums font-bold" style={{ fontSize: '15px', color: 'var(--label)' }}>
@@ -268,10 +268,10 @@ export const InspectorPanel: React.FC = () => {
             style={{
               marginTop: '2px',
               padding: '7px 8px',
-              background: 'rgba(52, 199, 89, 0.18)',
-              border: '1px solid rgba(52, 199, 89, 0.45)',
+              background: 'var(--good-subtle)',
+              border: '1px solid var(--good)',
               borderRadius: '12px',
-              color: '#34C759',
+              color: 'var(--good)',
               fontSize: '11px',
               fontWeight: 700,
               cursor: 'pointer',
@@ -298,7 +298,7 @@ export const InspectorPanel: React.FC = () => {
             background: 'var(--accent)',
             border: 'none',
             borderRadius: '12px',
-            color: '#FFFFFF',
+            color: 'var(--on-accent)',
             fontSize: '11px',
             fontWeight: 700,
             cursor: 'pointer',
@@ -306,7 +306,7 @@ export const InspectorPanel: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '4px',
-            boxShadow: '0 2px 8px rgba(10, 132, 255, 0.35)',
+            boxShadow: 'var(--shadow-accent)',
             transition: 'all 0.15s ease',
             width: '100%'
           }}
@@ -406,7 +406,7 @@ export const InspectorPanel: React.FC = () => {
                   {m.kdbPercent.toFixed(1)}% / maks {rule.maxKDB}%
                 </span>
               </div>
-              <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '4px', background: 'var(--fill-control)', borderRadius: '9999px', overflow: 'hidden' }}>
                 <div
                   style={{
                     width: `${Math.min(100, m.kdbPercent)}%`,
@@ -427,7 +427,7 @@ export const InspectorPanel: React.FC = () => {
                   {m.klbRatio.toFixed(1)} / maks {rule.maxKLB}
                 </span>
               </div>
-              <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '4px', background: 'var(--fill-control)', borderRadius: '9999px', overflow: 'hidden' }}>
                 <div
                   style={{
                     width: `${Math.min(100, (m.klbRatio / Math.max(0.1, rule.maxKLB)) * 100)}%`,
@@ -453,7 +453,7 @@ export const InspectorPanel: React.FC = () => {
                   {m.kdhPercent.toFixed(1)}% / min {rule.minKDH}%
                 </span>
               </div>
-              <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '4px', background: 'var(--fill-control)', borderRadius: '9999px', overflow: 'hidden' }}>
                 <div
                   style={{
                     width: `${Math.min(100, m.kdhPercent)}%`,

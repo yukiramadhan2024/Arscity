@@ -5,29 +5,37 @@ export interface ArscityLogoProps {
   className?: string;
   style?: React.CSSProperties;
   showText?: boolean;
+  iconOnly?: boolean;
+  variant?: 'dark' | 'light';
   textColor?: string;
   badge?: string;
 }
 
 /**
- * ArscityLogo - Identitas Visual Resmi Arscity
+ * ArscityLogo - Minimalist Geometric City-Builder Emblem
  *
- * Ikon pita geometris huruf "A" 3D dengan 3 faset warna presisi:
- * 1. Kaki Kanan: Navy Blue (#072D59)
- * 2. Lipatan Puncak Atas (Apex): Cerulean Blue (#1F6AB0)
- * 3. Tengah Kiri (Mid Facet): Biru Muda Cerah / Seal Cyan (#54B4F8)
- * 4. Kaki Kiri Bawah: Biru Medium (#1A5B9C)
- *
- * Teks Wordmark: "ARSCITY" huruf besar, font-weight 800, letter-spacing 0.12em.
+ * Dual-contrast architectural "A" prism & urban skyline mark:
+ * - On Navy Blue (#072D59) dark surfaces (`variant="dark"`): Seal Blue (#DBF2FC) & Crimson Pink (#FD6E8E)
+ * - On Light / Seal Blue (#DBF2FC) surfaces (`variant="light"`): Navy Blue (#072D59) & Crimson Pink (#FD6E8E)
  */
 export const ArscityLogo: React.FC<ArscityLogoProps> = ({
   size = 36,
   className = '',
   style = {},
   showText = true,
-  textColor = '#072D59',
+  iconOnly = false,
+  variant = 'light',
+  textColor,
   badge,
 }) => {
+  const isDarkSurface = variant === 'dark';
+  const primaryColor = isDarkSurface ? '#DBF2FC' : '#072D59';
+  const secondaryColor = isDarkSurface ? '#9ADCF9' : '#133F6E';
+  const accentColor = '#FD6E8E';
+  const resolvedTextColor = textColor || (isDarkSurface ? '#DBF2FC' : '#072D59');
+  const shouldRenderText = showText && !iconOnly;
+  const gradId = `arscityPrism_${variant}_${size}`;
+
   return (
     <div
       className={`inline-flex items-center gap-2.5 select-none ${className}`}
@@ -39,49 +47,49 @@ export const ArscityLogo: React.FC<ArscityLogoProps> = ({
         viewBox="0 0 40 40"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        style={{ flexShrink: 0 }}
+        style={{ flexShrink: 0, display: 'block' }}
         aria-label="Logo Arscity"
       >
         <defs>
-          <linearGradient id="arscityApexShine" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#54B4F8" />
-            <stop offset="100%" stopColor="#1F6AB0" />
+          <linearGradient id={gradId} x1="6" y1="6" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor={primaryColor} />
+            <stop offset="100%" stopColor={secondaryColor} />
           </linearGradient>
         </defs>
 
-        {/* Kaki Kanan (Navy Blue #072D59) dengan sudut membulat */}
+        {/* Left Ascending Architectural Monolith */}
         <path
-          d="M 18.8 5.2 C 19.6 3.8 21.4 3.8 22.2 5.2 L 34.8 31.6 C 35.8 33.6 34.4 35.6 32 35.6 L 25.2 35.6 C 23.8 35.6 22.6 34.8 21.8 33.4 L 19.2 28 L 18.4 21.6 L 18.8 5.2 Z"
-          fill="#072D59"
+          d="M 8 33.5 L 18.2 7.2 C 18.9 5.5 21.1 5.5 21.8 7.2 L 24.4 13.8 L 16.5 33.5 Z"
+          fill={`url(#${gradId})`}
         />
 
-        {/* Lipatan Puncak Atas / Apex (Cerulean Blue #1F6AB0) */}
+        {/* Right Structural Buttress */}
         <path
-          d="M 18.8 5.2 C 19.6 3.8 21.4 3.8 22.2 5.2 L 19.2 15.2 L 14 15.2 L 18.8 5.2 Z"
-          fill="#1F6AB0"
+          d="M 24.4 13.8 L 32 33.5 L 25.4 33.5 L 20.6 20.6 Z"
+          fill={secondaryColor}
         />
 
-        {/* Sisi Kiri Tengah / Mid Facet (Bright Seal Cyan #54B4F8) */}
+        {/* Dynamic Crimson Pink Canton Crossbar / Roof Prism Accent */}
         <path
-          d="M 14 15.2 L 19.2 15.2 L 17.6 24.4 L 9.2 24.4 Z"
-          fill="#54B4F8"
+          d="M 15.2 23.2 L 26.8 23.2 L 28.4 27.6 L 13.6 27.6 Z"
+          fill={accentColor}
         />
 
-        {/* Kaki Kiri Bawah (Medium Blue #1A5B9C) dengan sudut membulat */}
+        {/* Minimal Apex Beacon Triangle */}
         <path
-          d="M 9.2 24.4 L 17.6 24.4 L 13.8 33.4 C 13 34.8 11.8 35.6 10.4 35.6 L 7.6 35.6 C 5.2 35.6 3.8 33.6 4.8 31.6 L 9.2 24.4 Z"
-          fill="#1A5B9C"
+          d="M 20 6 L 23.4 13.6 L 16.6 13.6 Z"
+          fill={accentColor}
         />
       </svg>
 
-      {showText && (
+      {shouldRenderText && (
         <span
           style={{
             fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: `${size * 0.58}px`,
+            fontSize: `${size * 0.56}px`,
             fontWeight: 800,
             letterSpacing: '0.12em',
-            color: textColor,
+            color: resolvedTextColor,
             lineHeight: 1,
             textTransform: 'uppercase',
           }}

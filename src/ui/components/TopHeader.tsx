@@ -143,7 +143,18 @@ export const TopHeader: React.FC = React.memo(() => {
 
   const [showUtilityMenu, setShowUtilityMenu] = useState<boolean>(false);
   const [showWeatherMenu, setShowWeatherMenu] = useState<boolean>(false);
+  const [weatherMenuLeft, setWeatherMenuLeft] = useState<number>(175);
+  const headerRef = useRef<HTMLElement | null>(null);
+  const weatherButtonRef = useRef<HTMLButtonElement | null>(null);
   const [isNarrowScreen, setIsNarrowScreen] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 1440);
+
+  const syncWeatherPopoverPosition = () => {
+    if (headerRef.current && weatherButtonRef.current) {
+      const hRect = headerRef.current.getBoundingClientRect();
+      const bRect = weatherButtonRef.current.getBoundingClientRect();
+      setWeatherMenuLeft(Math.max(40, (bRect.left - hRect.left) + (bRect.width / 2)));
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -247,8 +258,9 @@ export const TopHeader: React.FC = React.memo(() => {
 
   return (
     <>
-      {/* Kapsul Kaca Gelap Terpusat (Unified Dark Slate Glass) */}
+      {/* Kapsul Kaca Navy Terpusat — Outer wrapper 100% transparan, single capsule overflow hidden */}
       <header
+        ref={headerRef}
         className="top-header interactive"
         style={{
           position: 'fixed',
@@ -258,7 +270,12 @@ export const TopHeader: React.FC = React.memo(() => {
           width: 'max-content',
           maxWidth: 'calc(100vw - 32px)',
           zIndex: 50,
-          pointerEvents: 'auto'
+          pointerEvents: 'auto',
+          background: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none'
         }}
       >
         <div
@@ -268,7 +285,9 @@ export const TopHeader: React.FC = React.memo(() => {
             alignItems: 'center',
             gap: '14px',
             padding: '6px 18px',
-            borderRadius: 'var(--radius-capsule)',
+            borderRadius: '9999px',
+            overflow: 'hidden',
+            backgroundClip: 'padding-box',
             userSelect: 'none'
           }}
         >
@@ -323,7 +342,9 @@ export const TopHeader: React.FC = React.memo(() => {
           {/* Bagian Tengah: Tombol Cuaca Interaktif Langsung (Cerah, Berawan, Hujan) */}
           <div style={{ position: 'relative' }}>
             <motion.button
+              ref={weatherButtonRef}
               onClick={() => {
+                syncWeatherPopoverPosition();
                 setShowWeatherMenu(!showWeatherMenu);
                 cycleWeather();
               }}
@@ -350,114 +371,6 @@ export const TopHeader: React.FC = React.memo(() => {
                 {currentWeather.label}
               </span>
             </motion.button>
-
-            {/* Quick 3-Choice Weather Popover with Apple Spring */}
-            <AnimatePresence>
-              {showWeatherMenu && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.92, y: -6 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.92, y: -6 }}
-                  transition={SPRING_SHEET}
-                  style={{
-                    position: 'absolute',
-                    top: '36px',
-                    left: '50%',
-                    transformOrigin: 'top center',
-                    background: 'var(--surface-raised)',
-                    backdropFilter: 'blur(24px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-                    border: '1px solid var(--border-glass)',
-                    borderRadius: '16px',
-                    boxShadow: 'var(--shadow-popover)',
-                    padding: '8px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    zIndex: 'var(--z-hud-popover)' as any
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {weatherOptions.map((opt) => {
-                      const OptIcon = opt.icon;
-                      const isSel = weather === opt.id;
-                      return (
-                        <motion.button
-                          key={opt.id}
-                          onClick={() => {
-                            handleWeatherChange(opt.id);
-                            setShowWeatherMenu(false);
-                          }}
-                          onPointerDown={() => proceduralAudio.playTaptic('selection')}
-                          whileTap={{ scale: 0.95 }}
-                          whileHover={{ scale: 1.02 }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            padding: '6px 10px',
-                            borderRadius: '9999px',
-                            background: isSel ? 'var(--accent)' : 'var(--fill-control)',
-                            border: isSel ? '1px solid var(--accent)' : '1px solid var(--separator)',
-                            boxShadow: isSel ? 'var(--shadow-accent)' : 'none',
-                            color: isSel ? 'var(--on-accent)' : 'var(--label)',
-                            fontSize: '11px',
-                            fontWeight: isSel ? 700 : 500,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          <OptIcon size={13} style={{ color: isSel ? 'var(--on-accent)' : 'currentColor' }} />
-                          <span>{opt.label}</span>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Segmented Control Musim Surya (Mar / Jun / Des) */}
-                  <div style={{ marginTop: '8px', paddingTop: '2px' }}>
-                    <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--label-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
-                      Musim Surya & Deklinasi
-                    </div>
-                    <div style={{ display: 'flex', gap: '3px', background: 'var(--fill-control)', border: 'none', padding: '2px', borderRadius: '8px' }}>
-                      {(['equinox_mar', 'solstice_jun', 'solstice_dec'] as SolarSeason[]).map((s) => {
-                        const info = SOLAR_SEASONS[s];
-                        const isSel = solarSeason === s;
-                        return (
-                          <motion.button
-                            key={s}
-                            onClick={() => {
-                              setSolarSeason(s);
-                              setShowWeatherMenu(false);
-                            }}
-                            onPointerDown={() => proceduralAudio.playTaptic('selection')}
-                            whileTap={{ scale: 0.95 }}
-                            whileHover={{ scale: 1.02 }}
-                            style={{
-                              flex: 1,
-                              padding: '4px 8px',
-                              borderRadius: '5px',
-                              background: isSel ? 'var(--accent)' : 'transparent',
-                              border: 'none',
-                              color: isSel ? '#FFFFFF' : 'var(--label)',
-                              fontSize: '10px',
-                              fontWeight: isSel ? 700 : 500,
-                              fontFamily: 'var(--font-mono)',
-                              cursor: 'pointer',
-                              textAlign: 'center',
-                              whiteSpace: 'nowrap'
-                            }}
-                            title={info.description}
-                          >
-                            {info.shortLabel}
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
           {/* Mode Kamera: Orbit / Pejalan Kaki / Drone View dengan Apple Spring Pill */}
@@ -565,7 +478,7 @@ export const TopHeader: React.FC = React.memo(() => {
                       cursor: 'pointer',
                       whiteSpace: 'nowrap'
                     }}
-                    title={`Potongan horizontal lantai ${fl} (+${((fl - 1) * 3.2 + 1.2).toFixed(1).replace('.', ',')} m)`}
+                    title={`Potongan horizontal lantai ${fl} (+${((fl - 1) * 3.6 + 2.2).toFixed(1).replace('.', ',')} m)`}
                     aria-label={`Lantai ${fl}`}
                   >
                     Lt. {fl}
@@ -636,6 +549,114 @@ export const TopHeader: React.FC = React.memo(() => {
             </motion.button>
           </div>
         </div>
+
+        {/* Quick 3-Choice Weather Popover (Rendered outside capsule so overflow:hidden never clips) */}
+        <AnimatePresence>
+          {showWeatherMenu && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: -6 }}
+              transition={SPRING_SHEET}
+              style={{
+                position: 'absolute',
+                top: '48px',
+                left: `${weatherMenuLeft}px`,
+                transform: 'translateX(-50%)',
+                transformOrigin: 'top center',
+                background: 'var(--surface-raised)',
+                backdropFilter: 'blur(24px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '16px',
+                boxShadow: 'var(--shadow-popover)',
+                padding: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                zIndex: 'var(--z-hud-popover)' as any
+              }}
+            >
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {weatherOptions.map((opt) => {
+                  const OptIcon = opt.icon;
+                  const isSel = weather === opt.id;
+                  return (
+                    <motion.button
+                      key={opt.id}
+                      onClick={() => {
+                        handleWeatherChange(opt.id);
+                        setShowWeatherMenu(false);
+                      }}
+                      onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '6px 10px',
+                        borderRadius: '9999px',
+                        background: isSel ? 'var(--accent)' : 'var(--fill-control)',
+                        border: isSel ? '1px solid var(--accent)' : '1px solid var(--separator)',
+                        boxShadow: isSel ? 'var(--shadow-accent)' : 'none',
+                        color: isSel ? 'var(--on-accent)' : 'var(--label)',
+                        fontSize: '11px',
+                        fontWeight: isSel ? 700 : 500,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      <OptIcon size={13} style={{ color: isSel ? 'var(--on-accent)' : 'currentColor' }} />
+                      <span>{opt.label}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              <div style={{ marginTop: '8px', paddingTop: '2px' }}>
+                <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--label-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
+                  Musim Surya & Deklinasi
+                </div>
+                <div style={{ display: 'flex', gap: '3px', background: 'var(--fill-control)', border: 'none', padding: '2px', borderRadius: '8px' }}>
+                  {(['equinox_mar', 'solstice_jun', 'solstice_dec'] as SolarSeason[]).map((s) => {
+                    const info = SOLAR_SEASONS[s];
+                    const isSel = solarSeason === s;
+                    return (
+                      <motion.button
+                        key={s}
+                        onClick={() => {
+                          setSolarSeason(s);
+                          setShowWeatherMenu(false);
+                        }}
+                        onPointerDown={() => proceduralAudio.playTaptic('selection')}
+                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.02 }}
+                        style={{
+                          flex: 1,
+                          padding: '4px 8px',
+                          borderRadius: '5px',
+                          background: isSel ? 'var(--accent)' : 'transparent',
+                          border: 'none',
+                          color: isSel ? '#FFFFFF' : 'var(--label)',
+                          fontSize: '10px',
+                          fontWeight: isSel ? 700 : 500,
+                          fontFamily: 'var(--font-mono)',
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          whiteSpace: 'nowrap'
+                        }}
+                        title={info.description}
+                      >
+                        {info.shortLabel}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Menu Popover "Kontrol Cepat" dengan Apple Sheet Spring */}
         <AnimatePresence>

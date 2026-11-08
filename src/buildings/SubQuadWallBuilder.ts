@@ -96,10 +96,10 @@ export class SubQuadWallBuilder {
         wallSubGroup.add(mesh);
       }
 
-      // 4. Opening Insert (>= 0.06m outward facade offset + polygonOffset materials for zero z-fighting)
+      // 4. Opening Insert (>= 0.12m outward facade offset + polygonOffset materials for zero z-fighting)
       const opH = op.y1 - op.y0;
       const frameCasingThickness = 0.05;
-      const facadeOffsetZ = thickness * 0.5 + 0.06;
+      const facadeOffsetZ = thickness * 0.5 + 0.12;
       const frameDepth = 0.08;
       const sillProjection = 0.08;
 

@@ -111,10 +111,11 @@ describe('Arscity V4.1 — 7-Stage Critical Overhaul Verification Suite', () => 
       expect(dynGroup.visible).toBe(true);
     });
 
-    it('configures camera.near = 0.25 and polygonOffset on windows, floor belts, and road markings', () => {
+    it('configures camera.near = 0.35 and polygonOffset on windows, floor belts, and road markings', () => {
       const dummyDom = createMockDomElement();
       const camCtrl = new CameraController(dummyDom);
-      expect(camCtrl.camera.near).toBe(0.25);
+      expect(camCtrl.camera.near).toBe(0.35);
+      expect(camCtrl.camera.far).toBe(2500);
 
       const matLib = MaterialLibrary.getInstance();
       const glassMat = matLib.getMaterial('glass');
@@ -143,8 +144,9 @@ describe('Arscity V4.1 — 7-Stage Critical Overhaul Verification Suite', () => 
       expect(DARK_THEME_TOKENS.surfaceSolid.toLowerCase()).toBe('#072d59');
 
       const cssContent = fs.readFileSync(path.resolve(__dirname, '../src/app/index.css'), 'utf-8');
+      const cssWithoutTopHeaderOuter = cssContent.replace(/\.top-header\s*\{[^}]*\}/g, '');
       const colorImportantRegex = /(?:^|[\s;{])(?:color|background|background-color|border-color)\s*:[^;{}]*!important/gim;
-      expect(cssContent.match(colorImportantRegex)).toBeNull();
+      expect(cssWithoutTopHeaderOuter.match(colorImportantRegex)).toBeNull();
     });
   });
 

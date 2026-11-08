@@ -1243,10 +1243,45 @@ input[type="range"].ios-slider:focus-visible {
    ==================================================== */
 .modal-sheet,
 .side-dock-container,
-.inspector-panel,
-.top-header,
-.top-header-capsule {
+.inspector-panel {
   box-shadow: var(--shadow-surface-boundary) !important;
+}
+
+/* TAHAP 2: TopHeader outer wrapper strictly transparent; single inner capsule holds pill blur */
+.top-header {
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.top-header-capsule {
+  background: rgba(7, 45, 89, 0.94);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-radius: 9999px;
+  overflow: hidden;
+  background-clip: padding-box;
+  border: 1px solid var(--border-on-navy);
+  box-shadow: var(--shadow-surface-boundary) !important;
+  color: var(--label-on-navy);
+  --label: var(--label-on-navy);
+  --border: var(--border-on-navy);
+  --fill-control: rgba(219, 242, 252, 0.12);
+  --fill-control-hover: rgba(219, 242, 252, 0.20);
+}
+
+.side-dock-container.arscity-navy-panel {
+  background: rgba(7, 45, 89, 0.95);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(219, 242, 252, 0.22);
+  color: #DBF2FC;
+  --label: #DBF2FC;
+  --border: rgba(219, 242, 252, 0.22);
+  --fill-control: rgba(219, 242, 252, 0.12);
+  --fill-control-hover: rgba(219, 242, 252, 0.22);
 }
 
 /* ====================================================

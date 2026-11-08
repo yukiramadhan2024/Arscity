@@ -6,12 +6,6 @@ import { InteriorInteractiveSystem, InteractiveDoorType } from './InteriorIntera
 
 export class InteriorMeshBuilder {
   private static getMaterial(type: string, color?: string): THREE.Material {
-    if (type === 'warm_light' || type === 'warm_led') {
-      return new THREE.MeshBasicMaterial({ color: 0xffedd5 });
-    }
-    if (type === 'indicator_led') {
-      return new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-    }
     return MaterialLibrary.getInstance().getMaterial(type, { color });
   }
 
@@ -584,7 +578,52 @@ export class InteriorMeshBuilder {
         });
       }
       // -------------------------------------------------------------
-      // B. LIVING ROOM (Ruang Tamu / Keluarga)
+      // B. DINING ROOM (Ruang Makan)
+      // -------------------------------------------------------------
+      else if (room.type === 'dining') {
+        const dinTable = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.75, 0.9), woodMat);
+        dinTable.position.set(lp.x, baseY + 0.375, lp.y);
+        dinTable.castShadow = true;
+        group.add(dinTable);
+
+        const runner = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.02, 0.35), fabricBlue);
+        runner.position.set(lp.x, baseY + 0.76, lp.y);
+        group.add(runner);
+
+        const chairOffsets = [
+          [-0.45, -0.68],
+          [0.45, -0.68],
+          [-0.45, 0.68],
+          [0.45, 0.68]
+        ];
+        chairOffsets.forEach(([cx, cz], idx) => {
+          const ch = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.84, 0.42), darkWoodMat);
+          ch.position.set(lp.x + cx, baseY + 0.42, lp.y + cz);
+          ch.castShadow = true;
+          group.add(ch);
+
+          InteriorInteractiveSystem.getInstance().registerSeat({
+            id: `Seat_${buildingId}_L${layout.floorIndex}_diningroom_${idx}`,
+            type: 'chair',
+            buildingId,
+            floorIndex: layout.floorIndex,
+            worldPosition: new THREE.Vector3(
+              buildingWorldPos.x + lp.x + cx,
+              buildingWorldPos.y + baseY + 0.45,
+              buildingWorldPos.z + lp.y + cz
+            ),
+            facingAngle: 0,
+            label: `Kursi Makan ${idx + 1}`
+          });
+        });
+
+        // Sideboard Buffet Cabinet
+        const sideboard = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.85, 0.45), darkWoodMat);
+        sideboard.position.set(lp.x, baseY + 0.425, Math.min(maxZ - 0.35, lp.y + 1.25));
+        group.add(sideboard);
+      }
+      // -------------------------------------------------------------
+      // C. LIVING ROOM (Ruang Tamu / Keluarga)
       // -------------------------------------------------------------
       else if (room.type === 'living_room') {
         // Modern L-Shape / 3-Seater Sofa with backrest and cushions
@@ -644,6 +683,222 @@ export class InteriorMeshBuilder {
           facingAngle: 0,
           label: 'Sofa Tamu'
         });
+      }
+      // -------------------------------------------------------------
+      // D. RETAIL STOREFRONT (Toko Ruko / Kasir & Rak Pajangan)
+      // -------------------------------------------------------------
+      else if (room.type === 'retail_storefront') {
+        const roomW = Math.max(3.0, maxX - minX);
+        const roomL = Math.max(3.5, maxZ - minZ);
+        const cx = (minX + maxX) * 0.5;
+        const cz = (minZ + maxZ) * 0.5;
+
+        // Cashier Counter (Meja Kasir) near front/side
+        const counterW = Math.min(2.2, roomW * 0.45);
+        const counter = new THREE.Mesh(new THREE.BoxGeometry(counterW, 0.98, 0.68), darkWoodMat);
+        counter.position.set(cx - roomW * 0.22, baseY + 0.49, cz + roomL * 0.18);
+        counter.castShadow = true;
+        group.add(counter);
+
+        // Cashier POS Register Monitor
+        const posMonitor = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.35, 0.08), darkSteelMat);
+        posMonitor.position.set(cx - roomW * 0.22, baseY + 1.18, cz + roomL * 0.18);
+        group.add(posMonitor);
+
+        // Display Shelves / Rak Pajangan along both left & right perimeter
+        const rackLen = Math.min(3.4, roomL * 0.55);
+        [-1, 1].forEach((side) => {
+          const rx = cx + side * Math.max(0.9, roomW * 0.38);
+          const rackBase = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.85, rackLen), darkSteelMat);
+          rackBase.position.set(rx, baseY + 0.925, cz - roomL * 0.05);
+          rackBase.castShadow = true;
+          group.add(rackBase);
+
+          // Color-coded merchandise tiers on display shelf
+          for (let shelfIdx = 0; shelfIdx < 3; shelfIdx++) {
+            const plank = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.06, rackLen), woodMat);
+            plank.position.set(rx, baseY + 0.45 + shelfIdx * 0.55, cz - roomL * 0.05);
+            group.add(plank);
+          }
+        });
+
+        // Central Island Merchandising Table
+        const displayIsland = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.82, 1.4), tileMat);
+        displayIsland.position.set(cx + roomW * 0.08, baseY + 0.41, cz - roomL * 0.05);
+        displayIsland.castShadow = true;
+        group.add(displayIsland);
+      }
+      // -------------------------------------------------------------
+      // E. CAFE DINING & BAR (Konter Bar Kopi + Meja Bistro Pengunjung)
+      // -------------------------------------------------------------
+      else if (room.type === 'cafe_dining') {
+        const roomW = Math.max(3.5, maxX - minX);
+        const roomL = Math.max(3.5, maxZ - minZ);
+        const cx = (minX + maxX) * 0.5;
+        const cz = (minZ + maxZ) * 0.5;
+
+        // Espresso & Cashier Bar Counter
+        const barCounter = new THREE.Mesh(new THREE.BoxGeometry(Math.min(2.8, roomW * 0.55), 1.05, 0.72), darkWoodMat);
+        barCounter.position.set(cx, baseY + 0.525, cz - roomL * 0.25);
+        barCounter.castShadow = true;
+        group.add(barCounter);
+
+        const espressoMachine = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.48, 0.45), stainlessMat);
+        espressoMachine.position.set(cx - 0.5, baseY + 1.29, cz - roomL * 0.25);
+        group.add(espressoMachine);
+
+        // Two Bistro Dining Tables with Paired Visitor Chairs
+        const bistroOffsets = [-1.1, 1.1];
+        bistroOffsets.forEach((bx, idx) => {
+          const table = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.75, 16), woodMat);
+          table.position.set(cx + bx, baseY + 0.375, cz + roomL * 0.16);
+          table.castShadow = true;
+          group.add(table);
+
+          [-0.65, 0.65].forEach((czOff, cIdx) => {
+            const chair = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.82, 0.42), darkSteelMat);
+            chair.position.set(cx + bx, baseY + 0.41, cz + roomL * 0.16 + czOff);
+            group.add(chair);
+
+            InteriorInteractiveSystem.getInstance().registerSeat({
+              id: `Seat_${buildingId}_L${layout.floorIndex}_cafe_${idx}_${cIdx}`,
+              type: 'chair',
+              buildingId,
+              floorIndex: layout.floorIndex,
+              worldPosition: new THREE.Vector3(
+                buildingWorldPos.x + cx + bx,
+                buildingWorldPos.y + baseY + 0.45,
+                buildingWorldPos.z + cz + roomL * 0.16 + czOff
+              ),
+              facingAngle: 0,
+              label: `Kursi Kafe ${idx * 2 + cIdx + 1}`
+            });
+          });
+        });
+      }
+      // -------------------------------------------------------------
+      // F. LOBBY & RECEPTION (Meja Resepsionis Utama + Bangku Tunggu)
+      // -------------------------------------------------------------
+      else if (room.type === 'lobby_reception') {
+        const roomW = Math.max(3.5, maxX - minX);
+        const cx = (minX + maxX) * 0.5;
+        const cz = (minZ + maxZ) * 0.5;
+
+        // Reception Desk with Dual Monitors
+        const recW = Math.min(3.2, roomW * 0.45);
+        const receptionDesk = new THREE.Mesh(new THREE.BoxGeometry(recW, 1.05, 0.8), darkWoodMat);
+        receptionDesk.position.set(cx, baseY + 0.525, cz - 0.5);
+        receptionDesk.castShadow = true;
+        group.add(receptionDesk);
+
+        const recTop = new THREE.Mesh(new THREE.BoxGeometry(recW + 0.1, 0.08, 0.9), tileMat);
+        recTop.position.set(cx, baseY + 1.08, cz - 0.5);
+        group.add(recTop);
+
+        const recMon = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.38, 0.06), darkSteelMat);
+        recMon.position.set(cx, baseY + 1.32, cz - 0.5);
+        group.add(recMon);
+
+        // Visitor Waiting Bench (without living-room TV)
+        const waitBench = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.45, 0.7), fabricBlue);
+        waitBench.position.set(cx, baseY + 0.225, cz + 1.15);
+        waitBench.castShadow = true;
+        group.add(waitBench);
+
+        InteriorInteractiveSystem.getInstance().registerSeat({
+          id: `Seat_${buildingId}_L${layout.floorIndex}_lobby_wait`,
+          type: 'sofa',
+          buildingId,
+          floorIndex: layout.floorIndex,
+          worldPosition: new THREE.Vector3(
+            buildingWorldPos.x + cx,
+            buildingWorldPos.y + baseY + 0.45,
+            buildingWorldPos.z + cz + 1.15
+          ),
+          facingAngle: 0,
+          label: 'Bangku Tunggu Lobi'
+        });
+      }
+      // -------------------------------------------------------------
+      // G. CONFERENCE ROOM (Meja Rapat Eksekutif + Layar Presentasi)
+      // -------------------------------------------------------------
+      else if (room.type === 'conference_room') {
+        const roomW = Math.max(3.0, maxX - minX);
+        const cx = (minX + maxX) * 0.5;
+        const cz = (minZ + maxZ) * 0.5;
+
+        const meetTable = new THREE.Mesh(new THREE.BoxGeometry(Math.min(3.0, roomW * 0.65), 0.76, 1.25), darkWoodMat);
+        meetTable.position.set(cx, baseY + 0.38, cz);
+        meetTable.castShadow = true;
+        group.add(meetTable);
+
+        // Meeting Chairs (6 seats)
+        [-0.85, 0, 0.85].forEach((mx, idx) => {
+          [-0.85, 0.85].forEach((mz, sideIdx) => {
+            const chair = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.9, 0.45), darkSteelMat);
+            chair.position.set(cx + mx, baseY + 0.45, cz + mz);
+            group.add(chair);
+
+            if (idx === 1 && sideIdx === 0) {
+              InteriorInteractiveSystem.getInstance().registerSeat({
+                id: `Seat_${buildingId}_L${layout.floorIndex}_conf`,
+                type: 'chair',
+                buildingId,
+                floorIndex: layout.floorIndex,
+                worldPosition: new THREE.Vector3(
+                  buildingWorldPos.x + cx + mx,
+                  buildingWorldPos.y + baseY + 0.45,
+                  buildingWorldPos.z + cz + mz
+                ),
+                facingAngle: 0,
+                label: 'Kursi Rapat'
+              });
+            }
+          });
+        });
+
+        const screen = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.95, 0.06), darkSteelMat);
+        screen.position.set(cx, baseY + 1.55, minZ + 0.22);
+        group.add(screen);
+      }
+      // -------------------------------------------------------------
+      // H. OFFICE WORKSTATION (Deretan Meja Kerja Bermonitor)
+      // -------------------------------------------------------------
+      else if (room.type === 'office_workstation') {
+        const roomW = Math.max(3.2, maxX - minX);
+        const cx = (minX + maxX) * 0.5;
+        const cz = (minZ + maxZ) * 0.5;
+        const cols = roomW >= 6.0 ? 2 : 1;
+
+        for (let c = 0; c < cols; c++) {
+          const offsetX = cols === 2 ? (c === 0 ? -roomW * 0.22 : roomW * 0.22) : 0;
+          const desk = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.75, 0.8), woodMat);
+          desk.position.set(cx + offsetX, baseY + 0.375, cz);
+          desk.castShadow = true;
+          group.add(desk);
+
+          const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.42, 0.05), darkSteelMat);
+          monitor.position.set(cx + offsetX, baseY + 0.96, cz - 0.18);
+          group.add(monitor);
+
+          const chair = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.5), darkSteelMat);
+          chair.position.set(cx + offsetX, baseY + 0.45, cz + 0.62);
+          group.add(chair);
+
+          InteriorInteractiveSystem.getInstance().registerSeat({
+            id: `Seat_${buildingId}_L${layout.floorIndex}_ws_${c}`,
+            type: 'chair',
+            buildingId,
+            floorIndex: layout.floorIndex,
+            worldPosition: new THREE.Vector3(
+              buildingWorldPos.x + cx + offsetX,
+              buildingWorldPos.y + baseY + 0.45,
+              buildingWorldPos.z + cz + 0.62
+            ),
+            facingAngle: 0,
+            label: `Kursi Workstation ${c + 1}`
+          });
+        }
       }
       // -------------------------------------------------------------
       // C. KITCHEN & DINING (Dapur & Ruang Makan)
@@ -743,6 +998,14 @@ export class InteriorMeshBuilder {
         });
       }
     }
+
+    // Freeze static interior matrices (doors & animated fan blades keep matrixAutoUpdate = true)
+    group.traverse((child) => {
+      if (child !== group && !child.userData?.isAnimated) {
+        child.matrixAutoUpdate = false;
+        child.updateMatrix();
+      }
+    });
 
     return group;
   }

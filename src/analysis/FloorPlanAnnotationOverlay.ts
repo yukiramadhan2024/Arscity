@@ -5,64 +5,149 @@ import { BuildingInstance } from '../buildings/PrefabTypes';
 import { roomStandardsRegistry } from '../buildings/RoomStandards';
 import { InteriorLayoutFactory } from '../buildings/InteriorLayoutFactory';
 
+interface CachedFloorBuilding {
+  signature: string;
+  totalFloors: number;
+  root: THREE.Group;
+  floorGroups: Map<number, THREE.Group>;
+  roofSilhouette: THREE.Mesh;
+}
+
 export class FloorPlanAnnotationOverlay {
   private scene: THREE.Scene;
   private buildingManager: BuildingManager;
   private overlayGroup: THREE.Group;
+  private elevationGroup: THREE.Group;
   public isActive: boolean = false;
   public activeFloorIndex: number = 0;
   private createdTextures: THREE.Texture[] = [];
   private createdGeometries: THREE.BufferGeometry[] = [];
   private createdMaterials: THREE.Material[] = [];
+  private cachedBuildings: Map<string, CachedFloorBuilding> = new Map();
+  private elevationGeometries: THREE.BufferGeometry[] = [];
+  private elevationMaterials: THREE.Material[] = [];
+  private elevationTextures: THREE.Texture[] = [];
 
   constructor(scene: THREE.Scene, buildingManager: BuildingManager) {
     this.scene = scene;
     this.buildingManager = buildingManager;
     this.overlayGroup = new THREE.Group();
     this.overlayGroup.name = 'FloorPlanAnnotationOverlayGroup';
+    this.overlayGroup.visible = false;
     this.scene.add(this.overlayGroup);
+
+    this.elevationGroup = new THREE.Group();
+    this.elevationGroup.name = 'ElevationAnnotationOverlayGroup';
+    this.elevationGroup.visible = false;
+    this.scene.add(this.elevationGroup);
   }
 
   public setActiveFloor(floorIndex: number): void {
-    this.activeFloorIndex = Math.max(0, floorIndex);
+    const safeFloor = Number.isFinite(floorIndex) ? Math.max(0, Math.floor(floorIndex)) : 0;
+    this.activeFloorIndex = safeFloor;
+    if (this.isActive) {
+      this.applyFloorVisibility();
+    }
   }
 
-  public setVisible(visible: boolean, sliceHeight?: number): void {
+  public setVisible(visible: boolean, _sliceHeight?: number): void {
     this.isActive = visible;
-    this.clear();
+    this.overlayGroup.visible = visible;
+    this.elevationGroup.visible = false;
 
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
-    for (const bld of this.buildingManager.buildings.values()) {
-      // Ensure interior layouts exist
-      if (!bld.interiorLayouts || bld.interiorLayouts.length === 0) {
-        bld.interiorLayouts = InteriorLayoutFactory.getLayoutForBuilding(
-          bld.presetKey,
-          bld.width,
-          bld.length,
-          bld.floorHeight || 3.2,
-          bld.floorCount || 1
-        );
+    this.syncCachedBuildings();
+    this.applyFloorVisibility();
+  }
+
+  private getBuildingSignature(bld: BuildingInstance): string {
+    const w = Number.isFinite(bld.width) && bld.width > 0 ? bld.width : 8;
+    const l = Number.isFinite(bld.length) && bld.length > 0 ? bld.length : 8;
+    const fl = Math.max(1, bld.floorCount || 1);
+    const fh = Number.isFinite(bld.floorHeight) && bld.floorHeight > 0 ? bld.floorHeight : 3.2;
+    return `${bld.presetKey}:${w.toFixed(2)}:${l.toFixed(2)}:${fl}:${fh.toFixed(2)}:${bld.interiorVariant || 'a'}`;
+  }
+
+  private syncCachedBuildings(): void {
+    const activeIds = new Set<string>();
+    for (const [id, bld] of this.buildingManager.buildings.entries()) {
+      activeIds.add(id);
+      const sig = this.getBuildingSignature(bld);
+      const existing = this.cachedBuildings.get(id);
+      if (existing && existing.signature === sig) {
+        existing.root.position.set(bld.position.x, 0, bld.position.z);
+        existing.root.rotation.y = bld.rotationY || 0;
+        continue;
       }
 
-      const totalFloors = bld.floorCount || 1;
-      if (this.activeFloorIndex >= totalFloors) continue;
+      if (existing) {
+        this.overlayGroup.remove(existing.root);
+        this.disposeSubtree(existing.root);
+        this.cachedBuildings.delete(id);
+      }
 
-      const floorH = bld.floorHeight || 3.2;
-      const floorElevation = this.activeFloorIndex * floorH;
-      const cutHeight = sliceHeight !== undefined ? sliceHeight : (floorElevation + 1.2);
+      const built = this.buildCachedBuildingNode(bld, sig);
+      this.cachedBuildings.set(id, built);
+      this.overlayGroup.add(built.root);
+    }
 
-      const group = new THREE.Group();
-      group.position.set(bld.position.x, 0, bld.position.z);
-      group.rotation.y = bld.rotationY;
+    // Remove demolished buildings cleanly
+    for (const [id, cached] of this.cachedBuildings.entries()) {
+      if (!activeIds.has(id)) {
+        this.overlayGroup.remove(cached.root);
+        this.disposeSubtree(cached.root);
+        this.cachedBuildings.delete(id);
+      }
+    }
+  }
 
-      const layout = (bld.interiorLayouts && bld.interiorLayouts[this.activeFloorIndex])
-        || (bld.interiorLayouts && bld.interiorLayouts[0]);
+  private buildCachedBuildingNode(bld: BuildingInstance, signature: string): CachedFloorBuilding {
+    if (!Array.isArray(bld.interiorLayouts) || bld.interiorLayouts.length === 0) {
+      bld.interiorLayouts = InteriorLayoutFactory.getLayoutForBuilding(
+        bld.presetKey,
+        bld.width,
+        bld.length,
+        bld.floorHeight || 3.2,
+        Math.max(1, bld.floorCount || 1)
+      );
+    }
+
+    const totalFloors = Math.max(1, bld.floorCount || 1);
+    const floorH = Number.isFinite(bld.floorHeight) && bld.floorHeight > 0 ? bld.floorHeight : 3.2;
+    const bldWidth = Number.isFinite(bld.width) && bld.width > 0 ? bld.width : 8;
+    const bldLength = Number.isFinite(bld.length) && bld.length > 0 ? bld.length : 8;
+
+    const root = new THREE.Group();
+    root.name = `FloorPlanBuilding_${bld.id}`;
+    root.position.set(bld.position.x, 0, bld.position.z);
+    root.rotation.y = bld.rotationY || 0;
+
+    const floorGroups = new Map<number, THREE.Group>();
+
+    const wallCutMat = new THREE.MeshBasicMaterial({
+      color: 0x0f172a, // Dark slate section cut hatch (#0F172A)
+      depthTest: true
+    });
+    this.createdMaterials.push(wallCutMat);
+
+    for (let fl = 0; fl < totalFloors; fl++) {
+      const floorGroup = new THREE.Group();
+      floorGroup.name = `FloorPlanLevel_${fl}`;
+      const floorElevation = fl * floorH;
+
+      const layout =
+        Array.isArray(bld.interiorLayouts) && fl < bld.interiorLayouts.length
+          ? bld.interiorLayouts[fl]
+          : Array.isArray(bld.interiorLayouts) && bld.interiorLayouts.length > 0
+            ? bld.interiorLayouts[0]
+            : null;
 
       if (layout) {
-        // 1. Room zones & translucent surface
-        for (const room of layout.rooms) {
-          const b = room.boundary;
+        for (const room of layout.rooms || []) {
+          const b = room.boundary || [];
           if (b.length >= 3) {
             const shape = new THREE.Shape();
             shape.moveTo(b[0].x, b[0].y);
@@ -87,9 +172,8 @@ export class FloorPlanAnnotationOverlay {
             const surfaceMesh = new THREE.Mesh(geo, mat);
             surfaceMesh.rotation.x = Math.PI * 0.5;
             surfaceMesh.position.y = floorElevation + 0.04;
-            group.add(surfaceMesh);
+            floorGroup.add(surfaceMesh);
 
-            // Room boundary lines
             const points: THREE.Vector3[] = [];
             for (let i = 0; i <= b.length; i++) {
               const pt = b[i % b.length];
@@ -105,29 +189,23 @@ export class FloorPlanAnnotationOverlay {
             });
             this.createdMaterials.push(lineMat);
 
-            const boundaryLine = new THREE.Line(lineGeo, lineMat);
-            group.add(boundaryLine);
+            floorGroup.add(new THREE.Line(lineGeo, lineMat));
           }
 
-          // Room badge sprite
-          const sprite = this.createRoomBadgeSprite(room);
-          if (sprite) {
-            sprite.position.set(room.labelPosition.x, floorElevation + 1.15, room.labelPosition.y);
-            group.add(sprite);
+          if (room.labelPosition) {
+            const sprite = this.createRoomBadgeSprite(room);
+            if (sprite) {
+              sprite.position.set(room.labelPosition.x, floorElevation + 1.15, room.labelPosition.y);
+              floorGroup.add(sprite);
+            }
           }
         }
 
-        // 2. Thick wall section cut outlines (dinding terpotong tebal)
         const cutY = floorElevation + 1.18;
-        const wallCutMat = new THREE.MeshBasicMaterial({
-          color: 0x0f172a, // Dark slate section cut hatch (#0F172A)
-          depthTest: true
-        });
-        this.createdMaterials.push(wallCutMat);
 
-        // A. Interior partition walls
-        if (layout.walls && layout.walls.length > 0) {
+        if (Array.isArray(layout.walls)) {
           for (const wall of layout.walls) {
+            if (!wall.start || !wall.end) continue;
             const dx = wall.end.x - wall.start.x;
             const dz = wall.end.y - wall.start.y;
             const wallLen = Math.hypot(dx, dz);
@@ -142,40 +220,101 @@ export class FloorPlanAnnotationOverlay {
 
             const wallMesh = new THREE.Mesh(wallBoxGeom, wallCutMat);
             wallMesh.position.set(midX, cutY, midZ);
-            group.add(wallMesh);
+            floorGroup.add(wallMesh);
           }
         }
 
-        // B. Exterior perimeter walls (0.20m thick section cut ribbon)
-        const hw = bld.width / 2;
-        const hl = bld.length / 2;
-        const wallThickness = 0.20;
+        // Skip perimeter cut walls for wall-less open pavilions (pendopo / gazebo)
+        const isOpenWallStructure = bld.presetKey?.includes('pendopo') || bld.presetKey?.includes('gazebo');
+        if (!isOpenWallStructure) {
+          const hw = bldWidth / 2;
+          const hl = bldLength / 2;
+          const wallThickness = 0.20;
 
-        // Front & Back perimeter walls
-        const fbGeom = new THREE.BoxGeometry(bld.width, 0.03, wallThickness);
-        this.createdGeometries.push(fbGeom);
-        const frontWall = new THREE.Mesh(fbGeom, wallCutMat);
-        frontWall.position.set(0, cutY, hl - wallThickness / 2);
-        group.add(frontWall);
+          const fbGeom = new THREE.BoxGeometry(bldWidth, 0.03, wallThickness);
+          this.createdGeometries.push(fbGeom);
+          const frontWall = new THREE.Mesh(fbGeom, wallCutMat);
+          frontWall.position.set(0, cutY, hl - wallThickness / 2);
+          floorGroup.add(frontWall);
 
-        const backWall = new THREE.Mesh(fbGeom, wallCutMat);
-        backWall.position.set(0, cutY, -hl + wallThickness / 2);
-        group.add(backWall);
+          const backWall = new THREE.Mesh(fbGeom, wallCutMat);
+          backWall.position.set(0, cutY, -hl + wallThickness / 2);
+          floorGroup.add(backWall);
 
-        // Left & Right perimeter walls
-        const lrGeom = new THREE.BoxGeometry(wallThickness, 0.03, bld.length - 2 * wallThickness);
-        this.createdGeometries.push(lrGeom);
-        const leftWall = new THREE.Mesh(lrGeom, wallCutMat);
-        leftWall.position.set(-hw + wallThickness / 2, cutY, 0);
-        group.add(leftWall);
+          const lrLen = Math.max(0.2, bldLength - 2 * wallThickness);
+          const lrGeom = new THREE.BoxGeometry(wallThickness, 0.03, lrLen);
+          this.createdGeometries.push(lrGeom);
+          const leftWall = new THREE.Mesh(lrGeom, wallCutMat);
+          leftWall.position.set(-hw + wallThickness / 2, cutY, 0);
+          floorGroup.add(leftWall);
 
-        const rightWall = new THREE.Mesh(lrGeom, wallCutMat);
-        rightWall.position.set(hw - wallThickness / 2, cutY, 0);
-        group.add(rightWall);
+          const rightWall = new THREE.Mesh(lrGeom, wallCutMat);
+          rightWall.position.set(hw - wallThickness / 2, cutY, 0);
+          floorGroup.add(rightWall);
+        }
       }
 
-      this.overlayGroup.add(group);
+      floorGroup.visible = false;
+      floorGroups.set(fl, floorGroup);
+      root.add(floorGroup);
     }
+
+    // Dimmed roof silhouette shown safely when viewing floors above this building's totalFloors
+    const silhouetteGeom = new THREE.PlaneGeometry(bldWidth + 0.6, bldLength + 0.6);
+    silhouetteGeom.rotateX(-Math.PI / 2);
+    this.createdGeometries.push(silhouetteGeom);
+
+    const silhouetteMat = new THREE.MeshBasicMaterial({
+      color: 0x072d59,
+      transparent: true,
+      opacity: 0.34,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      clippingPlanes: []
+    });
+    this.createdMaterials.push(silhouetteMat);
+
+    const roofSilhouette = new THREE.Mesh(silhouetteGeom, silhouetteMat);
+    roofSilhouette.name = 'DimmedRoofSilhouette';
+    roofSilhouette.position.y = totalFloors * floorH + 0.05;
+    roofSilhouette.visible = false;
+    root.add(roofSilhouette);
+
+    return {
+      signature,
+      totalFloors,
+      root,
+      floorGroups,
+      roofSilhouette
+    };
+  }
+
+  private applyFloorVisibility(): void {
+    const targetFloor = Math.max(0, this.activeFloorIndex);
+    for (const cached of this.cachedBuildings.values()) {
+      const hasFloor = targetFloor < cached.totalFloors && cached.floorGroups.has(targetFloor);
+      for (const [fl, grp] of cached.floorGroups.entries()) {
+        grp.visible = hasFloor && fl === targetFloor;
+      }
+      cached.roofSilhouette.visible = !hasFloor;
+    }
+  }
+
+  private disposeSubtree(group: THREE.Object3D): void {
+    group.traverse((obj) => {
+      const m = obj as THREE.Mesh;
+      if (m.geometry) m.geometry.dispose();
+      const mat = (m as any).material;
+      if (Array.isArray(mat)) {
+        mat.forEach((entry) => {
+          if (entry?.map) entry.map.dispose();
+          entry?.dispose?.();
+        });
+      } else if (mat) {
+        if (mat.map) mat.map.dispose();
+        mat.dispose?.();
+      }
+    });
   }
 
   private getRoomColor(type: RoomType): number {
@@ -183,13 +322,23 @@ export class FloorPlanAnnotationOverlay {
       case 'bedroom':
         return 0x5e5ce6; // Indigo
       case 'living_room':
-        return 0x007aff; // Apple Blue
+        return 0x072d59; // Navy Blue
+      case 'dining':
+      case 'cafe_dining':
+        return 0xf59e0b; // Warm Amber
       case 'kitchen':
         return 0xff9500; // Amber
       case 'bathroom':
         return 0x30b0c7; // Cyan
       case 'terrace':
         return 0x34c759; // Green
+      case 'retail_storefront':
+        return 0xfd6e8e; // Crimson Pink
+      case 'office_workstation':
+      case 'conference_room':
+        return 0x2563eb; // Architectural Cobalt
+      case 'lobby_reception':
+        return 0x0ea5e9; // Bright Sky
       default:
         return 0x8e8e93; // Muted gray
     }
@@ -271,7 +420,9 @@ export class FloorPlanAnnotationOverlay {
     bld: BuildingInstance,
     _mode: 'elevation' | 'section'
   ): void {
-    this.clear();
+    this.clearElevation();
+    this.overlayGroup.visible = false;
+    this.elevationGroup.visible = true;
     this.isActive = true;
 
     const group = new THREE.Group();
@@ -289,7 +440,7 @@ export class FloorPlanAnnotationOverlay {
       transparent: true,
       opacity: 0.85
     });
-    this.createdMaterials.push(lineMat);
+    this.elevationMaterials.push(lineMat);
 
     const markerX = bldW / 2 + 3.0;
 
@@ -303,7 +454,7 @@ export class FloorPlanAnnotationOverlay {
         new THREE.Vector3(markerX + 4.5, elevY, 0)
       ];
       const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
-      this.createdGeometries.push(lineGeom);
+      this.elevationGeometries.push(lineGeom);
       const line = new THREE.Line(lineGeom, lineMat);
       group.add(line);
 
@@ -319,7 +470,7 @@ export class FloorPlanAnnotationOverlay {
       new THREE.Vector3(markerX + 4.5, roofY, 0)
     ];
     const roofLineGeom = new THREE.BufferGeometry().setFromPoints(roofPts);
-    this.createdGeometries.push(roofLineGeom);
+    this.elevationGeometries.push(roofLineGeom);
     const roofLine = new THREE.Line(roofLineGeom, lineMat);
     group.add(roofLine);
 
@@ -335,7 +486,7 @@ export class FloorPlanAnnotationOverlay {
       new THREE.Vector3(markerX + 8.0, maxRegHeight, 0)
     ];
     const regGeom = new THREE.BufferGeometry().setFromPoints(regPts);
-    this.createdGeometries.push(regGeom);
+    this.elevationGeometries.push(regGeom);
     const regMat = new THREE.LineDashedMaterial({
       color: 0xf59e0b,
       dashSize: 1.2,
@@ -343,7 +494,7 @@ export class FloorPlanAnnotationOverlay {
       transparent: true,
       opacity: 0.95
     });
-    this.createdMaterials.push(regMat);
+    this.elevationMaterials.push(regMat);
     const regLine = new THREE.Line(regGeom, regMat);
     regLine.computeLineDistances();
     group.add(regLine);
@@ -352,7 +503,7 @@ export class FloorPlanAnnotationOverlay {
     regSprite.position.set(markerX + 5.5, maxRegHeight + 0.6, 0);
     group.add(regSprite);
 
-    this.overlayGroup.add(group);
+    this.elevationGroup.add(group);
   }
 
   private createElevationSprite(text: string, color: string): THREE.Sprite {
@@ -377,20 +528,35 @@ export class FloorPlanAnnotationOverlay {
     ctx.fillText(text, 18, 32);
 
     const texture = new THREE.CanvasTexture(canvas);
-    this.createdTextures.push(texture);
+    this.elevationTextures.push(texture);
 
     const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
-    this.createdMaterials.push(mat);
+    this.elevationMaterials.push(mat);
 
     const sprite = new THREE.Sprite(mat);
     sprite.scale.set(6.0, 0.75, 1.0);
     return sprite;
   }
 
+  private clearElevation(): void {
+    while (this.elevationGroup.children.length > 0) {
+      this.elevationGroup.remove(this.elevationGroup.children[0]);
+    }
+    for (const t of this.elevationTextures) t.dispose();
+    for (const g of this.elevationGeometries) g.dispose();
+    for (const m of this.elevationMaterials) m.dispose();
+
+    this.elevationTextures = [];
+    this.elevationGeometries = [];
+    this.elevationMaterials = [];
+  }
+
   public clear(): void {
+    this.clearElevation();
     while (this.overlayGroup.children.length > 0) {
       this.overlayGroup.remove(this.overlayGroup.children[0]);
     }
+    this.cachedBuildings.clear();
     for (const t of this.createdTextures) t.dispose();
     for (const g of this.createdGeometries) g.dispose();
     for (const m of this.createdMaterials) m.dispose();
@@ -403,5 +569,6 @@ export class FloorPlanAnnotationOverlay {
   public dispose(): void {
     this.clear();
     this.scene.remove(this.overlayGroup);
+    this.scene.remove(this.elevationGroup);
   }
 }

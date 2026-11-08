@@ -1087,6 +1087,18 @@ export class FirstPersonController {
     return false;
   }
 
+  private getBuildingFromObject(obj: THREE.Object3D | null): BuildingInstance | null {
+    let cur: THREE.Object3D | null = obj;
+    while (cur) {
+      if (cur.userData?.buildingId && this.buildingManager) {
+        const found = this.buildingManager.buildings.get(cur.userData.buildingId);
+        if (found) return found;
+      }
+      cur = cur.parent;
+    }
+    return null;
+  }
+
   public getPlacedFurnitureFromObject(obj: THREE.Object3D | null): { id: string; type: string } | null {
     let cur: THREE.Object3D | null = obj;
     while (cur) {
@@ -1212,15 +1224,42 @@ export class FirstPersonController {
       );
 
       for (const hit of hits) {
-        // Skip door leaves, portal casings, and interactive doors (furniture is handled by 2D rotated AABB above)
+        // Skip door leaves, portal casings, interactive doors, and non-collidable overlays
         if (
           hit.object.userData?.isDoor ||
           hit.object.userData?.isWalkThroughPortal ||
+          hit.object.userData?.isNoCollision ||
           this.isPlacedFurnitureObject(hit.object) ||
           hit.object.name?.toLowerCase().includes('door') ||
-          hit.object.name?.toLowerCase().includes('portal')
+          hit.object.name?.toLowerCase().includes('portal') ||
+          hit.object.name?.toLowerCase().includes('silhouette')
         ) {
           continue;
+        }
+
+        // Open-wall pavilion handling (pendopo, gazebo): never block entry with outer bounding box;
+        // only collide with solid support columns/pillars (radius 0.25m) or actual solid interior walls
+        const hitBld = this.getBuildingFromObject(hit.object);
+        const isOpenWallBld =
+          hitBld &&
+          (hitBld.presetKey?.includes('pendopo') ||
+            hitBld.presetKey?.includes('gazebo') ||
+            hitBld.userData?.isOpenWallStructure ||
+            hitBld.userData?.isOpenWall);
+
+        if (isOpenWallBld) {
+          const isSupportColumn =
+            hit.object.userData?.isColumn ||
+            hit.object.userData?.isPillar ||
+            hit.object.name?.toLowerCase().includes('col') ||
+            hit.object.name?.toLowerCase().includes('pillar') ||
+            hit.object.name?.toLowerCase().includes('soko') ||
+            hit.object.name?.toLowerCase().includes('umpak');
+
+          if (!isSupportColumn) {
+            // Free walk-through for open pavilion perimeter
+            continue;
+          }
         }
 
         if (hit.distance < playerRadius) {

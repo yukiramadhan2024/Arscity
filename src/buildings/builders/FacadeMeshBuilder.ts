@@ -67,12 +67,12 @@ export class FacadeMeshBuilder {
     // 3. Right wall (+X)
     RoofMeshBuilder.addBox(group, t, totalH, sideL, w * 0.5 - t * 0.5, baseY + totalH * 0.5, 0, wallMat);
 
-    // Clean projected floor belt bands (>= 0.06m outward + polygonOffset) so they never z-fight with side walls
+    // Clean projected floor belt bands (>= 0.12m outward + polygonOffset) so they never z-fight with side walls
     const beltMat = this.getMaterial('floor_belt');
     for (let f = 1; f < floors; f++) {
       const grooveY = baseY + f * flH;
-      RoofMeshBuilder.addBox(group, 0.06, 0.08, sideL * 0.96, -w * 0.5 - 0.06, grooveY, 0, beltMat);
-      RoofMeshBuilder.addBox(group, 0.06, 0.08, sideL * 0.96, w * 0.5 + 0.06, grooveY, 0, beltMat);
+      RoofMeshBuilder.addBox(group, 0.06, 0.08, sideL * 0.96, -w * 0.5 - 0.12, grooveY, 0, beltMat);
+      RoofMeshBuilder.addBox(group, 0.06, 0.08, sideL * 0.96, w * 0.5 + 0.12, grooveY, 0, beltMat);
     }
 
     // 4. Front wall (+Z)
@@ -112,22 +112,23 @@ export class FacadeMeshBuilder {
 
     for (let f = 1; f < floors; f++) {
       const slabBaseY = baseY + f * flH;
+      const slabCenterY = slabBaseY - slabThick * 0.5 - 0.002;
       const leftSlabW = (innerW - atriumW) * 0.5;
       if (leftSlabW > 0.2) {
-        RoofMeshBuilder.addBox(group, leftSlabW, slabThick, innerL, -innerW * 0.5 + leftSlabW * 0.5, slabBaseY + slabThick * 0.5, 0, slabMat);
-        RoofMeshBuilder.addBox(group, leftSlabW, slabThick, innerL, innerW * 0.5 - leftSlabW * 0.5, slabBaseY + slabThick * 0.5, 0, slabMat);
+        RoofMeshBuilder.addBox(group, leftSlabW, slabThick, innerL, -innerW * 0.5 + leftSlabW * 0.5, slabCenterY, 0, slabMat);
+        RoofMeshBuilder.addBox(group, leftSlabW, slabThick, innerL, innerW * 0.5 - leftSlabW * 0.5, slabCenterY, 0, slabMat);
       }
       const backSlabL = innerL - atriumL;
       if (backSlabL > 0.2) {
-        RoofMeshBuilder.addBox(group, atriumW, slabThick, backSlabL, 0, slabBaseY + slabThick * 0.5, -innerL * 0.5 + backSlabL * 0.5, slabMat);
+        RoofMeshBuilder.addBox(group, atriumW, slabThick, backSlabL, 0, slabCenterY, -innerL * 0.5 + backSlabL * 0.5, slabMat);
       }
 
       // Atrium perimeter glass balustrades & warm ceiling uplight
       const railH = 1.0;
-      RoofMeshBuilder.addBox(group, atriumW, 0.04, 0.04, 0, slabBaseY + slabThick + railH, innerL * 0.5 - atriumL, frameMat);
-      RoofMeshBuilder.addBox(group, 0.04, 0.04, atriumL, -atriumW * 0.5, slabBaseY + slabThick + railH, innerL * 0.5 - atriumL * 0.5, frameMat);
-      RoofMeshBuilder.addBox(group, 0.04, 0.04, atriumL, atriumW * 0.5, slabBaseY + slabThick + railH, innerL * 0.5 - atriumL * 0.5, frameMat);
-      RoofMeshBuilder.addBox(group, atriumW * 0.8, 0.06, 0.12, 0, slabBaseY - 0.03, innerL * 0.5 - atriumL * 0.5, warmLightMat);
+      RoofMeshBuilder.addBox(group, atriumW, 0.04, 0.04, 0, slabBaseY + railH, innerL * 0.5 - atriumL, frameMat);
+      RoofMeshBuilder.addBox(group, 0.04, 0.04, atriumL, -atriumW * 0.5, slabBaseY + railH, innerL * 0.5 - atriumL * 0.5, frameMat);
+      RoofMeshBuilder.addBox(group, 0.04, 0.04, atriumL, atriumW * 0.5, slabBaseY + railH, innerL * 0.5 - atriumL * 0.5, frameMat);
+      RoofMeshBuilder.addBox(group, atriumW * 0.8, 0.06, 0.12, 0, slabBaseY - slabThick - 0.03, innerL * 0.5 - atriumL * 0.5, warmLightMat);
     }
   }
 
@@ -147,7 +148,7 @@ export class FacadeMeshBuilder {
     hasLouvers: boolean = false
   ): void {
     const frameThickness = 0.05;
-    const minFacadeOffset = 0.06; // >= 0.06m proud of main wall face to eliminate all z-fighting
+    const minFacadeOffset = 0.12; // >= 0.12m proud of main wall face to eliminate all z-fighting
     const frameDepth = 0.06;
 
     // Realistic night window illumination: alternate between warm lit and dark unlit panes
@@ -241,7 +242,7 @@ export class FacadeMeshBuilder {
 
     const doorH = h * 0.82;
     const doorW = w - 0.40;
-    const doorZ = posZ + dirZ * 0.06; // >= 0.06m proud of wall surface
+    const doorZ = posZ + dirZ * 0.12; // >= 0.12m proud of wall surface
 
     // 1. Top lintel and side guide tracks
     const trackW = 0.08;
@@ -264,7 +265,7 @@ export class FacadeMeshBuilder {
     const signH = Math.max(0.60, h - doorH - 0.15);
     const signW = w - 0.20;
     const signY = posY + doorH * 0.5 + signH * 0.5 + 0.05;
-    const signZ = posZ + dirZ * 0.08;
+    const signZ = posZ + dirZ * 0.14;
     RoofMeshBuilder.addBox(group, signW, signH, 0.06, posX, signY, signZ, signMat);
   }
 

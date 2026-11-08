@@ -222,7 +222,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                color: '#072D59',
+                color: 'var(--label)',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 marginBottom: '8px'
@@ -233,18 +233,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div
               className="inset-group"
               style={{
-                background: 'rgba(255, 255, 255, 0.94)',
+                background: 'var(--surface-raised)',
                 borderRadius: '16px',
-                border: '1px solid rgba(219, 242, 252, 0.28)',
-                boxShadow: '0 4px 16px rgba(7, 45, 89, 0.16)',
+                border: '1px solid rgba(7, 45, 89, 0.16)',
+                boxShadow: '0 4px 16px rgba(7, 45, 89, 0.10)',
                 overflow: 'hidden',
                 color: '#072D59',
                 '--label': '#072D59',
-                '--label-secondary': '#475569',
-                '--labelSecondary': '#475569',
+                '--label-secondary': '#1E4673',
+                '--labelSecondary': '#1E4673',
                 '--foreground': '#072D59',
                 '--fill-control': 'rgba(7, 45, 89, 0.08)',
-                '--hairline': 'rgba(7, 45, 89, 0.15)',
+                '--hairline': 'rgba(7, 45, 89, 0.16)',
               } as React.CSSProperties}
             >
               {/* Toggle Kurangi Animasi Antarmuka */}
@@ -342,7 +342,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                color: '#072D59',
+                color: 'var(--label)',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 marginBottom: '8px'
@@ -353,18 +353,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div
               className="inset-group"
               style={{
-                background: 'rgba(255, 255, 255, 0.94)',
+                background: 'var(--surface-raised)',
                 borderRadius: '16px',
-                border: '1px solid rgba(219, 242, 252, 0.28)',
-                boxShadow: '0 4px 16px rgba(7, 45, 89, 0.16)',
+                border: '1px solid rgba(7, 45, 89, 0.16)',
+                boxShadow: '0 4px 16px rgba(7, 45, 89, 0.10)',
                 overflow: 'hidden',
                 color: '#072D59',
                 '--label': '#072D59',
-                '--label-secondary': '#475569',
-                '--labelSecondary': '#475569',
+                '--label-secondary': '#1E4673',
+                '--labelSecondary': '#1E4673',
                 '--foreground': '#072D59',
                 '--fill-control': 'rgba(7, 45, 89, 0.08)',
-                '--hairline': 'rgba(7, 45, 89, 0.15)',
+                '--hairline': 'rgba(7, 45, 89, 0.16)',
               } as React.CSSProperties}
             >
               {/* Segmented Control iOS Preset Grafis */}
@@ -497,7 +497,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                color: '#072D59',
+                color: 'var(--label)',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 marginBottom: '8px'
@@ -508,18 +508,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div
               className="inset-group"
               style={{
-                background: 'rgba(255, 255, 255, 0.94)',
+                background: 'var(--surface-raised)',
                 borderRadius: '16px',
-                border: '1px solid rgba(219, 242, 252, 0.28)',
-                boxShadow: '0 4px 16px rgba(7, 45, 89, 0.16)',
+                border: '1px solid rgba(7, 45, 89, 0.16)',
+                boxShadow: '0 4px 16px rgba(7, 45, 89, 0.10)',
                 overflow: 'hidden',
                 color: '#072D59',
                 '--label': '#072D59',
-                '--label-secondary': '#475569',
-                '--labelSecondary': '#475569',
+                '--label-secondary': '#1E4673',
+                '--labelSecondary': '#1E4673',
                 '--foreground': '#072D59',
                 '--fill-control': 'rgba(7, 45, 89, 0.08)',
-                '--hairline': 'rgba(7, 45, 89, 0.15)',
+                '--hairline': 'rgba(7, 45, 89, 0.16)',
               } as React.CSSProperties}
             >
               {/* Toggle Efek Suara Interaksi */}
@@ -668,12 +668,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 className="inset-group"
                 style={{
                   marginTop: '6px',
-                  background: 'rgba(255, 255, 255, 0.78)',
+                  background: 'var(--surface-raised)',
                   borderRadius: '16px',
-                  border: '1px solid rgba(15, 23, 42, 0.06)',
-                  boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03)',
-                  overflow: 'hidden'
-                }}
+                  border: '1px solid rgba(7, 45, 89, 0.16)',
+                  boxShadow: '0 4px 16px rgba(7, 45, 89, 0.10)',
+                  overflow: 'hidden',
+                  color: '#072D59',
+                  '--label': '#072D59',
+                  '--label-secondary': '#1E4673',
+                  '--foreground': '#072D59',
+                  '--fill-control': 'rgba(7, 45, 89, 0.08)',
+                } as React.CSSProperties}
               >
                 {/* Indikator FPS */}
                 <div

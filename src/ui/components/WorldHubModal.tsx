@@ -605,18 +605,18 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
           <div
             style={{
               padding: '10px 20px',
-              backgroundColor: '#EFF6FF',
-              borderBottom: '1px solid #DBEAFE',
-              color: '#1E40AF',
+              backgroundColor: 'var(--surface-raised)',
+              borderBottom: '1px solid var(--border)',
+              color: 'var(--label)',
               fontSize: '12.5px',
-              fontWeight: 500,
+              fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
             }}
           >
-            <Sparkles size={14} style={{ color: '#2563EB' }} />
+            <Sparkles size={14} style={{ color: 'var(--accent)' }} />
             <span>{importStatus}</span>
           </div>
         )}
@@ -778,7 +778,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 style={{
                   fontSize: '11px',
                   fontWeight: 700,
-                  color: '#64748B',
+                  color: 'var(--label-secondary)',
                   letterSpacing: '0.04em',
                   textTransform: 'uppercase',
                   marginBottom: '8px',
@@ -802,10 +802,10 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '10px 14px',
-                      background: '#FFFFFF',
-                      border: '1px solid #CBD5E1',
+                      background: 'var(--surface-raised)',
+                      border: '1px solid var(--border)',
                       borderRadius: '14px',
-                      boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+                      boxShadow: 'var(--shadow-card)',
                       transition: 'border-color 150ms ease',
                     }}
                   >
@@ -816,8 +816,8 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                       <div
                         style={{
                           fontSize: '13px',
-                          fontWeight: 600,
-                          color: '#0F172A',
+                          fontWeight: 700,
+                          color: 'var(--label)',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis'
@@ -825,7 +825,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                       >
                         {m.name}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--label-secondary)', marginTop: '2px' }}>
                         {m.buildingCount} Gedung • {m.roadCount} Jalan • {formatDateShort(m.updatedAt)}
                       </div>
                     </div>
@@ -855,13 +855,13 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                           width: '28px',
                           height: '28px',
                           borderRadius: '8px',
-                          background: 'transparent',
-                          border: '1px solid #CBD5E1',
+                          background: 'var(--fill-control)',
+                          border: '1px solid var(--border)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           cursor: 'pointer',
-                          color: '#64748B'
+                          color: 'var(--label)'
                         }}
                         title="Opsi Kota"
                       >
@@ -877,10 +877,10 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                             right: 0,
                             top: menuFlipUp ? 'auto' : '34px',
                             bottom: menuFlipUp ? '34px' : 'auto',
-                            background: '#FFFFFF',
-                            border: '1px solid #CBD5E1',
+                            background: 'var(--surface-raised)',
+                            border: '1px solid var(--border)',
                             borderRadius: '12px',
-                            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
+                            boxShadow: 'var(--shadow-popover)',
                             padding: '4px',
                             zIndex: 30,
                             minWidth: '130px',
@@ -902,7 +902,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                               background: 'transparent',
                               border: 'none',
                               fontSize: '12px',
-                              color: '#0F172A',
+                              color: 'var(--label)',
                               cursor: 'pointer',
                               textAlign: 'left'
                             }}
@@ -922,7 +922,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                               background: 'transparent',
                               border: 'none',
                               fontSize: '12px',
-                              color: '#0F172A',
+                              color: 'var(--label)',
                               cursor: 'pointer',
                               textAlign: 'left'
                             }}
@@ -942,7 +942,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                               background: 'transparent',
                               border: 'none',
                               fontSize: '12px',
-                              color: '#0F172A',
+                              color: 'var(--label)',
                               cursor: 'pointer',
                               textAlign: 'left'
                             }}
@@ -951,7 +951,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                             <span>Ekspor (.arscity)</span>
                           </button>
 
-                          <div style={{ height: '1px', background: '#E2E8F0', margin: '2px 0' }} />
+                          <div style={{ height: '1px', background: 'var(--separator)', margin: '2px 0' }} />
 
                           <button
                             onClick={() => handleDeleteCity(m)}
@@ -964,7 +964,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                               background: 'transparent',
                               border: 'none',
                               fontSize: '12px',
-                              color: '#EF4444',
+                              color: 'var(--bad)',
                               cursor: 'pointer',
                               textAlign: 'left'
                             }}
@@ -1000,11 +1000,11 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
         >
           <div
             style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              border: '1px solid #CBD5E1',
+              backgroundColor: 'var(--surface-raised)',
+              border: '1px solid var(--border)',
               borderRadius: '24px',
               padding: '28px 36px',
-              boxShadow: '0 12px 36px rgba(15, 23, 42, 0.12)',
+              boxShadow: 'var(--shadow-modal)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -1017,8 +1017,8 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
                 width: '44px',
                 height: '44px',
                 borderRadius: '50%',
-                border: '3px solid rgba(0, 122, 255, 0.15)',
-                borderTopColor: '#007AFF',
+                border: '3px solid var(--accent-subtle)',
+                borderTopColor: 'var(--accent)',
                 animation: 'spin 0.8s linear infinite',
               }}
             />
@@ -1026,7 +1026,7 @@ export const WorldHubModal: React.FC<WorldHubModalProps> = ({ isOpen = true, onC
               style={{
                 fontSize: '15px',
                 fontWeight: 600,
-                color: '#0F172A',
+                color: 'var(--label)',
                 letterSpacing: '-0.01em',
               }}
             >

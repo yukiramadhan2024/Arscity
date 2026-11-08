@@ -591,26 +591,90 @@ export class Terrain {
   }
 
   /**
-   * Generates smooth natural perimeter hills around the district border (Tahap 2).
-   * Keeps the central buildable basin (radius < 85m) flat at Y = 0 while sculpting
-   * rolling perimeter hills up to 14m high on the outer borders.
+   * Smoothly carves one or more custom river channels by mode, width (8-36m), and flow angle.
    */
-  public generateNaturalPerimeterHills(): void {
+  public generateCustomRiverChannels(
+    curves2D: Array<Array<[number, number]>>,
+    widthMeters: number = 18,
+    isConfluence: boolean = false
+  ): THREE.Vector3[][] {
+    const outCurves: THREE.Vector3[][] = [];
+    const safeWidth = Math.max(8, Math.min(36, widthMeters));
+    curves2D.forEach((pts2D, idx) => {
+      const vecs = pts2D.map(([x, z]) => new THREE.Vector3(x, 0, z));
+      const w = idx > 0 && isConfluence ? Math.max(8, safeWidth * 0.72) : safeWidth;
+      const depth = idx > 0 && isConfluence ? 1.85 : 2.35;
+      this.carveRiverTrench(vecs, w, depth);
+      outCurves.push(vecs);
+    });
+    return outCurves;
+  }
+
+  /**
+   * Sculpts a gentle river-valley terrain depression framing the river corridor.
+   */
+  public generateRiverValleySlope(curves2D: Array<Array<[number, number]>>): void {
     const pos = this.mesh.geometry.attributes.position;
     if (!pos) return;
+
+    const valleyHalfWidth = 135;
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      const vz = pos.getZ(i);
+      let minDist = Infinity;
+      for (const pts of curves2D) {
+        if (pts.length < 2) continue;
+        for (let s = 0; s < pts.length - 1; s++) {
+          const d = Math.sqrt(
+            this.distToSegmentSquared(vx, vz, pts[s][0], pts[s][1], pts[s + 1][0], pts[s + 1][1])
+          );
+          if (d < minDist) minDist = d;
+        }
+      }
+      if (!Number.isFinite(minDist)) {
+        minDist = Math.abs(vz);
+      }
+      if (minDist > 32) {
+        const slopeT = Math.min(1.0, (minDist - 32) / valleyHalfWidth);
+        const smooth = slopeT * slopeT * (3 - 2 * slopeT);
+        const undulation = Math.sin(vx * 0.03) * Math.cos(vz * 0.03) * 1.4;
+        const elev = smooth * 7.5 + Math.max(0, undulation * smooth);
+        pos.setY(i, pos.getY(i) + elev);
+      }
+    }
+    pos.needsUpdate = true;
+    this.mesh.geometry.computeVertexNormals();
+  }
+
+  /**
+   * Generates rolling perimeter hills scaled by configurable hillHeight (4m - 24m).
+   */
+  public generateHillsWithHeight(hillHeight: number = 12): void {
+    const pos = this.mesh.geometry.attributes.position;
+    if (!pos) return;
+    const hScale = Math.max(2, Math.min(30, hillHeight)) / 12.0;
     for (let i = 0; i < pos.count; i++) {
       const vx = pos.getX(i);
       const vz = pos.getZ(i);
       const distFromCenter = Math.hypot(vx, vz);
-      if (distFromCenter > 80) {
-        const hillRatio = Math.min(1.0, (distFromCenter - 80) / 90);
+      if (distFromCenter > 76) {
+        const hillRatio = Math.min(1.0, (distFromCenter - 76) / 95);
         const wave = Math.sin(vx * 0.035) * Math.cos(vz * 0.035) * 4.5 + Math.sin(vx * 0.075 + vz * 0.055) * 2.0;
-        const elevation = hillRatio * 9.5 + Math.max(0, wave * hillRatio);
+        const elevation = (hillRatio * 9.5 + Math.max(0, wave * hillRatio)) * hScale;
         pos.setY(i, Math.max(0, elevation));
       }
     }
     pos.needsUpdate = true;
     this.mesh.geometry.computeVertexNormals();
+  }
+
+  /**
+   * Generates smooth natural perimeter hills around the district border (Tahap 2).
+   * Keeps the central buildable basin (radius < 85m) flat at Y = 0 while sculpting
+   * rolling perimeter hills up to 14m high on the outer borders.
+   */
+  public generateNaturalPerimeterHills(): void {
+    this.generateHillsWithHeight(12);
   }
 
   public setSubsurfaceXRay(enabled: boolean): void {

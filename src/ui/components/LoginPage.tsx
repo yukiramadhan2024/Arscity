@@ -6,9 +6,10 @@ import {
   Volume2,
   VolumeX,
   ArrowRight,
-  Crosshair,
-  Train,
-  CheckCircle2,
+  Compass,
+  Building2,
+  Route,
+  Clock,
 } from 'lucide-react';
 import { useUIStore } from '../state/useUIStore';
 import { ArscityLogo } from './ArscityLogo';
@@ -16,6 +17,8 @@ import { IndexedDBStorage, SavedMapMeta } from '../../io/IndexedDBStorage';
 import { GeoJSONImporter } from '../../io/GeoJSONImporter';
 import { proceduralAudio } from '../../audio/ProceduralAudio';
 import { showSnackbar } from '../state/useSnackbarStore';
+import { CitySaveData } from '../../io/CitySerializer';
+import { createMalioboroMapData } from '../../world/MalioboroPreset';
 
 export interface LoginPageProps {
   onSuccess?: () => void;
@@ -25,6 +28,37 @@ export const ArchitecturalCityBackground: React.FC<React.HTMLAttributes<HTMLDivE
   <div {...props} style={{ pointerEvents: 'none', ...(props.style || {}) }} />
 );
 
+interface CityLaunchSummary {
+  id: string | null;
+  name: string;
+  buildingCount: number;
+  roadLengthKm: number;
+  timeOfDay: number;
+  isFallbackPreset: boolean;
+}
+
+function formatWibClock(hourFloat: number): string {
+  const normalized = ((hourFloat % 24) + 24) % 24;
+  const hh = Math.floor(normalized);
+  const mm = Math.round((normalized - hh) * 60) % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} WIB`;
+}
+
+function computeRoadLengthKmFromSave(data: CitySaveData): number {
+  const edges = data?.roads?.edges || [];
+  let totalMeters = 0;
+  for (const edge of edges) {
+    if (typeof edge.length === 'number' && Number.isFinite(edge.length)) {
+      totalMeters += edge.length;
+    } else if (Array.isArray(edge.controlPoints) && edge.controlPoints.length >= 2) {
+      const p0 = edge.controlPoints[0];
+      const pN = edge.controlPoints[edge.controlPoints.length - 1];
+      totalMeters += Math.hypot((pN[0] || 0) - (p0[0] || 0), (pN[2] || 0) - (p0[2] || 0));
+    }
+  }
+  return totalMeters / 1000;
+}
+
 export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
   const {
     loginAsGuest,
@@ -32,18 +66,54 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
     loadMap,
     engine,
     openNewMapCustomizer,
+    setShowCustomBuildingStudio,
   } = useUIStore();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [savedMaps, setSavedMaps] = useState<SavedMapMeta[]>([]);
+  const [latestSummary, setLatestSummary] = useState<CityLaunchSummary>(() => {
+    const preset = createMalioboroMapData();
+    return {
+      id: null,
+      name: preset.cityTitle || 'Koridor Malioboro Yogyakarta',
+      buildingCount: (preset.buildings?.length || 0) + (preset.customBuildings?.length || 0),
+      roadLengthKm: computeRoadLengthKmFromSave(preset),
+      timeOfDay: preset.environment?.timeOfDay ?? 16.25,
+      isFallbackPreset: true,
+    };
+  });
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(true);
   const [isImporting, setIsImporting] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
     IndexedDBStorage.listSavedMaps()
-      .then((list) => {
-        if (isMounted) setSavedMaps(list || []);
+      .then(async (list) => {
+        if (!isMounted || !list || list.length === 0) return;
+        setSavedMaps(list);
+        const latestMeta = list[0];
+        const saveData = await IndexedDBStorage.loadMapById(latestMeta.id);
+        if (!isMounted) return;
+        if (saveData) {
+          setLatestSummary({
+            id: latestMeta.id,
+            name: saveData.cityTitle || latestMeta.name,
+            buildingCount:
+              (saveData.buildings?.length || 0) + (saveData.customBuildings?.length || 0),
+            roadLengthKm: computeRoadLengthKmFromSave(saveData),
+            timeOfDay: saveData.environment?.timeOfDay ?? 16.25,
+            isFallbackPreset: false,
+          });
+        } else {
+          setLatestSummary({
+            id: latestMeta.id,
+            name: latestMeta.name,
+            buildingCount: latestMeta.buildingCount || 0,
+            roadLengthKm: (latestMeta.roadCount || 0) * 0.06,
+            timeOfDay: 16.25,
+            isFallbackPreset: false,
+          });
+        }
       })
       .catch(() => {});
     return () => {
@@ -62,8 +132,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
   const handleContinueLast = async () => {
     proceduralAudio.playTaptic('medium');
     loginAsGuest();
-    if (savedMaps.length > 0) {
-      await loadMap('saved', savedMaps[0].id, savedMaps[0].name);
+    if (latestSummary.id && savedMaps.length > 0) {
+      await loadMap('saved', latestSummary.id, latestSummary.name);
     } else {
       await loadMap('malioboro', 'malioboro_preset', 'Koridor Malioboro Yogyakarta');
     }
@@ -76,6 +146,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
     loginAsGuest();
     openMapHub();
     if (onSuccess) onSuccess();
+  };
+
+  const handleOpenStandaloneCad = () => {
+    proceduralAudio.playTaptic('medium');
+    setShowCustomBuildingStudio(true);
   };
 
   const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,7 +170,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         const res = await GeoJSONImporter.importFromFile(file, targetEngine);
         showSnackbar({
           variant: 'success',
-          title: 'Berkas CAD Berhasil Diimpor',
+          title: 'Peta Berhasil Diimpor',
           detail: `+${res.roadsCount} Jalan • +${res.buildingsCount} Gedung`,
         });
       }
@@ -119,12 +194,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
     proceduralAudio.setMuted(nextMuted);
   };
 
-  const latestCityName = savedMaps.length > 0 ? savedMaps[0].name : null;
-
   return (
     <main
       className="auth-root-container"
-      aria-label="Gerbang Masuk Arscity - Rancang Kota Impian"
+      aria-label="Gerbang Masuk Arscity - Architectural City Builder Launchpad"
       style={{
         position: 'fixed',
         inset: 0,
@@ -132,7 +205,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
-        background: 'linear-gradient(135deg, #DBF2FC 0%, #F4FAFF 50%, #DBF2FC 100%)',
+        background: 'linear-gradient(155deg, #DBF2FC 0%, #EFF8FD 52%, #D3EFFA 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -142,36 +215,60 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* 1. Latar Belakang Luar Layar Penuh: Pola Garis Arsitektur Isometrik CAD Blueprint */}
+      {/* 1. Latar Belakang Topografi & Jaringan Jalan Masterplan Halus (Non-Grid) */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
-        style={{ opacity: 0.16 }}
       >
-        <defs>
-          <pattern id="isoBlueprintGrid" width="120" height="70" patternUnits="userSpaceOnUse">
-            {/* Isometric 30-degree grid axes */}
-            <path
-              d="M 0 35 L 60 0 L 120 35 L 60 70 Z"
-              fill="none"
-              stroke="#072D59"
-              strokeWidth="0.8"
-              strokeDasharray="4 3"
-            />
-            <path
-              d="M 60 0 L 60 70"
-              fill="none"
-              stroke="#072D59"
-              strokeWidth="0.5"
-              strokeDasharray="2 4"
-            />
-            {/* Cadastral Lot Subdivisions */}
-            <rect x="25" y="18" width="22" height="14" fill="none" stroke="#072D59" strokeWidth="0.6" />
-            <rect x="73" y="38" width="22" height="14" fill="none" stroke="#072D59" strokeWidth="0.6" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#isoBlueprintGrid)" />
+        <g fill="none" stroke="#072D59">
+          {/* Garis Kontur Topografi Organik */}
+          <path
+            d="M-80 180 C 180 110, 420 260, 720 190 C 980 130, 1210 60, 1520 160"
+            strokeOpacity="0.09"
+            strokeWidth="1.2"
+          />
+          <path
+            d="M-80 230 C 190 160, 450 315, 740 245 C 1010 180, 1230 115, 1520 215"
+            strokeOpacity="0.07"
+            strokeWidth="1"
+          />
+          <path
+            d="M-80 285 C 210 215, 480 370, 760 300 C 1030 235, 1250 170, 1520 270"
+            strokeOpacity="0.06"
+            strokeWidth="0.9"
+          />
+          <path
+            d="M-60 690 C 240 610, 520 790, 860 700 C 1120 630, 1300 720, 1510 660"
+            strokeOpacity="0.09"
+            strokeWidth="1.2"
+          />
+          <path
+            d="M-60 745 C 260 665, 540 845, 880 755 C 1140 685, 1320 775, 1510 715"
+            strokeOpacity="0.06"
+            strokeWidth="0.9"
+          />
+          {/* Jaringan Koridor Arterial Masterplan Kota */}
+          <path
+            d="M -40 540 Q 410 470, 760 515 T 1500 410"
+            strokeOpacity="0.11"
+            strokeWidth="2.4"
+          />
+          <path
+            d="M 210 -30 C 280 240, 295 520, 390 930"
+            strokeOpacity="0.09"
+            strokeWidth="1.8"
+          />
+          <path
+            d="M 1110 -30 C 1050 280, 1140 590, 1210 930"
+            strokeOpacity="0.09"
+            strokeWidth="1.8"
+          />
+          <circle cx="292" cy="494" r="24" strokeOpacity="0.11" strokeWidth="1.5" />
+          <circle cx="1102" cy="472" r="32" strokeOpacity="0.10" strokeWidth="1.4" />
+        </g>
       </svg>
 
       {/* Audio Mute/Unmute Capsule */}
@@ -187,9 +284,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
           gap: '8px',
           padding: '8px 16px',
           borderRadius: '9999px',
-          background: 'rgba(7, 45, 89, 0.90)',
+          background: 'rgba(7, 45, 89, 0.92)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(219, 242, 252, 0.3)',
+          border: '1px solid rgba(219, 242, 252, 0.28)',
           boxShadow: '0 6px 18px rgba(7, 45, 89, 0.16)',
           color: '#DBF2FC',
           fontSize: '12px',
@@ -203,39 +300,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
         <span>{isAudioMuted ? 'Senyap' : 'Suara Aktif'}</span>
       </button>
 
-      {/* 2. Kartu Kaca Utama di Tengah Layar (Main Frosted Glass Container) */}
+      {/* 2. Architectural City-Builder Launchpad Container */}
       <div
-        className="relative z-10 w-full max-w-[1180px] min-h-[580px] max-h-[92vh] rounded-[36px] overflow-hidden grid grid-cols-1 lg:grid-cols-12 shadow-2xl transition-all"
+        className="relative z-10 w-full max-w-[1180px] min-h-[590px] max-h-[92vh] rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-12"
         style={{
-          backgroundColor: '#FFFFFF',
-          backgroundImage: 'url(/assets/images/clean_hero_card.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center right',
-          backgroundRepeat: 'no-repeat',
-          backdropFilter: 'blur(28px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(28px) saturate(180%)',
-          border: '2px solid rgba(255, 255, 255, 0.95)',
-          boxShadow: '0 28px 70px rgba(7, 45, 89, 0.14), 0 4px 16px rgba(7, 45, 89, 0.06)',
+          background: 'rgba(239, 248, 253, 0.94)',
+          backdropFilter: 'blur(26px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(26px) saturate(180%)',
+          border: '1.5px solid rgba(7, 45, 89, 0.18)',
+          boxShadow: '0 28px 70px rgba(7, 45, 89, 0.16), 0 2px 10px rgba(7, 45, 89, 0.06)',
         }}
       >
-        {/* =========================================================================
-            3. KOLOM KIRI (48% / 6 Kolom Grid): Logo, Judul 2 Warna, dan Tombol Aksi
-            ========================================================================= */}
-        <div className="lg:col-span-6 p-8 sm:p-12 lg:p-14 flex flex-col justify-between z-20">
+        {/* 3. KOLOM KIRI: Brand Header, Tipografi, CTA & Panel Proyek Kota */}
+        <div className="lg:col-span-6 p-8 sm:p-10 lg:p-12 flex flex-col justify-between z-20">
           <div>
-            {/* Pojok Kiri Atas: Logo Pita Huruf "A" Vektor + Wordmark "ARSCITY" */}
-            <div className="mb-8">
-              <ArscityLogo size={34} showText={true} textColor="#072D59" />
+            {/* Logo Minimalis Arscity */}
+            <div className="mb-7">
+              <ArscityLogo size={34} showText={true} variant="light" textColor="#072D59" />
             </div>
 
-            {/* Judul Utama (Hero Heading) 2 Baris:
-                Baris 1: "Rancang Kota Impian" (#072D59)
-                Baris 2: "di " (#072D59) + "ARSCITY" (#FD6E8E) */}
+            {/* Tipografi Utama */}
             <h1
-              className="font-extrabold tracking-tight leading-[1.12] mb-4"
+              className="font-extrabold tracking-tight leading-[1.12] mb-3"
               style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 'clamp(34px, 3.8vw, 50px)',
+                fontSize: 'clamp(32px, 3.5vw, 46px)',
                 color: '#072D59',
               }}
             >
@@ -243,100 +332,135 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               di <span style={{ color: '#FD6E8E' }}>ARSCITY</span>
             </h1>
 
-            {/* Subjudul Singkat */}
             <p
-              className="text-sm sm:text-base font-medium leading-relaxed max-w-md mb-8"
-              style={{ color: 'rgba(7, 45, 89, 0.72)' }}
+              className="text-sm font-medium leading-relaxed max-w-md mb-7"
+              style={{ color: '#1E4673' }}
             >
-              Simulasi arsitektur tropis, tata ruang kota, dan eksplorasi skala manusia.
+              Sandbox city-builder &amp; studio CAD arsitektur dengan simulasi iklim tropis, jalan raya, sungai, dan interior bangunan.
             </p>
 
-            {/* Tombol Utama (1 Simbol Saja): Crimson Pink (#FD6E8E) + Tepat SATU ArrowRight */}
-            <div className="mb-9">
+            {/* Tombol Utama Kapsul Crimson Pink */}
+            <div className="mb-6">
               <button
                 type="button"
                 onClick={handleStartPlay}
-                className="group inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full font-bold text-base tracking-wide text-white transition-all shadow-xl active:scale-95 hover:brightness-105"
+                className="group inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded-full font-bold text-base tracking-wide transition-all active:scale-95 hover:brightness-105"
                 style={{
-                  background: 'linear-gradient(135deg, #FD6E8E 0%, #E84D72 100%)',
-                  boxShadow: '0 10px 25px rgba(253, 110, 142, 0.45)',
-                  border: 'none',
+                  background: '#FD6E8E',
+                  color: '#072D59',
+                  boxShadow: '0 10px 24px rgba(253, 110, 142, 0.42)',
+                  border: '1px solid rgba(7, 45, 89, 0.12)',
                   cursor: 'pointer',
                 }}
               >
-                <span>Mulai Rancang Kota</span>
+                <span>Buat Kota Baru</span>
                 <ArrowRight className="w-5 h-5 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1" />
               </button>
             </div>
           </div>
 
-          {/* Deretan Tombol Sekunder di Bawahnya: 3 Tombol Kapsul Seal Blue */}
-          <div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-6 border-t border-[rgba(7,45,89,0.12)]">
-              {/* a. Lanjutkan Kota */}
-              <button
-                type="button"
-                onClick={handleContinueLast}
-                disabled={!latestCityName}
-                className="p-3 rounded-2xl text-left transition-all flex flex-col justify-between hover:bg-white"
+          {/* Panel Kontrol Peluncuran Proyek City Builder */}
+          <div className="flex flex-col gap-3">
+            {/* Kartu Lanjutkan Pembangunan dengan Ringkasan Nyata Kota Terakhir */}
+            <button
+              type="button"
+              onClick={handleContinueLast}
+              className="w-full p-4 rounded-2xl text-left transition-all flex items-center justify-between gap-4 hover:brightness-95"
+              style={{
+                background: 'rgba(7, 45, 89, 0.94)',
+                border: '1px solid rgba(219, 242, 252, 0.24)',
+                boxShadow: '0 10px 26px rgba(7, 45, 89, 0.18)',
+                color: '#DBF2FC',
+                cursor: 'pointer',
+              }}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <RotateCcw className="w-3.5 h-3.5 text-[#FD6E8E]" />
+                  <span
+                    className="text-[11px] font-bold uppercase tracking-wider"
+                    style={{ color: '#FD6E8E' }}
+                  >
+                    Lanjutkan Pembangunan
+                  </span>
+                </div>
+                <div className="text-sm font-bold truncate" style={{ color: '#DBF2FC' }}>
+                  {latestSummary.name}
+                </div>
+                <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] font-medium" style={{ color: 'rgba(219, 242, 252, 0.82)' }}>
+                  <span className="inline-flex items-center gap-1 tabular-nums">
+                    <Building2 className="w-3 h-3 text-[#FD6E8E]" />
+                    {latestSummary.buildingCount} Bangunan
+                  </span>
+                  <span className="inline-flex items-center gap-1 tabular-nums">
+                    <Route className="w-3 h-3 text-[#FD6E8E]" />
+                    {latestSummary.roadLengthKm.toFixed(2)} km Jalan
+                  </span>
+                  <span className="inline-flex items-center gap-1 tabular-nums">
+                    <Clock className="w-3 h-3 text-[#FD6E8E]" />
+                    {formatWibClock(latestSummary.timeOfDay)}
+                  </span>
+                </div>
+              </div>
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.85)',
-                  border: '1px solid rgba(7, 45, 89, 0.14)',
-                  boxShadow: '0 2px 6px rgba(7, 45, 89, 0.04)',
-                  cursor: latestCityName ? 'pointer' : 'not-allowed',
-                  opacity: latestCityName ? 1 : 0.65,
+                  background: 'rgba(219, 242, 252, 0.14)',
+                  color: '#DBF2FC',
                 }}
               >
-                <div className="flex items-center gap-1.5 mb-1" style={{ color: '#072D59' }}>
-                  <RotateCcw className="w-3.5 h-3.5 stroke-[2]" />
-                  <span className="font-bold text-xs">Lanjutkan Kota</span>
-                </div>
-                <div className="text-[11px] text-slate-600 truncate w-full font-medium">
-                  {latestCityName || 'Belum ada'}
-                </div>
-              </button>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </button>
 
-              {/* b. Perpustakaan Peta */}
+            {/* Tiga Tombol Aksi Berdampingan yang Bersih */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={handleOpenLibrary}
-                className="p-3 rounded-2xl text-left transition-all flex flex-col justify-between hover:bg-white"
+                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.85)',
-                  border: '1px solid rgba(7, 45, 89, 0.14)',
-                  boxShadow: '0 2px 6px rgba(7, 45, 89, 0.04)',
+                  background: 'rgba(219, 242, 252, 0.72)',
+                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  color: '#072D59',
                   cursor: 'pointer',
                 }}
               >
-                <div className="flex items-center gap-1.5 mb-1" style={{ color: '#072D59' }}>
-                  <FolderOpen className="w-3.5 h-3.5 stroke-[2]" />
-                  <span className="font-bold text-xs">Perpustakaan Peta</span>
-                </div>
-                <div className="text-[11px] text-slate-600 font-medium">
-                  Peta bawaan &amp; slot
-                </div>
+                <FolderOpen className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
+                <span className="font-bold text-xs leading-tight">Buka Peta Tersimpan</span>
               </button>
 
-              {/* c. Impor Berkas CAD */}
+              <button
+                type="button"
+                onClick={handleOpenStandaloneCad}
+                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
+                style={{
+                  background: 'rgba(219, 242, 252, 0.72)',
+                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  color: '#072D59',
+                  cursor: 'pointer',
+                }}
+              >
+                <Compass className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
+                <span className="font-bold text-xs leading-tight">Studio CAD Mandiri</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isImporting}
-                className="p-3 rounded-2xl text-left transition-all flex flex-col justify-between hover:bg-white"
+                className="p-3 rounded-2xl text-left transition-all flex items-center gap-2.5 hover:bg-white"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.85)',
-                  border: '1px solid rgba(7, 45, 89, 0.14)',
-                  boxShadow: '0 2px 6px rgba(7, 45, 89, 0.04)',
+                  background: 'rgba(219, 242, 252, 0.72)',
+                  border: '1px solid rgba(7, 45, 89, 0.18)',
+                  color: '#072D59',
                   cursor: 'pointer',
                 }}
               >
-                <div className="flex items-center gap-1.5 mb-1" style={{ color: '#072D59' }}>
-                  <Upload className="w-3.5 h-3.5 stroke-[2]" />
-                  <span className="font-bold text-xs">Impor Berkas CAD</span>
-                </div>
-                <div className="text-[11px] text-slate-600 font-medium">
-                  {isImporting ? 'Mengimpor...' : '.geojson / .arscity'}
-                </div>
+                <Upload className="w-4 h-4 shrink-0 text-[#FD6E8E]" strokeWidth={2.2} />
+                <span className="font-bold text-xs leading-tight">
+                  {isImporting ? 'Mengimpor...' : 'Impor Peta'}
+                </span>
               </button>
             </div>
 
@@ -347,85 +471,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
               style={{ display: 'none' }}
               onChange={handleFileImport}
             />
-
-            {/* Offline Local Guarantee */}
-            <div className="flex items-center gap-2 mt-4 text-[11px] text-slate-500 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Penyimpanan lokal di peramban Anda • Bebas akun &amp; data tersimpan aman</span>
-            </div>
           </div>
         </div>
 
-        {/* =========================================================================
-            4. KOLOM KANAN (52% / 6 Kolom Grid): Diorama Kota Isometrik + Tugu Yogyakarta + LRT + Drone
-            ========================================================================= */}
-        <div className="lg:col-span-6 relative hidden lg:flex items-center justify-center overflow-hidden pointer-events-none">
-          {/* Floating Animated Drone Indicator (Kanan Atas) */}
+        {/* 4. KOLOM KANAN: Bingkai Viewport Diorama Kota Isometrik 3D Bersih */}
+        <div className="lg:col-span-6 p-5 pl-0 hidden lg:flex items-stretch justify-center">
           <div
-            className="absolute pointer-events-none"
+            className="w-full h-full rounded-[24px] overflow-hidden relative"
             style={{
-              top: '17%',
-              right: '21%',
-              animation: 'floatDrone 3.5s ease-in-out infinite',
+              background: '#DBF2FC',
+              border: '1.5px solid rgba(7, 45, 89, 0.18)',
+              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 12px 30px rgba(7, 45, 89, 0.12)',
             }}
           >
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center"
-              style={{
-                border: '1.5px dashed rgba(253, 110, 142, 0.75)',
-                animation: 'spin 10s linear infinite',
-              }}
-            >
-              <Crosshair className="w-4 h-4 text-[#FD6E8E]" />
-            </div>
-          </div>
-
-          {/* Floating Live Telemetry Badge: Tugu Yogyakarta */}
-          <div
-            className="absolute px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 z-20 pointer-events-none"
-            style={{
-              bottom: '18%',
-              left: '10%',
-              background: 'rgba(7, 45, 89, 0.90)',
-              border: '1px solid rgba(219, 242, 252, 0.3)',
-              color: '#DBF2FC',
-              backdropFilter: 'blur(16px)',
-              boxShadow: '0 8px 22px rgba(7, 45, 89, 0.25)',
-            }}
-          >
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#FD6E8E' }} />
-            <span className="text-[11px] font-bold tracking-tight">Tugu Pal Putih Yogyakarta</span>
-          </div>
-
-          {/* Floating Live Telemetry Badge: LRT Koridor Tropis */}
-          <div
-            className="absolute px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 z-20 pointer-events-none"
-            style={{
-              bottom: '8%',
-              right: '12%',
-              background: 'rgba(239, 248, 253, 0.94)',
-              border: '1.5px solid #FD6E8E',
-              color: '#072D59',
-              backdropFilter: 'blur(16px)',
-              boxShadow: '0 8px 22px rgba(253, 110, 142, 0.25)',
-            }}
-          >
-            <Train className="w-3.5 h-3.5 text-[#FD6E8E]" />
-            <span className="text-[11px] font-bold tracking-tight">LRT Koridor Tropis</span>
+            <img
+              src="/assets/images/city_diorama_clean.png"
+              alt="Viewport Diorama Kota Isometrik 3D Arscity"
+              className="w-full h-full object-cover object-center select-none pointer-events-none"
+              draggable={false}
+            />
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes floatDrone {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-7px) rotate(1.5deg); }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </main>
   );
 };

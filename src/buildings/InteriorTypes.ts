@@ -1,13 +1,19 @@
 import * as THREE from 'three';
 
 export type RoomType =
-  | 'bedroom'       // Kamar Tidur
-  | 'living_room'   // Ruang Keluarga / Tamu
-  | 'kitchen'       // Dapur
-  | 'bathroom'      // Kamar Mandi / Toilet
-  | 'terrace'       // Teras
-  | 'corridor'      // Koridor / Sirkulasi
-  | 'service_area'; // Area Servis / Cuci
+  | 'bedroom'            // Kamar Tidur
+  | 'living_room'        // Ruang Keluarga / Tamu
+  | 'dining'             // Ruang Makan
+  | 'kitchen'            // Dapur
+  | 'bathroom'           // Kamar Mandi / Toilet
+  | 'terrace'            // Teras
+  | 'corridor'           // Koridor / Sirkulasi
+  | 'service_area'       // Area Servis / Cuci
+  | 'retail_storefront'  // Ruang Usaha / Toko / Etalase Ruko
+  | 'cafe_dining'        // Area Kafe / Restoran & Bar
+  | 'office_workstation' // Ruang Kerja / Workstation Kantor
+  | 'lobby_reception'    // Lobi & Resepsionis
+  | 'conference_room';   // Ruang Rapat
 
 export interface DoorOpening {
   positionRatio: number; // 0.0 to 1.0 along the partition wall

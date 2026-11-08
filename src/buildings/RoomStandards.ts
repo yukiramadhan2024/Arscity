@@ -73,6 +73,60 @@ export const DEFAULT_ROOM_STANDARDS: Record<RoomType, RoomStandardRule> = {
     minCeilingHeightM: 2.4,
     source: 'Pedoman Tata Ruang Rumah Sehat Kementerian Kesehatan (Ilustrasi)',
     description: 'Area cuci, jemur, dan utilitas rumah dengan pasokan sinar matahari langsung dan sirkulasi udara luar.'
+  },
+  dining: {
+    type: 'dining',
+    displayName: 'Ruang Makan Keluarga',
+    minAreaM2: 6.0,
+    minDimensionM: 2.2,
+    minCeilingHeightM: 2.6,
+    source: 'SNI 03-1733-2004 (Tata Ruang Hunian Tropis)',
+    description: 'Ruang makan dengan meja makan, kursi sirkulasi leluasa, dan kedekatan akses ke dapur bersih.'
+  },
+  retail_storefront: {
+    type: 'retail_storefront',
+    displayName: 'Ruang Usaha / Etalase Ruko',
+    minAreaM2: 12.0,
+    minDimensionM: 3.0,
+    minCeilingHeightM: 3.0,
+    source: 'Pedoman Teknis Bangunan Gedung Komersial & Pertokoan',
+    description: 'Area niaga terbuka lantai dasar dengan meja kasir, rak pajangan produk, dan etalase kaca menghadap jalan.'
+  },
+  cafe_dining: {
+    type: 'cafe_dining',
+    displayName: 'Area Pengunjung & Bar Kafe',
+    minAreaM2: 12.0,
+    minDimensionM: 3.0,
+    minCeilingHeightM: 2.8,
+    source: 'Standar Sirkulasi Kuliner & Kafe Tropis',
+    description: 'Ruang duduk pengunjung kafe dengan konter bar kopi dan meja bistro terbuka yang terang.'
+  },
+  office_workstation: {
+    type: 'office_workstation',
+    displayName: 'Ruang Kerja & Workstation',
+    minAreaM2: 12.0,
+    minDimensionM: 3.0,
+    minCeilingHeightM: 2.8,
+    source: 'SNI 6197:2011 & Pedoman Perkantoran Modern',
+    description: 'Zona kerja perkantoran dengan deretan meja komputer ergonomis dan pencahayaan alami curtain wall.'
+  },
+  lobby_reception: {
+    type: 'lobby_reception',
+    displayName: 'Lobi & Resepsionis Utama',
+    minAreaM2: 10.0,
+    minDimensionM: 3.0,
+    minCeilingHeightM: 3.2,
+    source: 'Pedoman Aksesibilitas Bangunan Gedung Publik',
+    description: 'Area penyambutan utama gedung dengan meja resepsionis, area tunggu tamu, dan orientasi sirkulasi vertikal.'
+  },
+  conference_room: {
+    type: 'conference_room',
+    displayName: 'Ruang Rapat / Meeting',
+    minAreaM2: 10.0,
+    minDimensionM: 3.0,
+    minCeilingHeightM: 2.8,
+    source: 'Standar Fasilitas Ruang Pertemuan Perkantoran',
+    description: 'Ruang rapat tertutup dengan meja konferensi besar, kursi peserta, dan layar presentasi.'
   }
 };
 

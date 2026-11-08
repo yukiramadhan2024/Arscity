@@ -135,7 +135,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             style={{
               fontSize: '12px',
               fontWeight: isActive ? 700 : 500,
-              color: isActive ? 'var(--on-accent)' : 'var(--label)',
+              color: isActive ? '#FFFFFF' : '#DBF2FC',
               whiteSpace: 'nowrap'
             }}
           >
@@ -155,72 +155,75 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
       className="side-dock-wrapper"
       aria-label="Utilitas Sistem Kota"
       style={{
-        position: 'relative',
-        zIndex: 20
+        position: 'fixed',
+        top: '16px',
+        left: '16px',
+        zIndex: 950
       }}
     >
       <div
         className="side-dock-container interactive arscity-navy-panel"
         style={{
-          width: isExpanded ? '192px' : '48px',
-          maxHeight: 'calc(100vh - 100px)',
-          overflowY: 'auto',
-          scrollbarWidth: 'none',
-          alignItems: isExpanded ? 'stretch' : 'center',
+          width: isExpanded ? '248px' : '56px',
+          maxHeight: 'calc(100vh - 32px)',
+          overflow: 'visible',
+          alignItems: 'stretch',
           transition: 'width 200ms cubic-bezier(0.16, 1, 0.3, 1)',
-          padding: isExpanded ? '10px 8px' : '8px 6px'
+          padding: '10px',
+          borderRadius: '24px'
         }}
       >
-        {/* Header Identitas & Tombol Perluas */}
+        {/* Header Identitas & Tombol Perluas - Posisi Piksel Terkunci Identik Saat Collapsed & Expanded */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: isExpanded ? 'space-between' : 'center',
+            justifyContent: 'flex-start',
+            gap: '10px',
             width: '100%',
+            height: '36px',
             marginBottom: '4px',
-            padding: isExpanded ? '0 4px' : undefined
+            flexShrink: 0
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              onClick={() => {
-                proceduralAudio.playTaptic('selection');
-                setIsExpanded(!isExpanded);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '32px',
-                height: '32px',
-                borderRadius: '10px',
-                background: 'var(--surface-navy)',
-                border: '1px solid var(--border-on-navy)',
-                boxShadow: 'var(--shadow-card)',
-                flexShrink: 0,
-                cursor: 'pointer',
-                padding: 0
-              }}
-              title={isExpanded ? 'Ciutkan Menu Kota ([)' : 'Perluas Menu Kota ([)'}
-              aria-label={isExpanded ? 'Ciutkan Menu Kota' : 'Perluas Menu Kota'}
-            >
-              <ArscityLogo size={20} />
-            </button>
+          <button
+            onClick={() => {
+              proceduralAudio.playTaptic('selection');
+              setIsExpanded(!isExpanded);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              borderRadius: '9999px',
+              background: '#072D59',
+              border: '1.5px solid rgba(219, 242, 252, 0.36)',
+              boxShadow: '0 4px 12px rgba(7, 26, 56, 0.35)',
+              flexShrink: 0,
+              cursor: 'pointer',
+              padding: 0
+            }}
+            title={isExpanded ? 'Ciutkan Menu Kota ([)' : 'Perluas Menu Kota ([)'}
+            aria-label={isExpanded ? 'Ciutkan Menu Kota' : 'Perluas Menu Kota'}
+          >
+            <ArscityLogo size={22} iconOnly variant="dark" />
+          </button>
 
-            {isExpanded && (
-              <span
-                style={{
-                  fontSize: '12.5px',
-                  fontWeight: 600,
-                  color: 'var(--label)',
-                  letterSpacing: '-0.01em'
-                }}
-              >
-                Menu Kota
-              </span>
-            )}
-          </div>
+          {isExpanded && (
+            <span
+              style={{
+                fontSize: '13px',
+                fontWeight: 700,
+                color: '#DBF2FC',
+                letterSpacing: '-0.01em',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Menu Kota
+            </span>
+          )}
 
           <button
             onClick={() => {
@@ -229,10 +232,11 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             }}
             className="side-dock-btn"
             style={{
-              width: '26px',
-              height: '26px',
-              marginLeft: isExpanded ? 'auto' : 0,
-              display: isExpanded ? 'flex' : 'none'
+              width: '28px',
+              height: '28px',
+              marginLeft: 'auto',
+              display: isExpanded ? 'flex' : 'none',
+              color: '#DBF2FC'
             }}
             title={isExpanded ? 'Ciutkan Menu' : 'Perluas Menu'}
             aria-label={isExpanded ? 'Ciutkan Menu' : 'Perluas Menu'}
@@ -241,15 +245,29 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
           </button>
         </div>
 
+        {/* Kontainer Daftar Tombol (Scroll hanya di mode expanded agar tooltip mode collapsed tidak terpotong) */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: isExpanded ? 'stretch' : 'center',
+            gap: '4px',
+            maxHeight: 'calc(100vh - 108px)',
+            overflowY: isExpanded ? 'auto' : 'visible',
+            overflowX: isExpanded ? 'hidden' : 'visible',
+            scrollbarWidth: 'none'
+          }}
+        >
+
         {/* ================= GRUP 1: BERKAS ================= */}
         {isExpanded && (
           <div
             style={{
               fontSize: '10px',
               fontWeight: 700,
-              color: 'var(--label-tertiary)',
+              color: 'rgba(219, 242, 252, 0.65)',
               letterSpacing: '0.05em',
-              padding: '16px 8px 6px',
+              padding: '12px 8px 6px',
               textTransform: 'uppercase'
             }}
           >
@@ -284,17 +302,17 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             style={{
               fontSize: '10px',
               fontWeight: 700,
-              color: 'var(--label-tertiary)',
+              color: 'rgba(219, 242, 252, 0.65)',
               letterSpacing: '0.05em',
               padding: '8px 8px 6px',
-              marginTop: '16px',
+              marginTop: '12px',
               textTransform: 'uppercase'
             }}
           >
             Tampilan
           </div>
         ) : (
-          <div style={{ marginTop: '16px' }} />
+          <div style={{ marginTop: '10px' }} />
         )}
 
         {renderButton(
@@ -335,7 +353,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
           )}
 
         {/* ================= GRUP 3: KEMBALI KE LAYAR AWAL ================= */}
-        <div style={{ marginTop: '16px' }} />
+        <div style={{ marginTop: '10px' }} />
 
         {renderButton(
           <Home size={18} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />,
@@ -354,9 +372,10 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             className="side-dock-btn"
             style={{
               marginTop: '4px',
-              width: '28px',
-              height: '28px',
-              opacity: 0.65
+              width: '32px',
+              height: '32px',
+              opacity: 0.78,
+              color: '#DBF2FC'
             }}
             title="Perluas Menu"
             aria-label="Perluas Menu"
@@ -364,6 +383,7 @@ export const SideUtilityDock: React.FC<SideUtilityDockProps> = React.memo(({ onO
             <ChevronRight size={14} strokeWidth={2} />
           </button>
         )}
+        </div>
       </div>
 
       {/* Modal Konfirmasi Kembali ke Layar Awal (T7) */}

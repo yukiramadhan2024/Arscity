@@ -69,6 +69,10 @@ export class SectionCutManager {
     this.camera = camera;
   }
 
+  public get slicePlane(): THREE.Plane {
+    return this.horizontalPlane;
+  }
+
   public getHorizontalPlane(): THREE.Plane {
     this.horizontalPlane.constant = this.cutHeight;
     return this.horizontalPlane;
@@ -79,7 +83,7 @@ export class SectionCutManager {
     const planeGeom = new THREE.PlaneGeometry(28, 28);
     planeGeom.rotateX(-Math.PI / 2);
     const planeMat = new THREE.MeshBasicMaterial({
-      color: 0x007aff,
+      color: 0xfd6e8e,
       transparent: true,
       opacity: 0.12,
       side: THREE.DoubleSide,
@@ -89,10 +93,10 @@ export class SectionCutManager {
     this.planeMesh.renderOrder = 950;
     this.visualizerGroup.add(this.planeMesh);
 
-    // 2. Bright blue framed edges
+    // 2. Crimson framed edges
     const edgesGeom = new THREE.EdgesGeometry(planeGeom);
     const edgesMat = new THREE.LineBasicMaterial({
-      color: 0x007aff,
+      color: 0xfd6e8e,
       transparent: true,
       opacity: 0.85,
       linewidth: 2
@@ -112,7 +116,7 @@ export class SectionCutManager {
     coneGeomDown.translate(0, -0.35, 0);
 
     const handleMat = new THREE.MeshBasicMaterial({
-      color: 0x007aff,
+      color: 0xfd6e8e,
       depthTest: false,
       transparent: true,
       opacity: 0.95
@@ -158,7 +162,8 @@ export class SectionCutManager {
   }
 
   public setCutHeight(height: number): void {
-    this.cutHeight = Math.max(0.5, Math.min(12.0, height));
+    if (!Number.isFinite(height)) return;
+    this.cutHeight = Math.max(0.5, Math.min(50.0, height));
     this.horizontalPlane.constant = this.cutHeight;
     this.updateVisualizerPosition();
   }
@@ -198,6 +203,7 @@ export class SectionCutManager {
     if (e.button !== 0 || this.currentMode !== 'floor_plan' || !this.camera || !this.domElement) return;
 
     const rect = this.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
     const mouse = new THREE.Vector2(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
       -((e.clientY - rect.top) / rect.height) * 2 + 1
@@ -225,7 +231,7 @@ export class SectionCutManager {
     // 1 meter cut height per 30 pixels vertical movement
     const dy = this.dragStartY - e.clientY;
     const deltaHeight = dy / 30;
-    const newHeight = Math.max(0.5, Math.min(12.0, this.dragStartHeight + deltaHeight));
+    const newHeight = Math.max(0.5, Math.min(50.0, this.dragStartHeight + deltaHeight));
 
     if (Math.abs(newHeight - this.cutHeight) >= 0.05) {
       this.setCutHeight(newHeight);

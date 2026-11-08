@@ -31,45 +31,65 @@ export class InteriorLayoutFactory {
           layout = this.buildHouse2StoryLayout(width, length, floorHeight, fl);
           break;
         case 'joglo':
+        case 'pendopo_open':
+        case 'community_hall':
           layout = this.buildJogloLayout(width, length, floorHeight, fl);
           break;
         case 'ruko_3fl':
+        case 'minimarket':
+        case 'arcade_shophouse':
           layout = this.buildRukoLayout(width, length, floorHeight, fl);
+          break;
+        case 'office_tower':
+        case 'podium_tower':
+        case 'skyscraper_office_tower':
+        case 'skyscraper_mixed_use':
+        case 'school':
+        case 'puskesmas':
+          layout = this.buildOfficePublicLayout(width, length, floorHeight, fl, presetKey);
           break;
         default: {
           const item = BuildingCatalogRegistry.getBuilding(presetKey);
           if (item) {
-            switch (item.category) {
-              case 'kuliner_kafe':
-                layout = this.buildKulinerKafeLayout(width, length, floorHeight, fl, item);
-                break;
-              case 'mall_ritel':
-              case 'perdagangan_jasa':
-                layout = this.buildMallRitelLayout(width, length, floorHeight, fl, item);
-                break;
-              case 'kampus_kos':
-              case 'pendidikan':
-                layout = this.buildKampusKosLayout(width, length, floorHeight, fl, item);
-                break;
-              case 'budaya_hotel':
-              case 'ibadah_budaya':
-                layout = this.buildBudayaHotelLayout(width, length, floorHeight, fl, item);
-                break;
-              case 'publik_hijau':
-              case 'pemerintahan_keamanan':
-              case 'kesehatan':
-              case 'rekreasi_terbuka':
-                layout = this.buildPublikHijauLayout(width, length, floorHeight, fl, item);
-                break;
-              case 'hunian':
-                layout = this.buildHouse2StoryLayout(width, length, floorHeight, fl);
-                break;
-              case 'industri_logistik':
-              case 'transportasi':
-              case 'utilitas':
-              default:
-                layout = this.buildGenericLayout(width, length, floorHeight, fl);
-                break;
+            if (item.archetype === 'pendopo_open') {
+              layout = this.buildJogloLayout(width, length, floorHeight, fl);
+            } else if (item.archetype === 'arcade_shophouse') {
+              layout = this.buildRukoLayout(width, length, floorHeight, fl);
+            } else if (item.archetype === 'podium_tower' || presetKey.includes('office') || presetKey.includes('kantor') || presetKey.includes('kampus') || presetKey.includes('tower')) {
+              layout = this.buildOfficePublicLayout(width, length, floorHeight, fl, item.name);
+            } else {
+              switch (item.category) {
+                case 'kuliner_kafe':
+                  layout = this.buildKulinerKafeLayout(width, length, floorHeight, fl, item);
+                  break;
+                case 'mall_ritel':
+                case 'perdagangan_jasa':
+                  layout = this.buildMallRitelLayout(width, length, floorHeight, fl, item);
+                  break;
+                case 'kampus_kos':
+                case 'pendidikan':
+                  layout = this.buildKampusKosLayout(width, length, floorHeight, fl, item);
+                  break;
+                case 'budaya_hotel':
+                case 'ibadah_budaya':
+                  layout = this.buildBudayaHotelLayout(width, length, floorHeight, fl, item);
+                  break;
+                case 'publik_hijau':
+                case 'pemerintahan_keamanan':
+                case 'kesehatan':
+                case 'rekreasi_terbuka':
+                  layout = this.buildOfficePublicLayout(width, length, floorHeight, fl, item.name);
+                  break;
+                case 'hunian':
+                  layout = this.buildHouse2StoryLayout(width, length, floorHeight, fl);
+                  break;
+                case 'industri_logistik':
+                case 'transportasi':
+                case 'utilitas':
+                default:
+                  layout = this.buildGenericLayout(width, length, floorHeight, fl);
+                  break;
+              }
             }
           } else {
             layout = this.buildGenericLayout(width, length, floorHeight, fl);
@@ -138,7 +158,7 @@ export class InteriorLayoutFactory {
       height: h
     });
 
-    // Rooms
+    // Rooms (Living Room front-right, Dining & Kitchen mid-right, 2 Bedrooms left, Bathroom rear-right)
     rooms.push({
       id: 'rm_36_liv',
       name: 'Ruang Tamu & Keluarga',
@@ -147,12 +167,29 @@ export class InteriorLayoutFactory {
       boundary: [
         new THREE.Vector2(0, -hl),
         new THREE.Vector2(hw, -hl),
-        new THREE.Vector2(hw, 1.0),
-        new THREE.Vector2(0, 1.0)
+        new THREE.Vector2(hw, -0.2),
+        new THREE.Vector2(0, -0.2)
       ],
-      areaM2: hw * (hl + 1.0),
+      areaM2: hw * (hl - 0.2),
       ceilingHeight: h,
-      labelPosition: new THREE.Vector2(hw * 0.5, -hl * 0.3),
+      labelPosition: new THREE.Vector2(hw * 0.5, (-hl - 0.2) * 0.5),
+      isCompliant: true
+    });
+
+    rooms.push({
+      id: 'rm_36_dining',
+      name: 'Ruang Makan & Dapur',
+      type: 'dining',
+      floorIndex,
+      boundary: [
+        new THREE.Vector2(0, -0.2),
+        new THREE.Vector2(hw - 1.8, -0.2),
+        new THREE.Vector2(hw - 1.8, hl),
+        new THREE.Vector2(0, hl)
+      ],
+      areaM2: Math.max(4.0, (hw - 1.8) * (hl + 0.2)),
+      ceilingHeight: h,
+      labelPosition: new THREE.Vector2(hw * 0.3, 0.8),
       isCompliant: true
     });
 
@@ -295,8 +332,42 @@ export class InteriorLayoutFactory {
     });
 
     rooms.push({
+      id: 'rm_54_bed_child',
+      name: 'Kamar Tidur Anak',
+      type: 'bedroom',
+      floorIndex,
+      boundary: [
+        new THREE.Vector2(-hw, 2.0),
+        new THREE.Vector2(0, 2.0),
+        new THREE.Vector2(0, hl),
+        new THREE.Vector2(-hw, hl)
+      ],
+      areaM2: Math.max(9.0, hw * (hl - 2.0)),
+      ceilingHeight: h,
+      labelPosition: new THREE.Vector2(-hw * 0.5, (2.0 + hl) * 0.5),
+      isCompliant: true
+    });
+
+    rooms.push({
+      id: 'rm_54_dining',
+      name: 'Ruang Makan Keluarga',
+      type: 'dining',
+      floorIndex,
+      boundary: [
+        new THREE.Vector2(-hw, -1.0),
+        new THREE.Vector2(0, -1.0),
+        new THREE.Vector2(0, 2.0),
+        new THREE.Vector2(-hw, 2.0)
+      ],
+      areaM2: hw * 3.0,
+      ceilingHeight: h,
+      labelPosition: new THREE.Vector2(-hw * 0.5, 0.5),
+      isCompliant: true
+    });
+
+    rooms.push({
       id: 'rm_54_kitchen',
-      name: 'Dapur & Ruang Makan',
+      name: 'Dapur Bersih',
       type: 'kitchen',
       floorIndex,
       boundary: [
@@ -354,29 +425,46 @@ export class InteriorLayoutFactory {
         boundary: [
           new THREE.Vector2(-0.5, -hl),
           new THREE.Vector2(hw, -hl),
-          new THREE.Vector2(hw, 1.0),
-          new THREE.Vector2(-0.5, 1.0)
+          new THREE.Vector2(hw, 0.2),
+          new THREE.Vector2(-0.5, 0.2)
         ],
-        areaM2: (hw + 0.5) * (hl + 1.0),
+        areaM2: (hw + 0.5) * (hl + 0.2),
         ceilingHeight: h,
-        labelPosition: new THREE.Vector2(hw * 0.4, -hl * 0.3),
+        labelPosition: new THREE.Vector2(hw * 0.4, -hl * 0.4),
+        isCompliant: true
+      });
+
+      rooms.push({
+        id: 'rm_2fl_g_dining',
+        name: 'Ruang Makan',
+        type: 'dining',
+        floorIndex,
+        boundary: [
+          new THREE.Vector2(-0.5, 0.2),
+          new THREE.Vector2(hw * 0.45, 0.2),
+          new THREE.Vector2(hw * 0.45, hl),
+          new THREE.Vector2(-0.5, hl)
+        ],
+        areaM2: (hw * 0.45 + 0.5) * (hl - 0.2),
+        ceilingHeight: h,
+        labelPosition: new THREE.Vector2(hw * 0.08, (0.2 + hl) * 0.5),
         isCompliant: true
       });
 
       rooms.push({
         id: 'rm_2fl_g_kitchen',
-        name: 'Dapur & Dining',
+        name: 'Dapur',
         type: 'kitchen',
         floorIndex,
         boundary: [
-          new THREE.Vector2(-0.5, 1.0),
-          new THREE.Vector2(hw, 1.0),
+          new THREE.Vector2(hw * 0.45, 0.2),
+          new THREE.Vector2(hw, 0.2),
           new THREE.Vector2(hw, hl),
-          new THREE.Vector2(-0.5, hl)
+          new THREE.Vector2(hw * 0.45, hl)
         ],
-        areaM2: (hw + 0.5) * (hl - 1.0),
+        areaM2: (hw * 0.55) * (hl - 0.2),
         ceilingHeight: h,
-        labelPosition: new THREE.Vector2(hw * 0.4, (1.0 + hl) * 0.5),
+        labelPosition: new THREE.Vector2(hw * 0.72, (0.2 + hl) * 0.5),
         isCompliant: true
       });
     } else {
@@ -430,8 +518,8 @@ export class InteriorLayoutFactory {
   }
 
   // =========================================================================
-  // 4. JOGLO TRADISIONAL JAWA (10 x 12 m)
-  // Pendopo Depan, Peringgitan, Senthong Tengah, Senthong Kiwo, Senthong Tengen
+  // 4. JOGLO TRADISIONAL JAWA & PENDOPO TERBUKA (100% OPEN 4 SIDES)
+  // Tanpa dinding pembatas perimeter agar tembus pandang dan bisa dimasuki dari 4 sisi
   // =========================================================================
   private static buildJogloLayout(w: number, l: number, h: number, floorIndex: number): InteriorLayout {
     const hw = w * 0.5;
@@ -439,91 +527,38 @@ export class InteriorLayoutFactory {
     const walls: InteriorWall[] = [];
     const rooms: RoomDefinition[] = [];
 
-    // Omah Dalem dividing wall separating front open Pendopo from inner sanctum
-    walls.push({
-      id: 'w_joglo_dalem_front',
-      start: new THREE.Vector2(-hw, 0),
-      end: new THREE.Vector2(hw, 0),
-      thickness: 0.15,
-      height: h,
-      doorOpening: { positionRatio: 0.5, width: 1.2, height: 2.2 }
-    });
-
-    // Three rear chambers (Senthong)
-    const senthongZ = hl - 2.5;
-    walls.push({
-      id: 'w_joglo_senthong_front',
-      start: new THREE.Vector2(-hw, senthongZ),
-      end: new THREE.Vector2(hw, senthongZ),
-      thickness: 0.15,
-      height: h,
-      doorOpening: { positionRatio: 0.5, width: 1.0, height: 2.1 }
-    });
-
-    walls.push({
-      id: 'w_joglo_senthong_div1',
-      start: new THREE.Vector2(-1.5, senthongZ),
-      end: new THREE.Vector2(-1.5, hl),
-      thickness: 0.15,
-      height: h
-    });
-
-    walls.push({
-      id: 'w_joglo_senthong_div2',
-      start: new THREE.Vector2(1.5, senthongZ),
-      end: new THREE.Vector2(1.5, hl),
-      thickness: 0.15,
-      height: h
-    });
-
+    // Completely open-plan spatial zones without blocking perimeter or solid front partition walls
     rooms.push({
       id: 'rm_joglo_pendopo',
-      name: 'Pendopo Terbuka',
-      type: 'living_room',
+      name: 'Pendopo Terbuka 4 Sisi',
+      type: 'terrace',
       floorIndex,
       boundary: [
         new THREE.Vector2(-hw, -hl),
         new THREE.Vector2(hw, -hl),
-        new THREE.Vector2(hw, 0),
-        new THREE.Vector2(-hw, 0)
+        new THREE.Vector2(hw, 0.5),
+        new THREE.Vector2(-hw, 0.5)
       ],
-      areaM2: w * hl,
+      areaM2: w * (hl + 0.5),
       ceilingHeight: h,
-      labelPosition: new THREE.Vector2(0, -hl * 0.5),
+      labelPosition: new THREE.Vector2(0, -hl * 0.45),
       isCompliant: true
     });
 
     rooms.push({
-      id: 'rm_joglo_dalem',
-      name: 'Omah Dalem',
-      type: 'living_room',
+      id: 'rm_joglo_senthong',
+      name: 'Pringgitan & Senthong Terbuka',
+      type: 'lobby_reception',
       floorIndex,
       boundary: [
-        new THREE.Vector2(-hw, 0),
-        new THREE.Vector2(hw, 0),
-        new THREE.Vector2(hw, senthongZ),
-        new THREE.Vector2(-hw, senthongZ)
+        new THREE.Vector2(-hw, 0.5),
+        new THREE.Vector2(hw, 0.5),
+        new THREE.Vector2(hw, hl),
+        new THREE.Vector2(-hw, hl)
       ],
-      areaM2: w * senthongZ,
+      areaM2: w * (hl - 0.5),
       ceilingHeight: h,
-      labelPosition: new THREE.Vector2(0, senthongZ * 0.5),
-      isCompliant: true
-    });
-
-    rooms.push({
-      id: 'rm_joglo_senthong_mid',
-      name: 'Senthong Tengah',
-      type: 'bedroom',
-      floorIndex,
-      boundary: [
-        new THREE.Vector2(-1.5, senthongZ),
-        new THREE.Vector2(1.5, senthongZ),
-        new THREE.Vector2(1.5, hl),
-        new THREE.Vector2(-1.5, hl)
-      ],
-      areaM2: 3.0 * (hl - senthongZ),
-      ceilingHeight: h,
-      labelPosition: new THREE.Vector2(0, (senthongZ + hl) * 0.5),
+      labelPosition: new THREE.Vector2(0, (0.5 + hl) * 0.5),
       isCompliant: true
     });
 
@@ -531,7 +566,7 @@ export class InteriorLayoutFactory {
   }
 
   // =========================================================================
-  // 5. RUKO MODERN (5 x 12 m, 3 Lantai)
+  // 5. RUKO MODERN (Lantai 1: Toko/Kasir/Rak, Lantai 2+: Ruang Kerja / Hunian Atas)
   // =========================================================================
   private static buildRukoLayout(w: number, l: number, h: number, floorIndex: number): InteriorLayout {
     const hw = w * 0.5;
@@ -563,8 +598,25 @@ export class InteriorLayoutFactory {
     if (floorIndex === 0) {
       rooms.push({
         id: 'rm_ruko_toko',
-        name: 'Ruang Usaha / Toko',
-        type: 'living_room',
+        name: 'Ruang Usaha / Etalase & Kasir',
+        type: 'retail_storefront',
+        floorIndex,
+        boundary: [
+          new THREE.Vector2(-hw, -hl),
+          new THREE.Vector2(hw, -hl),
+          new THREE.Vector2(hw, hl - 2.2),
+          new THREE.Vector2(-hw, hl - 2.2)
+        ],
+        areaM2: w * (l - 2.2),
+        ceilingHeight: h,
+        labelPosition: new THREE.Vector2(0, -1.0),
+        isCompliant: true
+      });
+    } else if (floorIndex === 1) {
+      rooms.push({
+        id: `rm_ruko_office_${floorIndex}`,
+        name: `Ruang Kerja / Kantor Lt.${floorIndex + 1}`,
+        type: 'office_workstation',
         floorIndex,
         boundary: [
           new THREE.Vector2(-hw, -hl),
@@ -578,20 +630,47 @@ export class InteriorLayoutFactory {
         isCompliant: true
       });
     } else {
+      // Upper floor 3+: Manager apartment bedroom + study
+      walls.push({
+        id: `ruko_bed_split_${floorIndex}`,
+        start: new THREE.Vector2(-hw, 0),
+        end: new THREE.Vector2(hw, 0),
+        thickness: 0.15,
+        height: h,
+        doorOpening: { positionRatio: 0.5, width: 0.9, height: 2.1 }
+      });
+
       rooms.push({
-        id: `rm_ruko_office_${floorIndex}`,
-        name: `Ruang Kerja / Kantor Lt.${floorIndex + 1}`,
-        type: 'living_room',
+        id: `rm_ruko_studio_${floorIndex}`,
+        name: `Kamar Hunian Atas Lt.${floorIndex + 1}`,
+        type: 'bedroom',
         floorIndex,
         boundary: [
           new THREE.Vector2(-hw, -hl),
           new THREE.Vector2(hw, -hl),
+          new THREE.Vector2(hw, 0),
+          new THREE.Vector2(-hw, 0)
+        ],
+        areaM2: w * hl,
+        ceilingHeight: h,
+        labelPosition: new THREE.Vector2(0, -hl * 0.5),
+        isCompliant: true
+      });
+
+      rooms.push({
+        id: `rm_ruko_living_${floorIndex}`,
+        name: `Ruang Kerja / Keluarga Lt.${floorIndex + 1}`,
+        type: 'office_workstation',
+        floorIndex,
+        boundary: [
+          new THREE.Vector2(-hw, 0),
+          new THREE.Vector2(hw, 0),
           new THREE.Vector2(hw, hl - 2.2),
           new THREE.Vector2(-hw, hl - 2.2)
         ],
-        areaM2: w * (l - 2.2),
+        areaM2: w * Math.max(2, hl - 2.2),
         ceilingHeight: h,
-        labelPosition: new THREE.Vector2(0, -1.0),
+        labelPosition: new THREE.Vector2(0, (hl - 2.2) * 0.5),
         isCompliant: true
       });
     }
@@ -610,6 +689,162 @@ export class InteriorLayoutFactory {
       areaM2: 1.8 * 2.2,
       ceilingHeight: h,
       labelPosition: new THREE.Vector2(hw - 0.9, hl - 1.1),
+      isCompliant: true
+    });
+
+    return { floorIndex, walls, stairs, rooms };
+  }
+
+  // =========================================================================
+  // 6. GEDUNG KANTOR & PUBLIK MODERN
+  // Lantai 1: Lobi Resepsionis + Workstation + Toilet
+  // Lantai 2+: Workstation Bermonitor + Ruang Rapat + Koridor
+  // =========================================================================
+  private static buildOfficePublicLayout(
+    w: number,
+    l: number,
+    h: number,
+    floorIndex: number,
+    buildingName: string = 'Gedung Kantor'
+  ): InteriorLayout {
+    const hw = w * 0.5;
+    const hl = l * 0.5;
+    const walls: InteriorWall[] = [];
+    const rooms: RoomDefinition[] = [];
+    const stairs: InteriorStair[] = [];
+
+    const coreW = Math.min(3.0, w * 0.25);
+    const coreD = Math.min(3.5, l * 0.28);
+    const meetW = Math.max(3.2, w * 0.42);
+    const meetD = Math.max(3.0, l * 0.36);
+
+    stairs.push({
+      id: `office_stair_${floorIndex}`,
+      position: new THREE.Vector2(-hw + 1.0, 0),
+      rotation: 0,
+      width: 1.2,
+      totalHeight: h,
+      riserCount: 18
+    });
+
+    // Meeting / Conference room partition in rear-right quadrant
+    walls.push({
+      id: `off_meet_w_${floorIndex}`,
+      start: new THREE.Vector2(hw - meetW, -hl),
+      end: new THREE.Vector2(hw - meetW, -hl + meetD),
+      thickness: 0.15,
+      height: h,
+      doorOpening: { positionRatio: 0.55, width: 1.0, height: 2.2 }
+    });
+    walls.push({
+      id: `off_meet_s_${floorIndex}`,
+      start: new THREE.Vector2(hw - meetW, -hl + meetD),
+      end: new THREE.Vector2(hw, -hl + meetD),
+      thickness: 0.15,
+      height: h
+    });
+
+    // Toilet core rear-left
+    walls.push({
+      id: `off_wc_s_${floorIndex}`,
+      start: new THREE.Vector2(-hw, -hl + coreD),
+      end: new THREE.Vector2(-hw + coreW, -hl + coreD),
+      thickness: 0.15,
+      height: h,
+      doorOpening: { positionRatio: 0.5, width: 0.85, height: 2.1 }
+    });
+    walls.push({
+      id: `off_wc_e_${floorIndex}`,
+      start: new THREE.Vector2(-hw + coreW, -hl),
+      end: new THREE.Vector2(-hw + coreW, -hl + coreD),
+      thickness: 0.15,
+      height: h
+    });
+
+    if (floorIndex === 0) {
+      rooms.push({
+        id: `off_lobby_${floorIndex}`,
+        name: `Lobi & Resepsionis Utama (${buildingName})`,
+        type: 'lobby_reception',
+        floorIndex,
+        boundary: [
+          new THREE.Vector2(-hw, 0),
+          new THREE.Vector2(hw, 0),
+          new THREE.Vector2(hw, hl),
+          new THREE.Vector2(-hw, hl)
+        ],
+        areaM2: w * hl,
+        ceilingHeight: h,
+        labelPosition: new THREE.Vector2(0, hl * 0.45),
+        isCompliant: true
+      });
+    } else {
+      rooms.push({
+        id: `off_work_front_${floorIndex}`,
+        name: `Area Workstation Staf Lt.${floorIndex + 1}`,
+        type: 'office_workstation',
+        floorIndex,
+        boundary: [
+          new THREE.Vector2(-hw, 0),
+          new THREE.Vector2(hw, 0),
+          new THREE.Vector2(hw, hl),
+          new THREE.Vector2(-hw, hl)
+        ],
+        areaM2: w * hl,
+        ceilingHeight: h,
+        labelPosition: new THREE.Vector2(0, hl * 0.45),
+        isCompliant: true
+      });
+    }
+
+    rooms.push({
+      id: `off_work_mid_${floorIndex}`,
+      name: `Ruang Kerja Operasional Lt.${floorIndex + 1}`,
+      type: 'office_workstation',
+      floorIndex,
+      boundary: [
+        new THREE.Vector2(-hw + coreW, -hl),
+        new THREE.Vector2(hw - meetW, -hl),
+        new THREE.Vector2(hw - meetW, 0),
+        new THREE.Vector2(-hw + coreW, 0)
+      ],
+      areaM2: Math.max(12.0, (w - coreW - meetW) * hl),
+      ceilingHeight: h,
+      labelPosition: new THREE.Vector2((-hw + coreW + hw - meetW) * 0.5, -hl * 0.45),
+      isCompliant: true
+    });
+
+    rooms.push({
+      id: `off_meet_${floorIndex}`,
+      name: `Ruang Rapat / Meeting Lt.${floorIndex + 1}`,
+      type: 'conference_room',
+      floorIndex,
+      boundary: [
+        new THREE.Vector2(hw - meetW, -hl),
+        new THREE.Vector2(hw, -hl),
+        new THREE.Vector2(hw, -hl + meetD),
+        new THREE.Vector2(hw - meetW, -hl + meetD)
+      ],
+      areaM2: meetW * meetD,
+      ceilingHeight: h,
+      labelPosition: new THREE.Vector2(hw - meetW * 0.5, -hl + meetD * 0.5),
+      isCompliant: true
+    });
+
+    rooms.push({
+      id: `off_wc_${floorIndex}`,
+      name: 'Toilet Kantor',
+      type: 'bathroom',
+      floorIndex,
+      boundary: [
+        new THREE.Vector2(-hw, -hl),
+        new THREE.Vector2(-hw + coreW, -hl),
+        new THREE.Vector2(-hw + coreW, -hl + coreD),
+        new THREE.Vector2(-hw, -hl + coreD)
+      ],
+      areaM2: coreW * coreD,
+      ceilingHeight: h,
+      labelPosition: new THREE.Vector2(-hw + coreW * 0.5, -hl + coreD * 0.5),
       isCompliant: true
     });
 
@@ -799,12 +1034,12 @@ export class InteriorLayoutFactory {
       isCompliant: true
     });
 
-    // 4. Area Duduk Utama (Main Dining)
+    // 4. Area Duduk Utama (Main Dining & Bar Kafe)
     const diningArea = Math.max(12.0, w * (l - terD) - wcW * wcD - barW * barD);
     rooms.push({
       id: `kafe_dining_${floorIndex}`,
-      name: 'Area Duduk Utama (Main Dining)',
-      type: 'living_room',
+      name: 'Area Duduk Pengunjung & Bar Kafe',
+      type: 'cafe_dining',
       floorIndex,
       boundary: [
         new THREE.Vector2(-hw, wcZ),
@@ -938,12 +1173,12 @@ export class InteriorLayoutFactory {
       isCompliant: true
     });
 
-    // 4. Unit Ritel Utama
+    // 4. Unit Ritel Utama (Etalase & Kasir)
     const ritelArea = Math.max(15.0, w * l - svcW * svcD - wcW * wcD - corW * l);
     rooms.push({
       id: `mall_ritel_${floorIndex}`,
-      name: 'Unit Ritel Utama',
-      type: 'living_room',
+      name: 'Unit Ritel & Etalase Utama',
+      type: 'retail_storefront',
       floorIndex,
       boundary: [
         new THREE.Vector2(-hw, wcZ),
@@ -1177,7 +1412,7 @@ export class InteriorLayoutFactory {
     rooms.push({
       id: `budaya_lobby_${floorIndex}`,
       name: 'Lobi & Ruang Budaya',
-      type: 'living_room',
+      type: 'lobby_reception',
       floorIndex,
       boundary: [
         new THREE.Vector2(splitX, -hl),
@@ -1282,7 +1517,7 @@ export class InteriorLayoutFactory {
     rooms.push({
       id: `publik_hall_${floorIndex}`,
       name: 'Ruang Layanan Publik',
-      type: 'living_room',
+      type: 'lobby_reception',
       floorIndex,
       boundary: [
         new THREE.Vector2(-hw, wcZ),

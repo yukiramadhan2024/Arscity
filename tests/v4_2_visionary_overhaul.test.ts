@@ -106,25 +106,25 @@ describe('Tahap 1–4: Visionary UI/UX & Three.js Engine Overhaul Suite', () => 
       expect(interior.visible, 'Interior details must be visible in 2D mode').toBe(true);
     });
 
-    it('1.4: First-Person mode enables Smart Distance Rendering (< 30m vs >= 30m)', () => {
+    it('1.4: First-Person mode enables Smart Distance Rendering (< 110m vs >= 110m)', () => {
       const grp = buildingManager.getBuildingGroup('visionary_lod_bld')!;
       const ext = grp.getObjectByName('ExteriorShell')!;
       const dynamicFur = grp.getObjectByName('DynamicFurnitureGroup')!;
       const interior = grp.getObjectByName('InteriorDetails')!;
 
-      // Near (< 30m)
+      // Near (< 110m)
       const nearFpCam = new THREE.Vector3(8, 1.8, 8);
       buildingManager.updateLOD(nearFpCam, 'first_person', false, false, 60, 'high');
       expect(ext.visible).toBe(true);
-      expect(dynamicFur.visible, 'placedFurniture must be visible < 30m in First-Person').toBe(true);
-      expect(interior.visible, 'Interior must be visible < 30m in First-Person').toBe(true);
+      expect(dynamicFur.visible, 'placedFurniture must be visible < 110m in First-Person').toBe(true);
+      expect(interior.visible, 'Interior must be visible < 110m in First-Person').toBe(true);
 
-      // Far (>= 30m)
-      const farFpCam = new THREE.Vector3(45, 1.8, 45);
+      // Far (>= 110m)
+      const farFpCam = new THREE.Vector3(90, 1.8, 90);
       buildingManager.updateLOD(farFpCam, 'first_person', false, false, 60, 'high');
       expect(ext.visible).toBe(true);
-      expect(dynamicFur.visible, 'placedFurniture must be culled >= 30m in First-Person').toBe(false);
-      expect(interior.visible, 'Interior must be culled >= 30m in First-Person').toBe(false);
+      expect(dynamicFur.visible, 'placedFurniture must be culled >= 110m in First-Person').toBe(false);
+      expect(interior.visible, 'Interior must be culled >= 110m in First-Person').toBe(false);
     });
 
     it('1.5: Landscape renders 100% tree leaf canopies stably in Orbit without distance popping', () => {
